@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:obrasync:events:requisicion-aprobada:v1",
+  "title": "RequisicionAprobadaEvent",
+  "description": "Evento publicado por el microservicio de Requisiciones y Catálogo cuando una requisición pasa a estado Aprobada. Consumido por Licitaciones y Cotizaciones.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "occurredAt",
+    "correlationId",
+    "requisicionId",
+    "obraId",
+    "solicitanteId",
+    "aprobadorId",
+    "items"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador único del evento para garantizar procesamiento idempotente en los consumidores."
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha y hora en que ocurrió el evento (en UTC)."
+    },
+    "correlationId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de correlación propagado desde el API Gateway (X-Correlation-ID) para trazabilidad transversal."
+    },
+    "requisicionId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de la requisición aprobada."
+    },
+    "numeroRequisicion": {
+      "type": "string",
+      "description": "Identificador humano legible de la requisición (ej: REQ-2026-0001)."
+    },
+    "obraId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de la obra a la que pertenece la requisición."
+    },
+    "solicitanteId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador del usuario que creó la requisición (Capataz)."
+    },
+    "aprobadorId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador del usuario que aprobó la requisición."
+    },
+    "items": {
+      "type": "array",
+      "description": "Lista de materiales o insumos aprobados.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "articuloId",
+          "cantidad",
+          "unidadMedida"
+        ],
+        "properties": {
+          "articuloId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del artículo en el catálogo."
+          },
+          "descripcion": {
+            "type": "string",
+            "description": "Descripción o nombre del artículo."
+          },
+          "cantidad": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Cantidad requerida del artículo (mayor a cero)."
+          },
+          "unidadMedida": {
+            "type": "string",
+            "description": "Unidad de medida (ej: BOLSA, KG, M3, UNIDAD)."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
