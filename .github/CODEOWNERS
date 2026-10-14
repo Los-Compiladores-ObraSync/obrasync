@@ -1,0 +1,19 @@
+# CODEOWNERS: define quién debe revisar los cambios de cada carpeta.
+# GitHub pide automaticamente la revision del equipo duenio cuando un Pull Request toca su carpeta.
+# Regla: gana la ULTIMA linea que coincide, por eso la regla general va primero.
+
+# Por defecto (cualquier archivo sin duenio especifico): revisa el Scrum Master
+*                                   @acosta-agustin
+
+# Microservicios (un squad por servicio)
+/services/usuarios-obras/               @Los-Compiladores-ObraSync/usuarios-obras
+/services/requisiciones-catalogo/       @Los-Compiladores-ObraSync/requisiciones-catalogo
+/services/licitaciones-cotizaciones/    @Los-Compiladores-ObraSync/licitaciones-cotizaciones
+/services/recepcion-presupuesto/        @Los-Compiladores-ObraSync/recepcion-presupuesto
+
+# Squad transversal: Frontend, API Gateway y Servidor MCP
+/frontend/                          @Los-Compiladores-ObraSync/frontend-gateway-mcp
+/gateway/                           @Los-Compiladores-ObraSync/frontend-gateway-mcp
+
+# Contratos compartidos (OpenAPI y eventos): los toca todo el mundo, por eso los revisa el Scrum Master
+/contracts/                         @acosta-agustin
