@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  usuarios-obras-api:
+    build:
+      context: ./ObraSync.UsuariosObras/ObraSync.UsuariosObras.Api
+      dockerfile: Dockerfile
+    ports:
+      - "5001:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=db-usuarios;Database=DB_Auth;User=sa;Password=PasswordSeguro123!;
+    depends_on:
+      - db-usuarios
+
+  db-usuarios:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=PasswordSeguro123!
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql_usuarios_data:/var/opt/mssql
+
+volumes:
+  sql_usuarios_data:
