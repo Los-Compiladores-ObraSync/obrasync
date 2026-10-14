@@ -3,7 +3,7 @@ version: '3.8'
 services:
   usuarios-obras-api:
     build:
-      context: ./ObraSync.UsuariosObras/ObraSync.UsuariosObras.Api
+      context: ./services/usuarios-obras/ObraSync.UsuariosObras.Api
       dockerfile: Dockerfile
     ports:
       - "5001:8080"
