@@ -15,3 +15,6 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.MapReverseProxy();
 
 app.Run();
+
+// Hace visible la clase Program para que los proyectos de pruebas puedan levantar el gateway.
+public partial class Program { }
