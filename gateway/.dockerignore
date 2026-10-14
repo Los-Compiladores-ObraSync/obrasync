@@ -1,0 +1,7 @@
+# Lo generado en tu PC no debe entrar a la imagen: Docker compila de cero.
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+Dockerfile
+.dockerignore
