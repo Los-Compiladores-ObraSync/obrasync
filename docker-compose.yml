@@ -1,15 +1,13 @@
-version: '3.8'
-
 services:
   usuarios-obras-api:
     build:
-      context: ./services/usuarios-obras/ObraSync.UsuariosObras.Api
+      context: ./services/usuarios-obras
       dockerfile: Dockerfile
     ports:
       - "5001:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=db-usuarios;Database=DB_Auth;User=sa;Password=PasswordSeguro123!;
+      - ConnectionStrings__DefaultConnection=Server=db-usuarios;Database=DB_Auth;User Id=sa;Password=PasswordSeguro123!;TrustServerCertificate=True;
     depends_on:
       - db-usuarios
 
