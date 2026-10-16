@@ -1,0 +1,6 @@
+@ObraSync.Recepcion.Api_HostAddress = http://localhost:5105
+
+GET {{ObraSync.Recepcion.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
