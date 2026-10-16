@@ -9,7 +9,7 @@ export default defineConfig({
         VitePWA({
             // El service worker se actualiza solo cuando se publica una versión nueva.
             registerType: 'autoUpdate',
-            includeAssets: ['favicon.ico', 'favicon.svg', 'apple-touch-icon-180x180.png'],
+            includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png'],
             manifest: {
                 name: 'ObraSync',
                 short_name: 'ObraSync',
@@ -19,8 +19,7 @@ export default defineConfig({
                 start_url: '/',
                 display: 'standalone', // se abre como app, sin la barra del navegador
                 orientation: 'portrait',
-                // Colores provisorios: faltan definir los de la marca.
-                theme_color: '#ffffff',
+                theme_color: '#0F172A', // azul oscuro del logo
                 background_color: '#ffffff',
                 icons: [
                     { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
