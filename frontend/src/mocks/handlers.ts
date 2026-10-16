@@ -15,8 +15,9 @@ const MOCK_PASSWORD = 'Test1234!'
 
 export const handlers: RequestHandler[] = [
   // Contrato: POST /api/usuarios/login → 200 AuthResponseDto | 401 ProblemDetails
-  // Se usa ruta relativa porque en el browser Vite proxea /api/* → http://localhost:5000.
-  http.post('/api/usuarios/login', async ({ request }) => {
+  // Se usa '*/api/usuarios/login' para interceptar la ruta tanto relativa (en browser con proxy)
+  // como con origen explícito http://localhost:5000 (en Vitest).
+  http.post('*/api/usuarios/login', async ({ request }) => {
     const body = (await request.json()) as { email?: string; password?: string }
 
     if (body.email === MOCK_EMAIL && body.password === MOCK_PASSWORD) {
