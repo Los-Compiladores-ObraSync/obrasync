@@ -426,3 +426,11 @@ FodyWeavers.xsd
 
 # Official VS Code C# Dev Kit Extension exclusion
 #*.lscache
+
+# Herramientas personales de IA
+AGENTS.md
+CLAUDE.md
+
+# Documentación y archivos locales
+docs/
+*.pdf
