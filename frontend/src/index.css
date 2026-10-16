@@ -1,0 +1,97 @@
+/* Colores de la marca ObraSync (tomados del logo) */
+:root {
+  --azul: #0f172a;
+  --naranja: #e65100;
+
+  /* Neutros de apoyo */
+  --fondo: #ffffff;
+  --texto: #1e293b;
+  --texto-suave: #64748b;
+  --borde: #e2e8f0;
+
+  --fuente: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --alto-toque: 44px; /* tamaño mínimo cómodo para tocar con el dedo */
+
+font-family: var(--fuente);
+font-size: 16px;
+line-height: 1.5;
+color: var(--texto);
+background: var(--fondo);
+color-scheme: light;
+-webkit-font-smoothing: antialiased;
+-webkit-text-size-adjust: 100%;
+}
+
+*,
+*::before,
+::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100dvh;
+}
+
+#root {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+}
+
+h1,
+h2,
+h3 {
+    color: var(--azul);
+    line-height: 1.2;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+button {
+    min-height: var(--alto-toque);
+    padding: 0 1rem;
+    border: 0;
+    border-radius: 8px;
+    background: var(--naranja);
+    color: #ffffff;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* ---- Estructura general de la app ---- */
+.app-encabezado {
+    background: var(--azul);
+    padding: 0.75rem 1rem;
+}
+
+.app-marca {
+    color: #ffffff;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+    .app-marca span {
+        color: var(--naranja);
+    }
+
+.app-contenido {
+    flex: 1;
+    width: 100%;
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+/* ---- Pantallas más grandes: se AGREGAN reglas, no se quitan ---- */
+@media (min-width: 768px) {
+    .app-contenido {
+        padding: 2rem;
+    }
+}
