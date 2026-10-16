@@ -1,4 +1,4 @@
-﻿import { type FormEvent, useState } from 'react'
+import { type FormEvent, useState } from 'react'
 import { ApiError } from '../api/ApiError'
 import { loginApi } from '../auth/authService'
 import { useAuth } from '../auth/useAuth'
@@ -85,9 +85,12 @@ export function LoginPage() {
   return (
     <div className={styles.contenedor}>
       {/* Logotipo de la marca */}
-      <p className={styles.marca}>
-        OBRA <span>SYNC</span>
-      </p>
+      <div className={styles.marca}>
+        <img src="/pwa-192x192.png" alt="" className={styles.logo} />
+        <span className={styles.marcaTexto}>
+          OBRA <span>SYNC</span>
+        </span>
+      </div>
 
       <form
         className={styles.formulario}

@@ -1,4 +1,5 @@
 ﻿import { useAuth } from '../auth/useAuth'
+import styles from './InicioPage.module.css'
 
 export function InicioPage() {
   const { usuario, logout } = useAuth()
@@ -6,7 +7,12 @@ export function InicioPage() {
   return (
     <>
       <header className="app-encabezado">
-        <span className="app-marca">
+        <span className={`app-marca ${styles.marca}`}>
+          <img
+            src="/pwa-192x192.png"
+            alt=""
+            className={styles.logo}
+          />
           OBRA <span>SYNC</span>
         </span>
       </header>
