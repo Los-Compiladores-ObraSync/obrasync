@@ -53,8 +53,14 @@ public class AuthService : IAuthService
             throw new InvalidOperationException($"Error al crear el usuario: {errores}");
         }
 
-        // 5. Asignar rol (asume que los roles fueron sembrados al inicio en DB_Auth)
-        await _userManager.AddToRoleAsync(user, request.Rol);
+        // 5. Asignar rol (con manejo de error y rollback si falla la asignación)
+        var roleResult = await _userManager.AddToRoleAsync(user, request.Rol);
+        if (!roleResult.Succeeded)
+        {
+            await _userManager.DeleteAsync(user);
+            var erroresRol = string.Join(", ", roleResult.Errors.Select(e => e.Description));
+            throw new InvalidOperationException($"Error al asignar el rol '{request.Rol}': {erroresRol}");
+        }
 
         // 6. Generar JWT y retornar AuthResponseDto
         var roles = await _userManager.GetRolesAsync(user);

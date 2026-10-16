@@ -20,7 +20,7 @@ public class JwtProvider : IJwtProvider
 
     public string GenerarToken(AppUser usuario, IEnumerable<string> roles)
     {
-        // 1. Claims según el contrato de ObraSync: sub, email, name, jti
+        // 1. Claims con nombres exactos requeridos por el contrato
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, usuario.Id.ToString()),
@@ -29,17 +29,16 @@ public class JwtProvider : IJwtProvider
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-        // 2. Agregar los roles usando la clave literal "role"
+        // 2. Roles con la clave "role"
         foreach (var role in roles)
         {
             claims.Add(new Claim("role", role));
         }
 
-        // 3. Crear firma simétrica HS256
+        // 3. Firma y expiración
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        // 4. Armar el token
         var token = new JwtSecurityToken(
             issuer: _jwtSettings.Issuer,
             audience: _jwtSettings.Audience,
