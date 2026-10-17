@@ -1,0 +1,132 @@
+﻿/* ── LoginPage — estilos mobile-first ──────────────────────────────────────
+   Paleta tomada de index.css:
+     --azul: #0f172a   → logotipo, título
+     --naranja: #e65100 → botón (heredado del button global de index.css)
+     --borde: #e2e8f0  → bordes de input
+     --texto-suave: #64748b → label
+   Los inputs heredan font-size: 16px de :root (sin zoom en iOS).
+   El botón hereda background naranja y min-height: 44px del selector button global.
+─────────────────────────────────────────────────────────────────────────── */
+
+.contenedor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 1.5rem 1rem;
+}
+
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 2rem;
+}
+
+.logo {
+  height: 44px;
+  width: auto;
+}
+
+.marcaTexto {
+  color: var(--azul);
+}
+
+.marcaTexto span {
+  color: var(--naranja);
+}
+
+.formulario {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.titulo {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--azul);
+  margin: 0 0 0.5rem;
+  text-align: center;
+}
+
+.grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--texto-suave);
+}
+
+.input {
+  width: 100%;
+  min-height: var(--alto-toque);
+  padding: 0 0.75rem;
+  border: 1.5px solid var(--borde);
+  border-radius: 8px;
+  font-size: 1rem; /* refuerza ≥ 16px para evitar zoom en iOS */
+  color: var(--texto);
+  background: var(--fondo);
+  outline-offset: 2px;
+  transition: border-color 0.15s;
+}
+
+.input:focus {
+  border-color: var(--azul);
+}
+
+.inputInvalido {
+  border-color: #dc2626;
+}
+
+.inputInvalido:focus {
+  border-color: #dc2626;
+  outline-color: #dc2626;
+}
+
+.errorCampo {
+  font-size: 0.8rem;
+  color: #dc2626;
+  margin: 0;
+}
+
+.errorApi {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.boton {
+  width: 100%;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.boton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Pantallas grandes ────────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  .contenedor {
+    padding: 2rem;
+  }
+}

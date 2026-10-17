@@ -2,9 +2,16 @@ import { ApiError, type ProblemDetails } from './ApiError'
 import { API_BASE_URL } from './config'
 
 let token: string | null = null
+let onUnauthorized: (() => void) | null = null
 
 export function setToken(value: string | null): void {
   token = value
+}
+
+/** Registra un callback que se ejecuta cuando un pedido autenticado recibe un 401.
+ *  AuthContext lo usa para cerrar la sesión automáticamente si el token expiró. */
+export function setOnUnauthorized(callback: (() => void) | null): void {
+  onUnauthorized = callback
 }
 
 function newCorrelationId(): string {
@@ -36,6 +43,11 @@ export async function apiFetch<T>(
   })
 
   if (!response.ok) {
+    // Si el servidor devuelve 401 y ya había un token activo, la sesión expiró.
+    // Notificamos a AuthContext para que limpie el estado sin romper el flujo normal de errores.
+    if (response.status === 401 && token && onUnauthorized) {
+      onUnauthorized()
+    }
     const problem = (await response
       .json()
       .catch(() => ({}))) as ProblemDetails
