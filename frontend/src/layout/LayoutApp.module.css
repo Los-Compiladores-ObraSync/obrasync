@@ -1,0 +1,55 @@
+/* Mobile-first: el menú es una fila que se desliza con el dedo si no entra. */
+.barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo {
+  height: 28px;
+  width: auto;
+  background: #ffffff;
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.salir {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.menu {
+  margin-top: 0.5rem;
+  overflow-x: auto;
+}
+
+.lista {
+  display: flex;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--alto-toque);
+  padding: 0 0.9rem;
+  color: #ffffff;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  border-bottom: 3px solid transparent;
+}
+
+.activo {
+  border-bottom-color: var(--naranja);
+}
