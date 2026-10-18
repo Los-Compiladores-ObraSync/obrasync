@@ -3,41 +3,39 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using ObraSync.Requisiciones.Application.Common.Interfaces;
 using ObraSync.Requisiciones.Application.DTOs;
 
-namespace ObraSync.Requisiciones.Application.Services
+namespace ObraSync.Requisiciones.Application.Queries.ListarInsumos
 {
-    public class CatalogoService : ICatalogoService
+    public class ListarInsumosQueryHandler : IRequestHandler<ListarInsumosQuery, IReadOnlyList<InsumoCatalogoDto>>
     {
         private readonly IRequisicionesDbContext _context;
 
-        public CatalogoService(IRequisicionesDbContext context)
+        public ListarInsumosQueryHandler(IRequisicionesDbContext context)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
-        public async Task<IReadOnlyList<InsumoCatalogoDto>> ListarInsumosAsync(
-            string? search = null,
-            bool soloActivos = true,
-            CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<InsumoCatalogoDto>> Handle(ListarInsumosQuery request, CancellationToken cancellationToken)
         {
             var query = _context.Insumos.AsNoTracking().AsQueryable();
 
-            if (soloActivos)
+            if (request.SoloActivos)
             {
                 query = query.Where(i => i.Activo);
             }
 
-            if (!string.IsNullOrWhiteSpace(search))
+            if (!string.IsNullOrWhiteSpace(request.Search))
             {
-                var term = search.Trim();
+                var term = request.Search.Trim();
                 query = query.Where(i => EF.Functions.Like(i.Codigo, $"%{term}%") ||
                                          EF.Functions.Like(i.Descripcion, $"%{term}%"));
             }
 
-            var insumos = await query
+            return await query
                 .OrderBy(i => i.Codigo)
                 .Select(i => new InsumoCatalogoDto
                 {
@@ -48,8 +46,6 @@ namespace ObraSync.Requisiciones.Application.Services
                     Activo = i.Activo
                 })
                 .ToListAsync(cancellationToken);
-
-            return insumos;
         }
     }
 }

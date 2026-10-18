@@ -1,7 +1,8 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using ObraSync.Requisiciones.Application.Services;
+using ObraSync.Requisiciones.Application.Queries.ListarInsumos;
 using ObraSync.Requisiciones.Domain.Constants;
 using ObraSync.Requisiciones.Domain.Entities;
 using ObraSync.Requisiciones.Infrastructure.Persistence;
@@ -9,7 +10,7 @@ using Xunit;
 
 namespace ObraSync.Requisiciones.Tests.Application
 {
-    public class CatalogoServiceTests
+    public class ListarInsumosQueryHandlerTests
     {
         private async Task<RequisicionesDbContext> CreateInMemoryDbContextAsync()
         {
@@ -31,35 +32,38 @@ namespace ObraSync.Requisiciones.Tests.Application
         }
 
         [Fact]
-        public async Task ListarInsumos_SoloActivosPorDefecto_DebeRetornarSoloActivos()
+        public async Task Handle_SoloActivosPorDefecto_DebeRetornarSoloActivos()
         {
             using var context = await CreateInMemoryDbContextAsync();
-            var service = new CatalogoService(context);
+            var handler = new ListarInsumosQueryHandler(context);
 
-            var resultado = await service.ListarInsumosAsync(soloActivos: true);
+            var query = new ListarInsumosQuery(SoloActivos: true);
+            var resultado = await handler.Handle(query, CancellationToken.None);
 
             Assert.Equal(3, resultado.Count);
             Assert.All(resultado, i => Assert.True(i.Activo));
         }
 
         [Fact]
-        public async Task ListarInsumos_ConSoloActivosFalso_DebeIncluirInactivos()
+        public async Task Handle_ConSoloActivosFalso_DebeIncluirInactivos()
         {
             using var context = await CreateInMemoryDbContextAsync();
-            var service = new CatalogoService(context);
+            var handler = new ListarInsumosQueryHandler(context);
 
-            var resultado = await service.ListarInsumosAsync(soloActivos: false);
+            var query = new ListarInsumosQuery(SoloActivos: false);
+            var resultado = await handler.Handle(query, CancellationToken.None);
 
             Assert.Equal(4, resultado.Count);
         }
 
         [Fact]
-        public async Task ListarInsumos_ConFiltroBusqueda_DebeFiltrarPorCodigoODescripcion()
+        public async Task Handle_ConFiltroBusqueda_DebeFiltrarPorCodigoODescripcion()
         {
             using var context = await CreateInMemoryDbContextAsync();
-            var service = new CatalogoService(context);
+            var handler = new ListarInsumosQueryHandler(context);
 
-            var resultado = await service.ListarInsumosAsync(search: "Arena");
+            var query = new ListarInsumosQuery(Search: "Arena");
+            var resultado = await handler.Handle(query, CancellationToken.None);
 
             Assert.Single(resultado);
             Assert.Equal("MAT-ARI-001", resultado[0].Codigo);
