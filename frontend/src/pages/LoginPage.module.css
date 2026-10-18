@@ -94,6 +94,35 @@
   outline-color: #dc2626;
 }
 
+.campoClave {
+  position: relative;
+}
+
+/* Deja lugar a la derecha para que el texto no quede debajo del botón. */
+.inputClave {
+  padding-right: var(--alto-toque);
+}
+
+/* Botón con el ojo: transparente (no hereda el naranja del button global) y de 44 px para el dedo. */
+.verClave {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--alto-toque);
+  height: 100%;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--texto-suave);
+  border-radius: 8px;
+}
+
+.verClave:hover {
+  color: var(--azul);
+}
+
 .errorCampo {
   font-size: 0.8rem;
   color: #dc2626;
