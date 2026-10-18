@@ -61,5 +61,25 @@ namespace ObraSync.Usuarios.Api.Controllers
 
             return CreatedAtAction(nameof(CrearObra), new { id = obra.Id }, new { mensaje = "Obra creada exitosamente", obra.Id });
         }
+        [HttpGet]
+        [Authorize(Roles = "Admin,Comprador,Capataz")] // Roles que pueden consultar las obras
+        public async Task<IActionResult> ListarObras()
+        {
+            var obras = await _context.Obras
+                .Include(o => o.Capataz)
+                .Include(o => o.Etapas)
+                .Select(o => new
+                {
+                    o.Id,
+                    o.Nombre,
+                    o.Ubicacion,
+                    o.FechaInicio,
+                    Capataz = o.Capataz != null ? o.Capataz.NombreCompleto : null,
+                    Etapas = o.Etapas.Select(e => new { e.Id, e.NombreEtapa, e.Estado })
+                })
+                .ToListAsync();
+
+            return Ok(obras);
+        }
     }
 }
