@@ -1,0 +1,379 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "ObraSync.Licitaciones.Api",
+    "version": "1.0",
+    "description": "API del microservicio de Licitaciones y Cotizaciones de ObraSync Enterprise. Primer corte (Sprint 1): pliegos y cotizaciones básicos. Magic Links y scoring quedan para el Sprint 2."
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/api/licitaciones": {
+      "get": {
+        "tags": ["Licitaciones"],
+        "summary": "Listar pliegos con filtros opcionales (Roles: Comprador, Proveedor, Admin)",
+        "parameters": [
+          {
+            "name": "obraId",
+            "in": "query",
+            "description": "Filtrar pliegos por el identificador de la obra.",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "estado",
+            "in": "query",
+            "description": "Filtrar pliegos por estado.",
+            "required": false,
+            "schema": { "type": "string", "nullable": true }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/LicitacionResponseDto" }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "post": {
+        "tags": ["Licitaciones"],
+        "summary": "Publicar un pliego a partir de una requisición aprobada (Roles: Comprador, Admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CrearLicitacionRequestDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LicitacionResponseDto" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/licitaciones/{id}": {
+      "get": {
+        "tags": ["Licitaciones"],
+        "summary": "Obtener un pliego por Id (Roles: Comprador, Proveedor, Admin)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identificador único (GUID) del pliego.",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LicitacionResponseDto" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/cotizaciones": {
+      "get": {
+        "tags": ["Cotizaciones"],
+        "summary": "Listar las cotizaciones de un pliego (Roles: Comprador, Admin)",
+        "parameters": [
+          {
+            "name": "licitacionId",
+            "in": "query",
+            "description": "Identificador del pliego del que se listan las cotizaciones.",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/CotizacionResponseDto" }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "post": {
+        "tags": ["Cotizaciones"],
+        "summary": "Cargar una cotización para un pliego (Roles: Proveedor, Admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CrearCotizacionRequestDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CotizacionResponseDto" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Token JWT emitido por ObraSync.Usuarios.Api (HS256) con claims: sub, email, name, role."
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad Request (Datos de entrada inválidos)",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } }
+      },
+      "Forbidden": {
+        "description": "Forbidden (Rol no autorizado)",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } }
+      },
+      "NotFound": {
+        "description": "Not Found (Recurso inexistente)",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } }
+      }
+    },
+    "schemas": {
+      "PliegoItemDto": {
+        "type": "object",
+        "required": ["articuloId", "descripcion", "cantidad", "unidadMedida"],
+        "properties": {
+          "articuloId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del artículo en el catálogo."
+          },
+          "descripcion": {
+            "type": "string",
+            "description": "Descripción o nombre del artículo."
+          },
+          "cantidad": {
+            "type": "number",
+            "format": "double",
+            "exclusiveMinimum": true,
+            "minimum": 0,
+            "description": "Cantidad requerida del artículo (mayor a cero)."
+          },
+          "unidadMedida": {
+            "type": "string",
+            "description": "Unidad de medida (ej: BOLSA, KG, M3, UNIDAD)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CrearLicitacionRequestDto": {
+        "type": "object",
+        "required": ["requisicionId"],
+        "properties": {
+          "requisicionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la requisición aprobada que origina el pliego."
+          }
+        },
+        "additionalProperties": false
+      },
+      "LicitacionResponseDto": {
+        "type": "object",
+        "required": ["licitacionId", "requisicionId", "obraId", "estado", "fechaCreacion", "items"],
+        "properties": {
+          "licitacionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del pliego."
+          },
+          "requisicionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la requisición de origen."
+          },
+          "numeroRequisicion": {
+            "type": "string",
+            "description": "Identificador humano legible de la requisición (ej: REQ-2026-0001)."
+          },
+          "obraId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la obra destino."
+          },
+          "estado": {
+            "type": "string",
+            "description": "Estado actual del pliego (valores a definir con el squad)."
+          },
+          "fechaCreacion": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha y hora de creación del pliego (en UTC)."
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/components/schemas/PliegoItemDto" },
+            "description": "Materiales a cotizar."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CrearCotizacionItemDto": {
+        "type": "object",
+        "required": ["articuloId", "precioUnitario"],
+        "properties": {
+          "articuloId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del artículo en el catálogo."
+          },
+          "precioUnitario": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "description": "Precio unitario ofertado (una sola divisa en el MVP)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CrearCotizacionRequestDto": {
+        "type": "object",
+        "required": ["licitacionId", "proveedorId", "items"],
+        "properties": {
+          "licitacionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del pliego que se cotiza."
+          },
+          "proveedorId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del proveedor que cotiza."
+          },
+          "flete": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "description": "Costo de flete ofertado."
+          },
+          "plazoEntregaDias": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "description": "Plazo de entrega ofertado, en días."
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/components/schemas/CrearCotizacionItemDto" },
+            "description": "Precios ofertados por artículo."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CotizacionResponseDto": {
+        "type": "object",
+        "required": ["cotizacionId", "licitacionId", "proveedorId", "fechaCreacion", "items"],
+        "properties": {
+          "cotizacionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la cotización."
+          },
+          "licitacionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del pliego cotizado."
+          },
+          "proveedorId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del proveedor que cotizó."
+          },
+          "flete": {
+            "type": "number",
+            "format": "double",
+            "description": "Costo de flete ofertado."
+          },
+          "plazoEntregaDias": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Plazo de entrega ofertado, en días."
+          },
+          "fechaCreacion": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha y hora de carga de la cotización (en UTC)."
+          },
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CrearCotizacionItemDto" },
+            "description": "Precios ofertados por artículo."
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "nullable": true },
+          "title": { "type": "string", "nullable": true },
+          "status": { "type": "integer", "format": "int32", "nullable": true },
+          "detail": { "type": "string", "nullable": true },
+          "instance": { "type": "string", "nullable": true },
+          "correlationId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Identificador de correlación propagado desde el API Gateway (X-Correlation-ID) para rastrear errores entre servicios."
+          }
+        },
+        "additionalProperties": {}
+      }
+    }
+  }
+}
