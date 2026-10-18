@@ -29,6 +29,30 @@ function validarCampos(email: string, password: string): ErroresCampo {
   return errores
 }
 
+// ── Icono del botón "ver contraseña" ─────────────────────────────────────────
+// SVG en línea (sin librerías). aria-hidden: el nombre del botón lo da su aria-label.
+
+function IconoOjo({ tachado }: { tachado: boolean }) {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+      <circle cx="12" cy="12" r="3" />
+      {tachado && <line x1="3" y1="3" x2="21" y2="21" />}
+    </svg>
+  )
+}
+
 // ── Componente ────────────────────────────────────────────────────────────────
 
 export function LoginPage() {
@@ -37,6 +61,9 @@ export function LoginPage() {
   // Campos del formulario
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+
+  // true = la contraseña se ve en texto; false = puntitos (valor inicial)
+  const [verPassword, setVerPassword] = useState(false)
 
   // Errores de validación por campo (antes de enviar)
   const [campoError, setCampoError] = useState<ErroresCampo>({})
@@ -134,16 +161,29 @@ export function LoginPage() {
           <label htmlFor="login-password" className={styles.label}>
             Contraseña
           </label>
-          <input
-            id="login-password"
-            type="password"
-            autoComplete="current-password"
-            className={`${styles.input}${campoError.password ? ` ${styles.inputInvalido}` : ''}`}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            aria-describedby={campoError.password ? 'login-password-error' : undefined}
-            aria-invalid={!!campoError.password}
-          />
+          <div className={styles.campoClave}>
+            <input
+              id="login-password"
+              type={verPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              className={`${styles.input} ${styles.inputClave}${campoError.password ? ` ${styles.inputInvalido}` : ''}`}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              aria-describedby={campoError.password ? 'login-password-error' : undefined}
+              aria-invalid={!!campoError.password}
+            />
+            {/* type="button": si no, dentro del <form> actuaría como "enviar".
+                El nombre es fijo y aria-pressed indica el estado (patrón de botón de dos estados). */}
+            <button
+              type="button"
+              className={styles.verClave}
+              onClick={() => setVerPassword((visible) => !visible)}
+              aria-label="Mostrar contraseña"
+              aria-pressed={verPassword}
+            >
+              <IconoOjo tachado={verPassword} />
+            </button>
+          </div>
           {campoError.password && (
             <p id="login-password-error" className={styles.errorCampo} role="alert">
               {campoError.password}

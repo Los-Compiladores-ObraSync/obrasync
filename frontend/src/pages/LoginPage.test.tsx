@@ -180,4 +180,70 @@ describe('LoginPage', () => {
       token: expect.any(String),
     })
   })
+
+  describe('ver u ocultar la contraseña', () => {
+    it('arranca oculta, con el botón "Mostrar contraseña" sin presionar', () => {
+      render(
+        <AuthProvider>
+          <LoginPage />
+        </AuthProvider>,
+      )
+
+      expect(screen.getByLabelText('Contraseña')).toHaveAttribute('type', 'password')
+      expect(
+        screen.getByRole('button', { name: 'Mostrar contraseña', pressed: false }),
+      ).toBeInTheDocument()
+    })
+
+    it('al tocar el botón muestra el texto y al tocarlo de nuevo lo oculta, sin perder lo escrito', async () => {
+      const user = userEvent.setup()
+      render(
+        <AuthProvider>
+          <LoginPage />
+        </AuthProvider>,
+      )
+
+      const campo = screen.getByLabelText('Contraseña')
+      await user.type(campo, 'Test1234!')
+
+      await user.click(screen.getByRole('button', { name: 'Mostrar contraseña' }))
+      expect(campo).toHaveAttribute('type', 'text')
+      expect(campo).toHaveValue('Test1234!')
+      expect(
+        screen.getByRole('button', { name: 'Mostrar contraseña', pressed: true }),
+      ).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Mostrar contraseña' }))
+      expect(campo).toHaveAttribute('type', 'password')
+      expect(campo).toHaveValue('Test1234!')
+    })
+
+    it('se puede usar con el teclado', async () => {
+      const user = userEvent.setup()
+      render(
+        <AuthProvider>
+          <LoginPage />
+        </AuthProvider>,
+      )
+
+      screen.getByRole('button', { name: 'Mostrar contraseña' }).focus()
+      await user.keyboard('{Enter}')
+
+      expect(screen.getByLabelText('Contraseña')).toHaveAttribute('type', 'text')
+    })
+
+    it('no envía el formulario: no aparecen errores de campos vacíos', async () => {
+      const user = userEvent.setup()
+      render(
+        <AuthProvider>
+          <LoginPage />
+        </AuthProvider>,
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Mostrar contraseña' }))
+
+      expect(screen.queryByText('La contraseña es obligatoria.')).not.toBeInTheDocument()
+      expect(screen.queryByText('El email es obligatorio.')).not.toBeInTheDocument()
+    })
+  })
 })
