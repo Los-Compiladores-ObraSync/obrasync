@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="ObraSync.Requisiciones.Api/ObraSync.Requisiciones.Api.csproj" />
+  <Project Path="ObraSync.Requisiciones.Application/ObraSync.Requisiciones.Application.csproj" />
+  <Project Path="ObraSync.Requisiciones.Domain/ObraSync.Requisiciones.Domain.csproj" />
+  <Project Path="ObraSync.Requisiciones.Infrastructure/ObraSync.Requisiciones.Infrastructure.csproj" />
+  <Project Path="ObraSync.Requisiciones.Tests/ObraSync.Requisiciones.Tests.csproj" />
+</Solution>
