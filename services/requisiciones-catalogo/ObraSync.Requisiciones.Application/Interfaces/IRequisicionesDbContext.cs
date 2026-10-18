@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using ObraSync.Requisiciones.Domain.Entities;
 
-namespace ObraSync.Requisiciones.Application.Common.Interfaces
+namespace ObraSync.Requisiciones.Application.Interfaces
 {
     public interface IRequisicionesDbContext
     {

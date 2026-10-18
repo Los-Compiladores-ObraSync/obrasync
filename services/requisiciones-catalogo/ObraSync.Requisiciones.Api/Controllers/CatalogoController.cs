@@ -1,12 +1,12 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ObraSync.Requisiciones.Application.DTOs;
-using ObraSync.Requisiciones.Application.Queries.ListarInsumos;
+using ObraSync.Requisiciones.Application.UseCases.Catalog.Handlers;
+using ObraSync.Requisiciones.Application.UseCases.Catalog.Queries;
 
 namespace ObraSync.Requisiciones.Api.Controllers
 {
@@ -15,11 +15,11 @@ namespace ObraSync.Requisiciones.Api.Controllers
     [Authorize(Roles = "Capataz,Comprador,Admin")]
     public class CatalogoController : ControllerBase
     {
-        private readonly ISender _sender;
+        private readonly GetInsumosQueryHandler _getInsumosHandler;
 
-        public CatalogoController(ISender sender)
+        public CatalogoController(GetInsumosQueryHandler getInsumosHandler)
         {
-            _sender = sender;
+            _getInsumosHandler = getInsumosHandler;
         }
 
         /// <summary>
@@ -37,8 +37,8 @@ namespace ObraSync.Requisiciones.Api.Controllers
             [FromQuery] bool soloActivos = true,
             CancellationToken cancellationToken = default)
         {
-            var query = new ListarInsumosQuery(search, soloActivos);
-            var insumos = await _sender.Send(query, cancellationToken);
+            var query = new GetInsumosQuery(search, soloActivos);
+            var insumos = await _getInsumosHandler.Handle(query, cancellationToken);
             return Ok(insumos);
         }
     }

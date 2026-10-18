@@ -2,7 +2,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using ObraSync.Requisiciones.Application.Common.Interfaces;
+using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Infrastructure.Persistence;
 
 namespace ObraSync.Requisiciones.Infrastructure

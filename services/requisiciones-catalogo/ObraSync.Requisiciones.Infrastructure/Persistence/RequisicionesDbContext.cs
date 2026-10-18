@@ -1,6 +1,6 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
-using ObraSync.Requisiciones.Application.Common.Interfaces;
+using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Domain.Entities;
 
 namespace ObraSync.Requisiciones.Infrastructure.Persistence

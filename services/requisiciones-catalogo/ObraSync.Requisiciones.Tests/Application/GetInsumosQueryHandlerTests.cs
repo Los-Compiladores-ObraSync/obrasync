@@ -2,7 +2,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using ObraSync.Requisiciones.Application.Queries.ListarInsumos;
+using ObraSync.Requisiciones.Application.UseCases.Catalog.Handlers;
+using ObraSync.Requisiciones.Application.UseCases.Catalog.Queries;
 using ObraSync.Requisiciones.Domain.Constants;
 using ObraSync.Requisiciones.Domain.Entities;
 using ObraSync.Requisiciones.Infrastructure.Persistence;
@@ -10,7 +11,7 @@ using Xunit;
 
 namespace ObraSync.Requisiciones.Tests.Application
 {
-    public class ListarInsumosQueryHandlerTests
+    public class GetInsumosQueryHandlerTests
     {
         private async Task<RequisicionesDbContext> CreateInMemoryDbContextAsync()
         {
@@ -35,9 +36,9 @@ namespace ObraSync.Requisiciones.Tests.Application
         public async Task Handle_SoloActivosPorDefecto_DebeRetornarSoloActivos()
         {
             using var context = await CreateInMemoryDbContextAsync();
-            var handler = new ListarInsumosQueryHandler(context);
+            var handler = new GetInsumosQueryHandler(context);
 
-            var query = new ListarInsumosQuery(SoloActivos: true);
+            var query = new GetInsumosQuery(SoloActivos: true);
             var resultado = await handler.Handle(query, CancellationToken.None);
 
             Assert.Equal(3, resultado.Count);
@@ -48,9 +49,9 @@ namespace ObraSync.Requisiciones.Tests.Application
         public async Task Handle_ConSoloActivosFalso_DebeIncluirInactivos()
         {
             using var context = await CreateInMemoryDbContextAsync();
-            var handler = new ListarInsumosQueryHandler(context);
+            var handler = new GetInsumosQueryHandler(context);
 
-            var query = new ListarInsumosQuery(SoloActivos: false);
+            var query = new GetInsumosQuery(SoloActivos: false);
             var resultado = await handler.Handle(query, CancellationToken.None);
 
             Assert.Equal(4, resultado.Count);
@@ -60,9 +61,9 @@ namespace ObraSync.Requisiciones.Tests.Application
         public async Task Handle_ConFiltroBusqueda_DebeFiltrarPorCodigoODescripcion()
         {
             using var context = await CreateInMemoryDbContextAsync();
-            var handler = new ListarInsumosQueryHandler(context);
+            var handler = new GetInsumosQueryHandler(context);
 
-            var query = new ListarInsumosQuery(Search: "Arena");
+            var query = new GetInsumosQuery(Search: "Arena");
             var resultado = await handler.Handle(query, CancellationToken.None);
 
             Assert.Single(resultado);

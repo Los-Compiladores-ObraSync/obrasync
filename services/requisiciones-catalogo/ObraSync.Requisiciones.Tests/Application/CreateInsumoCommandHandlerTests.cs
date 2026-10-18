@@ -2,7 +2,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using ObraSync.Requisiciones.Application.Commands.CrearInsumo;
+using ObraSync.Requisiciones.Application.UseCases.Catalog.Commands;
+using ObraSync.Requisiciones.Application.UseCases.Catalog.Handlers;
 using ObraSync.Requisiciones.Domain.Constants;
 using ObraSync.Requisiciones.Domain.Entities;
 using ObraSync.Requisiciones.Infrastructure.Persistence;
@@ -10,7 +11,7 @@ using Xunit;
 
 namespace ObraSync.Requisiciones.Tests.Application
 {
-    public class CrearInsumoCommandHandlerTests
+    public class CreateInsumoCommandHandlerTests
     {
         private async Task<RequisicionesDbContext> CreateInMemoryDbContextAsync()
         {
@@ -32,9 +33,9 @@ namespace ObraSync.Requisiciones.Tests.Application
         public async Task Handle_ConDatosValidos_DebeCrearInsumoYGuardarEnBase()
         {
             using var context = await CreateInMemoryDbContextAsync();
-            var handler = new CrearInsumoCommandHandler(context);
+            var handler = new CreateInsumoCommandHandler(context);
 
-            var command = new CrearInsumoCommand("MAT-CAL-001", "Cal Hidratada 25kg", UnidadesMedida.Bolsa);
+            var command = new CreateInsumoCommand("MAT-CAL-001", "Cal Hidratada 25kg", UnidadesMedida.Bolsa);
             var resultado = await handler.Handle(command, CancellationToken.None);
 
             Assert.NotEqual(Guid.Empty, resultado.ArticuloId);
@@ -51,9 +52,9 @@ namespace ObraSync.Requisiciones.Tests.Application
         public async Task Handle_ConCodigoDuplicado_DebeLanzarInvalidOperationException()
         {
             using var context = await CreateInMemoryDbContextAsync();
-            var handler = new CrearInsumoCommandHandler(context);
+            var handler = new CreateInsumoCommandHandler(context);
 
-            var command = new CrearInsumoCommand("MAT-CEM-001", "Otro cemento", UnidadesMedida.Bolsa);
+            var command = new CreateInsumoCommand("MAT-CEM-001", "Otro cemento", UnidadesMedida.Bolsa);
 
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 handler.Handle(command, CancellationToken.None));
