@@ -1,0 +1,288 @@
+﻿{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "ObraSync - Recepción y Presupuesto",
+    "version": "1.0.0",
+    "description": "Contrato OpenAPI de recepciones y remitos. Incluye la consulta existente y la propuesta de registro para integración con el frontend."
+  },
+  "tags": [
+    {
+      "name": "Recepciones",
+      "description": "Consulta y registro de recepciones de materiales."
+    }
+  ],
+  "paths": {
+    "/api/recepciones": {
+      "get": {
+        "tags": [
+          "Recepciones"
+        ],
+        "summary": "Consultar recepciones",
+        "description": "Obtiene las recepciones registradas y sus materiales. Permite filtrar por obra.",
+        "parameters": [
+          {
+            "name": "obraId",
+            "in": "query",
+            "description": "Identificador de la obra por la cual se desea filtrar.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de recepciones obtenida correctamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Recepcion"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Recepciones"
+        ],
+        "summary": "Registrar una recepción de materiales",
+        "description": "Operación propuesta para registrar una recepción con remito. Se documenta en Sprint 1 para permitir el trabajo del frontend con respuestas simuladas. Su implementación queda para un sprint posterior.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearRecepcionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Recepción registrada correctamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recepcion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Los datos enviados no son válidos."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CrearRecepcionRequest": {
+        "type": "object",
+        "description": "Datos necesarios para registrar una recepción de materiales con su remito.",
+        "required": [
+          "obraId",
+          "ordenCompraId",
+          "recepcionadoPorUsuarioId",
+          "numeroRemito",
+          "fechaRecepcion",
+          "detalles"
+        ],
+        "properties": {
+          "obraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ordenCompraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recepcionadoPorUsuarioId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "numeroRemito": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "fechaRecepcion": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "observaciones": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
+          },
+          "detalles": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/CrearDetalleRecepcionRequest"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "CrearDetalleRecepcionRequest": {
+        "type": "object",
+        "description": "Datos de un material incluido en la recepción.",
+        "required": [
+          "articuloId",
+          "descripcionArticulo",
+          "cantidadEsperada",
+          "cantidadRecibida",
+          "unidadMedida",
+          "conforme"
+        ],
+        "properties": {
+          "articuloId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "descripcionArticulo": {
+            "type": "string",
+            "maxLength": 250
+          },
+          "cantidadEsperada": {
+            "type": "number",
+            "minimum": 0
+          },
+          "cantidadRecibida": {
+            "type": "number",
+            "minimum": 0
+          },
+          "unidadMedida": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "conforme": {
+            "type": "boolean"
+          },
+          "observacion": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Recepcion": {
+        "type": "object",
+        "description": "Información de una recepción de materiales y su remito.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "obraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ordenCompraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recepcionadoPorUsuarioId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "numeroRemito": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "fechaRecepcion": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "estado": {
+            "type": "integer",
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "description": "1 = Pendiente, 2 = Parcial, 3 = Completa, 4 = Rechazada."
+          },
+          "observaciones": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "detalles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DetalleRecepcion"
+            }
+          }
+        }
+      },
+      "DetalleRecepcion": {
+        "type": "object",
+        "description": "Información de cada material incluido en una recepción.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recepcionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "articuloId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "descripcionArticulo": {
+            "type": "string",
+            "maxLength": 250
+          },
+          "cantidadEsperada": {
+            "type": "number"
+          },
+          "cantidadRecibida": {
+            "type": "number"
+          },
+          "unidadMedida": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "conforme": {
+            "type": "boolean"
+          },
+          "observacion": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      }
+    }
+  }
+}
