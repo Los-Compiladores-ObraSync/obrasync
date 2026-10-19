@@ -41,6 +41,51 @@ const USUARIOS_MOCK = [
   },
 ]
 
+const MOCK_CATALOGO = [
+  {
+    articuloId: 'c1c2c3c4-0000-0000-0000-000000000001',
+    codigo: 'MAT-CEM-001',
+    descripcion: 'Cemento Portland Especial 50kg',
+    unidadMedida: 'BOLSA',
+    moneda: 'ARS',
+    precioReferencia: 8500,
+    activo: true,
+  },
+  {
+    articuloId: 'c1c2c3c4-0000-0000-0000-000000000002',
+    codigo: 'MAT-ARE-001',
+    descripcion: 'Arena Fina a Granel',
+    unidadMedida: 'M3',
+    moneda: 'ARS',
+    precioReferencia: 15000,
+    activo: true,
+  },
+  {
+    articuloId: 'c1c2c3c4-0000-0000-0000-000000000003',
+    codigo: 'MAT-CAL-001',
+    descripcion: 'Cal Hidráulica 25kg',
+    unidadMedida: 'BOLSA',
+    moneda: 'ARS',
+    precioReferencia: 5200,
+    activo: true,
+  },
+]
+
+const MOCK_OBRAS = [
+  {
+    id: 'b1b2c3d4-0000-0000-0000-0000000000a1',
+    nombre: 'Torre Alvear',
+    ubicacion: 'Av. Libertador 1200',
+    fechaInicio: '2026-10-01T08:00:00Z',
+    capataz: 'Juan Pérez',
+    etapas: [
+      { id: 1, nombreEtapa: 'Fundaciones', estado: 'Completada' },
+      { id: 2, nombreEtapa: 'Estructura', estado: 'Pendiente' },
+      { id: 3, nombreEtapa: 'Albañilería', estado: 'Pendiente' },
+    ],
+  },
+]
+
 export const handlers: RequestHandler[] = [
   // Contrato: POST /api/usuarios/login → 200 AuthResponseDto | 401 ProblemDetails
   // Se usa '*/api/usuarios/login' para interceptar la ruta tanto relativa (en browser con proxy)
@@ -95,5 +140,92 @@ export const handlers: RequestHandler[] = [
     }
     // El contrato dice "string" pero no aclara qué contiene: acá devolvemos un id de ejemplo.
     return HttpResponse.text('b1b2c3d4-0000-0000-0000-0000000000a1', { status: 200 })
+  }),
+
+  // Contrato: GET /api/catalogo/insumos → 200 InsumoCatalogoDto[]
+  http.get('*/api/catalogo/insumos', ({ request }) => {
+    const url = new URL(request.url)
+    const search = url.searchParams.get('search')?.toLowerCase()
+    const soloActivos = url.searchParams.get('soloActivos') !== 'false'
+
+    let resultado = MOCK_CATALOGO
+    if (soloActivos) {
+      resultado = resultado.filter((i) => i.activo)
+    }
+    if (search) {
+      resultado = resultado.filter(
+        (i) =>
+          i.codigo.toLowerCase().includes(search) ||
+          i.descripcion.toLowerCase().includes(search),
+      )
+    }
+    return HttpResponse.json(resultado, { status: 200 })
+  }),
+
+  // Contrato: GET /api/obras → 200 Obra[] (Admin, Comprador, Capataz)
+  http.get('*/api/obras', () => {
+    return HttpResponse.json(MOCK_OBRAS, { status: 200 })
+  }),
+
+  // Contrato: POST /api/requisiciones → 201 RequisicionResponseDto | 400 ProblemDetails
+  // Responde 201 en éxito o 400 si faltan ítems o cantidad <= 0.
+  // Casos de 403 y red caída se configuran en los tests con server.use().
+  http.post('*/api/requisiciones', async ({ request }) => {
+    const body = (await request.json()) as {
+      obraId?: string
+      etapa?: string
+      observaciones?: string
+      items?: Array<{ articuloId: string; cantidad: number }>
+    }
+
+    if (!body.items || body.items.length === 0) {
+      return HttpResponse.json(
+        {
+          title: 'Datos de requisición inválidos',
+          status: 400,
+          detail: 'La requisición debe tener al menos un ítem.',
+        },
+        { status: 400 },
+      )
+    }
+
+    const cantidadInvalida = body.items.some((it) => !it.cantidad || it.cantidad <= 0)
+    if (cantidadInvalida) {
+      return HttpResponse.json(
+        {
+          title: 'Datos de requisición inválidos',
+          status: 400,
+          detail: 'La cantidad de cada ítem debe ser mayor a cero.',
+        },
+        { status: 400 },
+      )
+    }
+
+    const itemsRespuesta = body.items.map((item) => {
+      const insumo = MOCK_CATALOGO.find((c) => c.articuloId === item.articuloId)
+      return {
+        articuloId: item.articuloId,
+        descripcion: insumo ? insumo.descripcion : 'Insumo de obra',
+        cantidad: item.cantidad,
+        unidadMedida: insumo ? insumo.unidadMedida : 'UNIDAD',
+      }
+    })
+
+    return HttpResponse.json(
+      {
+        requisicionId: 'd1d2d3d4-0000-0000-0000-000000000001',
+        numeroRequisicion: 'REQ-2026-0001',
+        obraId: body.obraId ?? null,
+        etapa: body.etapa ?? null,
+        solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000001',
+        aprobadorId: null,
+        estado: 'Pendiente',
+        observaciones: body.observaciones ?? null,
+        fechaCreacion: new Date().toISOString(),
+        fechaAprobacion: null,
+        items: itemsRespuesta,
+      },
+      { status: 201 },
+    )
   }),
 ]
