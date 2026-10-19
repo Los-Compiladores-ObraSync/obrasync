@@ -11,7 +11,7 @@ export interface AccionRapida {
 }
 
 const NUEVA_REQUISICION: AccionRapida = {
-  texto: '+ Nueva requisición',
+  texto: 'Nueva requisición',
   ruta: '/obra/requisicion/nueva',
 }
 const APROBAR_REQUISICIONES: AccionRapida = {
