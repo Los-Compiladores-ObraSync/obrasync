@@ -178,6 +178,101 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                             UnidadMedida = "KG"
                         });
                 });
+
+            modelBuilder.Entity("ObraSync.Requisiciones.Domain.Entities.Requisicion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AprobadorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasDefaultValue("Pendiente");
+
+                    b.Property<string>("Etapa")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("FechaAprobacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NumeroRequisicion")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("ObraId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("SolicitanteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NumeroRequisicion")
+                        .IsUnique();
+
+                    b.HasIndex("ObraId");
+
+                    b.ToTable("Requisiciones", (string)null);
+                });
+
+            modelBuilder.Entity("ObraSync.Requisiciones.Domain.Entities.RequisicionItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ArticuloId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<Guid>("RequisicionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UnidadMedida")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequisicionId");
+
+                    b.ToTable("RequisicionItems", (string)null);
+
+                    b.HasOne("ObraSync.Requisiciones.Domain.Entities.Requisicion", null)
+                        .WithMany("Items")
+                        .HasForeignKey("RequisicionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ObraSync.Requisiciones.Domain.Entities.Requisicion", b =>
+                {
+                    b.Navigation("Items");
+                });
 #pragma warning restore 612, 618
         }
     }
