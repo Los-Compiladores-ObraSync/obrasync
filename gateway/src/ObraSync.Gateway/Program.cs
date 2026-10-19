@@ -1,6 +1,13 @@
 using ObraSync.Gateway;
+using Yarp.ReverseProxy.Forwarder;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Resiliencia (Polly): reintentos con retroceso exponencial para los GET y circuit breaker por servicio.
+// Se registra ANTES de AddReverseProxy para que YARP use este cliente en lugar del que trae por defecto.
+var resiliencia = builder.Configuration.GetSection("Resiliencia").Get<ResilienciaOptions>() ?? new ResilienciaOptions();
+builder.Services.AddSingleton(resiliencia);
+builder.Services.AddSingleton<IForwarderHttpClientFactory, ForwarderConResilienciaFactory>();
 
 // YARP: carga las rutas y los destinos desde la sección "ReverseProxy" de appsettings.json
 builder.Services.AddReverseProxy()
