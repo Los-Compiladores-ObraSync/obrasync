@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,6 +11,10 @@ namespace ObraSync.Requisiciones.Application.Interfaces
         Task<IReadOnlyList<Insumo>> GetFilteredAsync(
             string? search = null,
             bool soloActivos = true,
+            CancellationToken cancellationToken = default);
+
+        Task<IReadOnlyList<Insumo>> GetByIdsAsync(
+            IEnumerable<Guid> ids,
             CancellationToken cancellationToken = default);
 
         Task<bool> ExistsByCodigoAsync(

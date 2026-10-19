@@ -42,6 +42,17 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Repositories
                 .ToListAsync(cancellationToken);
         }
 
+        public async Task<IReadOnlyList<Insumo>> GetByIdsAsync(
+            IEnumerable<Guid> ids,
+            CancellationToken cancellationToken = default)
+        {
+            var listaIds = ids.Distinct().ToList();
+            return await _context.Insumos
+                .AsNoTracking()
+                .Where(i => listaIds.Contains(i.Id))
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task<bool> ExistsByCodigoAsync(
             string codigoNormalizado,
             CancellationToken cancellationToken = default)
