@@ -8,7 +8,7 @@ export function ObraPage() {
       <ul className="lista-acciones">
         <li>
           <Link to="/obra/requisicion/nueva" className="accion-grande">
-            + Nueva Requisición
+            Nueva requisición
           </Link>
         </li>
       </ul>

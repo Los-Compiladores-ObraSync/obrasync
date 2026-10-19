@@ -11,7 +11,7 @@ function portalDeRuta(ruta: string): PortalId {
 
 describe('accionesParaRol', () => {
   it('el Capataz crea requisiciones', () => {
-    expect(accionesParaRol('Capataz').map((a) => a.texto)).toEqual(['+ Nueva requisición'])
+    expect(accionesParaRol('Capataz').map((a) => a.texto)).toEqual(['Nueva requisición'])
   })
 
   it('el Comprador aprueba requisiciones y crea obras', () => {
