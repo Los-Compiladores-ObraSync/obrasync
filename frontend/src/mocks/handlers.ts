@@ -74,4 +74,26 @@ export const handlers: RequestHandler[] = [
       { status: 401 },
     )
   }),
+
+  // Contrato: POST /api/obras → 200 (string) | 400 | 403 | 409.
+  // Solo para desarrollo y pruebas. Para ver el error 409 en pantalla, crear una obra
+  // llamada "Obra Duplicada".
+  http.post('*/api/obras', async ({ request }) => {
+    const body = (await request.json()) as { nombre?: string; fasesEtapas?: string[] }
+
+    if (!body.nombre || !body.fasesEtapas?.length) {
+      return HttpResponse.json(
+        { title: 'Datos inválidos', status: 400, detail: 'Faltan datos de la obra.' },
+        { status: 400 },
+      )
+    }
+    if (body.nombre === 'Obra Duplicada') {
+      return HttpResponse.json(
+        { title: 'Conflicto', status: 409, detail: 'Ya existe una obra con ese nombre.' },
+        { status: 409 },
+      )
+    }
+    // El contrato dice "string" pero no aclara qué contiene: acá devolvemos un id de ejemplo.
+    return HttpResponse.text('b1b2c3d4-0000-0000-0000-0000000000a1', { status: 200 })
+  }),
 ]

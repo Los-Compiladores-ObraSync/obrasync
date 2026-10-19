@@ -4,6 +4,7 @@ import { LayoutApp } from './layout/LayoutApp'
 import { ComprasPage } from './pages/ComprasPage'
 import { InicioPage } from './pages/InicioPage'
 import { LoginPage } from './pages/LoginPage'
+import { NuevaObraPage } from './pages/NuevaObraPage'
 import { ObraPage } from './pages/ObraPage'
 import { ProveedoresPage } from './pages/ProveedoresPage'
 import { RutaProtegida } from './routes/RutaProtegida'
@@ -34,6 +35,7 @@ function App() {
             </Route>
             <Route path="compras" element={<SoloPortal portalId="compras" />}>
               <Route index element={<ComprasPage />} />
+              <Route path="obras/nueva" element={<NuevaObraPage />} />
             </Route>
             <Route path="proveedores" element={<SoloPortal portalId="proveedores" />}>
               <Route index element={<ProveedoresPage />} />

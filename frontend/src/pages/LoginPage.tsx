@@ -115,7 +115,7 @@ export function LoginPage() {
       <div className={styles.marca}>
         <img src="/pwa-192x192.png" alt="" className={styles.logo} />
         <span className={styles.marcaTexto}>
-          OBRA <span>SYNC</span>
+          OBRA<span>SYNC</span>
         </span>
       </div>
 
