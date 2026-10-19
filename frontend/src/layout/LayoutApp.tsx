@@ -18,7 +18,7 @@ export function LayoutApp() {
       <header className="app-encabezado">
         <div className={styles.barra}>
           <span className={`app-marca ${styles.marca}`}>
-            <img src="/pwa-192x192.png" alt="" className={styles.logo} />
+            <img src="/pwa-512x512.png" alt="" className={styles.logo} />
             OBRA<span>SYNC</span>
           </span>
           <button type="button" className={styles.salir} onClick={logout}>

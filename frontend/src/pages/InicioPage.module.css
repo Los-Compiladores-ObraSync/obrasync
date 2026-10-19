@@ -1,6 +1,75 @@
 .aviso {
   padding: 0.75rem 1rem;
-  border: 1px solid var(--borde);
-  border-radius: 8px;
+  border: 2px solid var(--borde);
+  border-radius: 10px;
   color: var(--texto-suave);
+}
+
+/* Tarjeta con los datos de quien inició sesión. */
+.perfil {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+}
+
+.avatar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--azul);
+  color: #ffffff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.datos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.dato {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.etiqueta {
+  color: var(--texto-suave);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.valor {
+  font-size: 1.125rem;
+  overflow-wrap: anywhere;
+}
+
+/* El rol va como una etiqueta de color, para que se reconozca de un vistazo. */
+.rol {
+  align-self: flex-start;
+  margin-top: 0.125rem;
+  padding: 0.125rem 0.75rem;
+  border-radius: 999px;
+  background: var(--accion);
+  color: #ffffff;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.subtitulo {
+  margin: 2rem 0 0;
+  font-size: 1.25rem;
 }
