@@ -110,6 +110,134 @@
             }
           }
         }
+      },
+      "post": {
+        "tags": [
+          "Catalogo"
+        ],
+        "summary": "Dar de alta un nuevo insumo en el catálogo (Roles: Comprador, Admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearInsumoRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearInsumoRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearInsumoRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsumoCatalogoDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsumoCatalogoDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsumoCatalogoDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (Datos de insumo inválidos o divisa no permitida)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (No posee el rol Comprador o Admin)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (El código de insumo ya existe en el catálogo)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/requisiciones": {
@@ -461,6 +589,7 @@
           "codigo",
           "descripcion",
           "unidadMedida",
+          "moneda",
           "activo"
         ],
         "properties": {
@@ -481,9 +610,60 @@
             "type": "string",
             "description": "Unidad de medida (ej: BOLSA, KG, M3, UNIDAD)."
           },
+          "moneda": {
+            "type": "string",
+            "default": "ARS",
+            "description": "Divisa única del catálogo (ARS)."
+          },
+          "precioReferencia": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Precio de referencia opcional del insumo en la divisa única (ARS)."
+          },
           "activo": {
             "type": "boolean",
             "description": "Indica si el insumo está habilitado para ser incluido en requisiciones."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CrearInsumoRequestDto": {
+        "type": "object",
+        "required": [
+          "codigo",
+          "descripcion",
+          "unidadMedida"
+        ],
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "description": "Código interno único del insumo (ej: MAT-CEM-001)."
+          },
+          "descripcion": {
+            "type": "string",
+            "description": "Descripción o nombre del artículo."
+          },
+          "unidadMedida": {
+            "type": "string",
+            "description": "Unidad de medida normalizada (BOLSA, KG, M3, UNIDAD)."
+          },
+          "moneda": {
+            "type": "string",
+            "default": "ARS",
+            "description": "Divisa única del catálogo (por defecto ARS)."
+          },
+          "precioReferencia": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "minimum": 0,
+            "description": "Precio de referencia opcional del insumo en ARS."
+          },
+          "activo": {
+            "type": "boolean",
+            "default": true,
+            "description": "Indica si el insumo nace activo (por defecto true)."
           }
         },
         "additionalProperties": false
