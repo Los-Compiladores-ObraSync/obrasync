@@ -11,6 +11,8 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence
         }
 
         public DbSet<Insumo> Insumos => Set<Insumo>();
+        public DbSet<Requisicion> Requisiciones => Set<Requisicion>();
+        public DbSet<RequisicionItem> RequisicionItems => Set<RequisicionItem>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
