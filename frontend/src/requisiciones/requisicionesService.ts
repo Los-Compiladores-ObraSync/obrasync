@@ -45,3 +45,27 @@ export function crearRequisicion(
     body: JSON.stringify(dto),
   })
 }
+/**
+ * Lista requisiciones, opcionalmente filtradas por estado y/u obra.
+ * Fuente: GET /api/requisiciones (Capataz, Comprador, Admin)
+ */
+export function listarRequisiciones(
+    filtros: { estado?: string; obraId?: string } = {},
+): Promise<RequisicionResponseDto[]> {
+    const params = new URLSearchParams()
+    if (filtros.estado) params.set('estado', filtros.estado)
+    if (filtros.obraId) params.set('obraId', filtros.obraId)
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return apiFetch<RequisicionResponseDto[]>(`/api/requisiciones${query}`)
+}
+
+/**
+ * Aprueba una requisición pendiente. Publica RequisicionAprobadaEvent en el backend.
+ * Fuente: POST /api/requisiciones/{id}/aprobar (Comprador, Admin)
+ */
+export function aprobarRequisicion(id: string): Promise<RequisicionResponseDto> {
+    return apiFetch<RequisicionResponseDto>(
+        `/api/requisiciones/${encodeURIComponent(id)}/aprobar`,
+        { method: 'POST' },
+    )
+}

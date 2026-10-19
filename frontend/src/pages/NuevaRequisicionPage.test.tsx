@@ -182,6 +182,52 @@ describe('NuevaRequisicionPage', () => {
     expect(alert).toHaveTextContent('No tenés permiso para crear requisiciones.')
   })
 
+  it('muestra el detail de ProblemDetails ante una respuesta 404 del servidor', async () => {
+    iniciarSesionCapataz()
+    server.use(
+      http.post('*/api/requisiciones', () =>
+        HttpResponse.json({ status: 404, detail: 'La obra no existe.' }, { status: 404 }),
+      ),
+    )
+
+    const user = userEvent.setup()
+    renderPagina()
+
+    await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' })
+
+    await user.selectOptions(screen.getByLabelText('Obra'), OBRA_ID)
+    await user.selectOptions(screen.getByLabelText('Etapa de la obra'), 'Estructura')
+    await user.selectOptions(screen.getByLabelText('Insumo #1'), ARTICULO_CEMENTO_ID)
+    await user.type(screen.getByLabelText('Cantidad'), '80')
+    await user.click(screen.getByRole('button', { name: 'Enviar requisición' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('La obra no existe.')
+  })
+
+  it('muestra el detail de ProblemDetails ante una respuesta 409 del servidor', async () => {
+    iniciarSesionCapataz()
+    server.use(
+      http.post('*/api/requisiciones', () =>
+        HttpResponse.json({ status: 409, detail: 'La etapa ya está cerrada.' }, { status: 409 }),
+      ),
+    )
+
+    const user = userEvent.setup()
+    renderPagina()
+
+    await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' })
+
+    await user.selectOptions(screen.getByLabelText('Obra'), OBRA_ID)
+    await user.selectOptions(screen.getByLabelText('Etapa de la obra'), 'Estructura')
+    await user.selectOptions(screen.getByLabelText('Insumo #1'), ARTICULO_CEMENTO_ID)
+    await user.type(screen.getByLabelText('Cantidad'), '80')
+    await user.click(screen.getByRole('button', { name: 'Enviar requisición' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('La etapa ya está cerrada.')
+  })
+
   it('muestra un mensaje amigable ante una caída de red', async () => {
     iniciarSesionCapataz()
     server.use(http.post('*/api/requisiciones', () => HttpResponse.error()))

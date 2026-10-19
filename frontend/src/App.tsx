@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router'
 import { AuthProvider } from './auth/AuthContext'
 import { LayoutApp } from './layout/LayoutApp'
+import { AprobarRequisicionesPage } from './pages/AprobarRequisicionesPage'
 import { ComprasPage } from './pages/ComprasPage'
 import { InicioPage } from './pages/InicioPage'
 import { LoginPage } from './pages/LoginPage'
@@ -38,6 +39,7 @@ function App() {
             <Route path="compras" element={<SoloPortal portalId="compras" />}>
               <Route index element={<ComprasPage />} />
               <Route path="obras/nueva" element={<NuevaObraPage />} />
+              <Route path="requisiciones" element={<AprobarRequisicionesPage />} />
             </Route>
             <Route path="proveedores" element={<SoloPortal portalId="proveedores" />}>
               <Route index element={<ProveedoresPage />} />

@@ -33,6 +33,12 @@ function mensajeDeErrorApi(err: unknown): string {
     if (err.status === 403) {
       return 'No tenés permiso para crear requisiciones.'
     }
+    if (err.status === 404) {
+      return err.detail ?? 'La obra o algún artículo ya no existe. Recargá la página e intentá de nuevo.'
+    }
+    if (err.status === 409) {
+      return err.detail ?? 'La requisición entra en conflicto con el estado actual. Revisá los datos.'
+    }
   }
   return 'No se pudo conectar con el servidor. Intentá nuevamente.'
 }

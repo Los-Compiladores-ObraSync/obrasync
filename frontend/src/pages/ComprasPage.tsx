@@ -8,6 +8,9 @@ export function ComprasPage() {
       <p>
         <Link to="/compras/obras/nueva">Crear una obra nueva</Link>
       </p>
+      <p>
+        <Link to="/compras/requisiciones">Aprobar requisiciones</Link>
+      </p>
     </section>
   )
 }

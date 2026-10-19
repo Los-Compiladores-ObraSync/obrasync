@@ -79,12 +79,54 @@ const MOCK_OBRAS = [
     fechaInicio: '2026-10-01T08:00:00Z',
     capataz: 'Juan Pérez',
     etapas: [
-      { id: 1, nombreEtapa: 'Fundaciones', estado: 'Completada' },
-      { id: 2, nombreEtapa: 'Estructura', estado: 'Pendiente' },
-      { id: 3, nombreEtapa: 'Albañilería', estado: 'Pendiente' },
+      { id: 'c1000000-0000-0000-0000-000000000001', nombreEtapa: 'Fundaciones', estado: 'Completada' },
+      { id: 'c1000000-0000-0000-0000-000000000002', nombreEtapa: 'Estructura', estado: 'Pendiente' },
+      { id: 'c1000000-0000-0000-0000-000000000003', nombreEtapa: 'Albañilería', estado: 'Pendiente' },
     ],
   },
 ]
+
+// Requisiciones simuladas para la pantalla de aprobación (Compras).
+// Se mantienen en memoria: aprobar una cambia su estado hasta recargar la página.
+const OBRA_MOCK_ID = 'b1b2c3d4-0000-0000-0000-0000000000a1'
+
+function crearRequisicionesMock() {
+  return [
+    {
+      requisicionId: 'd1d2d3d4-0000-0000-0000-000000000011',
+      numeroRequisicion: 'REQ-2026-0011',
+      obraId: OBRA_MOCK_ID,
+      etapa: 'Estructura',
+      solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000001',
+      aprobadorId: null as string | null,
+      estado: 'Pendiente',
+      observaciones: null,
+      fechaCreacion: '2026-10-19T12:00:00Z',
+      fechaAprobacion: null as string | null,
+      items: [{ articuloId: MOCK_CATALOGO[0].articuloId, descripcion: MOCK_CATALOGO[0].descripcion, cantidad: 80, unidadMedida: MOCK_CATALOGO[0].unidadMedida }],
+    },
+    {
+      requisicionId: 'd1d2d3d4-0000-0000-0000-000000000012',
+      numeroRequisicion: 'REQ-2026-0012',
+      obraId: OBRA_MOCK_ID,
+      etapa: 'Fundaciones',
+      solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000001',
+      aprobadorId: null as string | null,
+      estado: 'Pendiente',
+      observaciones: 'Urgente',
+      fechaCreacion: '2026-10-19T12:30:00Z',
+      fechaAprobacion: null as string | null,
+      items: [{ articuloId: MOCK_CATALOGO[0].articuloId, descripcion: MOCK_CATALOGO[0].descripcion, cantidad: 20, unidadMedida: MOCK_CATALOGO[0].unidadMedida }],
+    },
+  ]
+}
+
+let requisicionesMock = crearRequisicionesMock()
+
+/** Solo para tests: vuelve las requisiciones simuladas a su estado inicial. */
+export function reiniciarRequisicionesMock() {
+  requisicionesMock = crearRequisicionesMock()
+}
 
 export const handlers: RequestHandler[] = [
   // Contrato: POST /api/usuarios/login → 200 AuthResponseDto | 401 ProblemDetails
@@ -227,5 +269,37 @@ export const handlers: RequestHandler[] = [
       },
       { status: 201 },
     )
+  }),
+
+  // Contrato: GET /api/requisiciones?estado=&obraId= → 200 RequisicionResponseDto[]
+  http.get('*/api/requisiciones', ({ request }) => {
+    const url = new URL(request.url)
+    const estado = url.searchParams.get('estado')
+    const obraId = url.searchParams.get('obraId')
+    const lista = requisicionesMock.filter(
+      (r) => (!estado || r.estado === estado) && (!obraId || r.obraId === obraId),
+    )
+    return HttpResponse.json(lista, { status: 200 })
+  }),
+
+  // Contrato: POST /api/requisiciones/{id}/aprobar → 200 | 404 | 409 ProblemDetails
+  http.post('*/api/requisiciones/:id/aprobar', ({ params }) => {
+    const req = requisicionesMock.find((r) => r.requisicionId === params.id)
+    if (!req) {
+      return HttpResponse.json(
+        { title: 'No encontrada', status: 404, detail: 'La requisición no existe.' },
+        { status: 404 },
+      )
+    }
+    if (req.estado !== 'Pendiente') {
+      return HttpResponse.json(
+        { title: 'Conflicto', status: 409, detail: 'Solo se pueden aprobar requisiciones pendientes.' },
+        { status: 409 },
+      )
+    }
+    req.estado = 'Aprobada'
+    req.aprobadorId = 'a1b2c3d4-0000-0000-0000-000000000002'
+    req.fechaAprobacion = new Date().toISOString()
+    return HttpResponse.json(req, { status: 200 })
   }),
 ]
