@@ -32,13 +32,30 @@ public class ServicioDestinoFalso : HttpMessageHandler
 {
     public PedidoRecibido? UltimoPedido { get; private set; }
 
-    public void Reiniciar() => UltimoPedido = null;
+    /// <summary>Código con el que responde el servicio falso (por defecto 200).</summary>
+    public HttpStatusCode Estado { get; set; } = HttpStatusCode.OK;
+
+    /// <summary>Si tiene valor, el servicio falso "se cae": lanza esta excepción en vez de responder.</summary>
+    public Exception? Falla { get; set; }
+
+    public void Reiniciar()
+    {
+        UltimoPedido = null;
+        Estado = HttpStatusCode.OK;
+        Falla = null;
+    }
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         request.Headers.TryGetValues("X-Correlation-ID", out var valores);
         UltimoPedido = new PedidoRecibido(request.RequestUri!, valores?.FirstOrDefault());
-        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+
+        if (Falla is not null)
+        {
+            throw Falla;
+        }
+
+        return Task.FromResult(new HttpResponseMessage(Estado));
     }
 }
 
