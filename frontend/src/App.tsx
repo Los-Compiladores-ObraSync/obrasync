@@ -5,6 +5,7 @@ import { ComprasPage } from './pages/ComprasPage'
 import { InicioPage } from './pages/InicioPage'
 import { LoginPage } from './pages/LoginPage'
 import { NuevaObraPage } from './pages/NuevaObraPage'
+import { NuevaRequisicionPage } from './pages/NuevaRequisicionPage'
 import { ObraPage } from './pages/ObraPage'
 import { ProveedoresPage } from './pages/ProveedoresPage'
 import { RutaProtegida } from './routes/RutaProtegida'
@@ -32,6 +33,7 @@ function App() {
             {/* Un portal por rol. Cada portal puede sumar subrutas como hijas. */}
             <Route path="obra" element={<SoloPortal portalId="obra" />}>
               <Route index element={<ObraPage />} />
+              <Route path="requisicion/nueva" element={<NuevaRequisicionPage />} />
             </Route>
             <Route path="compras" element={<SoloPortal portalId="compras" />}>
               <Route index element={<ComprasPage />} />
