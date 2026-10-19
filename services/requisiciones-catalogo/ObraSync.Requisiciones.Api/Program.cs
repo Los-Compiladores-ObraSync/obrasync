@@ -70,8 +70,12 @@ builder.Services.AddProblemDetails(options =>
 });
 
 // Autenticación JWT (solo valida el token firmado por Usuarios)
-var secret = builder.Configuration["Jwt:Secret"]
-    ?? "ObraSyncSecretKeySprint1SuperSegura2026!";
+var secret = builder.Configuration["Jwt:Secret"];
+if (string.IsNullOrWhiteSpace(secret))
+{
+    throw new InvalidOperationException(
+        "El secreto JWT ('Jwt:Secret') no está configurado. Debe definirse por variables de entorno o configuración segura.");
+}
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

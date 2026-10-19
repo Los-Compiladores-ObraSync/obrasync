@@ -12,6 +12,8 @@ namespace ObraSync.Requisiciones.Application.Mappings
                 Codigo = insumo.Codigo,
                 Descripcion = insumo.Descripcion,
                 UnidadMedida = insumo.UnidadMedida,
+                Moneda = insumo.Moneda,
+                PrecioReferencia = insumo.PrecioReferencia,
                 Activo = insumo.Activo
             };
     }

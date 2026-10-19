@@ -1,11 +1,10 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
-using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Domain.Entities;
 
 namespace ObraSync.Requisiciones.Infrastructure.Persistence
 {
-    public class RequisicionesDbContext : DbContext, IRequisicionesDbContext
+    public class RequisicionesDbContext : DbContext
     {
         public RequisicionesDbContext(DbContextOptions<RequisicionesDbContext> options) : base(options)
         {

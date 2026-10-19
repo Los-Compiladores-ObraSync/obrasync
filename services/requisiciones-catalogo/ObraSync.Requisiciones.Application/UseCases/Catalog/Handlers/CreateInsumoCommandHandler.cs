@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using ObraSync.Requisiciones.Application.DTOs;
 using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Application.Mappings;
@@ -12,37 +11,40 @@ namespace ObraSync.Requisiciones.Application.UseCases.Catalog.Handlers
 {
     public class CreateInsumoCommandHandler
     {
-        private readonly IRequisicionesDbContext _context;
+        private readonly IInsumoRepository _repository;
 
-        public CreateInsumoCommandHandler(IRequisicionesDbContext context)
+        public CreateInsumoCommandHandler(IInsumoRepository repository)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
+            _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         }
 
         public async Task<InsumoCatalogoDto> Handle(
             CreateInsumoCommand command,
             CancellationToken cancellationToken = default)
         {
-            var codigoNormalizado = command.Codigo.Trim().ToUpperInvariant();
+            var codigoNormalizado = command.Codigo?.Trim().ToUpperInvariant() ?? string.Empty;
 
-            var existe = await _context.Insumos
-                .AnyAsync(i => i.Codigo == codigoNormalizado, cancellationToken);
-
-            if (existe)
+            if (!string.IsNullOrEmpty(codigoNormalizado))
             {
-                throw new InvalidOperationException($"Ya existe un insumo con el código '{command.Codigo}'.");
+                var existe = await _repository.ExistsByCodigoAsync(codigoNormalizado, cancellationToken);
+                if (existe)
+                {
+                    throw new InvalidOperationException($"Ya existe un insumo con el código '{command.Codigo}'.");
+                }
             }
 
             var insumo = new Insumo(
                 Guid.NewGuid(),
-                command.Codigo,
-                command.Descripcion,
-                command.UnidadMedida,
-                command.Activo
+                command.Codigo ?? string.Empty,
+                command.Descripcion ?? string.Empty,
+                command.UnidadMedida ?? string.Empty,
+                command.Activo,
+                command.PrecioReferencia,
+                command.Moneda
             );
 
-            _context.Insumos.Add(insumo);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _repository.AddAsync(insumo, cancellationToken);
+            await _repository.SaveChangesAsync(cancellationToken);
 
             return insumo.ToDto();
         }

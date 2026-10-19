@@ -1,73 +1,88 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+using NSubstitute;
+using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Application.UseCases.Catalog.Handlers;
 using ObraSync.Requisiciones.Application.UseCases.Catalog.Queries;
 using ObraSync.Requisiciones.Domain.Constants;
 using ObraSync.Requisiciones.Domain.Entities;
-using ObraSync.Requisiciones.Infrastructure.Persistence;
 using Xunit;
 
 namespace ObraSync.Requisiciones.Tests.Application
 {
     public class GetInsumosQueryHandlerTests
     {
-        private async Task<RequisicionesDbContext> CreateInMemoryDbContextAsync()
-        {
-            var options = new DbContextOptionsBuilder<RequisicionesDbContext>()
-                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-                .Options;
-
-            var context = new RequisicionesDbContext(options);
-
-            context.Insumos.AddRange(
-                new Insumo(Guid.NewGuid(), "MAT-CEM-001", "Cemento Portland Normal 50kg", UnidadesMedida.Bolsa, true),
-                new Insumo(Guid.NewGuid(), "MAT-CAL-001", "Cal Hidratada 25kg", UnidadesMedida.Bolsa, true),
-                new Insumo(Guid.NewGuid(), "MAT-ARI-001", "Arena Gruesa Lavada", UnidadesMedida.MetroCubico, true),
-                new Insumo(Guid.NewGuid(), "MAT-ARI-002", "Piedra Partida 6-20", UnidadesMedida.MetroCubico, false) // Inactivo
-            );
-
-            await context.SaveChangesAsync();
-            return context;
-        }
-
         [Fact]
-        public async Task Handle_SoloActivosPorDefecto_DebeRetornarSoloActivos()
+        public async Task Handle_SoloActivosPorDefecto_DebeRetornarSoloActivosMapeadosADto()
         {
-            using var context = await CreateInMemoryDbContextAsync();
-            var handler = new GetInsumosQueryHandler(context);
+            var repository = Substitute.For<IInsumoRepository>();
+            var insumosActivos = new List<Insumo>
+            {
+                new(Guid.NewGuid(), "MAT-ARI-001", "Arena Gruesa Lavada", UnidadesMedida.MetroCubico, true, 28000m),
+                new(Guid.NewGuid(), "MAT-CAL-001", "Cal Hidratada 25kg", UnidadesMedida.Bolsa, true, 4800m),
+                new(Guid.NewGuid(), "MAT-CEM-001", "Cemento Portland Normal 50kg", UnidadesMedida.Bolsa, true, 8500m)
+            };
+
+            repository.GetFilteredAsync(null, true, Arg.Any<CancellationToken>())
+                .Returns(insumosActivos);
+
+            var handler = new GetInsumosQueryHandler(repository);
 
             var query = new GetInsumosQuery(SoloActivos: true);
             var resultado = await handler.Handle(query, CancellationToken.None);
 
             Assert.Equal(3, resultado.Count);
-            Assert.All(resultado, i => Assert.True(i.Activo));
+            Assert.All(resultado, i =>
+            {
+                Assert.True(i.Activo);
+                Assert.Equal(Monedas.PesoArgentino, i.Moneda);
+            });
         }
 
         [Fact]
         public async Task Handle_ConSoloActivosFalso_DebeIncluirInactivos()
         {
-            using var context = await CreateInMemoryDbContextAsync();
-            var handler = new GetInsumosQueryHandler(context);
+            var repository = Substitute.For<IInsumoRepository>();
+            var todosLosInsumos = new List<Insumo>
+            {
+                new(Guid.NewGuid(), "MAT-ARI-001", "Arena Gruesa Lavada", UnidadesMedida.MetroCubico, true),
+                new(Guid.NewGuid(), "MAT-ARI-002", "Piedra Partida 6-20", UnidadesMedida.MetroCubico, false)
+            };
+
+            repository.GetFilteredAsync(null, false, Arg.Any<CancellationToken>())
+                .Returns(todosLosInsumos);
+
+            var handler = new GetInsumosQueryHandler(repository);
 
             var query = new GetInsumosQuery(SoloActivos: false);
             var resultado = await handler.Handle(query, CancellationToken.None);
 
-            Assert.Equal(4, resultado.Count);
+            Assert.Equal(2, resultado.Count);
         }
 
         [Fact]
-        public async Task Handle_ConFiltroBusqueda_DebeFiltrarPorCodigoODescripcion()
+        public async Task Handle_ConFiltroBusqueda_DebeDelegarFiltroAlRepositorio()
         {
-            using var context = await CreateInMemoryDbContextAsync();
-            var handler = new GetInsumosQueryHandler(context);
+            var repository = Substitute.For<IInsumoRepository>();
+            var filtrados = new List<Insumo>
+            {
+                new(Guid.NewGuid(), "MAT-ARI-001", "Arena Gruesa Lavada", UnidadesMedida.MetroCubico, true, 28000m)
+            };
 
-            var query = new GetInsumosQuery(Search: "Arena");
+            repository.GetFilteredAsync("Arena", true, Arg.Any<CancellationToken>())
+                .Returns(filtrados);
+
+            var handler = new GetInsumosQueryHandler(repository);
+
+            var query = new GetInsumosQuery(Search: "Arena", SoloActivos: true);
             var resultado = await handler.Handle(query, CancellationToken.None);
 
             Assert.Single(resultado);
             Assert.Equal("MAT-ARI-001", resultado[0].Codigo);
+            Assert.Equal("ARS", resultado[0].Moneda);
+            await repository.Received(1).GetFilteredAsync("Arena", true, Arg.Any<CancellationToken>());
         }
     }
 }

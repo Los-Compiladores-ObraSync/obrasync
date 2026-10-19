@@ -1,9 +1,9 @@
-using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Infrastructure.Persistence;
+using ObraSync.Requisiciones.Infrastructure.Persistence.Repositories;
 
 namespace ObraSync.Requisiciones.Infrastructure
 {
@@ -12,13 +12,12 @@ namespace ObraSync.Requisiciones.Infrastructure
         public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
         {
             var connectionString = configuration.GetConnectionString("DefaultConnection")
-                ?? configuration.GetConnectionString("DbReq")
-                ?? "Server=localhost,1433;Database=DB_Req;User Id=sa;Password=PasswordSeguro123!;TrustServerCertificate=True;";
+                ?? configuration.GetConnectionString("DbReq");
 
             services.AddDbContext<RequisicionesDbContext>(options =>
                 options.UseSqlServer(connectionString, b => b.MigrationsAssembly(typeof(RequisicionesDbContext).Assembly.FullName)));
 
-            services.AddScoped<IRequisicionesDbContext>(provider => provider.GetRequiredService<RequisicionesDbContext>());
+            services.AddScoped<IInsumoRepository, InsumoRepository>();
 
             return services;
         }
