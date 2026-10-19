@@ -7,17 +7,18 @@
 }
 
 .marca {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
 }
 
 .logo {
-  height: 28px;
-  width: auto;
-  background: #ffffff;
-  border-radius: 6px;
-  padding: 2px;
+    height: 28px;
+    width: auto;
+    background: #ffffff;
+    border-radius: 6px;
+    padding: 2px;
+    margin-right: 0.75rem;
 }
 
 .salir {

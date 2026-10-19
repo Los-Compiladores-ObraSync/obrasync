@@ -99,4 +99,20 @@ describe('apiFetch', () => {
     expect(error).toBeInstanceOf(ApiError)
     expect((error as ApiError).status).toBe(502)
   })
+
+  it('devuelve el texto cuando el cuerpo no es JSON', async () => {
+    server.use(http.get(URL_PRUEBA, () => HttpResponse.text('abc-123')))
+
+    const resultado = await apiFetch<string>('/api/prueba')
+
+    expect(resultado).toBe('abc-123')
+  })
+
+  it('devuelve undefined cuando el cuerpo viene vacío', async () => {
+    server.use(http.get(URL_PRUEBA, () => new HttpResponse(null, { status: 200 })))
+
+    const resultado = await apiFetch<undefined>('/api/prueba')
+
+    expect(resultado).toBeUndefined()
+  })
 })

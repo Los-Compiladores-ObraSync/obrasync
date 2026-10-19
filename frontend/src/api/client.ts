@@ -63,5 +63,15 @@ export async function apiFetch<T>(
   if (response.status === 204) {
     return undefined as T
   }
-  return (await response.json()) as T
+  // Leemos como texto y después intentamos JSON: algunos endpoints (ej. POST /api/obras)
+  // devuelven un string plano y response.json() fallaría con ese cuerpo.
+  const texto = await response.text()
+  if (!texto) {
+    return undefined as T
+  }
+  try {
+    return JSON.parse(texto) as T
+  } catch {
+    return texto as T
+  }
 }

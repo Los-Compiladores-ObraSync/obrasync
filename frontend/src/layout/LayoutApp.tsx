@@ -19,7 +19,7 @@ export function LayoutApp() {
         <div className={styles.barra}>
           <span className={`app-marca ${styles.marca}`}>
             <img src="/pwa-192x192.png" alt="" className={styles.logo} />
-            OBRA <span>SYNC</span>
+            OBRA<span>SYNC</span>
           </span>
           <button type="button" className={styles.salir} onClick={logout}>
             Cerrar sesión

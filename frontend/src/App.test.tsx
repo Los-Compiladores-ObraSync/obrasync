@@ -192,3 +192,37 @@ describe('App - cierre de sesión', () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
   })
 })
+
+describe('App - alta de obra', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setToken(null)
+  })
+
+  it('el Comprador entra a /compras/obras/nueva', () => {
+    iniciarSesionComo('Comprador')
+    renderApp('/compras/obras/nueva')
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Nueva obra' })).toBeInTheDocument()
+  })
+
+  it('el Admin entra a /compras/obras/nueva', () => {
+    iniciarSesionComo('Admin')
+    renderApp('/compras/obras/nueva')
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Nueva obra' })).toBeInTheDocument()
+  })
+
+  it('el Capataz no puede entrar: ve la pantalla de sin acceso', () => {
+    iniciarSesionComo('Capataz')
+    renderApp('/compras/obras/nueva')
+
+    expect(screen.queryByRole('heading', { level: 1, name: 'Nueva obra' })).not.toBeInTheDocument()
+  })
+
+  it('sin sesión redirige al login', () => {
+    renderApp('/compras/obras/nueva')
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Iniciar sesión' })).toBeInTheDocument()
+  })
+})
