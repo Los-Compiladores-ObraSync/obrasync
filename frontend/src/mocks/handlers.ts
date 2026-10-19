@@ -79,9 +79,9 @@ const MOCK_OBRAS = [
     fechaInicio: '2026-10-01T08:00:00Z',
     capataz: 'Juan Pérez',
     etapas: [
-      { id: 1, nombreEtapa: 'Fundaciones', estado: 'Completada' },
-      { id: 2, nombreEtapa: 'Estructura', estado: 'Pendiente' },
-      { id: 3, nombreEtapa: 'Albañilería', estado: 'Pendiente' },
+      { id: 'c1000000-0000-0000-0000-000000000001', nombreEtapa: 'Fundaciones', estado: 'Completada' },
+      { id: 'c1000000-0000-0000-0000-000000000002', nombreEtapa: 'Estructura', estado: 'Pendiente' },
+      { id: 'c1000000-0000-0000-0000-000000000003', nombreEtapa: 'Albañilería', estado: 'Pendiente' },
     ],
   },
 ]

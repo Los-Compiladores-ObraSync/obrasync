@@ -51,7 +51,7 @@ export interface RequisicionResponseDto {
 }
 
 export interface EtapaObraResumen {
-  id: number
+  id: string
   nombreEtapa: string
   estado: string
 }
