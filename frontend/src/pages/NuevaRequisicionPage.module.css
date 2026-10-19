@@ -4,14 +4,15 @@
 
 .contenedor {
   width: 100%;
-  max-width: 600px;
 }
 
 .volver {
-  display: inline-block;
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--texto-suave);
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px; /* área de toque cómoda */
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--azul);
   text-decoration: none;
 }
 
@@ -32,9 +33,9 @@
 }
 
 .label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--texto-suave);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--texto);
 }
 
 .input,
@@ -43,9 +44,9 @@
   width: 100%;
   min-height: var(--alto-toque);
   padding: 0 0.75rem;
-  border: 1.5px solid var(--borde);
-  border-radius: 8px;
-  font-size: 1rem; /* ≥ 16px para que iOS no haga zoom automático */
+  border: 2px solid var(--borde);
+  border-radius: 10px;
+  font-size: 1.125rem; /* ≥ 16px para que iOS no haga zoom automático */
   color: var(--texto);
   background: var(--fondo);
   outline-offset: 2px;
@@ -70,7 +71,7 @@
 .input:focus,
 .select:focus,
 .textarea:focus {
-  border-color: var(--azul);
+  border-color: var(--foco);
 }
 
 .inputInvalido,
@@ -81,7 +82,7 @@
 
 .errorCampo {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 1rem;
   color: #dc2626;
 }
 
@@ -98,8 +99,8 @@
 .itemsLegend {
   padding: 0;
   margin-bottom: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 1.25rem;
+  font-weight: 700;
   color: var(--azul);
 }
 
@@ -107,20 +108,47 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  padding: 0.875rem;
-  border: 1px solid var(--borde);
-  border-radius: 8px;
-  background: #fafafa;
+  padding: 1rem;
+  border: 2px solid var(--borde);
+  border-left: 6px solid var(--naranja);
+  border-radius: 12px;
+  background: #f8fafc;
 }
 
 .filaItemCantidad {
   display: flex;
-  gap: 0.5rem;
+  flex-wrap: wrap; /* en pantallas angostas, la unidad y "Quitar" bajan a otra línea */
+  gap: 0.75rem;
   align-items: flex-end;
 }
 
-.colCantidad {
+/* Cantidad con botones − y + grandes, para sumar y restar sin tipear. */
+.stepper {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.stepperBoton {
+  flex: none;
+  width: 64px;
+  min-height: 64px;
+  padding: 0;
+  border-radius: 12px;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.inputCantidad {
   flex: 1;
+  min-width: 0;
+  min-height: 64px;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.colCantidad {
+  flex: 1 1 100%;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -133,23 +161,23 @@
   justify-content: center;
   padding: 0 0.75rem;
   background: #f1f5f9;
-  border: 1.5px solid var(--borde);
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--texto-suave);
+  border: 2px solid var(--borde);
+  border-radius: 10px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--texto);
   white-space: nowrap;
 }
 
 .secundario {
   min-height: var(--alto-toque);
   padding: 0 0.875rem;
-  background: transparent;
+  background: #ffffff; /* blanco y no transparente: no toma el color de la tarjeta de atrás */
   color: var(--azul);
-  border: 1.5px solid var(--borde);
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-weight: 500;
+  border: 2px solid var(--azul);
+  border-radius: 10px;
+  font-size: 1.0625rem;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -163,14 +191,14 @@
 }
 
 .botonAgregar {
-  align-self: flex-start;
+  align-self: stretch; /* ocupa todo el ancho: más fácil de tocar */
 }
 
 .boton {
   width: 100%;
-  min-height: var(--alto-toque);
-  font-size: 1rem;
-  font-weight: 600;
+  min-height: 64px; /* es el botón principal: el más grande */
+  font-size: 1.25rem;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -183,7 +211,7 @@
   margin: 0;
   padding: 0.75rem 1rem;
   border-radius: 8px;
-  font-size: 0.875rem;
+  font-size: 1rem;
   line-height: 1.4;
   background: #fef2f2;
   border: 1px solid #fecaca;
@@ -204,9 +232,10 @@
   flex-direction: column;
   gap: 1rem;
   padding: 1.25rem;
-  border: 1.5px solid #bbf7d0;
-  border-radius: 10px;
+  border: 2px solid #86efac;
+  border-radius: 16px;
   background: #f0fdf4;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
 }
 
 .cabeceraExito {
@@ -217,22 +246,22 @@
 
 .tituloExito {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   color: #166534;
 }
 
 .subtituloExito {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: #15803d;
 }
 
 .badgeEstado {
   display: inline-block;
   align-self: flex-start;
-  padding: 0.25rem 0.625rem;
+  padding: 0.375rem 1rem;
   border-radius: 9999px;
-  font-size: 0.8125rem;
+  font-size: 1.125rem;
   font-weight: 700;
   background: #fef3c7;
   color: #92400e;
@@ -246,7 +275,7 @@
   padding: 0.75rem 0;
   border-top: 1px solid #dcfce7;
   border-bottom: 1px solid #dcfce7;
-  font-size: 0.9375rem;
+  font-size: 1rem;
 }
 
 .listaItemsConfirmados {
@@ -270,15 +299,23 @@
   justify-content: center;
   min-height: var(--alto-toque);
   padding: 0 1rem;
-  border: 1.5px solid var(--borde);
-  border-radius: 8px;
+  border: 2px solid var(--azul);
+  border-radius: 10px;
   background: #ffffff;
   color: var(--azul);
-  font-size: 0.9375rem;
-  font-weight: 600;
+  font-size: 1.125rem;
+  font-weight: 700;
   text-decoration: none;
 }
 
 .enlaceBoton:hover {
   border-color: var(--azul);
+}
+
+/* Panel blanco con sombra suave sobre el fondo gris de la app. */
+.formulario {
+  padding: 1.5rem 1.25rem;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
 }

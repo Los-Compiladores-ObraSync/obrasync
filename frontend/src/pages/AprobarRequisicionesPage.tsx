@@ -7,6 +7,7 @@ import {
   obtenerObras,
 } from '../requisiciones/requisicionesService'
 import type { RequisicionResponseDto } from '../requisiciones/requisicionesTipos'
+import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './AprobarRequisicionesPage.module.css'
 
 function mensajeDeErrorAprobar(err: unknown): string {
@@ -68,7 +69,7 @@ export function AprobarRequisicionesPage() {
   }
 
   return (
-    <section className={styles.contenedor}>
+    <section className={`${styles.contenedor} pantalla-ancha`}>
       <Link to="/compras" className={styles.volver}>
         ← Volver a Gestión y Compras
       </Link>
@@ -115,7 +116,7 @@ export function AprobarRequisicionesPage() {
               <ul className={styles.items}>
                 {req.items.map((it) => (
                   <li key={it.articuloId}>
-                    {it.cantidad} {it.unidadMedida} · {it.descripcion}
+                    {cantidadConUnidad(it.cantidad, it.unidadMedida)} · {it.descripcion}
                   </li>
                 ))}
               </ul>

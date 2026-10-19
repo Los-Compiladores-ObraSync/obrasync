@@ -113,7 +113,7 @@ export function LoginPage() {
     <div className={styles.contenedor}>
       {/* Logotipo de la marca */}
       <div className={styles.marca}>
-        <img src="/pwa-192x192.png" alt="" className={styles.logo} />
+        <img src="/pwa-512x512.png" alt="" className={styles.logo} />
         <span className={styles.marcaTexto}>
           OBRA<span>SYNC</span>
         </span>

@@ -4,14 +4,16 @@
 
 .contenedor {
   width: 100%;
-  max-width: 560px;
 }
 
 .volver {
-  display: inline-block;
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--texto-suave);
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px; /* área de toque cómoda */
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--azul);
+  text-decoration: none;
 }
 
 .formulario {
@@ -27,25 +29,25 @@
 }
 
 .label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--texto-suave);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--texto);
 }
 
 .input {
   width: 100%;
   min-height: var(--alto-toque);
   padding: 0 0.75rem;
-  border: 1.5px solid var(--borde);
-  border-radius: 8px;
-  font-size: 1rem; /* ≥ 16px para que iOS no haga zoom */
+  border: 2px solid var(--borde);
+  border-radius: 10px;
+  font-size: 1.125rem; /* ≥ 16px para que iOS no haga zoom */
   color: var(--texto);
   background: var(--fondo);
   outline-offset: 2px;
 }
 
 .input:focus {
-  border-color: var(--azul);
+  border-color: var(--foco);
 }
 
 .inputInvalido,
@@ -56,14 +58,15 @@
 
 .ayuda {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 1rem;
   color: var(--texto-suave);
 }
 
 .errorCampo {
   margin: 0;
-  font-size: 0.8rem;
-  color: #dc2626;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #b91c1c;
 }
 
 .etapas {
@@ -85,8 +88,9 @@
 .secundario {
   background: transparent;
   color: var(--azul);
-  border: 1.5px solid var(--borde);
-  font-weight: 500;
+  border: 2px solid var(--azul);
+  font-size: 1.0625rem;
+  font-weight: 700;
 }
 
 .secundario:hover {
@@ -94,13 +98,14 @@
 }
 
 .etapas > .secundario {
-  align-self: flex-start;
+  align-self: stretch; /* ocupa todo el ancho: más fácil de tocar */
 }
 
 .boton {
   width: 100%;
-  font-size: 1rem;
-  font-weight: 600;
+  min-height: 64px; /* es el botón principal: el más grande */
+  font-size: 1.25rem;
+  font-weight: 700;
 }
 
 .boton:disabled {
@@ -112,24 +117,45 @@
 .exito {
   margin: 0;
   padding: 0.75rem 1rem;
-  border-radius: 8px;
-  font-size: 0.875rem;
+  border-radius: 10px;
+  font-size: 1.0625rem;
+  font-weight: 700;
   line-height: 1.4;
 }
 
 .errorApi {
   background: #fef2f2;
-  border: 1px solid #fecaca;
+  border: 2px solid #fca5a5;
   color: #991b1b;
 }
 
 .exito {
   background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  border: 2px solid #86efac;
   color: #166534;
 }
 
 .etapas legend {
   padding: 0;
   margin-bottom: 0.25rem;
+}
+
+/* Panel blanco con sombra suave sobre el fondo gris de la app. */
+.formulario {
+  padding: 1.5rem 1.25rem;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+}
+
+/* Fecha de inicio: calendario más fácil de tocar. */
+.inputFecha {
+  cursor: pointer;
+}
+
+/* El iconito del calendario, más grande para tocarlo con el dedo. */
+.inputFecha::-webkit-calendar-picker-indicator {
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
 }

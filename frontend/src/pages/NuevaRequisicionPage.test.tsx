@@ -64,7 +64,7 @@ describe('NuevaRequisicionPage', () => {
     await user.selectOptions(selectInsumo, ARTICULO_CEMENTO_ID)
 
     // Verifica que la unidad de medida se muestra tomada del catálogo (BOLSA)
-    expect(screen.getByText('BOLSA')).toBeInTheDocument()
+    expect(screen.getByText('Bolsas')).toBeInTheDocument()
 
     // Ingresa cantidad 80
     const inputCantidad = screen.getByLabelText('Cantidad')
@@ -86,7 +86,7 @@ describe('NuevaRequisicionPage', () => {
     expect(screen.getByText(/Torre Alvear/)).toBeInTheDocument()
     expect(screen.getByText(/Estructura/)).toBeInTheDocument()
     expect(
-      screen.getByText(/80 BOLSA — Cemento Portland Especial 50kg/),
+      screen.getByText(/80 bolsas — Cemento Portland Especial 50kg/),
     ).toBeInTheDocument()
   })
 

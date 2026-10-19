@@ -15,25 +15,29 @@
   justify-content: center;
   min-height: 100dvh;
   padding: 1.5rem 1rem;
+  background: var(--azul); /* fondo con el azul de la marca */
 }
 
 .marca {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  font-size: 1.5rem;
+  font-size: 2.25rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   margin-bottom: 2rem;
 }
 
 .logo {
-  height: 44px;
+  height: 88px;
   width: auto;
+  padding: 6px;
+  border-radius: 16px;
+  background: #ffffff; /* el logo tiene el hexágono azul oscuro: necesita fondo claro */
 }
 
 .marcaTexto {
-  color: var(--azul);
+  color: #ffffff;
 }
 
 .marcaTexto span {
@@ -63,7 +67,7 @@
 }
 
 .label {
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 500;
   color: var(--texto-suave);
 }
@@ -72,9 +76,9 @@
   width: 100%;
   min-height: var(--alto-toque);
   padding: 0 0.75rem;
-  border: 1.5px solid var(--borde);
+  border: 2px solid var(--borde);
   border-radius: 8px;
-  font-size: 1rem; /* refuerza ≥ 16px para evitar zoom en iOS */
+  font-size: 1.125rem; /* refuerza ≥ 16px para evitar zoom en iOS */
   color: var(--texto);
   background: var(--fondo);
   outline-offset: 2px;
@@ -105,6 +109,7 @@
 
 /* Botón con el ojo: transparente (no hereda el naranja del button global) y de 44 px para el dedo. */
 .verClave {
+  box-shadow: none;
   position: absolute;
   top: 0;
   right: 0;
@@ -123,8 +128,15 @@
   color: var(--azul);
 }
 
+/* El ojo no se desplaza ni lleva sombra: está pegado dentro del campo. */
+.verClave:hover,
+.verClave:active {
+  transform: none;
+  filter: none;
+}
+
 .errorCampo {
-  font-size: 0.8rem;
+  font-size: 1rem;
   color: #dc2626;
   margin: 0;
 }
@@ -138,7 +150,7 @@
   background: #fef2f2;
   border: 1px solid #fecaca;
   color: #991b1b;
-  font-size: 0.875rem;
+  font-size: 1rem;
   line-height: 1.4;
 }
 
@@ -158,4 +170,12 @@
   .contenedor {
     padding: 2rem;
   }
+}
+
+/* Panel blanco con sombra suave sobre el fondo gris de la app. */
+.formulario {
+  padding: 1.5rem 1.25rem;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
 }

@@ -1,6 +1,7 @@
 import { type FormEvent, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
+import { fechaEnPalabras } from '../obras/fechaEnPalabras'
 import { crearObra } from '../obras/obrasService'
 import {
   fechaAIso,
@@ -155,12 +156,23 @@ export function NuevaObraPage() {
           <input
             id="obra-fecha"
             type="date"
-            className={claseInput(!!errores.fechaInicio)}
+            className={`${claseInput(!!errores.fechaInicio)} ${styles.inputFecha}`}
             value={fechaInicio}
             onChange={(e) => setFechaInicio(e.target.value)}
+            onClick={(e) => {
+              // Toda la caja abre el calendario, no solo el iconito.
+              try {
+                e.currentTarget.showPicker?.()
+              } catch {
+                /* El navegador no lo permite en este momento: queda el uso normal. */
+              }
+            }}
             aria-invalid={!!errores.fechaInicio}
             aria-describedby={errores.fechaInicio ? 'obra-fecha-error' : undefined}
           />
+          {fechaEnPalabras(fechaInicio) && (
+            <p className={styles.ayuda}>Empieza el {fechaEnPalabras(fechaInicio)}.</p>
+          )}
           {errores.fechaInicio && (
             <p id="obra-fecha-error" className={styles.errorCampo}>{errores.fechaInicio}</p>
           )}

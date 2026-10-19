@@ -17,6 +17,7 @@ import {
   validarRequisicion,
   type ErroresRequisicion,
 } from '../requisiciones/validacionRequisicion'
+import { cantidadConUnidad, etiquetaUnidad } from '../requisiciones/unidades'
 import styles from './NuevaRequisicionPage.module.css'
 
 interface FilaItemForm {
@@ -189,6 +190,15 @@ export function NuevaRequisicionPage() {
     }
   }
 
+  /** Suma o resta a la cantidad de una fila (para los botones − y +). Nunca baja de 0. */
+  function ajustarCantidad(id: number, delta: number) {
+    const fila = items.find((it) => it.id === id)
+    const actual = parseFloat((fila?.cantidad ?? '').replace(',', '.'))
+    const base = Number.isFinite(actual) ? actual : 0
+    const nuevo = Math.max(0, Math.round((base + delta) * 10000) / 10000)
+    cambiarCantidad(id, String(nuevo))
+  }
+
   function claseSelect(conError: boolean) {
     return conError ? `${styles.select} ${styles.inputInvalido}` : styles.select
   }
@@ -262,7 +272,7 @@ export function NuevaRequisicionPage() {
             <ul className={styles.listaItemsConfirmados}>
               {requisicionCreada.items.map((it) => (
                 <li key={it.articuloId}>
-                  {it.cantidad} {it.unidadMedida} — {it.descripcion}
+                  {cantidadConUnidad(it.cantidad, it.unidadMedida)} — {it.descripcion}
                 </li>
               ))}
             </ul>
@@ -371,7 +381,7 @@ export function NuevaRequisicionPage() {
               (ins) => ins.articuloId === item.articuloId,
             )
             const unidadMedida = insumoSeleccionado
-              ? insumoSeleccionado.unidadMedida
+              ? etiquetaUnidad(insumoSeleccionado.unidadMedida)
               : '—'
 
             const otrosSeleccionados = new Set(
@@ -432,23 +442,41 @@ export function NuevaRequisicionPage() {
                     >
                       Cantidad
                     </label>
-                    <input
-                      id={`item-cantidad-${item.id}`}
-                      type="number"
-                      step="any"
-                      min="0"
-                      inputMode="decimal"
-                      className={claseInput(!!errorItem?.cantidad)}
-                      value={item.cantidad}
-                      onChange={(e) => cambiarCantidad(item.id, e.target.value)}
-                      placeholder="0.00"
-                      aria-invalid={!!errorItem?.cantidad}
-                      aria-describedby={
-                        errorItem?.cantidad
-                          ? `item-cantidad-error-${item.id}`
-                          : undefined
-                      }
-                    />
+                    <div className={styles.stepper}>
+                      <button
+                        type="button"
+                        className={styles.stepperBoton}
+                        aria-label={`Restar uno al insumo ${index + 1}`}
+                        onClick={() => ajustarCantidad(item.id, -1)}
+                      >
+                        −
+                      </button>
+                      <input
+                        id={`item-cantidad-${item.id}`}
+                        type="number"
+                        step="any"
+                        min="0"
+                        inputMode="decimal"
+                        className={`${claseInput(!!errorItem?.cantidad)} ${styles.inputCantidad}`}
+                        value={item.cantidad}
+                        onChange={(e) => cambiarCantidad(item.id, e.target.value)}
+                        placeholder="0"
+                        aria-invalid={!!errorItem?.cantidad}
+                        aria-describedby={
+                          errorItem?.cantidad
+                            ? `item-cantidad-error-${item.id}`
+                            : undefined
+                        }
+                      />
+                      <button
+                        type="button"
+                        className={styles.stepperBoton}
+                        aria-label={`Sumar uno al insumo ${index + 1}`}
+                        onClick={() => ajustarCantidad(item.id, 1)}
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
 
                   <div

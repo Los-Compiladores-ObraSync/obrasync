@@ -13,17 +13,20 @@
 }
 
 .logo {
-    height: 28px;
+    height: 44px;
     width: auto;
     background: #ffffff;
-    border-radius: 6px;
-    padding: 2px;
+    border-radius: 8px;
+    padding: 3px;
     margin-right: 0.75rem;
 }
 
 .salir {
+  box-shadow: none;
+  min-height: 48px;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  font-size: 1rem;
 }
 
 .menu {
@@ -45,7 +48,8 @@
   min-height: var(--alto-toque);
   padding: 0 0.9rem;
   color: #ffffff;
-  font-weight: 600;
+  font-size: 1.0625rem;
+  font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
   border-bottom: 3px solid transparent;

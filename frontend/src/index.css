@@ -5,15 +5,21 @@
 
   /* Neutros de apoyo */
   --fondo: #ffffff;
-  --texto: #1e293b;
-  --texto-suave: #64748b;
-  --borde: #e2e8f0;
+  --fondo-app: #eef2f7; /* gris claro: las tarjetas blancas se despegan del fondo */
+  --texto: #0f172a;
+  --texto-suave: #475569; /* contraste alto: se lee con sol sobre fondo blanco */
+  --borde: #94a3b8;
 
-  --fuente: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --alto-toque: 44px; /* tamaño mínimo cómodo para tocar con el dedo */
+  /* Naranja oscuro para botones con texto blanco (el de la marca no alcanza contraste). */
+  --accion: #c2410c;
+  --accion-oscura: #9a3412;
+  --foco: #1d4ed8;
+
+  --fuente: 'Barlow', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --alto-toque: 56px; /* botones grandes: se aprietan con guantes o manos sucias */
 
 font-family: var(--fuente);
-font-size: 16px;
+font-size: 18px;
 line-height: 1.5;
 color: var(--texto);
 background: var(--fondo);
@@ -30,6 +36,7 @@ color-scheme: light;
 
 body {
     margin: 0;
+    background: var(--fondo-app);
     min-height: 100dvh;
 }
 
@@ -46,6 +53,11 @@ h3 {
     line-height: 1.2;
 }
 
+h1 {
+    margin: 0.5rem 0 1rem;
+    font-size: 1.75rem;
+}
+
 button,
 input,
 select,
@@ -55,24 +67,119 @@ textarea {
 
 button {
     min-height: var(--alto-toque);
-    padding: 0 1rem;
+    padding: 0 1.25rem;
     border: 0;
-    border-radius: 8px;
-    background: var(--naranja);
+    border-radius: 10px;
+    background: var(--accion);
     color: #ffffff;
-    font-weight: 600;
+    font-size: 1.125rem;
+    font-weight: 700;
     cursor: pointer;
+}
+
+/* ---- Relieve y movimiento de botones ----
+   Sombra suave en reposo, se "levanta" al pasar el mouse (solo donde hay mouse) y se
+   "hunde" al apretar, para que el dedo sienta que tocó algo. Se usa :where() para que
+   estas reglas no tengan prioridad y cada botón pueda quitarlas si no las necesita. */
+:where(button, .accion-grande) {
+    transition:
+        transform 0.12s ease,
+        box-shadow 0.12s ease,
+        filter 0.12s ease;
+}
+
+:where(button:not(:disabled), .accion-grande) {
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+}
+
+@media (hover: hover) {
+    :where(button:hover:not(:disabled), .accion-grande:hover) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 14px rgba(15, 23, 42, 0.3);
+        filter: brightness(1.06);
+    }
+}
+
+:where(button:active:not(:disabled), .accion-grande:active) {
+    transform: translateY(1px) scale(0.98);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.3);
+    filter: brightness(0.9);
+}
+
+/* Quien prefiere menos movimiento (ajuste del sistema) no ve desplazamientos. */
+@media (prefers-reduced-motion: reduce) {
+    :where(button, .accion-grande) {
+        transition: none;
+    }
+
+    :where(button:hover:not(:disabled), .accion-grande:hover, button:active:not(:disabled), .accion-grande:active) {
+        transform: none;
+    }
+}
+
+/* Campos: grandes y con borde marcado para que se vean al sol. */
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea {
+    min-height: var(--alto-toque);
+    padding: 0 0.875rem;
+    border: 2px solid var(--borde);
+    border-radius: 10px;
+    background: #ffffff;
+    color: var(--texto);
+    font-size: 1.125rem;
+}
+
+textarea {
+    padding: 0.75rem 0.875rem;
+}
+
+a {
+    color: var(--foco);
+}
+
+/* El foco se tiene que ver siempre (teclado y lector de pantalla). */
+:focus-visible {
+    outline: 3px solid var(--foco);
+    outline-offset: 2px;
+}
+
+/* ---- Botones de acción grandes (links o botones que llevan a otra pantalla) ---- */
+.lista-acciones {
+    display: grid;
+    gap: 1rem;
+    margin: 1.5rem 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.accion-grande {
+    display: flex;
+    align-items: center;
+    min-height: 72px;
+    padding: 1rem 1.25rem;
+    border-radius: 12px;
+    background: var(--accion);
+    color: #ffffff;
+    font-size: 1.25rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.accion-grande:focus-visible {
+    outline-color: var(--azul);
 }
 
 /* ---- Estructura general de la app ---- */
 .app-encabezado {
     background: var(--azul);
     padding: 0.75rem 1rem;
+    border-bottom: 4px solid var(--naranja); /* franja con el color de la marca */
 }
 
 .app-marca {
     color: #ffffff;
-    font-size: 1.25rem;
+    font-size: 1.5rem;
     font-weight: 700;
     letter-spacing: 0.08em;
 }
@@ -84,9 +191,14 @@ button {
 .app-contenido {
     flex: 1;
     width: 100%;
-    max-width: 72rem;
+    max-width: 42rem; /* columna angosta y centrada: se lee bien también en la PC */
     margin: 0 auto;
     padding: 1rem;
+}
+
+/* Las pantallas con listas (ej.: aprobar requisiciones) usan más ancho en la PC. */
+.app-contenido:has(.pantalla-ancha) {
+    max-width: 72rem;
 }
 
 /* ---- Pantallas más grandes: se AGREGAN reglas, no se quitan ---- */
@@ -94,4 +206,32 @@ button {
     .app-contenido {
         padding: 2rem;
     }
+}
+
+/* ---- Bloques reutilizables de las pantallas ---- */
+
+/* Frase corta debajo del título de una pantalla. */
+.intro {
+    margin: 0 0 0.5rem;
+    color: var(--texto-suave);
+    font-size: 1.125rem;
+}
+
+/* Aviso en tarjeta blanca con una franja naranja a la izquierda. */
+.tarjeta-aviso {
+    margin: 1.5rem 0 0;
+    padding: 1.25rem;
+    border-left: 6px solid var(--naranja);
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+}
+
+.tarjeta-aviso h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+}
+
+.tarjeta-aviso p {
+    margin: 0;
 }
