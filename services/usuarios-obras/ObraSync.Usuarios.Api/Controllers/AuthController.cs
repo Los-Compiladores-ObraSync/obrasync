@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using ObraSync.Usuarios.Application.DTOs;
 using ObraSync.Usuarios.Application.Interfaces;
+using ObraSync.Usuarios.Domain.Entities;
 
 namespace ObraSync.Usuarios.Api.Controllers;
 
@@ -39,5 +41,13 @@ public class AuthController : ControllerBase
     {
         var response = await _authService.LoginAsync(request);
         return Ok(response);
+    }
+
+    [HttpGet("capataces")]
+    [Authorize(Roles = $"{UserRoles.Comprador},{UserRoles.Admin}")]
+    public async Task<ActionResult<IEnumerable<CapatazDto>>> GetCapatacesActivos()
+    {
+        var capataces = await _authService.GetCapatacesActivosAsync();
+        return Ok(capataces);
     }
 }

@@ -20,13 +20,12 @@ public class JwtProvider : IJwtProvider
 
     public string GenerarToken(AppUser usuario, IEnumerable<string> roles)
     {
-        // 1. Claims con nombres exactos requeridos por el contrato
+        // 1. Claims estrictos del contrato (sub, email, name, role)
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, usuario.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, usuario.Email ?? string.Empty),
-            new(JwtRegisteredClaimNames.Name, usuario.NombreCompleto),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new("name", usuario.NombreCompleto)
         };
 
         // 2. Roles con la clave "role"
@@ -35,13 +34,13 @@ public class JwtProvider : IJwtProvider
             claims.Add(new Claim("role", role));
         }
 
-        // 3. Firma y expiración
+        // 3. Firma sin Issuer/Audience ni Jti para no sobrecargar el payload
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
-            issuer: _jwtSettings.Issuer,
-            audience: _jwtSettings.Audience,
+            issuer: null,
+            audience: null,
             claims: claims,
             expires: DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationMinutes),
             signingCredentials: creds

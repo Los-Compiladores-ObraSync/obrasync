@@ -8,6 +8,9 @@ using ObraSync.Usuarios.Domain.Entities;
 using ObraSync.Usuarios.Infrastructure.Data;
 using ObraSync.Usuarios.Infrastructure.Services;
 using ObraSync.Usuarios.Infrastructure.Settings;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,15 +43,80 @@ builder.Services.AddIdentity<AppUser, AppRole>(options =>
 builder.Services
     .AddOptions<JwtSettings>()
     .BindConfiguration(JwtSettings.SectionName)
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.Secret),
+    "La clave secreta JWT ('Jwt__Secret') no está configurada en las variables de entorno.")
     .ValidateOnStart();
 
 // 4. Inyección de dependencias de servicios
 builder.Services.AddScoped<IJwtProvider, JwtProvider>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+// 1. Obtención y validación de la clave secreta JWT
+var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>();
+var jwtSecret = jwtSettings?.Secret
+    ?? builder.Configuration["Jwt__Secret"]
+    ?? builder.Configuration["Jwt:Secret"];
+
+if (string.IsNullOrWhiteSpace(jwtSecret))
+{
+    throw new InvalidOperationException("La variable de entorno 'Jwt__Secret' no está configurada.");
+}
+
+// 2. Registro del servicio de autenticación JWT Bearer
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.MapInboundClaims = false; // Desactiva la conversión automática de claims a URIs de Microsoft
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+        NameClaimType = "name",
+        RoleClaimType = "role"
+    };
+});
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new() { Title = "ObraSync.Usuarios.Api", Version = "v1" });
+
+    // Configura el soporte para JWT Bearer y hace aparecer el botón Authorize
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "Ingresá el token JWT obtenido en el login."
+    });
+
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 var app = builder.Build();
 
