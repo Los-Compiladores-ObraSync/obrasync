@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="../ObraSync.Gateway.Tests/ObraSync.Gateway.Tests.csproj" />
+  <Project Path="ObraSync.Gateway.csproj" />
+</Solution>

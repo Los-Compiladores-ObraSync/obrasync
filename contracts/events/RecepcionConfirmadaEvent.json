@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:obrasync:events:recepcion-confirmada:v1",
+  "title": "RecepcionConfirmadaEvent",
+  "description": "Evento que informa que se confirmó una recepción de materiales.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "occurredAt",
+    "correlationId",
+    "recepcionId",
+    "obraId",
+    "ordenCompraId",
+    "numeroRemito",
+    "fechaRecepcion",
+    "items"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador único del evento."
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha y hora en que ocurrió el evento, en UTC."
+    },
+    "correlationId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador utilizado para seguir una operación entre microservicios."
+    },
+    "recepcionId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de la recepción confirmada."
+    },
+    "obraId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de la obra."
+    },
+    "ordenCompraId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de la orden de compra."
+    },
+    "numeroRemito": {
+      "type": "string",
+      "maxLength": 50,
+      "description": "Número del remito correspondiente a la entrega."
+    },
+    "fechaRecepcion": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha y hora de recepción de los materiales, en UTC."
+    },
+    "items": {
+      "type": "array",
+      "description": "Materiales incluidos en la recepción confirmada.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "articuloId",
+          "cantidadRecibida",
+          "unidadMedida"
+        ],
+        "properties": {
+          "articuloId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "descripcionArticulo": {
+            "type": "string",
+            "maxLength": 250
+          },
+          "cantidadEsperada": {
+            "type": "number",
+            "minimum": 0
+          },
+          "cantidadRecibida": {
+            "type": "number",
+            "minimum": 0
+          },
+          "unidadMedida": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "conforme": {
+            "type": "boolean"
+          },
+          "observacion": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

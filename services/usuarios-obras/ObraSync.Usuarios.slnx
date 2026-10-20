@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="ObraSync.Usuarios.Api/ObraSync.Usuarios.Api.csproj" />
+  <Project Path="ObraSync.Usuarios.Application/ObraSync.Usuarios.Application.csproj" />
+  <Project Path="ObraSync.Usuarios.Domain/ObraSync.Usuarios.Domain.csproj" />
+  <Project Path="ObraSync.Usuarios.Infrastructure/ObraSync.Usuarios.Infrastructure.csproj" />
+  <Project Path="ObraSync.Usuarios.Tests/ObraSync.Usuarios.Tests.csproj" />
+</Solution>

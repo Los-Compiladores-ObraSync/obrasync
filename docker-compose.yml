@@ -1,0 +1,129 @@
+# docker-compose de ObraSync (tarjeta #29: versión mínima para la demo).
+#
+# Levanta: SQL Server (una base por servicio), RabbitMQ, los 4 microservicios y el API Gateway.
+# NO incluye el frontend: en la demo se corre aparte con `npm run dev` (apunta al Gateway, puerto 5000).
+#
+# Antes de levantar: copiar .env.example a .env y completar los valores (ver README).
+# Los secretos y las cadenas de conexión llegan por variables de entorno; nunca van escritos acá.
+
+services:
+  # ── Infraestructura ────────────────────────────────────────────────────────
+
+  # Una sola instancia de SQL Server con 4 bases (DB_Auth, DB_Req, DB_Licit, DB_Recepcion).
+  # Cada servicio usa SOLO la suya; entre bases no hay claves foráneas (las referencias son GUID).
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SQL_SA_PASSWORD:?Falta SQL_SA_PASSWORD en el archivo .env}
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"     # AMQP (los servicios)
+      - "15672:15672"   # panel de administración: http://localhost:15672
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ── Microservicios ─────────────────────────────────────────────────────────
+  # Dentro del contenedor cada servicio escucha en el 8080; afuera se publica en 5001 a 5004.
+
+  usuarios-obras-api:
+    build:
+      context: ./services/usuarios-obras
+      dockerfile: Dockerfile
+    ports:
+      - "5001:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=DB_Auth;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True;"
+      Jwt__Secret: ${JWT_SECRET:?Falta JWT_SECRET en el archivo .env}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  requisiciones-catalogo-api:
+    build:
+      context: ./services/requisiciones-catalogo
+      dockerfile: Dockerfile
+    ports:
+      - "5002:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=DB_Req;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True;"
+      Jwt__Secret: ${JWT_SECRET:?Falta JWT_SECRET en el archivo .env}
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: ${RABBITMQ_USER:-guest}
+      RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  licitaciones-cotizaciones-api:
+    build:
+      context: ./services/licitaciones-cotizaciones
+      dockerfile: Dockerfile
+    ports:
+      - "5003:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      # Este servicio lee la cadena con el nombre "DbLicit" (no "DefaultConnection").
+      ConnectionStrings__DbLicit: "Server=sqlserver;Database=DB_Licit;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True;"
+      Jwt__Secret: ${JWT_SECRET:?Falta JWT_SECRET en el archivo .env}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  recepcion-presupuesto-api:
+    build:
+      context: ./services/recepcion-presupuesto
+      dockerfile: Dockerfile
+    ports:
+      - "5004:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=DB_Recepcion;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True;"
+      Jwt__Secret: ${JWT_SECRET:?Falta JWT_SECRET en el archivo .env}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  # ── API Gateway (YARP) ─────────────────────────────────────────────────────
+  # En appsettings.json los destinos apuntan a localhost:5001 a 5004 (para correr sin Docker).
+  # Acá se reemplazan por los nombres de los servicios de esta red de Docker.
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    ports:
+      - "5000:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ReverseProxy__Clusters__usuarios__Destinations__principal__Address: http://usuarios-obras-api:8080/
+      ReverseProxy__Clusters__requisiciones__Destinations__principal__Address: http://requisiciones-catalogo-api:8080/
+      ReverseProxy__Clusters__licitaciones__Destinations__principal__Address: http://licitaciones-cotizaciones-api:8080/
+      ReverseProxy__Clusters__recepcion__Destinations__principal__Address: http://recepcion-presupuesto-api:8080/
+    depends_on:
+      - usuarios-obras-api
+      - requisiciones-catalogo-api
+      - licitaciones-cotizaciones-api
+      - recepcion-presupuesto-api
+
+volumes:
+  sql_data:

@@ -1,0 +1,161 @@
+/* ── NuevaObraPage — mobile-first ──────────────────────────────────────────
+   Usa las variables de index.css (--azul, --naranja, --borde, --texto-suave, --alto-toque).
+─────────────────────────────────────────────────────────────────────────── */
+
+.contenedor {
+  width: 100%;
+}
+
+.volver {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px; /* área de toque cómoda */
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--azul);
+  text-decoration: none;
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.label {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.input {
+  width: 100%;
+  min-height: var(--alto-toque);
+  padding: 0 0.75rem;
+  border: 2px solid var(--borde);
+  border-radius: 10px;
+  font-size: 1.125rem; /* ≥ 16px para que iOS no haga zoom */
+  color: var(--texto);
+  background: var(--fondo);
+  outline-offset: 2px;
+}
+
+.input:focus {
+  border-color: var(--foco);
+}
+
+.inputInvalido,
+.inputInvalido:focus {
+  border-color: #dc2626;
+  outline-color: #dc2626;
+}
+
+.ayuda {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--texto-suave);
+}
+
+.errorCampo {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #b91c1c;
+}
+
+.etapas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.filaEtapa {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Botón secundario: borde y texto, sin el naranja del botón global. */
+.secundario {
+  background: transparent;
+  color: var(--azul);
+  border: 2px solid var(--azul);
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.secundario:hover {
+  border-color: var(--azul);
+}
+
+.etapas > .secundario {
+  align-self: stretch; /* ocupa todo el ancho: más fácil de tocar */
+}
+
+.boton {
+  width: 100%;
+  min-height: 64px; /* es el botón principal: el más grande */
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.boton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.errorApi,
+.exito {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.errorApi {
+  background: #fef2f2;
+  border: 2px solid #fca5a5;
+  color: #991b1b;
+}
+
+.exito {
+  background: #f0fdf4;
+  border: 2px solid #86efac;
+  color: #166534;
+}
+
+.etapas legend {
+  padding: 0;
+  margin-bottom: 0.25rem;
+}
+
+/* Panel blanco con sombra suave sobre el fondo gris de la app. */
+.formulario {
+  padding: 1.5rem 1.25rem;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+}
+
+/* Fecha de inicio: calendario más fácil de tocar. */
+.inputFecha {
+  cursor: pointer;
+}
+
+/* El iconito del calendario, más grande para tocarlo con el dedo. */
+.inputFecha::-webkit-calendar-picker-indicator {
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+}

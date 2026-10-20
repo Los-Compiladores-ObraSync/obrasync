@@ -1,0 +1,1007 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "ObraSync.Requisiciones.Api",
+    "version": "1.0",
+    "description": "API del microservicio de Requisiciones y Catálogo de ObraSync Enterprise."
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/catalogo/insumos": {
+      "get": {
+        "tags": [
+          "Catalogo"
+        ],
+        "summary": "Listar los insumos del catálogo (Roles: Capataz, Comprador, Admin)",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Filtro opcional por código o descripción del insumo.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          {
+            "name": "soloActivos",
+            "in": "query",
+            "description": "Filtrar únicamente insumos activos (por defecto true).",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InsumoCatalogoDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InsumoCatalogoDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InsumoCatalogoDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Rol no autorizado)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Catalogo"
+        ],
+        "summary": "Dar de alta un nuevo insumo en el catálogo (Roles: Comprador, Admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearInsumoRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearInsumoRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearInsumoRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsumoCatalogoDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsumoCatalogoDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsumoCatalogoDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (Datos de insumo inválidos o divisa no permitida)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (No posee el rol Comprador o Admin)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (El código de insumo ya existe en el catálogo)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/requisiciones": {
+      "get": {
+        "tags": [
+          "Requisiciones"
+        ],
+        "summary": "Listar requisiciones con filtros opcionales (Roles: Capataz, Comprador, Admin)",
+        "parameters": [
+          {
+            "name": "obraId",
+            "in": "query",
+            "description": "Filtrar requisiciones por el identificador de la obra.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "estado",
+            "in": "query",
+            "description": "Filtrar requisiciones por estado (ej: Pendiente, Aprobada, Rechazada).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RequisicionResponseDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RequisicionResponseDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RequisicionResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Rol no autorizado)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Requisiciones"
+        ],
+        "summary": "Crear una nueva requisición de materiales para una obra (Roles: Capataz, Admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearRequisicionRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearRequisicionRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearRequisicionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (Datos de entrada inválidos, lista de ítems vacía o cantidad menor o igual a cero)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (No posee el rol Capataz o Admin)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Artículo de catálogo inexistente)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/requisiciones/{id}": {
+      "get": {
+        "tags": [
+          "Requisiciones"
+        ],
+        "summary": "Obtener el detalle de una requisición por su identificador (Roles: Capataz, Comprador, Admin)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identificador único (GUID) de la requisición.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (Rol no autorizado)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Requisición inexistente)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/requisiciones/{id}/aprobar": {
+      "post": {
+        "tags": [
+          "Requisiciones"
+        ],
+        "summary": "Aprobar una requisición pendiente y publicar RequisicionAprobadaEvent (Roles: Comprador, Admin)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identificador único (GUID) de la requisición a aprobar.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success (Requisición aprobada y evento RequisicionAprobadaEvent publicado)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (La requisición no se encuentra en estado Pendiente)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (No posee el rol Comprador o Admin)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Requisición inexistente)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (La requisición ya fue aprobada o rechazada previamente)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Token JWT emitido por ObraSync.Usuarios.Api (HS256) con claims: sub, email, name, role."
+      }
+    },
+    "schemas": {
+      "InsumoCatalogoDto": {
+        "type": "object",
+        "required": [
+          "articuloId",
+          "codigo",
+          "descripcion",
+          "unidadMedida",
+          "moneda",
+          "activo"
+        ],
+        "properties": {
+          "articuloId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del artículo en el catálogo."
+          },
+          "codigo": {
+            "type": "string",
+            "description": "Código interno del insumo (ej: MAT-CEM-001)."
+          },
+          "descripcion": {
+            "type": "string",
+            "description": "Descripción o nombre del artículo."
+          },
+          "unidadMedida": {
+            "type": "string",
+            "description": "Unidad de medida (ej: BOLSA, KG, M3, UNIDAD)."
+          },
+          "moneda": {
+            "type": "string",
+            "default": "ARS",
+            "description": "Divisa única del catálogo (ARS)."
+          },
+          "precioReferencia": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Precio de referencia opcional del insumo en la divisa única (ARS)."
+          },
+          "activo": {
+            "type": "boolean",
+            "description": "Indica si el insumo está habilitado para ser incluido en requisiciones."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CrearInsumoRequestDto": {
+        "type": "object",
+        "required": [
+          "codigo",
+          "descripcion",
+          "unidadMedida"
+        ],
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "description": "Código interno único del insumo (ej: MAT-CEM-001)."
+          },
+          "descripcion": {
+            "type": "string",
+            "description": "Descripción o nombre del artículo."
+          },
+          "unidadMedida": {
+            "type": "string",
+            "description": "Unidad de medida normalizada (BOLSA, KG, M3, UNIDAD)."
+          },
+          "moneda": {
+            "type": "string",
+            "default": "ARS",
+            "description": "Divisa única del catálogo (por defecto ARS)."
+          },
+          "precioReferencia": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "minimum": 0,
+            "description": "Precio de referencia opcional del insumo en ARS."
+          },
+          "activo": {
+            "type": "boolean",
+            "default": true,
+            "description": "Indica si el insumo nace activo (por defecto true)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CrearRequisicionItemDto": {
+        "type": "object",
+        "required": [
+          "articuloId",
+          "cantidad"
+        ],
+        "properties": {
+          "articuloId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del artículo en el catálogo."
+          },
+          "cantidad": {
+            "type": "number",
+            "format": "double",
+            "exclusiveMinimum": true,
+            "minimum": 0,
+            "description": "Cantidad requerida del artículo (mayor a cero)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CrearRequisicionRequestDto": {
+        "type": "object",
+        "required": [
+          "obraId",
+          "items"
+        ],
+        "properties": {
+          "obraId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la obra a la que pertenece la requisición."
+          },
+          "etapa": {
+            "type": "string",
+            "nullable": true,
+            "description": "Etapa de la obra para la cual se solicitan los materiales (ej: Estructura, Obra Gruesa)."
+          },
+          "observaciones": {
+            "type": "string",
+            "nullable": true,
+            "description": "Notas o comentarios opcionales del solicitante."
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/CrearRequisicionItemDto"
+            },
+            "description": "Lista de materiales o insumos solicitados."
+          }
+        },
+        "additionalProperties": false
+      },
+      "RequisicionItemDto": {
+        "type": "object",
+        "required": [
+          "articuloId",
+          "descripcion",
+          "cantidad",
+          "unidadMedida"
+        ],
+        "properties": {
+          "articuloId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del artículo en el catálogo."
+          },
+          "descripcion": {
+            "type": "string",
+            "description": "Descripción o nombre del artículo."
+          },
+          "cantidad": {
+            "type": "number",
+            "format": "double",
+            "exclusiveMinimum": true,
+            "minimum": 0,
+            "description": "Cantidad requerida del artículo (mayor a cero)."
+          },
+          "unidadMedida": {
+            "type": "string",
+            "description": "Unidad de medida (ej: BOLSA, KG, M3, UNIDAD)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "RequisicionResponseDto": {
+        "type": "object",
+        "required": [
+          "requisicionId",
+          "numeroRequisicion",
+          "obraId",
+          "solicitanteId",
+          "estado",
+          "fechaCreacion",
+          "items"
+        ],
+        "properties": {
+          "requisicionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la requisición."
+          },
+          "numeroRequisicion": {
+            "type": "string",
+            "description": "Identificador humano legible de la requisición (ej: REQ-2026-0001)."
+          },
+          "obraId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la obra a la que pertenece la requisición."
+          },
+          "etapa": {
+            "type": "string",
+            "nullable": true,
+            "description": "Etapa de la obra asociada a la requisición (ej: Estructura)."
+          },
+          "solicitanteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del usuario que creó la requisición (Capataz)."
+          },
+          "aprobadorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Identificador del usuario que aprobó la requisición (null mientras está Pendiente)."
+          },
+          "estado": {
+            "type": "string",
+            "description": "Estado actual de la requisición (Pendiente, Aprobada, Rechazada)."
+          },
+          "observaciones": {
+            "type": "string",
+            "nullable": true,
+            "description": "Observaciones o notas de la requisición."
+          },
+          "fechaCreacion": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha y hora de creación de la requisición (en UTC)."
+          },
+          "fechaAprobacion": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fecha y hora de aprobación de la requisición (en UTC)."
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/RequisicionItemDto"
+            },
+            "description": "Lista de materiales o insumos de la requisición."
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
+          },
+          "correlationId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Identificador de correlación propagado desde el API Gateway (X-Correlation-ID) para rastrear errores entre servicios."
+          }
+        },
+        "additionalProperties": {}
+      }
+    }
+  }
+}

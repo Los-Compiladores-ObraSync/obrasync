@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:obrasync:events:orden-compra-emitida:v1",
+  "title": "OrdenCompraEmitidaEvent",
+  "description": "Evento publicado por el microservicio de Licitaciones y Cotizaciones cuando se emite una Orden de Compra. Consumido por Recepción y Control Presupuestario.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "occurredAt",
+    "correlationId",
+    "ordenCompraId",
+    "licitacionId",
+    "requisicionId",
+    "obraId",
+    "proveedorId",
+    "montoTotal",
+    "items"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador único del evento para garantizar procesamiento idempotente en los consumidores."
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha y hora en que ocurrió el evento (en UTC)."
+    },
+    "correlationId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de correlación propagado desde el API Gateway (X-Correlation-ID) para trazabilidad transversal."
+    },
+    "ordenCompraId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de la orden de compra emitida."
+    },
+    "licitacionId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de la licitación de origen."
+    },
+    "requisicionId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de la requisición que originó la compra."
+    },
+    "obraId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de la obra destino."
+    },
+    "proveedorId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador del proveedor adjudicado."
+    },
+    "montoTotal": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Monto total de la orden de compra (suma de items más flete). Una sola divisa en el MVP."
+    },
+    "items": {
+      "type": "array",
+      "description": "Materiales comprados.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["articuloId", "cantidad", "unidadMedida", "precioUnitario"],
+        "properties": {
+          "articuloId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del artículo en el catálogo."
+          },
+          "descripcion": {
+            "type": "string",
+            "description": "Descripción o nombre del artículo."
+          },
+          "cantidad": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Cantidad comprada (mayor a cero)."
+          },
+          "unidadMedida": {
+            "type": "string",
+            "description": "Unidad de medida (ej: BOLSA, KG, M3, UNIDAD)."
+          },
+          "precioUnitario": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Precio unitario adjudicado."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

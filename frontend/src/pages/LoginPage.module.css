@@ -1,0 +1,181 @@
+﻿/* ── LoginPage — estilos mobile-first ──────────────────────────────────────
+   Paleta tomada de index.css:
+     --azul: #0f172a   → logotipo, título
+     --naranja: #e65100 → botón (heredado del button global de index.css)
+     --borde: #e2e8f0  → bordes de input
+     --texto-suave: #64748b → label
+   Los inputs heredan font-size: 16px de :root (sin zoom en iOS).
+   El botón hereda background naranja y min-height: 44px del selector button global.
+─────────────────────────────────────────────────────────────────────────── */
+
+.contenedor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 1.5rem 1rem;
+  background: var(--azul); /* fondo con el azul de la marca */
+}
+
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 2rem;
+}
+
+.logo {
+  height: 88px;
+  width: auto;
+  padding: 6px;
+  border-radius: 16px;
+  background: #ffffff; /* el logo tiene el hexágono azul oscuro: necesita fondo claro */
+}
+
+.marcaTexto {
+  color: #ffffff;
+}
+
+.marcaTexto span {
+  color: var(--naranja);
+}
+
+.formulario {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.titulo {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--azul);
+  margin: 0 0 0.5rem;
+  text-align: center;
+}
+
+.grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.label {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--texto-suave);
+}
+
+.input {
+  width: 100%;
+  min-height: var(--alto-toque);
+  padding: 0 0.75rem;
+  border: 2px solid var(--borde);
+  border-radius: 8px;
+  font-size: 1.125rem; /* refuerza ≥ 16px para evitar zoom en iOS */
+  color: var(--texto);
+  background: var(--fondo);
+  outline-offset: 2px;
+  transition: border-color 0.15s;
+}
+
+.input:focus {
+  border-color: var(--azul);
+}
+
+.inputInvalido {
+  border-color: #dc2626;
+}
+
+.inputInvalido:focus {
+  border-color: #dc2626;
+  outline-color: #dc2626;
+}
+
+.campoClave {
+  position: relative;
+}
+
+/* Deja lugar a la derecha para que el texto no quede debajo del botón. */
+.inputClave {
+  padding-right: var(--alto-toque);
+}
+
+/* Botón con el ojo: transparente (no hereda el naranja del button global) y de 44 px para el dedo. */
+.verClave {
+  box-shadow: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--alto-toque);
+  height: 100%;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--texto-suave);
+  border-radius: 8px;
+}
+
+.verClave:hover {
+  color: var(--azul);
+}
+
+/* El ojo no se desplaza ni lleva sombra: está pegado dentro del campo. */
+.verClave:hover,
+.verClave:active {
+  transform: none;
+  filter: none;
+}
+
+.errorCampo {
+  font-size: 1rem;
+  color: #dc2626;
+  margin: 0;
+}
+
+.errorApi {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.boton {
+  width: 100%;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.boton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Pantallas grandes ────────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  .contenedor {
+    padding: 2rem;
+  }
+}
+
+/* Panel blanco con sombra suave sobre el fondo gris de la app. */
+.formulario {
+  padding: 1.5rem 1.25rem;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+}
