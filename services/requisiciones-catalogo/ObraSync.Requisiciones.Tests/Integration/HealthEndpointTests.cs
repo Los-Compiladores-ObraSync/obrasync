@@ -214,7 +214,12 @@ namespace ObraSync.Requisiciones.Tests.Integration
 
             Assert.Equal(HttpStatusCode.OK, aprobarResponse.StatusCode);
 
-            var requisicionAprobada = await aprobarResponse.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            using var aprobarJson = JsonDocument.Parse(await aprobarResponse.Content.ReadAsStringAsync());
+            Assert.EndsWith("Z", aprobarJson.RootElement.GetProperty("fechaCreacion").GetString());
+            Assert.EndsWith("Z", aprobarJson.RootElement.GetProperty("fechaAprobacion").GetString());
+
+            var requisicionAprobada = aprobarJson.RootElement.Deserialize<RequisicionResponseDto>(
+                new JsonSerializerOptions(JsonSerializerDefaults.Web));
             Assert.NotNull(requisicionAprobada);
             Assert.Equal(EstadoRequisicion.Aprobada, requisicionAprobada.Estado);
             Assert.Equal(compradorId, requisicionAprobada.AprobadorId);
