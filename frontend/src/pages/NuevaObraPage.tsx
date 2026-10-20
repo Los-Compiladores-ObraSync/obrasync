@@ -1,7 +1,8 @@
-import { type FormEvent, useRef, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { fechaEnPalabras } from '../obras/fechaEnPalabras'
+import { type Capataz, obtenerCapataces } from '../obras/capatacesService'
 import { crearObra } from '../obras/obrasService'
 import {
   fechaAIso,
@@ -37,6 +38,10 @@ export function NuevaObraPage() {
   const [ubicacion, setUbicacion] = useState('')
   const [fechaInicio, setFechaInicio] = useState('')
   const [capatazId, setCapatazId] = useState('')
+  const [capataces, setCapataces] = useState<Capataz[]>([])
+  const [cargandoCapataces, setCargandoCapataces] = useState(true)
+  const [errorCapataces, setErrorCapataces] = useState(false)
+  const [intentoCapataces, setIntentoCapataces] = useState(0)
 
   const siguienteId = useRef(2)
   const [etapas, setEtapas] = useState<EtapaForm[]>([{ id: 1, nombre: '' }])
@@ -45,6 +50,30 @@ export function NuevaObraPage() {
   const [apiError, setApiError] = useState<string | null>(null)
   const [creada, setCreada] = useState(false)
   const [enviando, setEnviando] = useState(false)
+
+  // Cada cambio de `intentoCapataces` vuelve a pedir la lista (primer intento y "Reintentar").
+  useEffect(() => {
+    let cancelado = false
+    obtenerCapataces()
+      .then((lista) => {
+        if (!cancelado) setCapataces(lista)
+      })
+      .catch(() => {
+        if (!cancelado) setErrorCapataces(true)
+      })
+      .finally(() => {
+        if (!cancelado) setCargandoCapataces(false)
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [intentoCapataces])
+
+  function reintentarCapataces() {
+    setErrorCapataces(false)
+    setCargandoCapataces(true)
+    setIntentoCapataces((n) => n + 1)
+  }
 
   function agregarEtapa() {
     setEtapas((actuales) => [...actuales, { id: siguienteId.current++, nombre: '' }])
@@ -178,26 +207,38 @@ export function NuevaObraPage() {
           )}
         </div>
 
-        {/* PROVISORIO: el backend todavía no tiene un endpoint para listar capataces,
-            así que por ahora se pega el GUID. Cuando exista, esto pasa a ser un desplegable. */}
         <div className={styles.grupo}>
-          <label htmlFor="obra-capataz" className={styles.label}>Capataz (identificador)</label>
-          <input
+          <label htmlFor="obra-capataz" className={styles.label}>Capataz</label>
+          <select
             id="obra-capataz"
             className={claseInput(!!errores.capatazId)}
             value={capatazId}
             onChange={(e) => setCapatazId(e.target.value)}
-            autoComplete="off"
-            spellCheck={false}
+            disabled={cargandoCapataces || errorCapataces}
             aria-invalid={!!errores.capatazId}
-            aria-describedby={errores.capatazId ? 'obra-capataz-error' : 'obra-capataz-ayuda'}
-          />
-          {errores.capatazId ? (
+            aria-describedby={errores.capatazId ? 'obra-capataz-error' : undefined}
+          >
+            <option value="">
+              {cargandoCapataces ? 'Cargando capataces…' : '— Seleccioná un capataz —'}
+            </option>
+            {capataces.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombreCompleto}
+              </option>
+            ))}
+          </select>
+          {errorCapataces && (
+            <div>
+              <p className={styles.errorCampo} role="alert">
+                No se pudo cargar la lista de capataces.
+              </p>
+              <button type="button" className={styles.secundario} onClick={reintentarCapataces}>
+                Reintentar
+              </button>
+            </div>
+          )}
+          {errores.capatazId && (
             <p id="obra-capataz-error" className={styles.errorCampo}>{errores.capatazId}</p>
-          ) : (
-            <p id="obra-capataz-ayuda" className={styles.ayuda}>
-              Pegá el GUID del usuario con rol Capataz.
-            </p>
           )}
         </div>
 

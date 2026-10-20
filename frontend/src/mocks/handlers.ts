@@ -184,6 +184,17 @@ export const handlers: RequestHandler[] = [
     return HttpResponse.text('b1b2c3d4-0000-0000-0000-0000000000a1', { status: 200 })
   }),
 
+  // Contrato: GET /api/usuarios/capataces → 200 [{ id, nombreCompleto }]
+  http.get('*/api/usuarios/capataces', () => {
+    return HttpResponse.json(
+      USUARIOS_MOCK.filter((u) => u.rol === 'Capataz').map((u) => ({
+        id: u.id,
+        nombreCompleto: u.nombreCompleto,
+      })),
+      { status: 200 },
+    )
+  }),
+
   // Contrato: GET /api/catalogo/insumos → 200 InsumoCatalogoDto[]
   http.get('*/api/catalogo/insumos', ({ request }) => {
     const url = new URL(request.url)

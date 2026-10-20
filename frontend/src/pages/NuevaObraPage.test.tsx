@@ -7,6 +7,7 @@ import { server } from '../mocks/server'
 import { NuevaObraPage } from './NuevaObraPage'
 
 const URL_OBRAS = 'http://localhost:5000/api/obras'
+const URL_CAPATACES = 'http://localhost:5000/api/usuarios/capataces'
 const CAPATAZ_ID = 'a1b2c3d4-0000-0000-0000-000000000001'
 
 function renderPagina() {
@@ -24,11 +25,30 @@ async function completarFormulario(
   await user.type(screen.getByLabelText('Nombre de la obra'), nombre)
   await user.type(screen.getByLabelText('Ubicación'), 'Av. Siempre Viva 742')
   await user.type(screen.getByLabelText('Fecha de inicio'), '2026-11-02')
-  await user.type(screen.getByLabelText('Capataz (identificador)'), CAPATAZ_ID)
+  await user.selectOptions(await screen.findByLabelText('Capataz'), CAPATAZ_ID)
   await user.type(screen.getByLabelText('Etapa 1'), 'Cimientos')
 }
 
 describe('NuevaObraPage', () => {
+  it('carga los capataces en un desplegable', async () => {
+    renderPagina()
+
+    expect(await screen.findByRole('option', { name: 'Juan Pérez' })).toBeInTheDocument()
+  })
+
+  it('avisa y deja reintentar si falla la carga de capataces', async () => {
+    server.use(http.get(URL_CAPATACES, () => HttpResponse.error()))
+    const user = userEvent.setup()
+    renderPagina()
+
+    expect(await screen.findByText('No se pudo cargar la lista de capataces.')).toBeInTheDocument()
+
+    server.resetHandlers()
+    await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+
+    expect(await screen.findByRole('option', { name: 'Juan Pérez' })).toBeInTheDocument()
+  })
+
   it('arranca con una etapa vacía', () => {
     renderPagina()
 
