@@ -39,6 +39,20 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task RegistrarAsync_DeberiaLanzarInvalidOperationException_CuandoRolEsAdmin()
+    {
+        // Arrange
+        var request = new RegisterRequestDto("Juan Admin", "admin@test.com", "Password123!", UserRoles.Admin);
+
+        // Act
+        Func<Task> act = async () => await _authService.RegistrarAsync(request);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*No está permitido registrar cuentas con rol Admin*");
+    }
+
+    [Fact]
     public async Task RegistrarAsync_DeberiaLanzarInvalidOperationException_CuandoEmailYaExiste()
     {
         // Arrange
@@ -55,15 +69,43 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task GetCapatacesActivosAsync_DebeRetornarSoloCapatacesActivos()
+    {
+        // Arrange
+        var capataces = new List<AppUser>
+        {
+            new AppUser { Id = Guid.NewGuid(), NombreCompleto = "Carlos Capataz", Activo = true },
+            new AppUser { Id = Guid.NewGuid(), NombreCompleto = "Inactivo Capataz", Activo = false }
+        };
+
+        _userManager.GetUsersInRoleAsync(UserRoles.Capataz).Returns(capataces);
+
+        // Act
+        var result = await _authService.GetCapatacesActivosAsync();
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.First().NombreCompleto.Should().Be("Carlos Capataz");
+    }
+
+    [Fact]
     public async Task RegistrarAsync_DeberiaRetornarAuthResponseDto_CuandoRegistroEsExitoso()
     {
         // Arrange
         var request = new RegisterRequestDto("Juan Capataz", "capataz@test.com", "Password123!", UserRoles.Capataz);
+
         _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(null));
+
         _userManager.CreateAsync(Arg.Any<AppUser>(), request.Password)
             .Returns(Task.FromResult(IdentityResult.Success));
+
+        // Se agrega el mock de AddToRoleAsync
+        _userManager.AddToRoleAsync(Arg.Any<AppUser>(), Arg.Any<string>())
+            .Returns(Task.FromResult(IdentityResult.Success));
+
         _userManager.GetRolesAsync(Arg.Any<AppUser>())
             .Returns(Task.FromResult<IList<string>>(new List<string> { UserRoles.Capataz }));
+
         _jwtProvider.GenerarToken(Arg.Any<AppUser>(), Arg.Any<IEnumerable<string>>())
             .Returns("fake-jwt-token");
 

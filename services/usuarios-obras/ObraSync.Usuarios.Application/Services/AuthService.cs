@@ -20,11 +20,17 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponseDto> RegistrarAsync(RegisterRequestDto request)
     {
-        // 1. Validar que el rol recibido sea uno de los 4 permitidos por la arquitectura
+        // 1. Validar que el rol recibido sea uno de los permitidos por la arquitectura
         var rolesValidos = new[] { UserRoles.Capataz, UserRoles.Comprador, UserRoles.Proveedor, UserRoles.Admin };
         if (!rolesValidos.Contains(request.Rol))
         {
             throw new ArgumentException($"El rol '{request.Rol}' no es válido. Roles permitidos: {string.Join(", ", rolesValidos)}.");
+        }
+
+        // 1b. Regla de seguridad: Restringir la auto-asignación pública del rol Admin
+        if (request.Rol.Equals(UserRoles.Admin, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("No está permitido registrar cuentas con rol Admin de forma pública.");
         }
 
         // 2. Verificar que no exista un usuario previo con el mismo email
@@ -102,5 +108,14 @@ public class AuthService : IAuthService
             token,
             roles
         );
+    }
+
+    public async Task<IEnumerable<CapatazDto>> GetCapatacesActivosAsync()
+    {
+        var usuariosCapataz = await _userManager.GetUsersInRoleAsync(UserRoles.Capataz);
+
+        return usuariosCapataz
+            .Where(u => u.Activo)
+            .Select(u => new CapatazDto(u.Id, u.NombreCompleto));
     }
 }
