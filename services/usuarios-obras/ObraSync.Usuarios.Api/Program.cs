@@ -86,6 +86,10 @@ builder.Services.AddAuthentication(options =>
 });
 
 builder.Services.AddControllers();
+
+// <-- NUEVO: Registra el servicio para estandarizar errores vacíos a ProblemDetails
+builder.Services.AddProblemDetails();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -119,6 +123,9 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+// <-- Intercepta códigos de error HTTP (como 401 y 403) y les inyecta el ProblemDetails
+app.UseStatusCodePages();
 
 // 5. Registrar Middleware de Excepciones al principio del pipeline
 app.UseMiddleware<ExceptionMiddleware>();

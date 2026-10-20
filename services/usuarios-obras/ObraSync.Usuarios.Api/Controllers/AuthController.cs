@@ -23,7 +23,7 @@ public class AuthController : ControllerBase
     [HttpPost("registro")]
     [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Registrar([FromBody] RegisterRequestDto request)
     {
         var response = await _authService.RegistrarAsync(request);
