@@ -1,16 +1,14 @@
 using System.Net;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
 namespace ObraSync.Recepcion.Tests;
 
-public class HealthEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public class HealthEndpointTests : IClassFixture<RecepcionApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly RecepcionApiFactory _factory;
 
-    public HealthEndpointTests(WebApplicationFactory<Program> factory)
+    public HealthEndpointTests(RecepcionApiFactory factory)
     {
-        Environment.SetEnvironmentVariable("Jwt__Secret", "clave-de-pruebas-de-al-menos-32-caracteres");
         _factory = factory;
     }
 

@@ -1,7 +1,9 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ObraSync.Recepcion.Infrastructure;
+using ObraSync.Recepcion.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,8 +29,12 @@ builder.Services.AddProblemDetails(options =>
 });
 
 // Autenticación JWT: este microservicio SOLO valida el token emitido por el servicio de Usuarios
-var secret = builder.Configuration["Jwt:Secret"]
-    ?? "ObraSyncSecretKeySprint1SuperSegura2026!";
+var secret = builder.Configuration["Jwt:Secret"];
+if (string.IsNullOrWhiteSpace(secret))
+{
+    throw new InvalidOperationException(
+        "El secreto JWT ('Jwt:Secret') no está configurado. Debe definirse con la variable de entorno Jwt__Secret.");
+}
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -74,7 +80,49 @@ app.MapGet("/health", () => Results.Ok(new
 
 app.MapControllers();
 
+// Aplicar migraciones automáticamente al arrancar con reintentos acotados
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var services = scope.ServiceProvider;
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        var context = services.GetRequiredService<RecepcionDbContext>();
+
+        const int maxIntentos = 10;
+        const int delaySegundos = 5;
+
+        for (int intento = 1; intento <= maxIntentos; intento++)
+        {
+            try
+            {
+                logger.LogInformation("Intentando aplicar migraciones a la base de datos (intento {Intento}/{MaxIntentos})...", intento, maxIntentos);
+                await context.Database.MigrateAsync();
+                logger.LogInformation("Migraciones aplicadas exitosamente.");
+                break;
+            }
+            catch (Exception ex)
+            {
+                if (ex is not Microsoft.Data.SqlClient.SqlException)
+                {
+                    throw;
+                }
+
+                logger.LogWarning(ex, "Error al intentar aplicar migraciones en el intento {Intento}/{MaxIntentos}.", intento, maxIntentos);
+                if (intento == maxIntentos)
+                {
+                    logger.LogCritical(ex, "Se agotaron los {MaxIntentos} intentos para aplicar las migraciones. El servicio fallará.", maxIntentos);
+                    throw;
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(delaySegundos));
+            }
+        }
+    }
+}
+
 app.Run();
 
 // Clase parcial para permitir integración con WebApplicationFactory en proyectos de pruebas xUnit
 public partial class Program { }
+

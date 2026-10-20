@@ -427,6 +427,10 @@ FodyWeavers.xsd
 # Official VS Code C# Dev Kit Extension exclusion
 #*.lscache
 
+#ademas se ignoran los directorios 
+**/bin
+**/obj
+
 # Herramientas personales de IA
 AGENTS.md
 CLAUDE.md

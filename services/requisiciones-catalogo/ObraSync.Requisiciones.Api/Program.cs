@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -10,6 +11,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using ObraSync.Requisiciones.Application;
 using ObraSync.Requisiciones.Infrastructure;
+using ObraSync.Requisiciones.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -119,6 +121,20 @@ app.MapGet("/health", () => Results.Ok(new
 }));
 
 app.MapControllers();
+
+// Aplicar migraciones automáticamente al arrancar cuando se utiliza un proveedor relacional (SQL Server)
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<RequisicionesDbContext>();
+    if (context.Database.IsRelational())
+    {
+        context.Database.Migrate();
+    }
+    else
+    {
+        context.Database.EnsureCreated();
+    }
+}
 
 app.Run();
 

@@ -24,6 +24,15 @@ public class ResilienciaTests
             return this;
         }
 
+        // Es lo que pasa cuando el contenedor del servicio está apagado: el nombre ya no existe en la red de Docker.
+        public ServicioQueFalla NombreInexistente()
+        {
+            _respuestas.Enqueue(() => throw new HttpRequestException(
+                "Name or service not known",
+                new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.HostNotFound)));
+            return this;
+        }
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Llamadas++;
@@ -84,6 +93,36 @@ public class ResilienciaTests
 
         // 1 intento inicial + 2 reintentos
         Assert.Equal(3, servicio.Llamadas);
+    }
+
+    [Fact]
+    public async Task Un_GET_a_un_nombre_que_no_existe_NO_se_reintenta()
+    {
+        var servicio = new ServicioQueFalla().NombreInexistente();
+        var cliente = Cliente(servicio, Opciones());
+
+        await Assert.ThrowsAsync<HttpRequestException>(
+            () => cliente.SendAsync(Pedido(HttpMethod.Get), CancellationToken.None));
+
+        Assert.Equal(1, servicio.Llamadas);
+    }
+
+    [Fact]
+    public async Task Un_nombre_que_no_existe_igual_cuenta_para_abrir_el_breaker()
+    {
+        var servicio = new ServicioQueFalla().NombreInexistente();
+        var cliente = Cliente(servicio, Opciones(minimoPedidos: 2));
+
+        for (var i = 0; i < 2; i++)
+        {
+            await Assert.ThrowsAsync<HttpRequestException>(
+                () => cliente.SendAsync(Pedido(HttpMethod.Get), CancellationToken.None));
+        }
+
+        await Assert.ThrowsAsync<BrokenCircuitException>(
+            () => cliente.SendAsync(Pedido(HttpMethod.Get), CancellationToken.None));
+
+        Assert.Equal(2, servicio.Llamadas);
     }
 
     [Fact]

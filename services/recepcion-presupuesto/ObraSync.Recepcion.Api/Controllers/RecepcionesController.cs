@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ObraSync.Recepcion.Application.Common.Interfaces;
 
 namespace ObraSync.Recepcion.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class RecepcionesController : ControllerBase

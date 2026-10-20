@@ -26,7 +26,8 @@ public static class PipelineDeResiliencia
                 ShouldHandle = args => ValueTask.FromResult(
                     args.Context.Properties.TryGetValue(EsLectura, out var esLectura)
                     && esLectura
-                    && EsFalla(args.Outcome)),
+                    && EsFalla(args.Outcome)
+                    && !EsNombreInexistente(args.Outcome)),
                 OnRetry = args =>
                 {
                     // La respuesta fallida no se usa más: se libera antes de volver a intentar.
@@ -45,6 +46,14 @@ public static class PipelineDeResiliencia
             })
             .Build();
     }
+
+    /// <summary>
+    /// "Name or service not known": el nombre del servicio no existe en la red (por ejemplo, el contenedor está apagado).
+    /// Repetir el pedido no lo arregla y cada intento tarda varios segundos, así que no se reintenta.
+    /// Igual cuenta como falla para el circuit breaker.
+    /// </summary>
+    private static bool EsNombreInexistente(Outcome<HttpResponseMessage> resultado)
+        => resultado.Exception?.InnerException is System.Net.Sockets.SocketException { SocketErrorCode: System.Net.Sockets.SocketError.HostNotFound };
 
     /// <summary>
     /// Qué cuenta como falla: no se pudo conectar, o el servicio respondió 502/503/504.
