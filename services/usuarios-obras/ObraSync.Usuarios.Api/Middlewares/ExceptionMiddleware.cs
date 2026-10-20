@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using ObraSync.Usuarios.Domain.Exceptions;
 
 namespace ObraSync.Usuarios.Api.Middlewares;
 
@@ -41,6 +42,12 @@ public class ExceptionMiddleware
                 "No autorizado",
                 ex.Message,
                 "https://tools.ietf.org/html/rfc9110#section-15.5.2"
+            ),
+            ForbiddenException ex => (
+                StatusCodes.Status403Forbidden,
+                "Acceso prohibido",
+                ex.Message,
+                "https://tools.ietf.org/html/rfc9110#section-15.5.4"
             ),
             KeyNotFoundException ex => (
                 StatusCodes.Status404NotFound,

@@ -70,8 +70,8 @@
               }
             }
           },
-          "409": {
-            "description": "Conflict",
+          "403": {
+            "description": "Forbidden (No está permitido registrar cuentas con rol Admin de forma pública)",
             "content": {
               "text/plain": {
                 "schema": {
@@ -280,6 +280,7 @@
           },
           "token": {
             "type": "string",
+            "description": "Token JWT firmado (vigencia de 60 minutos)",
             "nullable": true
           },
           "roles": {

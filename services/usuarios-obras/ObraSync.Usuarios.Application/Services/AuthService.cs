@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using ObraSync.Usuarios.Application.DTOs;
 using ObraSync.Usuarios.Application.Interfaces;
 using ObraSync.Usuarios.Domain.Entities;
+using ObraSync.Usuarios.Domain.Exceptions; // <-- NUEVO
 
 namespace ObraSync.Usuarios.Application.Services;
 
@@ -30,7 +31,8 @@ public class AuthService : IAuthService
         // 1b. Regla de seguridad: Restringir la auto-asignación pública del rol Admin
         if (request.Rol.Equals(UserRoles.Admin, StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("No está permitido registrar cuentas con rol Admin de forma pública.");
+            // <-- CAMBIO: Lanzamos ForbiddenException para que el middleware devuelva 403 Forbidden
+            throw new ForbiddenException("No está permitido registrar cuentas con rol Admin de forma pública.");
         }
 
         // 2. Verificar que no exista un usuario previo con el mismo email
