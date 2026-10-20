@@ -430,3 +430,11 @@ FodyWeavers.xsd
 #ademas se ignoran los directorios 
 **/bin
 **/obj
+
+# Herramientas personales de IA
+AGENTS.md
+CLAUDE.md
+
+# Documentación y archivos locales
+docs/
+*.pdf
