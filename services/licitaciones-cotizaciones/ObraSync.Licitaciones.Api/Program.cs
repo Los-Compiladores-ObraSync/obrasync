@@ -1,8 +1,10 @@
 using System.Text;
+using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ObraSync.Licitaciones.Infrastructure;
+using ObraSync.Licitaciones.Infrastructure.Consumers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +22,40 @@ builder.Services.AddProblemDetails(options =>
 
 builder.Services.AddDbContext<LicitacionesDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DbLicit")));
+
+// RabbitMQ + MassTransit (misma convención que Requisiciones)
+var useInMemoryTransport = string.Equals(
+    builder.Configuration["RabbitMQ:UseInMemory"],
+    "true",
+    StringComparison.OrdinalIgnoreCase);
+
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumer<RequisicionAprobadaConsumer>();
+
+    if (useInMemoryTransport)
+    {
+        x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+    }
+    else
+    {
+        x.UsingRabbitMq((context, cfg) =>
+        {
+            var host = builder.Configuration["RabbitMQ:Host"] ?? "localhost";
+            var virtualHost = builder.Configuration["RabbitMQ:VirtualHost"] ?? "/";
+            var username = builder.Configuration["RabbitMQ:Username"] ?? "guest";
+            var password = builder.Configuration["RabbitMQ:Password"] ?? "guest";
+
+            cfg.Host(host, virtualHost, h =>
+            {
+                h.Username(username);
+                h.Password(password);
+            });
+
+            cfg.ConfigureEndpoints(context);
+        });
+    }
+});
 
 // Solo VALIDAMOS el token, no lo emitimos (eso lo hace Usuarios)
 var secret = builder.Configuration["Jwt:Secret"]
@@ -43,6 +79,14 @@ builder.Services
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+// Aplica las migraciones al arrancar (en Docker la base nace vacía).
+// Solo si hay cadena de conexión, para no romper las pruebas del /health.
+if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DbLicit")))
+{
+    using var scope = app.Services.CreateScope();
+    scope.ServiceProvider.GetRequiredService<LicitacionesDbContext>().Database.Migrate();
+}
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
