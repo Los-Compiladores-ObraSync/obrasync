@@ -12,7 +12,7 @@ using ObraSync.Requisiciones.Infrastructure.Persistence;
 namespace ObraSync.Requisiciones.Infrastructure.Migrations
 {
     [DbContext(typeof(RequisicionesDbContext))]
-    [Migration("20261018222744_Inicial")]
+    [Migration("20261020013606_Inicial")]
     partial class Inicial
     {
         /// <inheritdoc />
@@ -46,6 +46,17 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
 
+                    b.Property<string>("Moneda")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)")
+                        .HasDefaultValue("ARS");
+
+                    b.Property<decimal?>("PrecioReferencia")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("UnidadMedida")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -65,6 +76,8 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                             Activo = true,
                             Codigo = "MAT-CEM-001",
                             Descripcion = "Cemento Portland Normal (bolsa 50 kg)",
+                            Moneda = "ARS",
+                            PrecioReferencia = 8500.00m,
                             UnidadMedida = "BOLSA"
                         },
                         new
@@ -73,6 +86,8 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                             Activo = true,
                             Codigo = "MAT-CEM-002",
                             Descripcion = "Cemento de Albañilería Plasticor (bolsa 40 kg)",
+                            Moneda = "ARS",
+                            PrecioReferencia = 7200.00m,
                             UnidadMedida = "BOLSA"
                         },
                         new
@@ -81,6 +96,8 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                             Activo = true,
                             Codigo = "MAT-CAL-001",
                             Descripcion = "Cal Hidratada en Polvo (bolsa 25 kg)",
+                            Moneda = "ARS",
+                            PrecioReferencia = 4800.00m,
                             UnidadMedida = "BOLSA"
                         },
                         new
@@ -89,6 +106,8 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                             Activo = true,
                             Codigo = "MAT-ARI-001",
                             Descripcion = "Arena Gruesa Lavada de Río",
+                            Moneda = "ARS",
+                            PrecioReferencia = 28000.00m,
                             UnidadMedida = "M3"
                         },
                         new
@@ -97,6 +116,8 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                             Activo = true,
                             Codigo = "MAT-ARI-002",
                             Descripcion = "Piedra Partida Granítica 6-20 mm",
+                            Moneda = "ARS",
+                            PrecioReferencia = 42000.00m,
                             UnidadMedida = "M3"
                         },
                         new
@@ -105,6 +126,8 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                             Activo = true,
                             Codigo = "MAT-ARI-003",
                             Descripcion = "Cascote Picado Limpio de Ladrillo",
+                            Moneda = "ARS",
+                            PrecioReferencia = 19500.00m,
                             UnidadMedida = "M3"
                         },
                         new
@@ -113,6 +136,8 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                             Activo = true,
                             Codigo = "MAT-HIE-001",
                             Descripcion = "Hierro Conformado ADN 420 Ø 8 mm (barra 12 m)",
+                            Moneda = "ARS",
+                            PrecioReferencia = 9600.00m,
                             UnidadMedida = "UNIDAD"
                         },
                         new
@@ -121,6 +146,8 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                             Activo = true,
                             Codigo = "MAT-HIE-002",
                             Descripcion = "Hierro Conformado ADN 420 Ø 10 mm (barra 12 m)",
+                            Moneda = "ARS",
+                            PrecioReferencia = 14800.00m,
                             UnidadMedida = "UNIDAD"
                         },
                         new
@@ -129,6 +156,8 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                             Activo = true,
                             Codigo = "MAT-HIE-003",
                             Descripcion = "Hierro Conformado ADN 420 Ø 12 mm (barra 12 m)",
+                            Moneda = "ARS",
+                            PrecioReferencia = 21200.00m,
                             UnidadMedida = "UNIDAD"
                         },
                         new
@@ -137,6 +166,8 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                             Activo = true,
                             Codigo = "MAT-MAL-001",
                             Descripcion = "Malla Electrosoldada Standard Q188 15x15 cm 6 mm (panel 5x2.4 m)",
+                            Moneda = "ARS",
+                            PrecioReferencia = 68500.00m,
                             UnidadMedida = "UNIDAD"
                         },
                         new
@@ -145,8 +176,108 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                             Activo = true,
                             Codigo = "MAT-ALA-001",
                             Descripcion = "Alambre Negro Recocido de Atar Nº 16",
+                            Moneda = "ARS",
+                            PrecioReferencia = 3400.00m,
                             UnidadMedida = "KG"
                         });
+                });
+
+            modelBuilder.Entity("ObraSync.Requisiciones.Domain.Entities.Requisicion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AprobadorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasDefaultValue("Pendiente");
+
+                    b.Property<string>("Etapa")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("FechaAprobacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NumeroRequisicion")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("ObraId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("SolicitanteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NumeroRequisicion")
+                        .IsUnique();
+
+                    b.HasIndex("ObraId");
+
+                    b.ToTable("Requisiciones", (string)null);
+                });
+
+            modelBuilder.Entity("ObraSync.Requisiciones.Domain.Entities.RequisicionItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ArticuloId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<Guid>("RequisicionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UnidadMedida")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequisicionId");
+
+                    b.ToTable("RequisicionItems", (string)null);
+                });
+
+            modelBuilder.Entity("ObraSync.Requisiciones.Domain.Entities.RequisicionItem", b =>
+                {
+                    b.HasOne("ObraSync.Requisiciones.Domain.Entities.Requisicion", null)
+                        .WithMany("Items")
+                        .HasForeignKey("RequisicionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ObraSync.Requisiciones.Domain.Entities.Requisicion", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }
