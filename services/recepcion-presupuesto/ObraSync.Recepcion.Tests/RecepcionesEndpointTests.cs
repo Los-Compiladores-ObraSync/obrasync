@@ -152,7 +152,7 @@ public class RecepcionesEndpointTests : IClassFixture<RecepcionApiFactory>
         Assert.Empty(recepciones);
     }
 
-    [Fact(Skip = "BUG-REC-01: Serialización cíclica entre Recepcion y DetalleRecepcion genera System.Text.Json.JsonException (HTTP 500) en lugar de HTTP 200 OK con los detalles.")]
+    [Fact]
     public async Task GetRecepciones_ConDetallesRelacionados_DebeIncluirDetallesDeMateriales()
     {
         var obraId = Guid.NewGuid();

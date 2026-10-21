@@ -92,7 +92,7 @@ public class RecepcionesControllerTests
         });
     }
 
-    [Fact(Skip = "BUG-REC-01: Serialización cíclica entre Recepcion y DetalleRecepcion genera JsonException en System.Text.Json.")]
+    [Fact]
     public async Task ObtenerRecepciones_ConDetalles_DiagnosticoSerializacionCiclica()
     {
         using var db = CreateInMemoryContext($"Diagnostico_{Guid.NewGuid()}");
