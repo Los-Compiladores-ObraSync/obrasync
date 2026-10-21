@@ -72,10 +72,13 @@ public class JwtProviderTests
         jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Email)?.Value.Should().Be(usuario.Email);
         jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Name)?.Value.Should().Be(usuario.NombreCompleto);
         jwtToken.Claims.FirstOrDefault(c => c.Type == "role")?.Value.Should().Be(UserRoles.Capataz);
-        jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value.Should().NotBeNullOrEmpty();
 
-        // Validar Issuer y Audience
-        jwtToken.Issuer.Should().Be(_jwtSettings.Issuer);
-        jwtToken.Audiences.Should().Contain(_jwtSettings.Audience);
+        // El token es liviano, como pide el contrato: sin Issuer, Audience ni Jti
+        jwtToken.Issuer.Should().BeNullOrEmpty();
+        jwtToken.Audiences.Should().BeEmpty();
+        jwtToken.Claims.Should().NotContain(c => c.Type == JwtRegisteredClaimNames.Jti);
+
+        // Vence a los 60 minutos
+        jwtToken.ValidTo.Should().BeCloseTo(DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationMinutes), TimeSpan.FromMinutes(1));
     }
 }
