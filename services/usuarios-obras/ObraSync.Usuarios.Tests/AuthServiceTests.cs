@@ -6,6 +6,7 @@ using ObraSync.Usuarios.Application.Interfaces;
 using ObraSync.Usuarios.Application.Services;
 using ObraSync.Usuarios.Domain.Entities;
 using Xunit;
+using ObraSync.Usuarios.Domain.Exceptions;
 
 namespace ObraSync.Usuarios.Tests;
 
@@ -39,7 +40,7 @@ public class AuthServiceTests
     }
 
     [Fact]
-    public async Task RegistrarAsync_DeberiaLanzarInvalidOperationException_CuandoRolEsAdmin()
+    public async Task RegistrarAsync_DeberiaLanzarForbiddenException_CuandoRolEsAdmin()
     {
         // Arrange
         var request = new RegisterRequestDto("Juan Admin", "admin@test.com", "Password123!", UserRoles.Admin);
@@ -48,7 +49,7 @@ public class AuthServiceTests
         Func<Task> act = async () => await _authService.RegistrarAsync(request);
 
         // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
+        await act.Should().ThrowAsync<ForbiddenException>()
             .WithMessage("*No está permitido registrar cuentas con rol Admin*");
     }
 
