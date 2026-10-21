@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import {
@@ -31,27 +31,42 @@ export function AprobarRequisicionesPage() {
   const [errorAprobar, setErrorAprobar] = useState<string | null>(null)
   const [aprobada, setAprobada] = useState<string | null>(null)
 
-  const cargar = useCallback(async () => {
-    setCargando(true)
-    setErrorCarga(null)
-    try {
-      const [lista, obras] = await Promise.all([
-        listarRequisiciones({ estado: 'Pendiente' }),
-        // Si falla la lista de obras no es grave: se muestra el identificador.
-        obtenerObras().catch(() => []),
-      ])
-      setPendientes(lista)
-      setNombresObras(Object.fromEntries(obras.map((o) => [o.id, o.nombre])))
-    } catch {
-      setErrorCarga('No se pudieron cargar las requisiciones. Intentá nuevamente.')
-    } finally {
-      setCargando(false)
-    }
-  }, [])
+  // Cada vez que cambia "intento" se vuelve a pedir la lista (así funciona "Reintentar")
+  const [intento, setIntento] = useState(0)
 
   useEffect(() => {
+    let cancelado = false
+
+    async function cargar() {
+      try {
+        const [lista, obras] = await Promise.all([
+          listarRequisiciones({ estado: 'Pendiente' }),
+          // Si falla la lista de obras no es grave: se muestra el identificador.
+          obtenerObras().catch(() => []),
+        ])
+        if (cancelado) return
+        setPendientes(lista)
+        setNombresObras(Object.fromEntries(obras.map((o) => [o.id, o.nombre])))
+      } catch {
+        if (!cancelado) {
+          setErrorCarga('No se pudieron cargar las requisiciones. Intentá nuevamente.')
+        }
+      } finally {
+        if (!cancelado) setCargando(false)
+      }
+    }
+
     void cargar()
-  }, [cargar])
+    return () => {
+      cancelado = true
+    }
+  }, [intento])
+
+  function reintentar() {
+    setErrorCarga(null)
+    setCargando(true)
+    setIntento((n) => n + 1)
+  }
 
   async function aprobar(req: RequisicionResponseDto) {
     setAprobandoId(req.requisicionId)
@@ -73,7 +88,7 @@ export function AprobarRequisicionesPage() {
       <Link to="/compras" className={styles.volver}>
         ← Volver a Gestión y Compras
       </Link>
-      <h1>Aprobar requisiciones</h1>
+      <h1> Aprobar requisiciones </h1>
 
       {aprobada && (
         <p className={styles.exito} role="status">
@@ -86,14 +101,14 @@ export function AprobarRequisicionesPage() {
         </p>
       )}
 
-      {cargando && <p role="status">Cargando…</p>}
+      {cargando && <p role="status"> Cargando…</p>}
 
       {!cargando && errorCarga && (
         <div>
           <p className={styles.errorApi} role="alert">
             {errorCarga}
           </p>
-          <button type="button" onClick={() => void cargar()}>
+          <button type="button" onClick={reintentar}>
             Reintentar
           </button>
         </div>
@@ -107,12 +122,14 @@ export function AprobarRequisicionesPage() {
         <ul className={styles.lista}>
           {pendientes.map((req) => (
             <li key={req.requisicionId} className={styles.tarjeta}>
-              <h2 className={styles.numero}>{req.numeroRequisicion}</h2>
+              <h2 className={styles.numero}> {req.numeroRequisicion} </h2>
               <p className={styles.dato}>
                 Obra: {nombresObras[req.obraId] ?? req.obraId}
                 {req.etapa ? ` · Etapa: ${req.etapa}` : ''}
               </p>
-              {req.observaciones && <p className={styles.dato}>Observaciones: {req.observaciones}</p>}
+              {req.observaciones && (
+                <p className={styles.dato}> Observaciones: {req.observaciones} </p>
+              )}
               <ul className={styles.items}>
                 {req.items.map((it) => (
                   <li key={it.articuloId}>
