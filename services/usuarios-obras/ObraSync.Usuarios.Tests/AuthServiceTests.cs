@@ -1,12 +1,11 @@
-﻿using FluentAssertions;
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using NSubstitute;
 using ObraSync.Usuarios.Application.DTOs;
 using ObraSync.Usuarios.Application.Interfaces;
 using ObraSync.Usuarios.Application.Services;
 using ObraSync.Usuarios.Domain.Entities;
-using Xunit;
 using ObraSync.Usuarios.Domain.Exceptions;
+using Xunit;
 
 namespace ObraSync.Usuarios.Tests;
 
@@ -32,11 +31,10 @@ public class AuthServiceTests
         var request = new RegisterRequestDto("Juan Perez", "juan@test.com", "Password123!", "RolInexistente");
 
         // Act
-        Func<Task> act = async () => await _authService.RegistrarAsync(request);
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.RegistrarAsync(request));
 
         // Assert
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*no es válido*");
+        Assert.Contains("no es válido", ex.Message);
     }
 
     [Fact]
@@ -46,11 +44,10 @@ public class AuthServiceTests
         var request = new RegisterRequestDto("Juan Admin", "admin@test.com", "Password123!", UserRoles.Admin);
 
         // Act
-        Func<Task> act = async () => await _authService.RegistrarAsync(request);
+        var ex = await Assert.ThrowsAsync<ForbiddenException>(() => _authService.RegistrarAsync(request));
 
         // Assert
-        await act.Should().ThrowAsync<ForbiddenException>()
-            .WithMessage("*No está permitido registrar cuentas con rol Admin*");
+        Assert.Contains("No está permitido registrar cuentas con rol Admin", ex.Message);
     }
 
     [Fact]
@@ -62,11 +59,10 @@ public class AuthServiceTests
             .Returns(Task.FromResult<AppUser?>(new AppUser { Email = request.Email }));
 
         // Act
-        Func<Task> act = async () => await _authService.RegistrarAsync(request);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _authService.RegistrarAsync(request));
 
         // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Ya existe un usuario*");
+        Assert.Contains("Ya existe un usuario", ex.Message);
     }
 
     [Fact]
@@ -85,8 +81,8 @@ public class AuthServiceTests
         var result = await _authService.GetCapatacesActivosAsync();
 
         // Assert
-        result.Should().HaveCount(1);
-        result.First().NombreCompleto.Should().Be("Carlos Capataz");
+        var unico = Assert.Single(result);
+        Assert.Equal("Carlos Capataz", unico.NombreCompleto);
     }
 
     [Fact]
@@ -114,10 +110,10 @@ public class AuthServiceTests
         var result = await _authService.RegistrarAsync(request);
 
         // Assert
-        result.Should().NotBeNull();
-        result.Email.Should().Be(request.Email);
-        result.Token.Should().Be("fake-jwt-token");
-        result.Roles.Should().Contain(UserRoles.Capataz);
+        Assert.NotNull(result);
+        Assert.Equal(request.Email, result.Email);
+        Assert.Equal("fake-jwt-token", result.Token);
+        Assert.Contains(UserRoles.Capataz, result.Roles);
     }
 
     [Fact]
@@ -128,11 +124,10 @@ public class AuthServiceTests
         _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(null));
 
         // Act
-        Func<Task> act = async () => await _authService.LoginAsync(request);
+        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _authService.LoginAsync(request));
 
         // Assert
-        await act.Should().ThrowAsync<UnauthorizedAccessException>()
-            .WithMessage("*Credenciales inválidas*");
+        Assert.Contains("Credenciales inválidas", ex.Message);
     }
 
     [Fact]
@@ -145,11 +140,10 @@ public class AuthServiceTests
         _userManager.CheckPasswordAsync(user, request.Password).Returns(Task.FromResult(false));
 
         // Act
-        Func<Task> act = async () => await _authService.LoginAsync(request);
+        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _authService.LoginAsync(request));
 
         // Assert
-        await act.Should().ThrowAsync<UnauthorizedAccessException>()
-            .WithMessage("*Credenciales inválidas*");
+        Assert.Contains("Credenciales inválidas", ex.Message);
     }
 
     [Fact]
@@ -168,9 +162,9 @@ public class AuthServiceTests
         var result = await _authService.LoginAsync(request);
 
         // Assert
-        result.Should().NotBeNull();
-        result.Email.Should().Be(request.Email);
-        result.Token.Should().Be("fake-jwt-token");
-        result.Roles.Should().Contain(UserRoles.Admin);
+        Assert.NotNull(result);
+        Assert.Equal(request.Email, result.Email);
+        Assert.Equal("fake-jwt-token", result.Token);
+        Assert.Contains(UserRoles.Admin, result.Roles);
     }
 }

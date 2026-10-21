@@ -1,5 +1,4 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
-using FluentAssertions;
 using Microsoft.Extensions.Options;
 using ObraSync.Usuarios.Domain.Entities;
 using ObraSync.Usuarios.Infrastructure.Services;
@@ -36,11 +35,8 @@ public class JwtProviderTests
             NombreCompleto = "Usuario Prueba"
         };
 
-        // Act - Ejecutamos la generación del token para forzar la validación de la clave
-        Action act = () => provider.GenerarToken(usuario, new[] { UserRoles.Admin });
-
-        // Assert
-        act.Should().Throw<Exception>();
+        // Act + Assert: ejecutamos la generación del token para forzar la validación de la clave
+        Assert.ThrowsAny<Exception>(() => provider.GenerarToken(usuario, new[] { UserRoles.Admin }));
     }
 
     [Fact]
@@ -62,23 +58,26 @@ public class JwtProviderTests
         var tokenString = provider.GenerarToken(usuario, roles);
 
         // Assert
-        tokenString.Should().NotBeNullOrEmpty();
+        Assert.False(string.IsNullOrEmpty(tokenString));
 
         var handler = new JwtSecurityTokenHandler();
         var jwtToken = handler.ReadJwtToken(tokenString);
 
-        // Validar claims
-        jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value.Should().Be(usuario.Id.ToString());
-        jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Email)?.Value.Should().Be(usuario.Email);
-        jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Name)?.Value.Should().Be(usuario.NombreCompleto);
-        jwtToken.Claims.FirstOrDefault(c => c.Type == "role")?.Value.Should().Be(UserRoles.Capataz);
+        string? Claim(string tipo) => jwtToken.Claims.FirstOrDefault(c => c.Type == tipo)?.Value;
+
+        // Claims del contrato
+        Assert.Equal(usuario.Id.ToString(), Claim(JwtRegisteredClaimNames.Sub));
+        Assert.Equal(usuario.Email, Claim(JwtRegisteredClaimNames.Email));
+        Assert.Equal(usuario.NombreCompleto, Claim(JwtRegisteredClaimNames.Name));
+        Assert.Equal(UserRoles.Capataz, Claim("role"));
 
         // El token es liviano, como pide el contrato: sin Issuer, Audience ni Jti
-        jwtToken.Issuer.Should().BeNullOrEmpty();
-        jwtToken.Audiences.Should().BeEmpty();
-        jwtToken.Claims.Should().NotContain(c => c.Type == JwtRegisteredClaimNames.Jti);
+        Assert.True(string.IsNullOrEmpty(jwtToken.Issuer));
+        Assert.Empty(jwtToken.Audiences);
+        Assert.DoesNotContain(jwtToken.Claims, c => c.Type == JwtRegisteredClaimNames.Jti);
 
-        // Vence a los 60 minutos
-        jwtToken.ValidTo.Should().BeCloseTo(DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationMinutes), TimeSpan.FromMinutes(1));
+        // Vence a los 60 minutos (con un minuto de margen)
+        var esperado = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationMinutes);
+        Assert.InRange(jwtToken.ValidTo, esperado.AddMinutes(-1), esperado.AddMinutes(1));
     }
 }
