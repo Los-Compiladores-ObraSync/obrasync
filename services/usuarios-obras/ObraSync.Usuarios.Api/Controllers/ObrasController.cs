@@ -39,7 +39,9 @@ namespace ObraSync.Usuarios.Api.Controllers
             {
                 Nombre = dto.Nombre,
                 Ubicacion = dto.Ubicacion,
-                FechaInicio = DateTime.UtcNow,
+                FechaInicio = dto.FechaInicio.HasValue && dto.FechaInicio.Value != default
+                    ? dto.FechaInicio.Value
+                    : DateTime.UtcNow,
                 CapatazId = dto.CapatazId
             };
 

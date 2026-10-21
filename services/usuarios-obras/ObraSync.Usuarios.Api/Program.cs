@@ -88,7 +88,18 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddControllers();
 
 // <-- NUEVO: Registra el servicio para estandarizar errores vacíos a ProblemDetails
-builder.Services.AddProblemDetails();
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = context =>
+    {
+        var httpContext = context.HttpContext;
+        var correlationId = httpContext.Request.Headers["X-Correlation-ID"].FirstOrDefault()
+                            ?? httpContext.TraceIdentifier;
+
+        context.ProblemDetails.Extensions["correlationId"] = correlationId;
+        httpContext.Response.ContentType = "application/problem+json";
+    };
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>

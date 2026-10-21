@@ -318,6 +318,11 @@
             "type": "string",
             "nullable": true
           },
+          "fechaInicio": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha programada o real de inicio de obra (opcional, por defecto fecha del servidor)"
+          },
           "capatazId": {
             "type": "string",
             "format": "uuid"

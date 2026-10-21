@@ -10,6 +10,7 @@ namespace ObraSync.Usuarios.Application.DTOs
     {
         public string Nombre { get; set; } = string.Empty;
         public string Ubicacion { get; set; } = string.Empty;
+        public DateTime? FechaInicio { get; set; }
         public Guid CapatazId { get; set; } // ID del usuario con rol Capataz asignado
         public List<string> FasesEtapas { get; set; } = new List<string>(); // Ej: ["Cimientos", "Estructura"]
     }
