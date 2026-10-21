@@ -2,6 +2,7 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ObraSync.Contracts.Events;
+using Microsoft.Data.SqlClient;
 
 namespace ObraSync.Licitaciones.Infrastructure.Consumers;
 
@@ -47,7 +48,7 @@ public class RequisicionAprobadaConsumer : IConsumer<RequisicionAprobadaEvent>
         {
             await _db.SaveChangesAsync();
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
         {
             // Dos copias llegaron a la vez: el índice único frenó la segunda
             _logger.LogInformation("Evento {EventId} duplicado (índice único), se descarta", msg.EventId);
