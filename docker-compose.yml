@@ -86,8 +86,13 @@ services:
       # Este servicio lee la cadena con el nombre "DbLicit" (no "DefaultConnection").
       ConnectionStrings__DbLicit: "Server=sqlserver;Database=DB_Licit;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True;"
       Jwt__Secret: ${JWT_SECRET:?Falta JWT_SECRET en el archivo .env}
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: ${RABBITMQ_USER:-guest}
+      RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
     depends_on:
       sqlserver:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   recepcion-presupuesto-api:
