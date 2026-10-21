@@ -45,7 +45,7 @@
       },
       "post": {
         "tags": ["Licitaciones"],
-        "summary": "Publicar un pliego a partir de una requisición aprobada (Roles: Comprador, Admin)",
+        "summary": "Publicar un pliego a partir de una requisición aprobada, con el plazo para cotizar (Roles: Comprador, Admin). 404 si la requisición no existe, 400 si no está aprobada o la fecha límite no es futura.",
         "requestBody": {
           "required": true,
           "content": {
@@ -211,21 +211,31 @@
         "additionalProperties": false
       },
       "CrearLicitacionRequestDto": {
-        "type": "object",
-        "required": ["requisicionId"],
-        "properties": {
-          "requisicionId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Identificador de la requisición aprobada que origina el pliego."
-          }
-        },
-        "additionalProperties": false
+  "type": "object",
+  "required": ["requisicionId", "fechaLimiteCotizacion"],
+  "properties": {
+    "requisicionId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de la requisición aprobada que origina el pliego."
+    },
+    "fechaLimiteCotizacion": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha y hora límite (UTC) hasta la cual los proveedores pueden cargar cotizaciones. Debe ser posterior al momento de publicación."
+      }
+  },
+      "additionalProperties": false
       },
       "LicitacionResponseDto": {
         "type": "object",
-        "required": ["licitacionId", "requisicionId", "obraId", "estado", "fechaCreacion", "items"],
+        "required": ["licitacionId", "requisicionId", "obraId", "estado", "fechaCreacion", "fechaLimiteCotizacion", "items"],
         "properties": {
+          "fechaLimiteCotizacion": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha y hora límite (UTC) para cargar cotizaciones, definida por el Comprador al publicar el pliego."
+          },
           "licitacionId": {
             "type": "string",
             "format": "uuid",
