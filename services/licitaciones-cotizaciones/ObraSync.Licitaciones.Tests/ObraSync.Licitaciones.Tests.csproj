@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ObraSync.Licitaciones.Api\ObraSync.Licitaciones.Api.csproj" />
+    <ProjectReference Include="..\ObraSync.Licitaciones.Domain\ObraSync.Licitaciones.Domain.csproj" />
   </ItemGroup>
 
 </Project>
