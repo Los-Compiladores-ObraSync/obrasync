@@ -74,6 +74,79 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
                     b.ToTable("DetallesRecepcion", (string)null);
                 });
 
+            modelBuilder.Entity("ObraSync.Recepcion.Domain.Entities.OrdenCompra", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Etapa")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("MontoTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("ObraId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProveedorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ObraId");
+
+                    b.ToTable("OrdenesCompra", (string)null);
+                });
+
+            modelBuilder.Entity("ObraSync.Recepcion.Domain.Entities.OrdenCompraItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ArticuloId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Descripcion")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("OrdenCompraId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("PrecioUnitario")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("UnidadMedida")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrdenCompraId", "ArticuloId");
+
+                    b.ToTable("OrdenesCompraItems", (string)null);
+                });
+
             modelBuilder.Entity("ObraSync.Recepcion.Domain.Entities.PartidaPresupuestaria", b =>
                 {
                     b.Property<Guid>("Id")
@@ -170,6 +243,33 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
                     b.ToTable("Recepciones", (string)null);
                 });
 
+            modelBuilder.Entity("ObraSync.Recepcion.Infrastructure.Persistence.EventoProcesado", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ProcesadoEn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TipoEvento")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId")
+                        .IsUnique();
+
+                    b.ToTable("EventosProcesados", (string)null);
+                });
+
             modelBuilder.Entity("ObraSync.Recepcion.Domain.Entities.DetalleRecepcion", b =>
                 {
                     b.HasOne("ObraSync.Recepcion.Domain.Entities.Recepcion", "Recepcion")
@@ -179,6 +279,22 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Recepcion");
+                });
+
+            modelBuilder.Entity("ObraSync.Recepcion.Domain.Entities.OrdenCompraItem", b =>
+                {
+                    b.HasOne("ObraSync.Recepcion.Domain.Entities.OrdenCompra", "OrdenCompra")
+                        .WithMany("Items")
+                        .HasForeignKey("OrdenCompraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("OrdenCompra");
+                });
+
+            modelBuilder.Entity("ObraSync.Recepcion.Domain.Entities.OrdenCompra", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("ObraSync.Recepcion.Domain.Entities.Recepcion", b =>

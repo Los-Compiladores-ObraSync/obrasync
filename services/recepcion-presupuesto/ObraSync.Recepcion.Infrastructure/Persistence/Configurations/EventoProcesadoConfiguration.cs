@@ -15,7 +15,8 @@ public class EventoProcesadoConfiguration : IEntityTypeConfiguration<EventoProce
             .UseIdentityColumn();
 
         builder.Property(e => e.TipoEvento)
-            .IsRequired();
+            .IsRequired()
+            .HasMaxLength(100);
 
         builder.Property(e => e.ProcesadoEn)
             .IsRequired();
