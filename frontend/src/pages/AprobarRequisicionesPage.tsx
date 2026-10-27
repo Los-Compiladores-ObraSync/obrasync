@@ -7,6 +7,7 @@ import {
   obtenerObras,
 } from '../requisiciones/requisicionesService'
 import type { RequisicionResponseDto } from '../requisiciones/requisicionesTipos'
+import { usePendientes } from '../notificaciones/usePendientes'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './AprobarRequisicionesPage.module.css'
 
@@ -30,6 +31,7 @@ export function AprobarRequisicionesPage() {
   const [aprobandoId, setAprobandoId] = useState<string | null>(null)
   const [errorAprobar, setErrorAprobar] = useState<string | null>(null)
   const [aprobada, setAprobada] = useState<string | null>(null)
+  const { refrescar: refrescarCampana } = usePendientes()
 
   // Cada vez que cambia "intento" se vuelve a pedir la lista (así funciona "Reintentar")
   const [intento, setIntento] = useState(0)
@@ -76,6 +78,8 @@ export function AprobarRequisicionesPage() {
       const resultado = await aprobarRequisicion(req.requisicionId)
       setPendientes((actuales) => actuales.filter((r) => r.requisicionId !== req.requisicionId))
       setAprobada(resultado.numeroRequisicion)
+      // La campana del encabezado tiene que bajar el número enseguida.
+      refrescarCampana()
     } catch (err) {
       setErrorAprobar(mensajeDeErrorAprobar(err))
     } finally {

@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/useAuth'
-import { CampanaNotificaciones } from '../notificaciones/CampanaNotificaciones'
+import { CampanaConPendientes } from '../notificaciones/CampanaConPendientes'
+import { PendientesProvider } from '../notificaciones/PendientesProvider'
 import { portalesParaRol } from '../portales/portales'
 import styles from './LayoutApp.module.css'
 
@@ -15,7 +16,7 @@ export function LayoutApp() {
   const portales = usuario ? portalesParaRol(usuario.rol) : []
 
   return (
-    <>
+    <PendientesProvider>
       <header className="app-encabezado">
         <div className={styles.barra}>
           <span className={`app-marca ${styles.marca}`}>
@@ -23,7 +24,7 @@ export function LayoutApp() {
             OBRA<span>SYNC</span>
           </span>
           <div className={styles.acciones}>
-        <CampanaNotificaciones />
+            <CampanaConPendientes />
             <button type="button" className={styles.salir} onClick={logout}>
               Cerrar sesión
             </button>
@@ -51,6 +52,6 @@ export function LayoutApp() {
       <main className="app-contenido">
         <Outlet />
       </main>
-    </>
+    </PendientesProvider>
   )
 }
