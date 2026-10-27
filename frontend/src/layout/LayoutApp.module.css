@@ -21,6 +21,12 @@
     margin-right: 0.75rem;
 }
 
+.acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .salir {
   box-shadow: none;
   min-height: 48px;

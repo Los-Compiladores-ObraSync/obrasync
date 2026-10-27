@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/useAuth'
+import { CampanaNotificaciones } from '../notificaciones/CampanaNotificaciones'
 import { portalesParaRol } from '../portales/portales'
 import styles from './LayoutApp.module.css'
 
@@ -21,9 +22,12 @@ export function LayoutApp() {
             <img src="/pwa-512x512.png" alt="" className={styles.logo} />
             OBRA<span>SYNC</span>
           </span>
-          <button type="button" className={styles.salir} onClick={logout}>
-            Cerrar sesión
-          </button>
+          <div className={styles.acciones}>
+        <CampanaNotificaciones />
+            <button type="button" className={styles.salir} onClick={logout}>
+              Cerrar sesión
+            </button>
+          </div>
         </div>
 
         <nav aria-label="Menú principal" className={styles.menu}>
