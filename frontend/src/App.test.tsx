@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
 import { setToken } from './api/client'
 import { STORAGE_KEY } from './auth/sessionContext'
+import { reiniciarRequisicionesMock } from './mocks/handlers'
 import { PORTALES } from './portales/portales'
 
 // <App /> declara las rutas pero no trae Router: acá usamos MemoryRouter,
@@ -224,5 +225,44 @@ describe('App - alta de obra', () => {
     renderApp('/compras/obras/nueva')
 
     expect(screen.getByRole('heading', { level: 1, name: 'Iniciar sesión' })).toBeInTheDocument()
+  })
+})
+
+describe('App - campana de notificaciones', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setToken(null)
+    reiniciarRequisicionesMock()
+  })
+
+  it('el Comprador ve cuántas requisiciones esperan su aprobación', async () => {
+    iniciarSesionComo('Comprador')
+    renderApp('/')
+
+    expect(
+      await screen.findByRole('button', { name: 'Notificaciones: 2 sin leer' }),
+    ).toBeInTheDocument()
+  })
+
+  it('el Capataz ve la campana sin número', () => {
+    iniciarSesionComo('Capataz')
+    renderApp('/')
+
+    expect(
+      screen.getByRole('button', { name: 'Notificaciones: sin avisos' }),
+    ).toBeInTheDocument()
+  })
+
+  it('al aprobar una requisición el número de la campana baja', async () => {
+    const usuario = userEvent.setup()
+    iniciarSesionComo('Comprador')
+    renderApp('/compras/requisiciones')
+
+    await screen.findByRole('button', { name: 'Notificaciones: 2 sin leer' })
+    await usuario.click(screen.getByRole('button', { name: 'Aprobar REQ-2026-0011' }))
+
+    expect(
+      await screen.findByRole('button', { name: 'Notificaciones: 1 sin leer' }),
+    ).toBeInTheDocument()
   })
 })
