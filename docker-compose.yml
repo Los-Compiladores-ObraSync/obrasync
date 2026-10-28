@@ -105,8 +105,13 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=DB_Recepcion;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True;"
       Jwt__Secret: ${JWT_SECRET:?Falta JWT_SECRET en el archivo .env}
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: ${RABBITMQ_USER:-guest}
+      RabbitMQ__Password: ${RABBITMQ_PASS:-guest}
     depends_on:
       sqlserver:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   # ── API Gateway (YARP) ─────────────────────────────────────────────────────

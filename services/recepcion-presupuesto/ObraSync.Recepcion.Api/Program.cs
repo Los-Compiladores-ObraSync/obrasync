@@ -1,4 +1,5 @@
 using System.Text;
+using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -14,6 +15,38 @@ builder.Services.AddSwaggerGen();
 
 // Persistencia y base de datos DB_Recepcion
 builder.Services.AddInfrastructureServices(builder.Configuration);
+
+// RabbitMQ + MassTransit (misma convención que Requisiciones y Licitaciones)
+var useInMemoryTransport = string.Equals(
+    builder.Configuration["RabbitMQ:UseInMemory"],
+    "true",
+    StringComparison.OrdinalIgnoreCase);
+
+builder.Services.AddMassTransit(x =>
+{
+    if (useInMemoryTransport)
+    {
+        x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+    }
+    else
+    {
+        x.UsingRabbitMq((context, cfg) =>
+        {
+            var host = builder.Configuration["RabbitMQ:Host"] ?? "localhost";
+            var virtualHost = builder.Configuration["RabbitMQ:VirtualHost"] ?? "/";
+            var username = builder.Configuration["RabbitMQ:Username"] ?? "guest";
+            var password = builder.Configuration["RabbitMQ:Password"] ?? "guest";
+
+            cfg.Host(host, virtualHost, h =>
+            {
+                h.Username(username);
+                h.Password(password);
+            });
+
+            cfg.ConfigureEndpoints(context);
+        });
+    }
+});
 
 // Formato de errores estándar RFC 7807 (ProblemDetails) con propagación del CorrelationId de YARP
 builder.Services.AddProblemDetails(options =>
