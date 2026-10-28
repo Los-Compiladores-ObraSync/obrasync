@@ -2,7 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ObraSync.Recepcion.Application.Common.Interfaces;
+using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Infrastructure.Persistence;
+using ObraSync.Recepcion.Infrastructure.Persistence.Repositories;
 
 namespace ObraSync.Recepcion.Infrastructure;
 
@@ -18,6 +20,7 @@ public static class DependencyInjection
             options.UseSqlServer(connectionString, b => b.MigrationsAssembly(typeof(RecepcionDbContext).Assembly.FullName)));
 
         services.AddScoped<IRecepcionDbContext>(provider => provider.GetRequiredService<RecepcionDbContext>());
+        services.AddScoped<IOrdenCompraRepository, OrdenCompraRepository>();
 
         return services;
     }
