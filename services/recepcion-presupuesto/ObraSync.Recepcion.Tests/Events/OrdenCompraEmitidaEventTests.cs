@@ -33,6 +33,9 @@ public class OrdenCompraEmitidaEventTests
             .Select(t => t.FullName ?? t.Name)
             .ToList();
 
+        // Verificación de versión exacta de MassTransit (8.5.12.0)
+        Assert.Equal(new Version(8, 5, 12, 0), massTransitAssembly.GetName().Version);
+
         // Se confirma que SystemTextJsonConstant NO existe en MassTransit 8.5.12
         Assert.DoesNotContain(exportedTypes, name => name.Contains("SystemTextJsonConstant", StringComparison.OrdinalIgnoreCase));
     }
@@ -113,11 +116,8 @@ public class OrdenCompraEmitidaEventTests
         }
         """;
 
-        // Vía 1: Con opciones explícitas que exigen UnmappedMemberHandling.Disallow
-        Assert.Throws<JsonException>(() =>
-            JsonSerializer.Deserialize<OrdenCompraEmitidaEvent>(jsonConExtra, _jsonOptions));
-
-        // Vía 2: Opciones por defecto (demuestra que el atributo de clase [JsonUnmappedMemberHandling(Disallow)] hace efecto)
+        // Deserialización con opciones por defecto (sin UnmappedMemberHandling):
+        // El rechazo con JsonException depende EXCLUSIVAMENTE del atributo [JsonUnmappedMemberHandling(Disallow)]
         var optionsDefault = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         Assert.Throws<JsonException>(() =>
             JsonSerializer.Deserialize<OrdenCompraEmitidaEvent>(jsonConExtra, optionsDefault));
