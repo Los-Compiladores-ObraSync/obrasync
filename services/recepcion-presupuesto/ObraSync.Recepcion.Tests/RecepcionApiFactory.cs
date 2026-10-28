@@ -20,6 +20,7 @@ public class RecepcionApiFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
         builder.UseSetting("Jwt:Secret", TestJwtSecret);
         builder.UseSetting("ConnectionStrings:DefaultConnection", "Server=localhost,1433;Database=DB_Test;User Id=sa;Password=no-usada;TrustServerCertificate=True;");
+        builder.UseSetting("RabbitMQ:UseInMemory", "true");
 
         builder.ConfigureServices(services =>
         {

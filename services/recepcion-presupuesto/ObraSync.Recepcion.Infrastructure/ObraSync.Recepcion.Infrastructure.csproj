@@ -3,6 +3,8 @@
   <ItemGroup>
     <ProjectReference Include="..\ObraSync.Recepcion.Domain\ObraSync.Recepcion.Domain.csproj" />
     <ProjectReference Include="..\ObraSync.Recepcion.Application\ObraSync.Recepcion.Application.csproj" />
+    <PackageReference Include="MassTransit" Version="8.5.12" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.12" />
   </ItemGroup>
 
   <ItemGroup>
