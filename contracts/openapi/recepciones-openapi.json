@@ -14,11 +14,12 @@
   "paths": {
     "/api/recepciones": {
       "get": {
+        "security": [{ "bearerAuth": [] }],
         "tags": [
           "Recepciones"
         ],
         "summary": "Consultar recepciones",
-        "description": "Obtiene las recepciones registradas y sus materiales. Permite filtrar por obra.",
+        "description": "Obtiene las recepciones registradas y sus materiales. Permite filtrar por obra. Roles permitidos: Capataz, Comprador y Admin.",
         "parameters": [
           {
             "name": "obraId",
@@ -44,6 +45,12 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Unauthorized (token ausente o invalido)."
+          },
+          "403": {
+            "description": "Forbidden (rol no autorizado)."
           }
         }
       },
@@ -82,6 +89,13 @@
     }
   },
   "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
     "schemas": {
       "CrearRecepcionRequest": {
         "type": "object",

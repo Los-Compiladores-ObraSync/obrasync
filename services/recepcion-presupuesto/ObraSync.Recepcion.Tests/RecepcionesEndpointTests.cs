@@ -18,6 +18,26 @@ public class RecepcionesEndpointTests : IClassFixture<RecepcionApiFactory>
         _factory = factory;
     }
 
+    [Theory]
+    [InlineData("Capataz", HttpStatusCode.OK)]
+    [InlineData("Comprador", HttpStatusCode.OK)]
+    [InlineData("Admin", HttpStatusCode.OK)]
+    [InlineData("Proveedor", HttpStatusCode.Forbidden)]
+    public async Task GetRecepciones_SegunRol_DevuelveRespuestaEsperada(
+        string rol,
+        HttpStatusCode codigoEsperado)
+    {
+        using var client = _factory.CreateClient();
+
+        var token = RecepcionApiFactory.CreateToken(role: rol);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
+
+        var respuesta = await client.GetAsync("/api/Recepciones");
+
+        Assert.Equal(codigoEsperado, respuesta.StatusCode);
+    }
     [Fact]
     public async Task GetRecepciones_SinToken_DebeRetornar401Unauthorized()
     {

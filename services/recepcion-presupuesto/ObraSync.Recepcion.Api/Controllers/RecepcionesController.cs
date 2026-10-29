@@ -22,6 +22,7 @@ public class RecepcionesController : ControllerBase
     /// <summary>
     /// Obtiene las recepciones registradas, opcionalmente filtradas por ObraId (GUID externo de Usuarios y Obras).
     /// </summary>
+    [Authorize(Roles = "Capataz,Comprador,Admin")]
     [HttpGet]
     public async Task<IActionResult> ObtenerRecepciones([FromQuery] Guid? obraId, CancellationToken cancellationToken)
     {
