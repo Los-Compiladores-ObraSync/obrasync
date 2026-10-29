@@ -1,3 +1,4 @@
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ObraSync.Recepcion.Domain.Entities;
@@ -27,7 +28,16 @@ public class RecepcionConfiguration : IEntityTypeConfiguration<Domain.Entities.R
         // NOTA: ObraId y OrdenCompraId son GUIDs de otros microservicios (Database-per-Service).
         // NO se configuran Foreign Keys hacia otras bases de datos.
         builder.HasIndex(r => r.ObraId);
-        builder.HasIndex(r => r.OrdenCompraId);
+
+        // Solo puede existir una recepción completa por orden de compra.
+        builder.HasIndex(r => r.OrdenCompraId)
+            .IsUnique()
+            .HasFilter("[Estado] = 3");
+
+        // No se puede repetir un número de remito para la misma OC.
+        builder.HasIndex(r => new { r.OrdenCompraId, r.NumeroRemito })
+            .IsUnique();
+
         builder.HasIndex(r => r.RecepcionadoPorUsuarioId);
 
         // Relación 1 a N INTERNA dentro del mismo microservicio y base (DB_Recepcion)

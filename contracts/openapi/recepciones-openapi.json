@@ -1,9 +1,10 @@
-﻿{
+﻿
+{
   "openapi": "3.0.4",
   "info": {
     "title": "ObraSync - Recepción y Presupuesto",
     "version": "1.0.0",
-    "description": "Contrato OpenAPI de recepciones y remitos. Incluye la consulta existente y la propuesta de registro para integración con el frontend."
+    "description": "Contrato OpenAPI para consultar recepciones y registrar entregas completas con remito digital."
   },
   "tags": [
     {
@@ -51,8 +52,13 @@
         "tags": [
           "Recepciones"
         ],
-        "summary": "Registrar una recepción de materiales",
-        "description": "Operación propuesta para registrar una recepción con remito. Se documenta en Sprint 1 para permitir el trabajo del frontend con respuestas simuladas. Su implementación queda para un sprint posterior.",
+        "summary": "Registrar una recepción total de materiales",
+        "description": "Registra una recepción completa contra una orden de compra existente. Todas las cantidades recibidas deben coincidir con las compradas. Las entregas parciales se rechazan en este sprint. El usuario receptor se obtiene del claim sub del JWT. Solo pueden registrar recepciones los roles Capataz y Admin.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -65,7 +71,7 @@
         },
         "responses": {
           "201": {
-            "description": "Recepción registrada correctamente.",
+            "description": "Recepción completa registrada correctamente.",
             "content": {
               "application/json": {
                 "schema": {
@@ -75,21 +81,70 @@
             }
           },
           "400": {
-            "description": "Los datos enviados no son válidos."
+            "description": "Datos inválidos, orden de compra inexistente, artículo ajeno a la OC, cantidades incorrectas o entrega parcial.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No se proporcionó un token válido."
+          },
+          "403": {
+            "description": "El usuario no tiene el rol Capataz o Admin."
+          },
+          "409": {
+            "description": "La orden de compra ya fue recibida por completo o el número de remito está repetido para esa OC.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
     }
   },
   "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
     "schemas": {
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          }
+        }
+      },
       "CrearRecepcionRequest": {
         "type": "object",
-        "description": "Datos necesarios para registrar una recepción de materiales con su remito.",
+        "description": "Datos para registrar una recepción completa. El identificador del usuario receptor se obtiene del JWT y no se envía en el cuerpo.",
         "required": [
           "obraId",
           "ordenCompraId",
-          "recepcionadoPorUsuarioId",
           "numeroRemito",
           "fechaRecepcion",
           "detalles"
@@ -100,10 +155,6 @@
             "format": "uuid"
           },
           "ordenCompraId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "recepcionadoPorUsuarioId": {
             "type": "string",
             "format": "uuid"
           },
