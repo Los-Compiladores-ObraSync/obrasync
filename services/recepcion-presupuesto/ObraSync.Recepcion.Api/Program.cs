@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ObraSync.Recepcion.Infrastructure;
+using ObraSync.Recepcion.Infrastructure.Consumers;
 using ObraSync.Recepcion.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +25,7 @@ var useInMemoryTransport = string.Equals(
 
 builder.Services.AddMassTransit(x =>
 {
+    x.AddConsumer<OrdenCompraEmitidaConsumer>();
     if (useInMemoryTransport)
     {
         x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
