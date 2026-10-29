@@ -236,9 +236,14 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ObraId");
 
-                    b.HasIndex("OrdenCompraId");
+                    b.HasIndex("OrdenCompraId")
+                        .IsUnique()
+                        .HasFilter("[Estado] = 3");
 
                     b.HasIndex("RecepcionadoPorUsuarioId");
+
+                    b.HasIndex("OrdenCompraId", "NumeroRemito")
+                        .IsUnique();
 
                     b.ToTable("Recepciones", (string)null);
                 });
