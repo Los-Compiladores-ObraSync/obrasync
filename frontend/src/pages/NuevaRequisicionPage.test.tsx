@@ -1,11 +1,12 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http, HttpResponse } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setToken } from '../api/client'
 import { STORAGE_KEY } from '../auth/sessionContext'
 import { server } from '../mocks/server'
+import { ESPERA_BUSQUEDA_MS } from '../requisiciones/configuracionBusqueda'
 import { NuevaRequisicionPage } from './NuevaRequisicionPage'
 
 const OBRA_ID = 'b1b2c3d4-0000-0000-0000-0000000000a1'
@@ -497,5 +498,184 @@ describe('NuevaRequisicionPage - búsqueda de insumos', () => {
     expect(
       await screen.findByText('No se pudo buscar insumos. Intentá de nuevo.'),
     ).toBeInTheDocument()
+  })
+})
+
+describe('NuevaRequisicionPage - búsqueda con espera (#58)', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setToken(null)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  async function abrirPagina() {
+    iniciarSesionCapataz()
+    const user = userEvent.setup()
+    renderPagina()
+    await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' })
+    return user
+  }
+
+  it('no pide en cada letra: espera una pausa antes de llamar al servidor', async () => {
+    const pedidos: string[] = []
+    server.use(
+      http.get('*/api/catalogo/insumos', ({ request }) => {
+        const texto = new URL(request.url).searchParams.get('search')
+        if (texto) pedidos.push(texto)
+        return undefined // sigue con el mock de siempre
+      }),
+    )
+    await abrirPagina()
+
+    // Desde acá el reloj es simulado: el tiempo solo avanza cuando lo decimos.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const buscador = screen.getByLabelText('Buscar insumo')
+    fireEvent.change(buscador, { target: { value: 'c' } })
+    fireEvent.change(buscador, { target: { value: 'ca' } })
+    fireEvent.change(buscador, { target: { value: 'cal' } })
+
+    expect(pedidos).toEqual([]) // todavía no pasó la pausa
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ESPERA_BUSQUEDA_MS)
+    })
+
+    // Vuelve el reloj real para esperar la respuesta del servidor simulado.
+    vi.useRealTimers()
+    await waitFor(() => expect(pedidos).toEqual(['cal'])) // una sola llamada, no tres
+  })
+
+  it('avisa cuando no hay insumos que coincidan', async () => {
+    server.use(
+      http.get('*/api/catalogo/insumos', ({ request }) => {
+        if (new URL(request.url).searchParams.get('search')) {
+          return HttpResponse.json([])
+        }
+        return undefined
+      }),
+    )
+    const user = await abrirPagina()
+
+    await user.type(screen.getByLabelText('Buscar insumo'), 'zzz')
+
+    expect(
+      await screen.findByText('No encontramos insumos con ese nombre'),
+    ).toBeInTheDocument()
+  })
+
+  it('el botón Limpiar borra la búsqueda, devuelve el foco y vuelve el catálogo completo', async () => {
+    const user = await abrirPagina()
+    const buscador = screen.getByLabelText('Buscar insumo')
+    expect(screen.queryByRole('button', { name: 'Limpiar búsqueda' })).not.toBeInTheDocument()
+
+    await user.type(buscador, 'arena')
+    await waitFor(() =>
+      expect(screen.queryByRole('option', { name: /Cemento/ })).not.toBeInTheDocument(),
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Limpiar búsqueda' }))
+
+    expect(buscador).toHaveValue('')
+    expect(buscador).toHaveFocus()
+    expect(await screen.findByRole('option', { name: /Cemento/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Limpiar búsqueda' })).not.toBeInTheDocument()
+  })
+
+  it('ignora la respuesta de una búsqueda vieja si ya salió otra', async () => {
+    server.use(
+      http.get('*/api/catalogo/insumos', async ({ request }) => {
+        if (new URL(request.url).searchParams.get('search') === 'ce') {
+          await delay(800) // esta contesta tarde, cuando ya se buscó otra cosa
+          return HttpResponse.json([
+            {
+              articuloId: ARTICULO_CEMENTO_ID,
+              codigo: 'MAT-CEM-001',
+              descripcion: 'Cemento Portland Especial 50kg',
+              unidadMedida: 'BOLSA',
+              moneda: 'ARS',
+              activo: true,
+            },
+          ])
+        }
+        return undefined
+      }),
+    )
+    const user = await abrirPagina()
+    const buscador = screen.getByLabelText('Buscar insumo')
+
+    await user.type(buscador, 'ce')
+    await new Promise((r) => setTimeout(r, ESPERA_BUSQUEDA_MS + 100)) // sale la consulta lenta
+    await user.clear(buscador)
+    await user.type(buscador, 'ar')
+
+    await waitFor(() =>
+      expect(screen.queryByRole('option', { name: /Cemento/ })).not.toBeInTheDocument(),
+    )
+    expect(screen.getByRole('option', { name: /Arena Fina/ })).toBeInTheDocument()
+
+    await new Promise((r) => setTimeout(r, 900)) // llega la respuesta vieja
+
+    expect(screen.queryByRole('option', { name: /Cemento/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Arena Fina/ })).toBeInTheDocument()
+  }, 15000)
+})
+
+describe('NuevaRequisicionPage - resultados a la vista', () => {
+  const ARTICULO_ARENA_ID = 'c1c2c3c4-0000-0000-0000-000000000002'
+
+  beforeEach(() => {
+    localStorage.clear()
+    setToken(null)
+  })
+
+  async function abrirPagina() {
+    iniciarSesionCapataz()
+    const user = userEvent.setup()
+    renderPagina()
+    await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' })
+    return user
+  }
+
+  it('muestra los resultados debajo del buscador, con la cantidad encontrada', async () => {
+    const user = await abrirPagina()
+
+    await user.type(screen.getByLabelText('Buscar insumo'), 'cemento')
+
+    expect(await screen.findByText(/1 insumo encontrado\./)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /MAT-CEM-001/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /MAT-ARE-001/ })).not.toBeInTheDocument()
+  })
+
+  it('al tocar un resultado lo pone en la primera fila sin insumo', async () => {
+    const user = await abrirPagina()
+    await user.type(screen.getByLabelText('Buscar insumo'), 'cemento')
+
+    await user.click(await screen.findByRole('button', { name: /MAT-CEM-001/ }))
+
+    expect(screen.getByLabelText('Insumo #1')).toHaveValue(ARTICULO_CEMENTO_ID)
+    expect(screen.getByText('Bolsas')).toBeInTheDocument()
+  })
+
+  it('si todas las filas ya tienen insumo, agrega una fila nueva', async () => {
+    const user = await abrirPagina()
+    await user.selectOptions(screen.getByLabelText('Insumo #1'), ARTICULO_CEMENTO_ID)
+    await user.type(screen.getByLabelText('Buscar insumo'), 'arena')
+
+    await user.click(await screen.findByRole('button', { name: /MAT-ARE-001/ }))
+
+    expect(screen.getByLabelText('Insumo #1')).toHaveValue(ARTICULO_CEMENTO_ID)
+    expect(screen.getByLabelText('Insumo #2')).toHaveValue(ARTICULO_ARENA_ID)
+  })
+
+  it('un resultado que ya está agregado queda deshabilitado', async () => {
+    const user = await abrirPagina()
+    await user.type(screen.getByLabelText('Buscar insumo'), 'cemento')
+
+    await user.click(await screen.findByRole('button', { name: /MAT-CEM-001/ }))
+
+    expect(screen.getByRole('button', { name: /MAT-CEM-001.*ya agregado/ })).toBeDisabled()
   })
 })

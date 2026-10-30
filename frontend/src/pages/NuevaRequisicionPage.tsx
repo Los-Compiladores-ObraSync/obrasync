@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
+import { ESPERA_BUSQUEDA_MS } from '../requisiciones/configuracionBusqueda'
 import {
   crearRequisicion,
   obtenerInsumosCatalogo,
@@ -117,29 +118,55 @@ export function NuevaRequisicionPage() {
   // Búsqueda de insumos (#57): se le pregunta al servidor con ?search=. Con el
   // buscador vacío no se pide nada: se usa el catálogo completo ya cargado.
   const termino = busqueda.trim()
+  const buscadorRef = useRef<HTMLInputElement>(null)
+
+  // Lo escrito, pero recién después de una pausa (#58): así no se pide en cada letra.
+  const [terminoConEspera, setTerminoConEspera] = useState('')
 
   useEffect(() => {
-    if (termino === '') return
+    const temporizador = setTimeout(
+      () => setTerminoConEspera(termino),
+      ESPERA_BUSQUEDA_MS,
+    )
+    return () => clearTimeout(temporizador)
+  }, [termino])
+
+  // Si sale una búsqueda nueva mientras la anterior no volvió, la respuesta vieja
+  // se descarta (el flag "cancelado", igual que en AprobarRequisicionesPage).
+  useEffect(() => {
+    if (terminoConEspera === '') return
     let cancelado = false
 
-    obtenerInsumosCatalogo(termino)
+    obtenerInsumosCatalogo(terminoConEspera)
       .then((lista) => {
-        if (!cancelado) setResultadoBusqueda({ termino, lista, fallo: false })
+        if (!cancelado) {
+          setResultadoBusqueda({ termino: terminoConEspera, lista, fallo: false })
+        }
       })
       .catch(() => {
-        if (!cancelado) setResultadoBusqueda({ termino, lista: [], fallo: true })
+        if (!cancelado) {
+          setResultadoBusqueda({ termino: terminoConEspera, lista: [], fallo: true })
+        }
       })
 
     return () => {
       cancelado = true
     }
-  }, [termino])
+  }, [terminoConEspera])
 
   // Se calculan a partir de lo que ya hay, sin guardarlos en otro estado.
   const resultadoVigente =
     resultadoBusqueda?.termino === termino ? resultadoBusqueda : null
   const buscando = termino !== '' && resultadoVigente === null
   const falloBusqueda = resultadoVigente?.fallo === true
+  // Lo que encontró la búsqueda, para mostrarlo a la vista (no solo dentro del select).
+  const resultados =
+    resultadoVigente !== null && !resultadoVigente.fallo ? resultadoVigente.lista : []
+  const sinResultados =
+    resultadoVigente !== null &&
+    !resultadoVigente.fallo &&
+    resultadoVigente.lista.length === 0
+  const idsElegidos = new Set(items.map((it) => it.articuloId).filter(Boolean))
   // Mientras llega la respuesta se siguen mostrando los últimos resultados.
   const insumosOfrecidos =
     termino === '' ? catalogo : (resultadoBusqueda?.lista ?? catalogo)
@@ -178,6 +205,20 @@ export function NuevaRequisicionPage() {
         it.id === id ? { ...it, cantidad: nuevaCantidad } : it,
       ),
     )
+  }
+
+  /** Elige un resultado de la búsqueda: va a la primera fila sin insumo o, si
+   *  todas tienen, se agrega una fila nueva. */
+  function elegirResultado(articuloId: string) {
+    const filaVacia = items.find((it) => it.articuloId === '')
+    if (filaVacia) {
+      cambiarArticulo(filaVacia.id, articuloId)
+    } else {
+      setItems((actuales) => [
+        ...actuales,
+        { id: siguienteFilaId.current++, articuloId, cantidad: '' },
+      ])
+    }
   }
 
   function limpiarFormulario() {
@@ -414,19 +455,35 @@ export function NuevaRequisicionPage() {
             <label htmlFor="req-buscar-insumo" className={styles.label}>
               Buscar insumo
             </label>
-            <input
-              id="req-buscar-insumo"
-              type="search"
-              className={styles.input}
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              // Enter dentro de un formulario lo envía: acá solo se está buscando.
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.preventDefault()
-              }}
-              placeholder="Código o nombre (por ejemplo: cemento)"
-              autoComplete="off"
-            />
+            <div className={styles.filaBuscador}>
+              <input
+                ref={buscadorRef}
+                id="req-buscar-insumo"
+                type="search"
+                className={`${styles.input} ${styles.buscador}`}
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                // Enter dentro de un formulario lo envía: acá solo se está buscando.
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.preventDefault()
+                }}
+                placeholder="Código o nombre (por ejemplo: cemento)"
+                autoComplete="off"
+              />
+              {busqueda !== '' && (
+                <button
+                  type="button"
+                  className={styles.secundario}
+                  aria-label="Limpiar búsqueda"
+                  onClick={() => {
+                    setBusqueda('')
+                    buscadorRef.current?.focus()
+                  }}
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
             {buscando && (
               <p role="status" className={styles.ayudaBusqueda}>
                 Buscando…
@@ -436,6 +493,39 @@ export function NuevaRequisicionPage() {
               <p role="alert" className={styles.errorCampo}>
                 No se pudo buscar insumos. Intentá de nuevo.
               </p>
+            )}
+            {sinResultados && (
+              <p role="status" className={styles.ayudaBusqueda}>
+                No encontramos insumos con ese nombre
+              </p>
+            )}
+            {resultados.length > 0 && (
+              <>
+                <p role="status" className={styles.ayudaBusqueda}>
+                  {resultados.length === 1
+                    ? '1 insumo encontrado.'
+                    : `${resultados.length} insumos encontrados.`}{' '}
+                  Tocá uno para agregarlo.
+                </p>
+                <ul className={styles.listaResultados}>
+                  {resultados.map((ins) => {
+                    const yaAgregado = idsElegidos.has(ins.articuloId)
+                    return (
+                      <li key={ins.articuloId}>
+                        <button
+                          type="button"
+                          className={`${styles.secundario} ${styles.resultado}`}
+                          disabled={yaAgregado}
+                          onClick={() => elegirResultado(ins.articuloId)}
+                        >
+                          {ins.codigo} — {ins.descripcion}
+                          {yaAgregado ? ' (ya agregado)' : ''}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </>
             )}
           </div>
 
