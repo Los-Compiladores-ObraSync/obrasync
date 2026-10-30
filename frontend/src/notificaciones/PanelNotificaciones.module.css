@@ -1,0 +1,36 @@
+.panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 10;
+    box-sizing: border-box;
+    width: min(20rem, calc(100vw - 2rem));
+    padding: 1rem;
+    color: var(--texto);
+    background: var(--fondo);
+    border: 2px solid var(--borde);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
+}
+
+.texto {
+    margin: 0 0 0.75rem;
+    font-size: 1.125rem;
+    font-weight: 700;
+}
+
+.vacio {
+    margin: 0;
+    font-size: 1.0625rem;
+    color: var(--texto-suave);
+}
+
+.enlace {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--alto-toque);
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: var(--accion-oscura);
+    text-decoration: underline;
+}

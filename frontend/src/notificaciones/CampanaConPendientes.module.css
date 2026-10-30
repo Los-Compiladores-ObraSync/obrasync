@@ -1,0 +1,4 @@
+/* Referencia para ubicar el panel justo debajo de la campana. */
+.contenedor {
+    position: relative;
+}
