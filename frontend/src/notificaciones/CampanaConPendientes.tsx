@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { CampanaNotificaciones } from './CampanaNotificaciones'
 import styles from './CampanaConPendientes.module.css'
+import { UMBRAL_PENDIENTES } from './configuracionAvisos'
 import { PanelNotificaciones } from './PanelNotificaciones'
 import { usePendientes } from './usePendientes'
 
@@ -44,6 +45,7 @@ export function CampanaConPendientes() {
             <CampanaNotificaciones
         ref={ botonRef }
     cantidad = { cantidad }
+    resaltada = { cantidad >= UMBRAL_PENDIENTES }
     abierto = { abierto }
     idPanel = { idPanel }
     onClick = {() => setAbierto((anterior) => !anterior)

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { CampanaConPendientes } from './CampanaConPendientes'
+import { UMBRAL_PENDIENTES } from './configuracionAvisos'
 import { PendientesContext } from './pendientesContext'
 
 function renderizar(cantidad: number) {
@@ -17,7 +18,7 @@ function renderizar(cantidad: number) {
 }
 
 function campana() {
-    return screen.getByRole('button', { name: /Notificaciones/ })
+    return screen.getByRole('button', { name: /Notificaciones|Atención/ })
 }
 
 describe('CampanaConPendientes - panel de avisos', () => {
@@ -120,5 +121,30 @@ describe('CampanaConPendientes - panel de avisos', () => {
         await usuario.click(screen.getByRole('link', { name: 'Ir a Aprobar requisiciones' }))
 
         expect(screen.queryByRole('region', { name: 'Avisos' })).not.toBeInTheDocument()
+    })
+})
+describe('CampanaConPendientes - resaltado por umbral', () => {
+    it('justo debajo del umbral no se resalta', () => {
+        renderizar(UMBRAL_PENDIENTES - 1)
+
+        expect(campana()).toHaveAccessibleName(
+            `Notificaciones: ${UMBRAL_PENDIENTES - 1} sin leer`,
+        )
+    })
+
+    it('en el umbral se resalta y lo avisa con texto', () => {
+        renderizar(UMBRAL_PENDIENTES)
+
+        expect(campana()).toHaveAccessibleName(
+            `Atención: ${UMBRAL_PENDIENTES} requisiciones pendientes`,
+        )
+    })
+
+    it('por encima del umbral sigue resaltada', () => {
+        renderizar(UMBRAL_PENDIENTES + 2)
+
+        expect(campana()).toHaveAccessibleName(
+            `Atención: ${UMBRAL_PENDIENTES + 2} requisiciones pendientes`,
+        )
     })
 })
