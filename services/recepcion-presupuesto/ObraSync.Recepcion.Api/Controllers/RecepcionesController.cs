@@ -1,4 +1,4 @@
-
+﻿
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -51,6 +51,28 @@ public class RecepcionesController : ControllerBase
         return Ok(resultado);
     }
 
+    /// <summary>
+    /// Obtiene una recepción por su identificador.
+    /// </summary>
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> ObtenerRecepcionPorId(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var recepcion = await _context.Recepciones
+            .Include(r => r.Detalles)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        if (recepcion == null)
+        {
+            return Problem(
+                statusCode: 404,
+                detail: "La recepción no existe.");
+        }
+
+        return Ok(recepcion);
+    }
     /// <summary>
     /// Registra una recepción total de materiales contra una orden de compra.
     /// </summary>
@@ -285,4 +307,5 @@ public class RecepcionesController : ControllerBase
         return Guid.TryParse(header, out var correlationId) && correlationId != Guid.Empty
             ? correlationId
             : Guid.NewGuid();
-    }}
+    }
+}
