@@ -43,3 +43,29 @@ describe('CampanaNotificaciones', () => {
     expect(boton).toHaveFocus()
   })
 })
+describe('CampanaNotificaciones - resaltada', () => {
+    it('resaltada cambia el texto para el lector de pantalla', () => {
+        render(<CampanaNotificaciones cantidad={ 7} resaltada />)
+
+        expect(
+            screen.getByRole('button', { name: 'Atención: 7 requisiciones pendientes' }),
+        ).toBeInTheDocument()
+        expect(screen.getByText('7')).toBeInTheDocument()
+    })
+
+    it('sin resaltar mantiene el texto de siempre', () => {
+        render(<CampanaNotificaciones cantidad={ 7} />)
+
+        expect(
+            screen.getByRole('button', { name: 'Notificaciones: 7 sin leer' }),
+        ).toBeInTheDocument()
+    })
+
+    it('sin avisos no se resalta aunque lo pidan', () => {
+        render(<CampanaNotificaciones cantidad={ 0} resaltada />)
+
+        expect(
+            screen.getByRole('button', { name: 'Notificaciones: sin avisos' }),
+        ).toBeInTheDocument()
+    })
+})

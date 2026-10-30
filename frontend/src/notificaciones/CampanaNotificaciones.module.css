@@ -35,3 +35,31 @@
   background: var(--naranja);
   border-radius: 11px;
 }
+/* Muchas requisiciones pendientes (#50): fondo naranja y contador blanco. */
+.resaltada {
+    background: var(--naranja);
+    border-color: #ffffff;
+}
+
+    .resaltada .contador {
+        color: var(--azul);
+        background: #ffffff;
+        border: 2px solid var(--naranja);
+    }
+
+/* El latido solo corre si la persona no pidió reducir movimientos. */
+@media (prefers-reduced-motion: no-preference) {
+    .resaltada {
+        animation: latido 1.6s ease-in-out infinite;
+    }
+}
+
+@keyframes latido {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(230, 81, 0, 0.7);
+    }
+
+    50% {
+        box-shadow: 0 0 0 10px rgba(230, 81, 0, 0);
+    }
+}
