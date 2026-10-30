@@ -225,7 +225,7 @@
           "Auth"
         ],
         "summary": "Solicitar enlace o token de recuperación de contraseña",
-        "description": "Envía un token de recuperación al correo especificado si existe en el sistema.",
+        "description": "Genera un token de recuperación para el usuario. Para desarrollo y demo, el enlace/token se emite en los logs del servicio (sin proveedor SMTP externo).",
         "requestBody": {
           "required": true,
           "content": {
@@ -286,7 +286,7 @@
           "Auth"
         ],
         "summary": "Restablecer contraseña mediante token",
-        "description": "Aplica una nueva contraseña verificando el token recibido por correo.",
+        "description": "Aplica una nueva contraseña verificando el token de recuperación generado por el sistema.",
         "requestBody": {
           "required": true,
           "content": {
