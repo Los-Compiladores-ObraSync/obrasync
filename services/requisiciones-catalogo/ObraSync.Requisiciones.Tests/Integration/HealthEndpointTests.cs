@@ -232,5 +232,104 @@ namespace ObraSync.Requisiciones.Tests.Integration
 
             Assert.Equal(HttpStatusCode.Conflict, segundoIntento.StatusCode);
         }
+
+        [Fact]
+        public async Task GetRequisiciones_SinFiltroYConFiltros_DebeDevolverTodosLosEstadosOrdenadosPorFechaDescendente()
+        {
+            var capatazId = Guid.NewGuid();
+            var compradorId = Guid.NewGuid();
+            var obra1Id = Guid.NewGuid();
+            var obra2Id = Guid.NewGuid();
+            var cementoSeedId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+            var calSeedId = Guid.Parse("11111111-1111-1111-1111-111111110003");
+
+            var client = _factory.CreateClient();
+
+            // 1. Capataz crea Requisición 1 en Obra 1 y el Comprador la aprueba
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", capatazId));
+
+            var resp1 = await client.PostAsJsonAsync("/api/requisiciones", new CrearRequisicionRequestDto
+            {
+                ObraId = obra1Id,
+                Etapa = "Fundaciones",
+                Items = new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = cementoSeedId, Cantidad = 40m }
+                }
+            });
+            Assert.Equal(HttpStatusCode.Created, resp1.StatusCode);
+            var req1 = await resp1.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(req1);
+
+            await Task.Delay(25);
+
+            // 2. Capataz crea Requisición 2 en Obra 2 (queda Pendiente, más reciente)
+            var resp2 = await client.PostAsJsonAsync("/api/requisiciones", new CrearRequisicionRequestDto
+            {
+                ObraId = obra2Id,
+                Etapa = "Mampostería",
+                Items = new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = calSeedId, Cantidad = 25m }
+                }
+            });
+            Assert.Equal(HttpStatusCode.Created, resp2.StatusCode);
+            var req2 = await resp2.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(req2);
+
+            // Comprador aprueba Requisición 1
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Comprador", compradorId));
+
+            var aprobarResp = await client.PostAsync($"/api/requisiciones/{req1.RequisicionId}/aprobar", null);
+            Assert.Equal(HttpStatusCode.OK, aprobarResp.StatusCode);
+
+            // Escenario 1: GET /api/requisiciones sin filtros devuelve todos los estados ordenados por FechaCreacion descendente y con Items
+            var sinFiltroResp = await client.GetAsync("/api/requisiciones");
+            Assert.Equal(HttpStatusCode.OK, sinFiltroResp.StatusCode);
+            var todas = await sinFiltroResp.Content.ReadFromJsonAsync<List<RequisicionResponseDto>>();
+            Assert.NotNull(todas);
+
+            var deEstasObras = todas
+                .Where(r => r.ObraId == obra1Id || r.ObraId == obra2Id)
+                .ToList();
+
+            Assert.Equal(2, deEstasObras.Count);
+            Assert.Equal(req2.RequisicionId, deEstasObras[0].RequisicionId);
+            Assert.Equal(EstadoRequisicion.Pendiente, deEstasObras[0].Estado);
+            Assert.Single(deEstasObras[0].Items);
+
+            Assert.Equal(req1.RequisicionId, deEstasObras[1].RequisicionId);
+            Assert.Equal(EstadoRequisicion.Aprobada, deEstasObras[1].Estado);
+            Assert.Single(deEstasObras[1].Items);
+
+            // Escenario 2: Filtro por obraId
+            var porObraResp = await client.GetAsync($"/api/requisiciones?obraId={obra1Id}");
+            var porObra = await porObraResp.Content.ReadFromJsonAsync<List<RequisicionResponseDto>>();
+            Assert.NotNull(porObra);
+            Assert.Single(porObra);
+            Assert.Equal(req1.RequisicionId, porObra[0].RequisicionId);
+
+            // Escenario 3: Filtro por estado case-insensitive ("APROBADA" y "pendiente")
+            var aprobadasMayusResp = await client.GetAsync($"/api/requisiciones?obraId={obra1Id}&estado=APROBADA");
+            var aprobadasMayus = await aprobadasMayusResp.Content.ReadFromJsonAsync<List<RequisicionResponseDto>>();
+            Assert.NotNull(aprobadasMayus);
+            Assert.Single(aprobadasMayus);
+            Assert.Equal(EstadoRequisicion.Aprobada, aprobadasMayus[0].Estado);
+
+            var pendientesMinusResp = await client.GetAsync($"/api/requisiciones?obraId={obra2Id}&estado=pendiente");
+            var pendientesMinus = await pendientesMinusResp.Content.ReadFromJsonAsync<List<RequisicionResponseDto>>();
+            Assert.NotNull(pendientesMinus);
+            Assert.Single(pendientesMinus);
+            Assert.Equal(EstadoRequisicion.Pendiente, pendientesMinus[0].Estado);
+
+            // Escenario 4: Estado inexistente devuelve lista vacía
+            var inexistenteResp = await client.GetAsync("/api/requisiciones?estado=INEXISTENTE");
+            Assert.Equal(HttpStatusCode.OK, inexistenteResp.StatusCode);
+            var inexistente = await inexistenteResp.Content.ReadFromJsonAsync<List<RequisicionResponseDto>>();
+            Assert.NotNull(inexistente);
+            Assert.Empty(inexistente);
+        }
     }
 }
