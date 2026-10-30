@@ -8,6 +8,7 @@ using ObraSync.Requisiciones.Application.DTOs;
 using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Commands;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers;
+using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Queries;
 using ObraSync.Requisiciones.Domain.Constants;
 using ObraSync.Requisiciones.Domain.Entities;
 using Xunit;
@@ -156,6 +157,80 @@ namespace ObraSync.Requisiciones.Tests.Application
                     ev.Items[0].Cantidad == 80m &&
                     ev.Items[0].UnidadMedida == UnidadesMedida.Bolsa),
                 Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GetRequisiciones_SinFiltros_DebeDelegarAlRepositorioYMapearTodosLosEstadosEItems()
+        {
+            var requisicionRepo = Substitute.For<IRequisicionRepository>();
+            var obraId = Guid.NewGuid();
+            var solicitanteId = Guid.NewGuid();
+            var aprobadorId = Guid.NewGuid();
+            var cementoId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+
+            var reqRecienteAprobada = new Requisicion(
+                Guid.NewGuid(),
+                "REQ-2026-0002",
+                obraId,
+                solicitanteId,
+                new[]
+                {
+                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, cementoId, "Cemento Portland Normal (bolsa 50 kg)", 50m, UnidadesMedida.Bolsa)
+                },
+                etapa: "Terminaciones",
+                fechaCreacion: new DateTime(2026, 10, 20, 12, 0, 0, DateTimeKind.Utc));
+            reqRecienteAprobada.Aprobar(aprobadorId, new DateTime(2026, 10, 20, 14, 0, 0, DateTimeKind.Utc));
+
+            var reqAntiguaPendiente = new Requisicion(
+                Guid.NewGuid(),
+                "REQ-2026-0001",
+                obraId,
+                solicitanteId,
+                new[]
+                {
+                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, cementoId, "Cemento Portland Normal (bolsa 50 kg)", 80m, UnidadesMedida.Bolsa)
+                },
+                etapa: "Estructura",
+                fechaCreacion: new DateTime(2026, 10, 19, 10, 0, 0, DateTimeKind.Utc));
+
+            requisicionRepo.GetFilteredAsync(null, null, Arg.Any<CancellationToken>())
+                .Returns(new List<Requisicion> { reqRecienteAprobada, reqAntiguaPendiente });
+
+            var handler = new GetRequisicionesQueryHandler(requisicionRepo);
+            var query = new GetRequisicionesQuery();
+
+            var resultado = await handler.Handle(query, CancellationToken.None);
+
+            Assert.Equal(2, resultado.Count);
+            Assert.Equal("REQ-2026-0002", resultado[0].NumeroRequisicion);
+            Assert.Equal(EstadoRequisicion.Aprobada, resultado[0].Estado);
+            Assert.Single(resultado[0].Items);
+            Assert.Equal(50m, resultado[0].Items[0].Cantidad);
+
+            Assert.Equal("REQ-2026-0001", resultado[1].NumeroRequisicion);
+            Assert.Equal(EstadoRequisicion.Pendiente, resultado[1].Estado);
+            Assert.Single(resultado[1].Items);
+            Assert.Equal(80m, resultado[1].Items[0].Cantidad);
+
+            await requisicionRepo.Received(1).GetFilteredAsync(null, null, Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GetRequisiciones_ConFiltrosObraIdYEstado_DebePropagarFiltrosAlRepositorio()
+        {
+            var requisicionRepo = Substitute.For<IRequisicionRepository>();
+            var obraId = Guid.NewGuid();
+
+            requisicionRepo.GetFilteredAsync(obraId, "Pendiente", Arg.Any<CancellationToken>())
+                .Returns(new List<Requisicion>());
+
+            var handler = new GetRequisicionesQueryHandler(requisicionRepo);
+            var query = new GetRequisicionesQuery(ObraId: obraId, Estado: "Pendiente");
+
+            var resultado = await handler.Handle(query, CancellationToken.None);
+
+            Assert.Empty(resultado);
+            await requisicionRepo.Received(1).GetFilteredAsync(obraId, "Pendiente", Arg.Any<CancellationToken>());
         }
     }
 }
