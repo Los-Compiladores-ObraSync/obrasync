@@ -319,3 +319,10 @@
   background: #ffffff;
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
 }
+
+/* Aviso chico debajo del buscador de insumos (#57). */
+.ayudaBusqueda {
+  margin: 0.25rem 0 0;
+  font-size: 1rem;
+  color: var(--texto-suave);
+}

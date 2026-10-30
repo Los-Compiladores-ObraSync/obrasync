@@ -26,6 +26,13 @@ interface FilaItemForm {
   cantidad: string
 }
 
+/** Lo que devolvió el servidor para un texto de búsqueda (#57). */
+interface ResultadoBusqueda {
+  termino: string
+  lista: InsumoCatalogo[]
+  fallo: boolean
+}
+
 function mensajeDeErrorApi(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 400) {
@@ -49,6 +56,10 @@ export function NuevaRequisicionPage() {
   const [catalogo, setCatalogo] = useState<InsumoCatalogo[]>([])
   const [cargandoInicial, setCargandoInicial] = useState(true)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
+
+  const [busqueda, setBusqueda] = useState('')
+  const [resultadoBusqueda, setResultadoBusqueda] =
+    useState<ResultadoBusqueda | null>(null)
 
   const [obraId, setObraId] = useState('')
   const [etapa, setEtapa] = useState('')
@@ -102,6 +113,36 @@ export function NuevaRequisicionPage() {
       cancelado = true
     }
   }, [])
+
+  // Búsqueda de insumos (#57): se le pregunta al servidor con ?search=. Con el
+  // buscador vacío no se pide nada: se usa el catálogo completo ya cargado.
+  const termino = busqueda.trim()
+
+  useEffect(() => {
+    if (termino === '') return
+    let cancelado = false
+
+    obtenerInsumosCatalogo(termino)
+      .then((lista) => {
+        if (!cancelado) setResultadoBusqueda({ termino, lista, fallo: false })
+      })
+      .catch(() => {
+        if (!cancelado) setResultadoBusqueda({ termino, lista: [], fallo: true })
+      })
+
+    return () => {
+      cancelado = true
+    }
+  }, [termino])
+
+  // Se calculan a partir de lo que ya hay, sin guardarlos en otro estado.
+  const resultadoVigente =
+    resultadoBusqueda?.termino === termino ? resultadoBusqueda : null
+  const buscando = termino !== '' && resultadoVigente === null
+  const falloBusqueda = resultadoVigente?.fallo === true
+  // Mientras llega la respuesta se siguen mostrando los últimos resultados.
+  const insumosOfrecidos =
+    termino === '' ? catalogo : (resultadoBusqueda?.lista ?? catalogo)
 
   const obraSeleccionada = obras.find((o) => o.id === obraId)
   const etapasDisponibles = obraSeleccionada ? obraSeleccionada.etapas : []
@@ -369,6 +410,35 @@ export function NuevaRequisicionPage() {
         <fieldset className={styles.itemsFieldset}>
           <legend className={styles.itemsLegend}>Insumos y materiales</legend>
 
+          <div className={styles.grupo}>
+            <label htmlFor="req-buscar-insumo" className={styles.label}>
+              Buscar insumo
+            </label>
+            <input
+              id="req-buscar-insumo"
+              type="search"
+              className={styles.input}
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              // Enter dentro de un formulario lo envía: acá solo se está buscando.
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.preventDefault()
+              }}
+              placeholder="Código o nombre (por ejemplo: cemento)"
+              autoComplete="off"
+            />
+            {buscando && (
+              <p role="status" className={styles.ayudaBusqueda}>
+                Buscando…
+              </p>
+            )}
+            {falloBusqueda && (
+              <p role="alert" className={styles.errorCampo}>
+                No se pudo buscar insumos. Intentá de nuevo.
+              </p>
+            )}
+          </div>
+
           {errores.itemsGeneral && (
             <p className={styles.errorCampo} role="alert">
               {errores.itemsGeneral}
@@ -389,11 +459,18 @@ export function NuevaRequisicionPage() {
                 .filter((it) => it.id !== item.id && it.articuloId)
                 .map((it) => it.articuloId),
             )
-            const insumosDisponibles = catalogo.filter(
+            const coincidentes = insumosOfrecidos.filter(
               (ins) =>
                 ins.articuloId === item.articuloId ||
                 !otrosSeleccionados.has(ins.articuloId),
             )
+            // El insumo ya elegido en esta fila tiene que seguir en su lista aunque
+            // la búsqueda actual no lo traiga; si no, el select quedaría sin valor.
+            const insumosDisponibles =
+              insumoSeleccionado &&
+              !coincidentes.some((ins) => ins.articuloId === insumoSeleccionado.articuloId)
+                ? [insumoSeleccionado, ...coincidentes]
+                : coincidentes
 
             return (
               <div key={item.id} className={styles.filaItem}>
