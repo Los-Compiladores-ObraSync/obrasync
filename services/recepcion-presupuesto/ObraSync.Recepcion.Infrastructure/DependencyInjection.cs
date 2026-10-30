@@ -21,6 +21,7 @@ public static class DependencyInjection
 
         services.AddScoped<IRecepcionDbContext>(provider => provider.GetRequiredService<RecepcionDbContext>());
         services.AddScoped<IOrdenCompraRepository, OrdenCompraRepository>();
+        services.AddScoped<IRecepcionEventPublisher, Messaging.MassTransitRecepcionEventPublisher>();
 
         return services;
     }

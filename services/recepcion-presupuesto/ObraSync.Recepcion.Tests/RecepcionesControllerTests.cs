@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using ObraSync.Recepcion.Api.Controllers;
@@ -32,7 +32,7 @@ public class RecepcionesControllerTests
         );
         await db.SaveChangesAsync();
 
-        var controller = new RecepcionesController(db, NullLogger<RecepcionesController>.Instance);
+        var controller = new RecepcionesController(db, NullLogger<RecepcionesController>.Instance, NSubstitute.Substitute.For<ObraSync.Recepcion.Application.Interfaces.IRecepcionEventPublisher>());
         var actionResult = await controller.ObtenerRecepciones(null, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult);
@@ -54,7 +54,7 @@ public class RecepcionesControllerTests
         );
         await db.SaveChangesAsync();
 
-        var controller = new RecepcionesController(db, NullLogger<RecepcionesController>.Instance);
+        var controller = new RecepcionesController(db, NullLogger<RecepcionesController>.Instance, NSubstitute.Substitute.For<ObraSync.Recepcion.Application.Interfaces.IRecepcionEventPublisher>());
         var actionResult = await controller.ObtenerRecepciones(obraTarget, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult);
@@ -70,7 +70,7 @@ public class RecepcionesControllerTests
         db.Recepciones.Add(new RecepcionEntity { Id = Guid.NewGuid(), ObraId = Guid.NewGuid(), NumeroRemito = "R1" });
         await db.SaveChangesAsync();
 
-        var controller = new RecepcionesController(db, NullLogger<RecepcionesController>.Instance);
+        var controller = new RecepcionesController(db, NullLogger<RecepcionesController>.Instance, NSubstitute.Substitute.For<ObraSync.Recepcion.Application.Interfaces.IRecepcionEventPublisher>());
         var actionResult = await controller.ObtenerRecepciones(Guid.NewGuid(), CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult);
@@ -82,7 +82,7 @@ public class RecepcionesControllerTests
     public async Task ObtenerRecepciones_ConCancellationTokenCancelado_LanzaOperationCanceledException()
     {
         using var db = CreateInMemoryContext($"Db_Cancel_{Guid.NewGuid()}");
-        var controller = new RecepcionesController(db, NullLogger<RecepcionesController>.Instance);
+        var controller = new RecepcionesController(db, NullLogger<RecepcionesController>.Instance, NSubstitute.Substitute.For<ObraSync.Recepcion.Application.Interfaces.IRecepcionEventPublisher>());
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
@@ -113,7 +113,7 @@ public class RecepcionesControllerTests
         db.Recepciones.Add(recepcion);
         await db.SaveChangesAsync();
 
-        var controller = new RecepcionesController(db, NullLogger<RecepcionesController>.Instance);
+        var controller = new RecepcionesController(db, NullLogger<RecepcionesController>.Instance, NSubstitute.Substitute.For<ObraSync.Recepcion.Application.Interfaces.IRecepcionEventPublisher>());
         var actionResult = await controller.ObtenerRecepciones(null, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult);
@@ -123,6 +123,7 @@ public class RecepcionesControllerTests
 
         // Al intentar serializar el resultado con las opciones por defecto de System.Text.Json en ASP.NET Core:
         var ex = Record.Exception(() => System.Text.Json.JsonSerializer.Serialize(okResult.Value));
-        Assert.Null(ex); // El comportamiento esperado es que serialice correctamente sin lanzar excepción
+        Assert.Null(ex); // El comportamiento esperado es que serialice correctamente sin lanzar excepciÃ³n
     }
 }
+

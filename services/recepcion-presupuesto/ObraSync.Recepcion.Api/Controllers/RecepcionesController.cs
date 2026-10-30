@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ObraSync.Recepcion.Api.DTOs;
 using ObraSync.Recepcion.Application.Common.Interfaces;
+using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Domain.Enums;
 using RecepcionEntity = ObraSync.Recepcion.Domain.Entities.Recepcion;
 using DetalleRecepcionEntity = ObraSync.Recepcion.Domain.Entities.DetalleRecepcion;
@@ -17,13 +18,16 @@ public class RecepcionesController : ControllerBase
 {
     private readonly IRecepcionDbContext _context;
     private readonly ILogger<RecepcionesController> _logger;
+    private readonly IRecepcionEventPublisher _eventPublisher;
 
     public RecepcionesController(
         IRecepcionDbContext context,
-        ILogger<RecepcionesController> logger)
+        ILogger<RecepcionesController> logger,
+        IRecepcionEventPublisher eventPublisher)
     {
         _context = context;
         _logger = logger;
+        _eventPublisher = eventPublisher;
     }
 
     /// <summary>
@@ -259,6 +263,26 @@ public class RecepcionesController : ControllerBase
                 detail: "La orden de compra ya fue recibida o el número de remito está repetido.");
         }
 
+        // Publicar después de guardar. Si falla, la recepción queda guardada (riesgo conocido, sin outbox).
+        var correlationId = GetCorrelationIdFromHeader();
+        try
+        {
+            await _eventPublisher.PublishRecepcionConfirmadaAsync(recepcion, correlationId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "No se pudo publicar RecepcionConfirmadaEvent. RecepcionId: {RecepcionId}, CorrelationId: {CorrelationId}. La recepción quedó guardada.",
+                recepcion.Id, correlationId);
+        }
+
         return StatusCode(201, recepcion);
     }
-}
+
+    private Guid GetCorrelationIdFromHeader()
+    {
+        var header = Request.Headers["X-Correlation-ID"].ToString();
+        return Guid.TryParse(header, out var correlationId) && correlationId != Guid.Empty
+            ? correlationId
+            : Guid.NewGuid();
+    }}
