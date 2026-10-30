@@ -405,3 +405,97 @@ describe('NuevaRequisicionPage', () => {
     })
   })
 })
+
+describe('NuevaRequisicionPage - búsqueda de insumos', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setToken(null)
+  })
+
+  async function abrirPagina() {
+    iniciarSesionCapataz()
+    const user = userEvent.setup()
+    renderPagina()
+    await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' })
+    return user
+  }
+
+  it('al escribir en el buscador quedan solo los insumos que coinciden', async () => {
+    const user = await abrirPagina()
+
+    await user.type(screen.getByLabelText('Buscar insumo'), 'arena')
+
+    await waitFor(() =>
+      expect(screen.queryByRole('option', { name: /Cemento/ })).not.toBeInTheDocument(),
+    )
+    expect(screen.getByRole('option', { name: /Arena Fina/ })).toBeInTheDocument()
+  })
+
+  it('le pide al servidor la búsqueda con el parámetro search', async () => {
+    const pedidos: (string | null)[] = []
+    server.use(
+      http.get('*/api/catalogo/insumos', ({ request }) => {
+        pedidos.push(new URL(request.url).searchParams.get('search'))
+        return undefined // sigue con el mock de siempre
+      }),
+    )
+    const user = await abrirPagina()
+
+    await user.type(screen.getByLabelText('Buscar insumo'), 'cal')
+
+    await waitFor(() => expect(pedidos).toContain('cal'))
+  })
+
+  it('mantiene el insumo ya elegido en la fila aunque la búsqueda no lo traiga', async () => {
+    const user = await abrirPagina()
+    await user.selectOptions(screen.getByLabelText('Insumo #1'), ARTICULO_CEMENTO_ID)
+
+    await user.type(screen.getByLabelText('Buscar insumo'), 'arena')
+
+    await waitFor(() =>
+      expect(screen.queryByRole('option', { name: /Cal Hidráulica/ })).not.toBeInTheDocument(),
+    )
+    expect(screen.getByLabelText('Insumo #1')).toHaveValue(ARTICULO_CEMENTO_ID)
+    expect(screen.getByText('Bolsas')).toBeInTheDocument()
+  })
+
+  it('al borrar la búsqueda vuelve el catálogo completo', async () => {
+    const user = await abrirPagina()
+    const buscador = screen.getByLabelText('Buscar insumo')
+    await user.type(buscador, 'arena')
+    await waitFor(() =>
+      expect(screen.queryByRole('option', { name: /Cemento/ })).not.toBeInTheDocument(),
+    )
+
+    await user.clear(buscador)
+
+    expect(await screen.findByRole('option', { name: /Cemento/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Arena Fina/ })).toBeInTheDocument()
+  })
+
+  it('apretar Enter en el buscador no envía el formulario', async () => {
+    const user = await abrirPagina()
+
+    await user.type(screen.getByLabelText('Buscar insumo'), 'cal{Enter}')
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('avisa si la búsqueda falla', async () => {
+    server.use(
+      http.get('*/api/catalogo/insumos', ({ request }) => {
+        if (new URL(request.url).searchParams.get('search')) {
+          return HttpResponse.json({ title: 'Error' }, { status: 500 })
+        }
+        return undefined
+      }),
+    )
+    const user = await abrirPagina()
+
+    await user.type(screen.getByLabelText('Buscar insumo'), 'x')
+
+    expect(
+      await screen.findByText('No se pudo buscar insumos. Intentá de nuevo.'),
+    ).toBeInTheDocument()
+  })
+})
