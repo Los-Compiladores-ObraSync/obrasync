@@ -326,3 +326,38 @@
   font-size: 1rem;
   color: var(--texto-suave);
 }
+
+/* Buscador de insumos con su botón "Limpiar" al lado (#58). */
+.filaBuscador {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.filaBuscador .buscador {
+  flex: 1;
+  min-width: 0;
+}
+
+/* El navegador dibuja su propia "x" en los campos de búsqueda: se oculta para
+   que no haya dos botones de limpiar. */
+.buscador::-webkit-search-cancel-button {
+  display: none;
+}
+
+/* Resultados de la búsqueda a la vista, para tocar uno y agregarlo. */
+.listaResultados {
+  display: grid;
+  gap: 0.5rem;
+  max-height: 14rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.resultado {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
