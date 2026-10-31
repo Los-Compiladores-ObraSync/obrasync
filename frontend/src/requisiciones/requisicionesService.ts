@@ -33,15 +33,26 @@ export function obtenerObras(): Promise<ObraResumen[]> {
   return apiFetch<ObraResumen[]>('/api/obras')
 }
 
+export function generarIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`
+}
+
 /**
  * Envía una nueva requisición de materiales.
  * Fuente: POST /api/requisiciones (autorizado para Capataz, Admin)
  */
 export function crearRequisicion(
   dto: CrearRequisicionRequestDto,
+  idempotencyKey: string = generarIdempotencyKey(),
 ): Promise<RequisicionResponseDto> {
   return apiFetch<RequisicionResponseDto>('/api/requisiciones', {
     method: 'POST',
+    headers: {
+      'Idempotency-Key': idempotencyKey,
+    },
     body: JSON.stringify(dto),
   })
 }

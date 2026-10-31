@@ -12,6 +12,17 @@ namespace ObraSync.Requisiciones.Application.Interfaces
             Guid id,
             CancellationToken cancellationToken = default);
 
+        Task<Requisicion?> GetByIdempotencyKeyAsync(
+            Guid solicitanteId,
+            string idempotencyKey,
+            CancellationToken cancellationToken = default);
+
+        Task<IReadOnlyList<Requisicion>> GetRecentBySolicitanteAndObraAsync(
+            Guid solicitanteId,
+            Guid obraId,
+            DateTime desdeUtc,
+            CancellationToken cancellationToken = default);
+
         Task<IReadOnlyList<Requisicion>> GetFilteredAsync(
             Guid? obraId = null,
             string? estado = null,

@@ -50,6 +50,13 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Configurations
             builder.Property(r => r.Observaciones)
                 .HasMaxLength(500);
 
+            builder.Property(r => r.IdempotencyKey)
+                .HasMaxLength(100);
+
+            builder.HasIndex(r => new { r.SolicitanteId, r.IdempotencyKey })
+                .IsUnique()
+                .HasFilter("[IdempotencyKey] IS NOT NULL");
+
             builder.Property(r => r.FechaCreacion)
                 .HasConversion(utcDateTimeConverter)
                 .IsRequired();

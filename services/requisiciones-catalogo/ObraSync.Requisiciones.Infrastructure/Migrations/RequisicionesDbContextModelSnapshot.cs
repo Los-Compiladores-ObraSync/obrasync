@@ -205,6 +205,10 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                     b.Property<DateTime>("FechaCreacion")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("NumeroRequisicion")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -226,6 +230,10 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("ObraId");
+
+                    b.HasIndex("SolicitanteId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("[IdempotencyKey] IS NOT NULL");
 
                     b.ToTable("Requisiciones", (string)null);
                 });

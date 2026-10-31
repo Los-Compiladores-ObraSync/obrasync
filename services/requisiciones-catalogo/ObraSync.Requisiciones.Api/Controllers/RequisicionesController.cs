@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ObraSync.Requisiciones.Application.DTOs;
+using ObraSync.Requisiciones.Application.Exceptions;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Commands;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Queries;
@@ -91,8 +92,10 @@ namespace ObraSync.Requisiciones.Api.Controllers
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
         public async Task<ActionResult<RequisicionResponseDto>> CrearRequisicion(
             [FromBody] CrearRequisicionRequestDto request,
+            [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey = null,
             CancellationToken cancellationToken = default)
         {
             if (!TryGetUserId(out var solicitanteId))
@@ -103,6 +106,10 @@ namespace ObraSync.Requisiciones.Api.Controllers
                     title: "Usuario no identificado");
             }
 
+            var keyEfectiva = !string.IsNullOrWhiteSpace(idempotencyKey)
+                ? idempotencyKey
+                : Request?.Headers["Idempotency-Key"].ToString();
+
             try
             {
                 var command = new CreateRequisicionCommand(
@@ -110,7 +117,8 @@ namespace ObraSync.Requisiciones.Api.Controllers
                     solicitanteId,
                     request.Items,
                     request.Etapa,
-                    request.Observaciones);
+                    request.Observaciones,
+                    keyEfectiva);
 
                 var creada = await _createHandler.Handle(command, cancellationToken);
 
@@ -118,6 +126,21 @@ namespace ObraSync.Requisiciones.Api.Controllers
                     nameof(ObtenerPorId),
                     new { id = creada.RequisicionId },
                     creada);
+            }
+            catch (RequisicionDuplicadaException ex)
+            {
+                var result = Problem(
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Requisición duplicada");
+
+                if (result.Value is ProblemDetails problemDetails)
+                {
+                    problemDetails.Extensions["numeroRequisicion"] = ex.NumeroRequisicionExistente;
+                    problemDetails.Extensions["requisicionId"] = ex.RequisicionExistenteId;
+                }
+
+                return result;
             }
             catch (KeyNotFoundException ex)
             {

@@ -27,6 +27,41 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Repositories
                 .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
         }
 
+        public async Task<Requisicion?> GetByIdempotencyKeyAsync(
+            Guid solicitanteId,
+            string idempotencyKey,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(idempotencyKey))
+                return null;
+
+            var keyNormalizada = idempotencyKey.Trim();
+            return await _context.Requisiciones
+                .AsNoTracking()
+                .Include(r => r.Items)
+                .FirstOrDefaultAsync(
+                    r => r.SolicitanteId == solicitanteId && r.IdempotencyKey == keyNormalizada,
+                    cancellationToken);
+        }
+
+        public async Task<IReadOnlyList<Requisicion>> GetRecentBySolicitanteAndObraAsync(
+            Guid solicitanteId,
+            Guid obraId,
+            DateTime desdeUtc,
+            CancellationToken cancellationToken = default)
+        {
+            var limiteUtc = desdeUtc.ToUniversalTime();
+            return await _context.Requisiciones
+                .AsNoTracking()
+                .Include(r => r.Items)
+                .Where(r =>
+                    r.SolicitanteId == solicitanteId &&
+                    r.ObraId == obraId &&
+                    r.FechaCreacion >= limiteUtc)
+                .OrderByDescending(r => r.FechaCreacion)
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task<IReadOnlyList<Requisicion>> GetFilteredAsync(
             Guid? obraId = null,
             string? estado = null,

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using NSubstitute;
 using ObraSync.Contracts.Events;
 using ObraSync.Requisiciones.Application.DTOs;
+using ObraSync.Requisiciones.Application.Exceptions;
 using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Commands;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers;
@@ -231,6 +232,98 @@ namespace ObraSync.Requisiciones.Tests.Application
 
             Assert.Empty(resultado);
             await requisicionRepo.Received(1).GetFilteredAsync(obraId, "Pendiente", Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task CreateRequisicion_ConMismoIdempotencyKeyYDatosIguales_DebeRetornarExistenteSinGuardarOtra()
+        {
+            var requisicionRepo = Substitute.For<IRequisicionRepository>();
+            var insumoRepo = Substitute.For<IInsumoRepository>();
+
+            var obraId = Guid.NewGuid();
+            var solicitanteId = Guid.NewGuid();
+            var cementoId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+            var idempotencyKey = "idem-key-001";
+
+            var requisicionExistente = new Requisicion(
+                Guid.NewGuid(),
+                "REQ-2026-0007",
+                obraId,
+                solicitanteId,
+                new[]
+                {
+                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, cementoId, "Cemento Portland", 80m, UnidadesMedida.Bolsa)
+                },
+                etapa: "Estructura",
+                idempotencyKey: idempotencyKey);
+
+            requisicionRepo.GetByIdempotencyKeyAsync(solicitanteId, idempotencyKey, Arg.Any<CancellationToken>())
+                .Returns(requisicionExistente);
+
+            var handler = new CreateRequisicionCommandHandler(requisicionRepo, insumoRepo);
+            var command = new CreateRequisicionCommand(
+                ObraId: obraId,
+                SolicitanteId: solicitanteId,
+                Items: new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = cementoId, Cantidad = 80m }
+                },
+                Etapa: "Estructura",
+                IdempotencyKey: idempotencyKey);
+
+            var resultado = await handler.Handle(command, CancellationToken.None);
+
+            Assert.Equal(requisicionExistente.Id, resultado.RequisicionId);
+            Assert.Equal("REQ-2026-0007", resultado.NumeroRequisicion);
+            await requisicionRepo.DidNotReceive().AddAsync(Arg.Any<Requisicion>(), Arg.Any<CancellationToken>());
+            await requisicionRepo.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task CreateRequisicion_DuplicadaEnVentanaDe2Minutos_DebeLanzarRequisicionDuplicadaExceptionConNumeroRequisicion()
+        {
+            var requisicionRepo = Substitute.For<IRequisicionRepository>();
+            var insumoRepo = Substitute.For<IInsumoRepository>();
+
+            var obraId = Guid.NewGuid();
+            var solicitanteId = Guid.NewGuid();
+            var cementoId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+
+            var existenteReciente = new Requisicion(
+                Guid.NewGuid(),
+                "REQ-2026-0009",
+                obraId,
+                solicitanteId,
+                new[]
+                {
+                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, cementoId, "Cemento Portland", 40m, UnidadesMedida.Bolsa)
+                },
+                etapa: "Fundaciones",
+                fechaCreacion: DateTime.UtcNow.AddSeconds(-30));
+
+            requisicionRepo.GetRecentBySolicitanteAndObraAsync(
+                solicitanteId,
+                obraId,
+                Arg.Any<DateTime>(),
+                Arg.Any<CancellationToken>())
+                .Returns(new List<Requisicion> { existenteReciente });
+
+            var handler = new CreateRequisicionCommandHandler(requisicionRepo, insumoRepo);
+            var command = new CreateRequisicionCommand(
+                ObraId: obraId,
+                SolicitanteId: solicitanteId,
+                Items: new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = cementoId, Cantidad = 40m }
+                },
+                Etapa: "Fundaciones");
+
+            var ex = await Assert.ThrowsAsync<RequisicionDuplicadaException>(() =>
+                handler.Handle(command, CancellationToken.None));
+
+            Assert.Equal("REQ-2026-0009", ex.NumeroRequisicionExistente);
+            Assert.Contains("REQ-2026-0009", ex.Message);
+            await requisicionRepo.DidNotReceive().AddAsync(Arg.Any<Requisicion>(), Arg.Any<CancellationToken>());
         }
     }
 }

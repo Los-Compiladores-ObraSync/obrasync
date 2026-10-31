@@ -158,5 +158,37 @@ namespace ObraSync.Requisiciones.Tests.Infrastructure
             Assert.NotNull(resultado);
             Assert.Empty(resultado);
         }
+
+        [Fact]
+        public async Task GetByIdempotencyKeyAsync_DebeEncontrarRequisicionDelMismoSolicitanteYConSusItems()
+        {
+            await using var context = await CreateSeededDbContextAsync();
+            var repository = new RequisicionRepository(context);
+            var solicitanteId = Guid.NewGuid();
+            var cementoId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+
+            var req = new Requisicion(
+                Guid.NewGuid(),
+                "REQ-2026-0099",
+                ObraAlphaId,
+                solicitanteId,
+                new[]
+                {
+                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, cementoId, "Cemento Portland", 25m, UnidadesMedida.Bolsa)
+                },
+                etapa: "Estructura",
+                idempotencyKey: "clave-unica-123");
+
+            await repository.AddAsync(req);
+            await repository.SaveChangesAsync();
+
+            var encontrada = await repository.GetByIdempotencyKeyAsync(solicitanteId, "clave-unica-123");
+            Assert.NotNull(encontrada);
+            Assert.Equal("REQ-2026-0099", encontrada.NumeroRequisicion);
+            Assert.Single(encontrada.Items);
+
+            var otroSolicitante = await repository.GetByIdempotencyKeyAsync(Guid.NewGuid(), "clave-unica-123");
+            Assert.Null(otroSolicitante);
+        }
     }
 }

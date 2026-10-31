@@ -9,6 +9,7 @@ namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Commands
         Guid SolicitanteId,
         IReadOnlyList<CrearRequisicionItemDto> Items,
         string? Etapa = null,
-        string? Observaciones = null
+        string? Observaciones = null,
+        string? IdempotencyKey = null
     );
 }
