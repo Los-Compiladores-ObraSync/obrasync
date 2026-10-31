@@ -345,6 +345,19 @@
           "Requisiciones"
         ],
         "summary": "Crear una nueva requisición de materiales para una obra (Roles: Capataz, Admin)",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Clave opcional de idempotencia generada por envío (máx. 100 caracteres). Reintentos con el mismo valor y los mismos datos devuelven la misma requisición creada sin duplicarla.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "nullable": true
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -448,6 +461,26 @@
           },
           "404": {
             "description": "Not Found (Artículo de catálogo inexistente)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Requisición duplicada en ventana de 2 minutos o Idempotency-Key reutilizado con datos distintos; ProblemDetails indica el número de la requisición ya creada)",
             "content": {
               "text/plain": {
                 "schema": {

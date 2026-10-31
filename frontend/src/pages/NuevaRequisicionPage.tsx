@@ -4,6 +4,7 @@ import { ApiError } from '../api/ApiError'
 import { ESPERA_BUSQUEDA_MS } from '../requisiciones/configuracionBusqueda'
 import {
   crearRequisicion,
+  generarIdempotencyKey,
   obtenerInsumosCatalogo,
   obtenerObras,
 } from '../requisiciones/requisicionesService'
@@ -74,6 +75,8 @@ export function NuevaRequisicionPage() {
   const [errores, setErrores] = useState<ErroresRequisicion>({})
   const [apiError, setApiError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
+  const enviandoRef = useRef(false)
+  const idempotencyKeyRef = useRef(generarIdempotencyKey())
   const [requisicionCreada, setRequisicionCreada] =
     useState<RequisicionResponseDto | null>(null)
 
@@ -177,9 +180,11 @@ export function NuevaRequisicionPage() {
   function handleCambioObra(nuevaObraId: string) {
     setObraId(nuevaObraId)
     setEtapa('')
+    idempotencyKeyRef.current = generarIdempotencyKey()
   }
 
   function agregarFila() {
+    idempotencyKeyRef.current = generarIdempotencyKey()
     setItems((actuales) => [
       ...actuales,
       { id: siguienteFilaId.current++, articuloId: '', cantidad: '' },
@@ -188,10 +193,12 @@ export function NuevaRequisicionPage() {
 
   function quitarFila(id: number) {
     if (items.length <= 1) return
+    idempotencyKeyRef.current = generarIdempotencyKey()
     setItems((actuales) => actuales.filter((it) => it.id !== id))
   }
 
   function cambiarArticulo(id: number, nuevoArticuloId: string) {
+    idempotencyKeyRef.current = generarIdempotencyKey()
     setItems((actuales) =>
       actuales.map((it) =>
         it.id === id ? { ...it, articuloId: nuevoArticuloId } : it,
@@ -200,6 +207,7 @@ export function NuevaRequisicionPage() {
   }
 
   function cambiarCantidad(id: number, nuevaCantidad: string) {
+    idempotencyKeyRef.current = generarIdempotencyKey()
     setItems((actuales) =>
       actuales.map((it) =>
         it.id === id ? { ...it, cantidad: nuevaCantidad } : it,
@@ -210,6 +218,7 @@ export function NuevaRequisicionPage() {
   /** Elige un resultado de la búsqueda: va a la primera fila sin insumo o, si
    *  todas tienen, se agrega una fila nueva. */
   function elegirResultado(articuloId: string) {
+    idempotencyKeyRef.current = generarIdempotencyKey()
     const filaVacia = items.find((it) => it.articuloId === '')
     if (filaVacia) {
       cambiarArticulo(filaVacia.id, articuloId)
@@ -230,10 +239,12 @@ export function NuevaRequisicionPage() {
     setErrores({})
     setApiError(null)
     setRequisicionCreada(null)
+    idempotencyKeyRef.current = generarIdempotencyKey()
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (enviandoRef.current) return
     setApiError(null)
 
     const erroresForm = validarRequisicion({
@@ -252,22 +263,27 @@ export function NuevaRequisicionPage() {
     }
 
     setErrores({})
+    enviandoRef.current = true
     setEnviando(true)
 
     try {
-      const creada = await crearRequisicion({
-        obraId,
-        etapa: etapa.trim(),
-        observaciones: observaciones.trim() || null,
-        items: items.map((it) => ({
-          articuloId: it.articuloId,
-          cantidad: Number(it.cantidad),
-        })),
-      })
+      const creada = await crearRequisicion(
+        {
+          obraId,
+          etapa: etapa.trim(),
+          observaciones: observaciones.trim() || null,
+          items: items.map((it) => ({
+            articuloId: it.articuloId,
+            cantidad: Number(it.cantidad),
+          })),
+        },
+        idempotencyKeyRef.current,
+      )
       setRequisicionCreada(creada)
     } catch (err) {
       setApiError(mensajeDeErrorApi(err))
     } finally {
+      enviandoRef.current = false
       setEnviando(false)
     }
   }
@@ -425,7 +441,10 @@ export function NuevaRequisicionPage() {
             id="req-etapa"
             className={claseSelect(!!errores.etapa)}
             value={etapa}
-            onChange={(e) => setEtapa(e.target.value)}
+            onChange={(e) => {
+              setEtapa(e.target.value)
+              idempotencyKeyRef.current = generarIdempotencyKey()
+            }}
             disabled={!obraId}
             aria-invalid={!!errores.etapa}
             aria-describedby={errores.etapa ? 'req-etapa-error' : undefined}

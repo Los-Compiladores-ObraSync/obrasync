@@ -331,5 +331,181 @@ namespace ObraSync.Requisiciones.Tests.Integration
             Assert.NotNull(inexistente);
             Assert.Empty(inexistente);
         }
+
+        [Fact]
+        public async Task PostRequisicion_ConMismoIdempotencyKeyYDatosIguales_DebeDevolverMismaRespuestaYCrearUnaSola()
+        {
+            var capatazId = Guid.NewGuid();
+            var obraId = Guid.NewGuid();
+            var cementoSeedId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+            var idempotencyKey = $"idem-{Guid.NewGuid():N}";
+
+            var client = _factory.CreateClient();
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", capatazId));
+
+            var payload = new CrearRequisicionRequestDto
+            {
+                ObraId = obraId,
+                Etapa = "Estructura",
+                Observaciones = "Pedido con Idempotency-Key",
+                Items = new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = cementoSeedId, Cantidad = 50m }
+                }
+            };
+
+            using var msg1 = new HttpRequestMessage(HttpMethod.Post, "/api/requisiciones")
+            {
+                Content = JsonContent.Create(payload)
+            };
+            msg1.Headers.Add("Idempotency-Key", idempotencyKey);
+
+            var resp1 = await client.SendAsync(msg1);
+            Assert.Equal(HttpStatusCode.Created, resp1.StatusCode);
+            var creada1 = await resp1.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(creada1);
+
+            // Segundo envío seguido con el mismo Idempotency-Key y mismos datos
+            using var msg2 = new HttpRequestMessage(HttpMethod.Post, "/api/requisiciones")
+            {
+                Content = JsonContent.Create(payload)
+            };
+            msg2.Headers.Add("Idempotency-Key", idempotencyKey);
+
+            var resp2 = await client.SendAsync(msg2);
+            Assert.Equal(HttpStatusCode.Created, resp2.StatusCode);
+            var creada2 = await resp2.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(creada2);
+
+            Assert.Equal(creada1.RequisicionId, creada2.RequisicionId);
+            Assert.Equal(creada1.NumeroRequisicion, creada2.NumeroRequisicion);
+
+            // Verificar que en la base de datos se haya creado una sola requisición para esa obra
+            var listResp = await client.GetAsync($"/api/requisiciones?obraId={obraId}");
+            Assert.Equal(HttpStatusCode.OK, listResp.StatusCode);
+            var lista = await listResp.Content.ReadFromJsonAsync<List<RequisicionResponseDto>>();
+            Assert.NotNull(lista);
+            Assert.Single(lista);
+        }
+
+        [Fact]
+        public async Task PostRequisicion_ConMismoIdempotencyKeyPeroDatosDistintos_DebeRetornar409ConflictConProblemDetails()
+        {
+            var capatazId = Guid.NewGuid();
+            var obraId = Guid.NewGuid();
+            var cementoSeedId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+            var idempotencyKey = $"idem-{Guid.NewGuid():N}";
+
+            var client = _factory.CreateClient();
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", capatazId));
+
+            using var msg1 = new HttpRequestMessage(HttpMethod.Post, "/api/requisiciones")
+            {
+                Content = JsonContent.Create(new CrearRequisicionRequestDto
+                {
+                    ObraId = obraId,
+                    Etapa = "Estructura",
+                    Items = new List<CrearRequisicionItemDto>
+                    {
+                        new() { ArticuloId = cementoSeedId, Cantidad = 50m }
+                    }
+                })
+            };
+            msg1.Headers.Add("Idempotency-Key", idempotencyKey);
+
+            var resp1 = await client.SendAsync(msg1);
+            Assert.Equal(HttpStatusCode.Created, resp1.StatusCode);
+            var creada = await resp1.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(creada);
+
+            // Reutiliza el mismo Idempotency-Key pero cambia la cantidad
+            using var msg2 = new HttpRequestMessage(HttpMethod.Post, "/api/requisiciones")
+            {
+                Content = JsonContent.Create(new CrearRequisicionRequestDto
+                {
+                    ObraId = obraId,
+                    Etapa = "Estructura",
+                    Items = new List<CrearRequisicionItemDto>
+                    {
+                        new() { ArticuloId = cementoSeedId, Cantidad = 90m }
+                    }
+                })
+            };
+            msg2.Headers.Add("Idempotency-Key", idempotencyKey);
+
+            var resp2 = await client.SendAsync(msg2);
+            Assert.Equal(HttpStatusCode.Conflict, resp2.StatusCode);
+
+            var jsonConflict = await resp2.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(jsonConflict);
+            Assert.Contains(creada.NumeroRequisicion, doc.RootElement.GetProperty("detail").GetString());
+            Assert.Equal(creada.NumeroRequisicion, doc.RootElement.GetProperty("numeroRequisicion").GetString());
+        }
+
+        [Fact]
+        public async Task PostRequisicion_DosEnviosSeguidosIgualesEnVentanaDe2Minutos_Responde409YCreaUnaSola_EnviosDistintosPasan()
+        {
+            var capatazId = Guid.NewGuid();
+            var obraId = Guid.NewGuid();
+            var cementoSeedId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+            var calSeedId = Guid.Parse("11111111-1111-1111-1111-111111110003");
+
+            var client = _factory.CreateClient();
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", capatazId));
+
+            var payloadOriginal = new CrearRequisicionRequestDto
+            {
+                ObraId = obraId,
+                Etapa = "Mampostería",
+                Observaciones = "Primer envío",
+                Items = new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = cementoSeedId, Cantidad = 30m }
+                }
+            };
+
+            // 1. Primer envío crea la requisición
+            var resp1 = await client.PostAsJsonAsync("/api/requisiciones", payloadOriginal);
+            Assert.Equal(HttpStatusCode.Created, resp1.StatusCode);
+            var creada1 = await resp1.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(creada1);
+
+            // 2. Segundo envío seguido con mismo solicitante, obra, etapa e ítems/cantidades -> 409 Conflict con número de requisición creada
+            var respDuplicada = await client.PostAsJsonAsync("/api/requisiciones", payloadOriginal);
+            Assert.Equal(HttpStatusCode.Conflict, respDuplicada.StatusCode);
+
+            var problemJson = await respDuplicada.Content.ReadAsStringAsync();
+            using var problemDoc = JsonDocument.Parse(problemJson);
+            Assert.Equal(409, problemDoc.RootElement.GetProperty("status").GetInt32());
+            Assert.Contains(creada1.NumeroRequisicion, problemDoc.RootElement.GetProperty("detail").GetString());
+            Assert.Equal(creada1.NumeroRequisicion, problemDoc.RootElement.GetProperty("numeroRequisicion").GetString());
+
+            // 3. Envío distinto (distinto insumo/cantidad o etapa) pasa y retorna 201 Created
+            var payloadDistinto = new CrearRequisicionRequestDto
+            {
+                ObraId = obraId,
+                Etapa = "Mampostería",
+                Observaciones = "Segundo envío con otro material",
+                Items = new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = calSeedId, Cantidad = 15m }
+                }
+            };
+
+            var respDistinta = await client.PostAsJsonAsync("/api/requisiciones", payloadDistinto);
+            Assert.Equal(HttpStatusCode.Created, respDistinta.StatusCode);
+            var creada2 = await respDistinta.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(creada2);
+            Assert.NotEqual(creada1.RequisicionId, creada2.RequisicionId);
+
+            // En total existen exactamente 2 requisiciones en la obra (la duplicada no se creó)
+            var listResp = await client.GetAsync($"/api/requisiciones?obraId={obraId}");
+            var lista = await listResp.Content.ReadFromJsonAsync<List<RequisicionResponseDto>>();
+            Assert.NotNull(lista);
+            Assert.Equal(2, lista.Count);
+        }
     }
 }

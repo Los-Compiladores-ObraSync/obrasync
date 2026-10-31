@@ -679,3 +679,72 @@ describe('NuevaRequisicionPage - resultados a la vista', () => {
     expect(screen.getByRole('button', { name: /MAT-CEM-001.*ya agregado/ })).toBeDisabled()
   })
 })
+
+describe('NuevaRequisicionPage - idempotencia y protección contra doble envío (#120)', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setToken(null)
+  })
+
+  it('envía el encabezado Idempotency-Key y reutiliza el mismo valor si se reintenta el mismo envío tras un fallo de red', async () => {
+    const keysRecibidas: Array<string | null> = []
+    let intento = 0
+
+    server.use(
+      http.post('*/api/requisiciones', ({ request }) => {
+        keysRecibidas.push(request.headers.get('Idempotency-Key'))
+        intento++
+        if (intento === 1) {
+          return HttpResponse.error()
+        }
+        return HttpResponse.json(
+          {
+            requisicionId: 'd1d2d3d4-0000-0000-0000-000000000001',
+            numeroRequisicion: 'REQ-2026-0001',
+            obraId: OBRA_ID,
+            etapa: 'Estructura',
+            solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000001',
+            aprobadorId: null,
+            estado: 'Pendiente',
+            observaciones: null,
+            fechaCreacion: new Date().toISOString(),
+            fechaAprobacion: null,
+            items: [
+              {
+                articuloId: ARTICULO_CEMENTO_ID,
+                descripcion: 'Cemento Portland Especial 50kg',
+                cantidad: 80,
+                unidadMedida: 'BOLSA',
+              },
+            ],
+          },
+          { status: 201 },
+        )
+      }),
+    )
+
+    iniciarSesionCapataz()
+    const user = userEvent.setup()
+    renderPagina()
+
+    await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' })
+    await user.selectOptions(screen.getByLabelText('Obra'), OBRA_ID)
+    await user.selectOptions(screen.getByLabelText('Etapa de la obra'), 'Estructura')
+    await user.selectOptions(screen.getByLabelText('Insumo #1'), ARTICULO_CEMENTO_ID)
+    await user.type(screen.getByLabelText('Cantidad'), '80')
+
+    // Primer intento falla por red
+    await user.click(screen.getByRole('button', { name: 'Enviar requisición' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/No se pudo conectar/)
+
+    // Segundo intento sin cambiar datos reutiliza exactamente el mismo Idempotency-Key
+    await user.click(screen.getByRole('button', { name: 'Enviar requisición' }))
+    expect(
+      await screen.findByRole('heading', { name: 'Requisición enviada con éxito' }),
+    ).toBeInTheDocument()
+
+    expect(keysRecibidas).toHaveLength(2)
+    expect(keysRecibidas[0]).toBeTruthy()
+    expect(keysRecibidas[1]).toBe(keysRecibidas[0])
+  })
+})
