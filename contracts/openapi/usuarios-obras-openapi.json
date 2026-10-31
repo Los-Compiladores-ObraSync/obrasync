@@ -219,6 +219,128 @@
         }
       }
     },
+    "/api/usuarios/password/recuperar": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Solicitar enlace o token de recuperación de contraseña",
+        "description": "Genera un token de recuperación para el usuario. Para desarrollo y demo, el enlace/token se emite en los logs del servicio (sin proveedor SMTP externo).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecuperarPasswordRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecuperarPasswordRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecuperarPasswordRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Solicitud procesada con éxito",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MensajeResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MensajeResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos de solicitud inválidos",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/usuarios/password/restablecer": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Restablecer contraseña mediante token",
+        "description": "Aplica una nueva contraseña verificando el token de recuperación generado por el sistema.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestablecerPasswordRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestablecerPasswordRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestablecerPasswordRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contraseña restablecida exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MensajeResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MensajeResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Token inválido, expirado o requerimientos de contraseña no cumplidos",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Obras": {
       "post": {
         "tags": [
@@ -374,9 +496,15 @@
           "instance": {
             "type": "string",
             "nullable": true
+          },
+          "correlationId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Identificador único de correlación para trazabilidad distribuida",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
           }
         },
-        "additionalProperties": { }
+        "additionalProperties": {}
       },
       "RegisterRequestDto": {
         "type": "object",
@@ -396,6 +524,58 @@
           "rol": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RecuperarPasswordRequestDto": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "usuario@obrasync.com"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RestablecerPasswordRequestDto": {
+        "type": "object",
+        "required": [
+          "email",
+          "token",
+          "nuevaPassword"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "usuario@obrasync.com"
+          },
+          "token": {
+            "type": "string",
+            "description": "Token de recuperación generado por el sistema",
+            "example": "CfDJ8N3v8..."
+          },
+          "nuevaPassword": {
+            "type": "string",
+            "format": "password",
+            "minLength": 6,
+            "example": "Password123!"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MensajeResponseDto": {
+        "type": "object",
+        "properties": {
+          "mensaje": {
+            "type": "string",
+            "nullable": true,
+            "example": "Operación realizada con éxito."
           }
         },
         "additionalProperties": false
