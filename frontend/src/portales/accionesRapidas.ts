@@ -18,15 +18,25 @@ const APROBAR_REQUISICIONES: AccionRapida = {
   texto: 'Aprobar requisiciones',
   ruta: '/compras/requisiciones',
 }
+// El Capataz entra por /obra y el Comprador por /compras: es la misma pantalla en dos portales.
+// El Capataz ve solo las suyas; el Comprador y el Admin ven todas.
+const HISTORIAL_REQUISICIONES_OBRA: AccionRapida = {
+  texto: 'Historial de requisiciones',
+  ruta: '/obra/requisiciones',
+}
+const HISTORIAL_REQUISICIONES_COMPRAS: AccionRapida = {
+  texto: 'Historial de requisiciones',
+  ruta: '/compras/requisiciones/historial',
+}
 const CREAR_OBRA: AccionRapida = {
   texto: 'Crear una obra nueva',
   ruta: '/compras/obras/nueva',
 }
 
 const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
-  Capataz: [NUEVA_REQUISICION],
-  Comprador: [APROBAR_REQUISICIONES, CREAR_OBRA],
-  Admin: [NUEVA_REQUISICION, APROBAR_REQUISICIONES, CREAR_OBRA],
+  Capataz: [NUEVA_REQUISICION, HISTORIAL_REQUISICIONES_OBRA],
+  Comprador: [APROBAR_REQUISICIONES, HISTORIAL_REQUISICIONES_COMPRAS, CREAR_OBRA],
+  Admin: [NUEVA_REQUISICION, APROBAR_REQUISICIONES, HISTORIAL_REQUISICIONES_COMPRAS, CREAR_OBRA],
   // El portal de Proveedores todavía no tiene pantallas: por ahora no hay accesos rápidos.
   Proveedor: [],
 }

@@ -10,13 +10,17 @@ function portalDeRuta(ruta: string): PortalId {
 }
 
 describe('accionesParaRol', () => {
-  it('el Capataz crea requisiciones', () => {
-    expect(accionesParaRol('Capataz').map((a) => a.texto)).toEqual(['Nueva requisición'])
+  it('el Capataz crea requisiciones y ve su historial', () => {
+    expect(accionesParaRol('Capataz').map((a) => a.texto)).toEqual([
+      'Nueva requisición',
+      'Historial de requisiciones',
+    ])
   })
 
-  it('el Comprador aprueba requisiciones y crea obras', () => {
+  it('el Comprador aprueba requisiciones, ve el historial y crea obras', () => {
     expect(accionesParaRol('Comprador').map((a) => a.texto)).toEqual([
       'Aprobar requisiciones',
+      'Historial de requisiciones',
       'Crear una obra nueva',
     ])
   })

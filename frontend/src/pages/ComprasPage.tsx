@@ -12,6 +12,11 @@ export function ComprasPage() {
           </Link>
         </li>
         <li>
+          <Link to="/compras/requisiciones/historial" className="accion-grande">
+            Historial de requisiciones
+          </Link>
+        </li>
+        <li>
           <Link to="/compras/obras/nueva" className="accion-grande">
             Crear una obra nueva
           </Link>
