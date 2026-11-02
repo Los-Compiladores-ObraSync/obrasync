@@ -23,7 +23,7 @@ namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers
             CancellationToken cancellationToken = default)
         {
             var requisicion = await _repository.GetByIdAsync(query.RequisicionId, cancellationToken);
-            if (requisicion == null)
+            if (requisicion == null || (query.SolicitanteId.HasValue && query.SolicitanteId.Value != Guid.Empty && requisicion.SolicitanteId != query.SolicitanteId.Value))
             {
                 throw new KeyNotFoundException($"No se encontró la requisición con Id '{query.RequisicionId}'.");
             }

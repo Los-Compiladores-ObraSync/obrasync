@@ -754,5 +754,156 @@ namespace ObraSync.Requisiciones.Tests.Integration
             Assert.Contains(rechazadas, r => r.RequisicionId == req1.RequisicionId && r.MotivoRechazo == motivoComprador);
             Assert.Contains(rechazadas, r => r.RequisicionId == req2.RequisicionId && r.MotivoRechazo == motivoAdmin);
         }
+
+        [Fact]
+        public async Task Requisiciones_AislamientoPorCapataz_DosCapatacesDistintosYComprador_AislamientoEnListarYObtenerPorId()
+        {
+            var obraId = Guid.NewGuid();
+            var capataz1Id = Guid.NewGuid();
+            var capataz2Id = Guid.NewGuid();
+            var compradorId = Guid.NewGuid();
+            var adminId = Guid.NewGuid();
+            var cementoSeedId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+            var calSeedId = Guid.Parse("11111111-1111-1111-1111-111111110003");
+
+            var client = _factory.CreateClient();
+
+            // 1. Capataz 1 crea Requisición 1
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", capataz1Id));
+
+            var resp1 = await client.PostAsJsonAsync("/api/requisiciones", new CrearRequisicionRequestDto
+            {
+                ObraId = obraId,
+                Etapa = "Fundaciones",
+                Items = new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = cementoSeedId, Cantidad = 50m }
+                }
+            });
+            Assert.Equal(HttpStatusCode.Created, resp1.StatusCode);
+            var req1 = await resp1.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(req1);
+            Assert.Equal(capataz1Id, req1.SolicitanteId);
+
+            // 2. Capataz 2 crea Requisición 2
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", capataz2Id));
+
+            var resp2 = await client.PostAsJsonAsync("/api/requisiciones", new CrearRequisicionRequestDto
+            {
+                ObraId = obraId,
+                Etapa = "Mampostería",
+                Items = new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = calSeedId, Cantidad = 30m }
+                }
+            });
+            Assert.Equal(HttpStatusCode.Created, resp2.StatusCode);
+            var req2 = await resp2.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(req2);
+            Assert.Equal(capataz2Id, req2.SolicitanteId);
+
+            // 3. Capataz 1 lista requisiciones: sólo debe ver las suyas (Requisición 1)
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", capataz1Id));
+
+            var listarCapataz1Resp = await client.GetAsync($"/api/requisiciones?obraId={obraId}");
+            Assert.Equal(HttpStatusCode.OK, listarCapataz1Resp.StatusCode);
+            var listaCapataz1 = await listarCapataz1Resp.Content.ReadFromJsonAsync<List<RequisicionResponseDto>>();
+            Assert.NotNull(listaCapataz1);
+            Assert.Contains(listaCapataz1, r => r.RequisicionId == req1.RequisicionId);
+            Assert.DoesNotContain(listaCapataz1, r => r.RequisicionId == req2.RequisicionId);
+            Assert.All(listaCapataz1, r => Assert.Equal(capataz1Id, r.SolicitanteId));
+
+            // 4. Capataz 2 lista requisiciones: sólo debe ver las suyas (Requisición 2)
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", capataz2Id));
+
+            var listarCapataz2Resp = await client.GetAsync($"/api/requisiciones?obraId={obraId}");
+            Assert.Equal(HttpStatusCode.OK, listarCapataz2Resp.StatusCode);
+            var listaCapataz2 = await listarCapataz2Resp.Content.ReadFromJsonAsync<List<RequisicionResponseDto>>();
+            Assert.NotNull(listaCapataz2);
+            Assert.Contains(listaCapataz2, r => r.RequisicionId == req2.RequisicionId);
+            Assert.DoesNotContain(listaCapataz2, r => r.RequisicionId == req1.RequisicionId);
+            Assert.All(listaCapataz2, r => Assert.Equal(capataz2Id, r.SolicitanteId));
+
+            // 5. Comprador lista requisiciones: debe ver ambas
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Comprador", compradorId));
+
+            var listarCompradorResp = await client.GetAsync($"/api/requisiciones?obraId={obraId}");
+            Assert.Equal(HttpStatusCode.OK, listarCompradorResp.StatusCode);
+            var listaComprador = await listarCompradorResp.Content.ReadFromJsonAsync<List<RequisicionResponseDto>>();
+            Assert.NotNull(listaComprador);
+            Assert.Contains(listaComprador, r => r.RequisicionId == req1.RequisicionId);
+            Assert.Contains(listaComprador, r => r.RequisicionId == req2.RequisicionId);
+
+            // 6. Admin lista requisiciones: debe ver ambas
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Admin", adminId));
+
+            var listarAdminResp = await client.GetAsync($"/api/requisiciones?obraId={obraId}");
+            Assert.Equal(HttpStatusCode.OK, listarAdminResp.StatusCode);
+            var listaAdmin = await listarAdminResp.Content.ReadFromJsonAsync<List<RequisicionResponseDto>>();
+            Assert.NotNull(listaAdmin);
+            Assert.Contains(listaAdmin, r => r.RequisicionId == req1.RequisicionId);
+            Assert.Contains(listaAdmin, r => r.RequisicionId == req2.RequisicionId);
+
+            // 7. Capataz 1 consulta por ID su propia requisición (req1) -> 200 OK
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", capataz1Id));
+
+            var getReq1Capataz1Resp = await client.GetAsync($"/api/requisiciones/{req1.RequisicionId}");
+            Assert.Equal(HttpStatusCode.OK, getReq1Capataz1Resp.StatusCode);
+            var detalleReq1 = await getReq1Capataz1Resp.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(detalleReq1);
+            Assert.Equal(req1.RequisicionId, detalleReq1.RequisicionId);
+
+            // 8. Capataz 1 consulta por ID la requisición ajena (req2) -> 404 Not Found (ProblemDetails)
+            var getReq2Capataz1Resp = await client.GetAsync($"/api/requisiciones/{req2.RequisicionId}");
+            Assert.Equal(HttpStatusCode.NotFound, getReq2Capataz1Resp.StatusCode);
+            Assert.Equal("application/problem+json", getReq2Capataz1Resp.Content.Headers.ContentType?.MediaType);
+            using (var jsonDoc = JsonDocument.Parse(await getReq2Capataz1Resp.Content.ReadAsStringAsync()))
+            {
+                Assert.Equal(404, jsonDoc.RootElement.GetProperty("status").GetInt32());
+                Assert.Equal("Requisición no encontrada", jsonDoc.RootElement.GetProperty("title").GetString());
+            }
+
+            // 9. Capataz 2 consulta por ID su propia requisición (req2) -> 200 OK
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", capataz2Id));
+
+            var getReq2Capataz2Resp = await client.GetAsync($"/api/requisiciones/{req2.RequisicionId}");
+            Assert.Equal(HttpStatusCode.OK, getReq2Capataz2Resp.StatusCode);
+            var detalleReq2 = await getReq2Capataz2Resp.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(detalleReq2);
+            Assert.Equal(req2.RequisicionId, detalleReq2.RequisicionId);
+
+            // 10. Capataz 2 consulta por ID la requisición ajena (req1) -> 404 Not Found (ProblemDetails)
+            var getReq1Capataz2Resp = await client.GetAsync($"/api/requisiciones/{req1.RequisicionId}");
+            Assert.Equal(HttpStatusCode.NotFound, getReq1Capataz2Resp.StatusCode);
+            Assert.Equal("application/problem+json", getReq1Capataz2Resp.Content.Headers.ContentType?.MediaType);
+
+            // 11. Comprador consulta por ID ambas requisiciones -> 200 OK en ambas
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Comprador", compradorId));
+
+            var getReq1CompradorResp = await client.GetAsync($"/api/requisiciones/{req1.RequisicionId}");
+            Assert.Equal(HttpStatusCode.OK, getReq1CompradorResp.StatusCode);
+
+            var getReq2CompradorResp = await client.GetAsync($"/api/requisiciones/{req2.RequisicionId}");
+            Assert.Equal(HttpStatusCode.OK, getReq2CompradorResp.StatusCode);
+
+            // 12. Admin consulta por ID ambas requisiciones -> 200 OK en ambas
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Admin", adminId));
+
+            var getReq1AdminResp = await client.GetAsync($"/api/requisiciones/{req1.RequisicionId}");
+            Assert.Equal(HttpStatusCode.OK, getReq1AdminResp.StatusCode);
+
+            var getReq2AdminResp = await client.GetAsync($"/api/requisiciones/{req2.RequisicionId}");
+            Assert.Equal(HttpStatusCode.OK, getReq2AdminResp.StatusCode);
+        }
     }
 }

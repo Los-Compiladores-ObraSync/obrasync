@@ -26,6 +26,7 @@ namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers
             var requisiciones = await _repository.GetFilteredAsync(
                 query.ObraId,
                 query.Estado,
+                query.SolicitanteId,
                 cancellationToken);
 
             return requisiciones.Select(r => r.ToDto()).ToList();

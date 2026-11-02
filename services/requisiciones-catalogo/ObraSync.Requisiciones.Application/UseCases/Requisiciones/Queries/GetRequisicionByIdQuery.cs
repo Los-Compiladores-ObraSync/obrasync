@@ -2,5 +2,8 @@ using System;
 
 namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Queries
 {
-    public record GetRequisicionByIdQuery(Guid RequisicionId);
+    public record GetRequisicionByIdQuery(
+        Guid RequisicionId,
+        Guid? SolicitanteId = null
+    );
 }

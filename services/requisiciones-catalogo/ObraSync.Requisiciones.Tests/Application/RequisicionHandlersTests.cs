@@ -365,7 +365,7 @@ namespace ObraSync.Requisiciones.Tests.Application
                 etapa: "Estructura",
                 fechaCreacion: new DateTime(2026, 10, 19, 10, 0, 0, DateTimeKind.Utc));
 
-            requisicionRepo.GetFilteredAsync(null, null, Arg.Any<CancellationToken>())
+            requisicionRepo.GetFilteredAsync(null, null, null, Arg.Any<CancellationToken>())
                 .Returns(new List<Requisicion> { reqRecienteAprobada, reqAntiguaPendiente });
 
             var handler = new GetRequisicionesQueryHandler(requisicionRepo);
@@ -384,7 +384,7 @@ namespace ObraSync.Requisiciones.Tests.Application
             Assert.Single(resultado[1].Items);
             Assert.Equal(80m, resultado[1].Items[0].Cantidad);
 
-            await requisicionRepo.Received(1).GetFilteredAsync(null, null, Arg.Any<CancellationToken>());
+            await requisicionRepo.Received(1).GetFilteredAsync(null, null, null, Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -393,7 +393,7 @@ namespace ObraSync.Requisiciones.Tests.Application
             var requisicionRepo = Substitute.For<IRequisicionRepository>();
             var obraId = Guid.NewGuid();
 
-            requisicionRepo.GetFilteredAsync(obraId, "Pendiente", Arg.Any<CancellationToken>())
+            requisicionRepo.GetFilteredAsync(obraId, "Pendiente", null, Arg.Any<CancellationToken>())
                 .Returns(new List<Requisicion>());
 
             var handler = new GetRequisicionesQueryHandler(requisicionRepo);
@@ -402,7 +402,7 @@ namespace ObraSync.Requisiciones.Tests.Application
             var resultado = await handler.Handle(query, CancellationToken.None);
 
             Assert.Empty(resultado);
-            await requisicionRepo.Received(1).GetFilteredAsync(obraId, "Pendiente", Arg.Any<CancellationToken>());
+            await requisicionRepo.Received(1).GetFilteredAsync(obraId, "Pendiente", null, Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -495,6 +495,131 @@ namespace ObraSync.Requisiciones.Tests.Application
             Assert.Equal("REQ-2026-0009", ex.NumeroRequisicionExistente);
             Assert.Contains("REQ-2026-0009", ex.Message);
             await requisicionRepo.DidNotReceive().AddAsync(Arg.Any<Requisicion>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GetRequisiciones_ConFiltroSolicitanteId_DebePropagarFiltroAlRepositorio()
+        {
+            var requisicionRepo = Substitute.For<IRequisicionRepository>();
+            var solicitanteId = Guid.NewGuid();
+
+            requisicionRepo.GetFilteredAsync(null, null, solicitanteId, Arg.Any<CancellationToken>())
+                .Returns(new List<Requisicion>());
+
+            var handler = new GetRequisicionesQueryHandler(requisicionRepo);
+            var query = new GetRequisicionesQuery(SolicitanteId: solicitanteId);
+
+            var resultado = await handler.Handle(query, CancellationToken.None);
+
+            Assert.Empty(resultado);
+            await requisicionRepo.Received(1).GetFilteredAsync(null, null, solicitanteId, Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GetRequisicionById_CuandoExisteYSinRestriccionSolicitante_DebeRetornarDto()
+        {
+            var requisicionRepo = Substitute.For<IRequisicionRepository>();
+            var requisicionId = Guid.NewGuid();
+            var solicitanteId = Guid.NewGuid();
+            var obraId = Guid.NewGuid();
+            var cementoId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+
+            var requisicion = new Requisicion(
+                requisicionId,
+                "REQ-2026-0001",
+                obraId,
+                solicitanteId,
+                new[]
+                {
+                    new RequisicionItem(Guid.NewGuid(), requisicionId, cementoId, "Cemento", 10m, UnidadesMedida.Bolsa)
+                },
+                etapa: "Fundaciones");
+
+            requisicionRepo.GetByIdAsync(requisicionId, Arg.Any<CancellationToken>())
+                .Returns(requisicion);
+
+            var handler = new GetRequisicionByIdQueryHandler(requisicionRepo);
+            var resultado = await handler.Handle(new GetRequisicionByIdQuery(requisicionId), CancellationToken.None);
+
+            Assert.Equal(requisicionId, resultado.RequisicionId);
+            Assert.Equal(solicitanteId, resultado.SolicitanteId);
+        }
+
+        [Fact]
+        public async Task GetRequisicionById_CuandoPerteneceAlMismoSolicitante_DebeRetornarDto()
+        {
+            var requisicionRepo = Substitute.For<IRequisicionRepository>();
+            var requisicionId = Guid.NewGuid();
+            var solicitanteId = Guid.NewGuid();
+            var obraId = Guid.NewGuid();
+            var cementoId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+
+            var requisicion = new Requisicion(
+                requisicionId,
+                "REQ-2026-0002",
+                obraId,
+                solicitanteId,
+                new[]
+                {
+                    new RequisicionItem(Guid.NewGuid(), requisicionId, cementoId, "Cemento", 10m, UnidadesMedida.Bolsa)
+                },
+                etapa: "Fundaciones");
+
+            requisicionRepo.GetByIdAsync(requisicionId, Arg.Any<CancellationToken>())
+                .Returns(requisicion);
+
+            var handler = new GetRequisicionByIdQueryHandler(requisicionRepo);
+            var resultado = await handler.Handle(new GetRequisicionByIdQuery(requisicionId, solicitanteId), CancellationToken.None);
+
+            Assert.Equal(requisicionId, resultado.RequisicionId);
+            Assert.Equal(solicitanteId, resultado.SolicitanteId);
+        }
+
+        [Fact]
+        public async Task GetRequisicionById_CuandoPerteneceAOtroSolicitante_DebeLanzarKeyNotFoundException()
+        {
+            var requisicionRepo = Substitute.For<IRequisicionRepository>();
+            var requisicionId = Guid.NewGuid();
+            var solicitanteDuenoId = Guid.NewGuid();
+            var solicitanteOtroId = Guid.NewGuid();
+            var obraId = Guid.NewGuid();
+            var cementoId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+
+            var requisicion = new Requisicion(
+                requisicionId,
+                "REQ-2026-0003",
+                obraId,
+                solicitanteDuenoId,
+                new[]
+                {
+                    new RequisicionItem(Guid.NewGuid(), requisicionId, cementoId, "Cemento", 10m, UnidadesMedida.Bolsa)
+                },
+                etapa: "Fundaciones");
+
+            requisicionRepo.GetByIdAsync(requisicionId, Arg.Any<CancellationToken>())
+                .Returns(requisicion);
+
+            var handler = new GetRequisicionByIdQueryHandler(requisicionRepo);
+            var ex = await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+                handler.Handle(new GetRequisicionByIdQuery(requisicionId, solicitanteOtroId), CancellationToken.None));
+
+            Assert.Contains(requisicionId.ToString(), ex.Message);
+        }
+
+        [Fact]
+        public async Task GetRequisicionById_CuandoNoExiste_DebeLanzarKeyNotFoundException()
+        {
+            var requisicionRepo = Substitute.For<IRequisicionRepository>();
+            var requisicionId = Guid.NewGuid();
+
+            requisicionRepo.GetByIdAsync(requisicionId, Arg.Any<CancellationToken>())
+                .Returns((Requisicion?)null);
+
+            var handler = new GetRequisicionByIdQueryHandler(requisicionRepo);
+            var ex = await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+                handler.Handle(new GetRequisicionByIdQuery(requisicionId), CancellationToken.None));
+
+            Assert.Contains(requisicionId.ToString(), ex.Message);
         }
     }
 }
