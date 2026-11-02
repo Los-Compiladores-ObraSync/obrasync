@@ -257,7 +257,7 @@
           },
           "estado": {
             "type": "string",
-            "description": "Estado actual del pliego (valores a definir con el squad)."
+            "description": "Estado actual del pliego: Abierta, Cerrada o Adjudicada."
           },
           "fechaCreacion": {
             "type": "string",

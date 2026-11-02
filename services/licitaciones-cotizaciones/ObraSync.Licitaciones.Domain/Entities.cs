@@ -1,0 +1,49 @@
+namespace ObraSync.Licitaciones.Domain.Entities;
+
+public class RequisicionAprobada
+{
+    public Guid RequisicionId { get; set; }            // clave: el mismo Id que manda Requisiciones
+    public string NumeroRequisicion { get; set; } = "";
+    public Guid ObraId { get; set; }
+    public DateTime RecibidaEnUtc { get; set; }
+    public List<RequisicionAprobadaItem> Items { get; set; } = new();
+}
+
+public class RequisicionAprobadaItem
+{
+    public Guid Id { get; set; }
+    public Guid RequisicionId { get; set; }
+    public Guid ArticuloId { get; set; }
+    public string Descripcion { get; set; } = "";
+    public decimal Cantidad { get; set; }
+    public string UnidadMedida { get; set; } = "";
+}
+
+public enum EstadoLicitacion
+{
+    Abierta,
+    Cerrada,
+    Adjudicada
+}
+
+public class Licitacion
+{
+    public Guid LicitacionId { get; set; }
+    public Guid RequisicionId { get; set; }            // GUID, sin clave foránea
+    public string NumeroRequisicion { get; set; } = "";
+    public Guid ObraId { get; set; }
+    public EstadoLicitacion Estado { get; set; }
+    public DateTime FechaCreacion { get; set; }
+    public DateTime FechaLimiteCotizacion { get; set; }
+    public List<LicitacionItem> Items { get; set; } = new();
+}
+
+public class LicitacionItem
+{
+    public Guid Id { get; set; }
+    public Guid LicitacionId { get; set; }
+    public Guid ArticuloId { get; set; }
+    public string Descripcion { get; set; } = "";
+    public decimal Cantidad { get; set; }
+    public string UnidadMedida { get; set; } = "";
+}
