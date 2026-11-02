@@ -15,6 +15,14 @@ public class AuthService : IAuthService
     private const string MensajeRecuperacionGenerico =
         "Si el correo está registrado, se enviaron las instrucciones para restablecer la contraseña.";
 
+    // Mensajes de restablecimiento de contraseña (tarjeta #54)
+    private const string MensajeEnlaceInvalidoOExpirado =
+        "El enlace de recuperación es inválido o ha expirado. Por favor, solicitá uno nuevo.";
+    private const string MensajePasswordCorta =
+        "La contraseña debe tener al menos 6 caracteres.";
+    private const string MensajePasswordRestablecida =
+        "Contraseña restablecida con éxito.";
+
     private readonly UserManager<AppUser> _userManager;
     private readonly IJwtProvider _jwtProvider;
     private readonly ILogger<AuthService> _logger;
@@ -165,5 +173,38 @@ public class AuthService : IAuthService
             enlace);
 
         return respuesta;
+    }
+
+    public async Task<MensajeResponseDto> RestablecerPasswordAsync(RestablecerPasswordRequestDto request)
+    {
+        // 1. Buscar usuario por email. Si no existe o está inactivo, devolvemos el mismo 400
+        //    que ante un token inválido para no revelar qué cuentas existen.
+        var usuario = await _userManager.FindByEmailAsync(request.Email);
+        if (usuario is null || !usuario.Activo)
+        {
+            throw new ArgumentException(MensajeEnlaceInvalidoOExpirado);
+        }
+
+        // 2. Aplicar la nueva contraseña verificando el token de un solo uso con Identity.
+        //    Al cambiar la clave, Identity rota el SecurityStamp e invalida el token.
+        var result = await _userManager.ResetPasswordAsync(usuario, request.Token, request.NuevaPassword);
+        if (!result.Succeeded)
+        {
+            if (result.Errors.Any(e => string.Equals(e.Code, "InvalidToken", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ArgumentException(MensajeEnlaceInvalidoOExpirado);
+            }
+
+            if (result.Errors.Any(e => e.Code.Contains("PasswordTooShort", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ArgumentException(MensajePasswordCorta);
+            }
+
+            var errores = string.Join(" ", result.Errors.Select(e => e.Description));
+            throw new ArgumentException(
+                string.IsNullOrWhiteSpace(errores) ? MensajePasswordCorta : errores);
+        }
+
+        return new MensajeResponseDto(MensajePasswordRestablecida);
     }
 }

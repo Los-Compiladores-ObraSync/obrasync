@@ -61,6 +61,18 @@ public class AuthController : ControllerBase
         return Ok(await _authService.RecuperarPasswordAsync(request));
     }
 
+    /// <summary>
+    /// Restablece la contraseña del usuario validando el token de recuperación de un solo uso.
+    /// </summary>
+    [HttpPost("password/restablecer")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(MensajeResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RestablecerPassword([FromBody] RestablecerPasswordRequestDto request)
+    {
+        return Ok(await _authService.RestablecerPasswordAsync(request));
+    }
+
     [HttpGet("capataces")]
     [Authorize(Roles = $"{UserRoles.Comprador},{UserRoles.Admin}")]
     public async Task<ActionResult<IEnumerable<CapatazDto>>> GetCapatacesActivos()
