@@ -745,6 +745,168 @@
           }
         }
       }
+    },
+    "/api/requisiciones/{id}/rechazar": {
+      "post": {
+        "tags": [
+          "Requisiciones"
+        ],
+        "summary": "Rechazar una requisición pendiente especificando el motivo (Roles: Comprador, Admin)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identificador único (GUID) de la requisición a rechazar.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RechazarRequisicionRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RechazarRequisicionRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RechazarRequisicionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success (Requisición rechazada exitosamente)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (El motivo de rechazo es obligatorio y no puede superar los 500 caracteres)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (No posee el rol Comprador o Admin)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Requisición inexistente)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (La requisición no se encuentra en estado Pendiente)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -898,6 +1060,21 @@
         },
         "additionalProperties": false
       },
+      "RechazarRequisicionRequestDto": {
+        "type": "object",
+        "required": [
+          "motivo"
+        ],
+        "properties": {
+          "motivo": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Motivo obligatorio por el cual se rechaza la requisición."
+          }
+        },
+        "additionalProperties": false
+      },
       "RequisicionItemDto": {
         "type": "object",
         "required": [
@@ -970,7 +1147,13 @@
             "type": "string",
             "format": "uuid",
             "nullable": true,
-            "description": "Identificador del usuario que aprobó la requisición (null mientras está Pendiente)."
+            "description": "Identificador del usuario que aprobó la requisición (null mientras está Pendiente o Rechazada)."
+          },
+          "rechazadorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Identificador del usuario que rechazó la requisición (null mientras está Pendiente o Aprobada)."
           },
           "estado": {
             "type": "string",
@@ -980,6 +1163,11 @@
             "type": "string",
             "nullable": true,
             "description": "Observaciones o notas de la requisición."
+          },
+          "motivoRechazo": {
+            "type": "string",
+            "nullable": true,
+            "description": "Motivo informado cuando la requisición fue rechazada (null mientras está Pendiente o Aprobada)."
           },
           "fechaCreacion": {
             "type": "string",
@@ -991,6 +1179,12 @@
             "format": "date-time",
             "nullable": true,
             "description": "Fecha y hora de aprobación de la requisición (en UTC)."
+          },
+          "fechaRechazo": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fecha y hora de rechazo de la requisición (en UTC)."
           },
           "items": {
             "type": "array",

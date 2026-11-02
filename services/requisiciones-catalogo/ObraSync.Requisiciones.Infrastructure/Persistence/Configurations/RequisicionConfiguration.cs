@@ -42,12 +42,17 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Configurations
 
             builder.Property(r => r.AprobadorId);
 
+            builder.Property(r => r.RechazadorId);
+
             builder.Property(r => r.Estado)
                 .HasMaxLength(30)
                 .IsRequired()
                 .HasDefaultValue(EstadoRequisicion.Pendiente);
 
             builder.Property(r => r.Observaciones)
+                .HasMaxLength(500);
+
+            builder.Property(r => r.MotivoRechazo)
                 .HasMaxLength(500);
 
             builder.Property(r => r.IdempotencyKey)
@@ -62,6 +67,9 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Configurations
                 .IsRequired();
 
             builder.Property(r => r.FechaAprobacion)
+                .HasConversion(nullableUtcDateTimeConverter);
+
+            builder.Property(r => r.FechaRechazo)
                 .HasConversion(nullableUtcDateTimeConverter);
 
             builder.HasMany(r => r.Items)

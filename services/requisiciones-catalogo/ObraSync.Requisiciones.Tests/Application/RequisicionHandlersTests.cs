@@ -161,6 +161,59 @@ namespace ObraSync.Requisiciones.Tests.Application
         }
 
         [Fact]
+        public async Task RechazarRequisicion_ConRequisicionPendiente_DebeActualizarRequisicionSinPublicarEventos()
+        {
+            var requisicionRepo = Substitute.For<IRequisicionRepository>();
+            var eventPublisher = Substitute.For<IRequisicionEventPublisher>();
+
+            var requisicionId = Guid.NewGuid();
+            var obraId = Guid.NewGuid();
+            var solicitanteId = Guid.NewGuid();
+            var rechazadorId = Guid.NewGuid();
+            var cementoId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+
+            var requisicion = new Requisicion(
+                requisicionId,
+                "REQ-2026-0010",
+                obraId,
+                solicitanteId,
+                new[]
+                {
+                    new RequisicionItem(
+                        Guid.NewGuid(),
+                        requisicionId,
+                        cementoId,
+                        "Cemento Portland Normal (bolsa 50 kg)",
+                        80m,
+                        UnidadesMedida.Bolsa)
+                },
+                etapa: "Estructura");
+
+            requisicionRepo.GetByIdAsync(requisicionId, Arg.Any<CancellationToken>())
+                .Returns(requisicion);
+
+            var handler = new RechazarRequisicionCommandHandler(requisicionRepo);
+
+            var command = new RechazarRequisicionCommand(
+                requisicionId,
+                rechazadorId,
+                "Cantidad de bolsas excede el cómputo métrico de la etapa");
+
+            var resultado = await handler.Handle(command, CancellationToken.None);
+
+            Assert.Equal(EstadoRequisicion.Rechazada, resultado.Estado);
+            Assert.Equal(rechazadorId, resultado.RechazadorId);
+            Assert.Equal("Cantidad de bolsas excede el cómputo métrico de la etapa", resultado.MotivoRechazo);
+            Assert.NotNull(resultado.FechaRechazo);
+            Assert.Null(resultado.AprobadorId);
+            Assert.Null(resultado.FechaAprobacion);
+
+            await requisicionRepo.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+            await eventPublisher.DidNotReceiveWithAnyArgs()
+                .PublishRequisicionAprobadaAsync(default!, default);
+        }
+
+        [Fact]
         public async Task GetRequisiciones_SinFiltros_DebeDelegarAlRepositorioYMapearTodosLosEstadosEItems()
         {
             var requisicionRepo = Substitute.For<IRequisicionRepository>();

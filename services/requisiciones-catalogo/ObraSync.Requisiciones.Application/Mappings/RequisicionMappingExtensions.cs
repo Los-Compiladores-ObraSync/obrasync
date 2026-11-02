@@ -15,10 +15,13 @@ namespace ObraSync.Requisiciones.Application.Mappings
                 Etapa = requisicion.Etapa,
                 SolicitanteId = requisicion.SolicitanteId,
                 AprobadorId = requisicion.AprobadorId,
+                RechazadorId = requisicion.RechazadorId,
                 Estado = requisicion.Estado,
                 Observaciones = requisicion.Observaciones,
+                MotivoRechazo = requisicion.MotivoRechazo,
                 FechaCreacion = requisicion.FechaCreacion,
                 FechaAprobacion = requisicion.FechaAprobacion,
+                FechaRechazo = requisicion.FechaRechazo,
                 Items = requisicion.Items.Select(i => new RequisicionItemDto
                 {
                     ArticuloId = i.ArticuloId,
