@@ -14,6 +14,10 @@ const NUEVA_REQUISICION: AccionRapida = {
   texto: 'Nueva requisición',
   ruta: '/obra/requisicion/nueva',
 }
+const PENDIENTES: AccionRapida = {
+  texto: 'Pendientes',
+  ruta: '/compras/pendientes',
+}
 const APROBAR_REQUISICIONES: AccionRapida = {
   texto: 'Aprobar requisiciones',
   ruta: '/compras/requisiciones',
@@ -39,9 +43,10 @@ const CREAR_OBRA: AccionRapida = {
 
 const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
   Capataz: [NUEVA_REQUISICION, HISTORIAL_REQUISICIONES_OBRA],
-  Comprador: [APROBAR_REQUISICIONES, HISTORIAL_REQUISICIONES_COMPRAS, VER_OBRAS, CREAR_OBRA],
+  Comprador: [PENDIENTES, APROBAR_REQUISICIONES, HISTORIAL_REQUISICIONES_COMPRAS, VER_OBRAS, CREAR_OBRA],
   Admin: [
     NUEVA_REQUISICION,
+    PENDIENTES,
     APROBAR_REQUISICIONES,
     HISTORIAL_REQUISICIONES_COMPRAS,
     VER_OBRAS,

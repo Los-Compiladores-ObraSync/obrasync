@@ -9,10 +9,13 @@ import { PendientesProvider } from './PendientesProvider'
 import { usePendientes } from './usePendientes'
 
 function Cantidad() {
-  const { cantidad, refrescar } = usePendientes()
+  const { cantidad, pendientes, cargado, huboError, refrescar } = usePendientes()
   return (
     <>
       <p data-testid="cantidad">{cantidad}</p>
+      <p data-testid="lista">{pendientes.length}</p>
+      <p data-testid="cargado">{String(cargado)}</p>
+      <p data-testid="error">{String(huboError)}</p>
       <button type="button" onClick={refrescar}>
         Refrescar
       </button>
@@ -142,5 +145,43 @@ describe('PendientesProvider', () => {
     await esperar(100)
 
     expect(screen.getByTestId('cantidad')).toHaveTextContent('2')
+  })
+
+  it('expone la lista completa además de la cantidad', async () => {
+    renderizar('Comprador')
+
+    await waitFor(() => expect(screen.getByTestId('lista')).toHaveTextContent('2'))
+    expect(screen.getByTestId('cargado')).toHaveTextContent('true')
+    expect(screen.getByTestId('error')).toHaveTextContent('false')
+  })
+
+  it('si falla el primer pedido avisa con huboError y no está cargado; al reintentar se recupera', async () => {
+    let falla = true
+    server.use(
+      http.get('*/api/requisiciones', () =>
+        falla ? HttpResponse.json({ status: 500 }, { status: 500 }) : HttpResponse.json([{}, {}]),
+      ),
+    )
+    const usuario = userEvent.setup()
+    renderizar('Comprador')
+
+    await waitFor(() => expect(screen.getByTestId('error')).toHaveTextContent('true'))
+    expect(screen.getByTestId('cargado')).toHaveTextContent('false')
+
+    falla = false
+    await usuario.click(screen.getByRole('button', { name: 'Refrescar' }))
+
+    await waitFor(() => expect(screen.getByTestId('cargado')).toHaveTextContent('true'))
+    expect(screen.getByTestId('error')).toHaveTextContent('false')
+    expect(screen.getByTestId('lista')).toHaveTextContent('2')
+  })
+
+  it('un rol que no aprueba no recibe lista ni queda "cargado"', async () => {
+    simularPendientes(() => [{}, {}])
+    renderizar('Capataz')
+
+    await esperar(100)
+    expect(screen.getByTestId('lista')).toHaveTextContent('0')
+    expect(screen.getByTestId('cargado')).toHaveTextContent('false')
   })
 })

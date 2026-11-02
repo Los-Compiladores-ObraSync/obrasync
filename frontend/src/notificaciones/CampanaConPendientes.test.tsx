@@ -9,7 +9,7 @@ import { PendientesContext } from './pendientesContext'
 function renderizar(cantidad: number) {
     return render(
         <MemoryRouter>
-        <PendientesContext.Provider value={{ cantidad, refrescar: () => { } }}>
+        <PendientesContext.Provider value={{ cantidad, pendientes: [], cargado: true, huboError: false, refrescar: () => { } }}>
             <p>Afuera </p>
             < CampanaConPendientes />
             </PendientesContext.Provider>
@@ -57,6 +57,17 @@ describe('CampanaConPendientes - panel de avisos', () => {
         expect(
             screen.getByRole('link', { name: 'Ir a Aprobar requisiciones' }),
         ).toHaveAttribute('href', '/compras/requisiciones')
+    })
+
+    it('también ofrece el tablero de pendientes', async () => {
+        const usuario = userEvent.setup()
+        renderizar(2)
+
+        await usuario.click(campana())
+
+        expect(
+            screen.getByRole('link', { name: 'Ver tablero de pendientes' }),
+        ).toHaveAttribute('href', '/compras/pendientes')
     })
 
     it('sin pendientes muestra "No tenés avisos" y ningún enlace', async () => {
