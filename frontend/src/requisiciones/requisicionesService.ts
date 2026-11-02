@@ -71,6 +71,14 @@ export function listarRequisiciones(
 }
 
 /**
+ * Trae una requisición por su id, con sus ítems.
+ * Fuente: GET /api/requisiciones/{id} (Capataz, Comprador, Admin). Responde 404 si no existe.
+ */
+export function obtenerRequisicion(id: string): Promise<RequisicionResponseDto> {
+    return apiFetch<RequisicionResponseDto>(`/api/requisiciones/${encodeURIComponent(id)}`)
+}
+
+/**
  * Aprueba una requisición pendiente. Publica RequisicionAprobadaEvent en el backend.
  * Fuente: POST /api/requisiciones/{id}/aprobar (Comprador, Admin)
  */

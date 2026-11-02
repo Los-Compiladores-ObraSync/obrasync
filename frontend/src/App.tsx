@@ -3,6 +3,7 @@ import { AuthProvider } from './auth/AuthContext'
 import { LayoutApp } from './layout/LayoutApp'
 import { AprobarRequisicionesPage } from './pages/AprobarRequisicionesPage'
 import { ComprasPage } from './pages/ComprasPage'
+import { DetalleRequisicionPage } from './pages/DetalleRequisicionPage'
 import { HistorialRequisicionesPage } from './pages/HistorialRequisicionesPage'
 import { InicioPage } from './pages/InicioPage'
 import { LoginPage } from './pages/LoginPage'
@@ -47,6 +48,10 @@ function App() {
                   <HistorialRequisicionesPage volverA="/obra" textoVolver="← Volver a Obra / Terreno" />
                 }
               />
+              <Route
+                path="requisiciones/:id"
+                element={<DetalleRequisicionPage volverA="/obra/requisiciones" />}
+              />
             </Route>
             <Route path="compras" element={<SoloPortal portalId="compras" />}>
               <Route index element={<ComprasPage />} />
@@ -61,6 +66,10 @@ function App() {
                     textoVolver="← Volver a Gestión y Compras"
                   />
                 }
+              />
+              <Route
+                path="requisiciones/historial/:id"
+                element={<DetalleRequisicionPage volverA="/compras/requisiciones/historial" />}
               />
             </Route>
             <Route path="proveedores" element={<SoloPortal portalId="proveedores" />}>
