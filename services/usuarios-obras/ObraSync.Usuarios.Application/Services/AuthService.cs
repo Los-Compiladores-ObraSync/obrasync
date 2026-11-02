@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -5,7 +6,7 @@ using ObraSync.Usuarios.Application.DTOs;
 using ObraSync.Usuarios.Application.Interfaces;
 using ObraSync.Usuarios.Application.Settings;
 using ObraSync.Usuarios.Domain.Entities;
-using ObraSync.Usuarios.Domain.Exceptions; // <-- NUEVO
+using ObraSync.Usuarios.Domain.Exceptions;
 
 namespace ObraSync.Usuarios.Application.Services;
 
@@ -40,7 +41,7 @@ public class AuthService : IAuthService
         _frontendSettings = frontendOptions.Value;
     }
 
-    public async Task<AuthResponseDto> RegistrarAsync(RegisterRequestDto request)
+    public async Task<AuthResponseDto> RegistrarAsync(RegisterRequestDto request, ClaimsPrincipal? ejecutor = null)
     {
         // 1. Validar que el rol recibido sea uno de los permitidos por la arquitectura
         var rolesValidos = new[] { UserRoles.Capataz, UserRoles.Comprador, UserRoles.Proveedor, UserRoles.Admin };
@@ -49,11 +50,39 @@ public class AuthService : IAuthService
             throw new ArgumentException($"El rol '{request.Rol}' no es válido. Roles permitidos: {string.Join(", ", rolesValidos)}.");
         }
 
-        // 1b. Regla de seguridad: Restringir la auto-asignación pública del rol Admin
+        // 1b. Matriz de permisos para el alta de usuarios (tarjeta #117):
+        //     - Nadie puede crear cuentas con rol Admin por este endpoint (solo por seed).
+        //     - Sin token (anónimo): solo puede registrar el rol Proveedor.
+        //     - Con token de Comprador: puede crear Capataz y Proveedor.
+        //     - Con token de Admin: puede crear Capataz, Comprador y Proveedor.
+        //     - Con token de otro rol (Capataz o Proveedor): no tiene permisos para gestionar altas.
         if (request.Rol.Equals(UserRoles.Admin, StringComparison.OrdinalIgnoreCase))
         {
-            // <-- CAMBIO: Lanzamos ForbiddenException para que el middleware devuelva 403 Forbidden
-            throw new ForbiddenException("No está permitido registrar cuentas con rol Admin de forma pública.");
+            throw new ForbiddenException("No está permitido registrar cuentas con rol Admin por este medio.");
+        }
+
+        var estaAutenticado = ejecutor?.Identity?.IsAuthenticated == true;
+        if (!estaAutenticado)
+        {
+            if (!string.Equals(request.Rol, UserRoles.Proveedor, StringComparison.Ordinal))
+            {
+                throw new ForbiddenException("El registro público solo está permitido para el rol Proveedor.");
+            }
+        }
+        else if (ejecutor!.IsInRole(UserRoles.Admin))
+        {
+            // Admin puede crear Capataz, Comprador y Proveedor (Admin ya fue bloqueado arriba).
+        }
+        else if (ejecutor.IsInRole(UserRoles.Comprador))
+        {
+            if (string.Equals(request.Rol, UserRoles.Comprador, StringComparison.Ordinal))
+            {
+                throw new ForbiddenException("El rol Comprador no tiene permisos para crear usuarios con rol Comprador.");
+            }
+        }
+        else
+        {
+            throw new ForbiddenException("No tiene permisos para dar de alta nuevos usuarios.");
         }
 
         // 2. Verificar que no exista un usuario previo con el mismo email
