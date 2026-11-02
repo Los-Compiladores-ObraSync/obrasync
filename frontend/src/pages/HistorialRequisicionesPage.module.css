@@ -16,6 +16,44 @@
   text-decoration: none;
 }
 
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+
+.filtro label {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.filtro select {
+  width: 100%;
+  min-height: 48px; /* área de toque cómoda */
+  font-size: 1.0625rem;
+}
+
+.quitar {
+  min-height: 48px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.quitar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .lista {
   list-style: none;
   margin: 0;
