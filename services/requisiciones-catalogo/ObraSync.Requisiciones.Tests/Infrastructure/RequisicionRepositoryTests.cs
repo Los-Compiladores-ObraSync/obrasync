@@ -190,5 +190,66 @@ namespace ObraSync.Requisiciones.Tests.Infrastructure
             var otroSolicitante = await repository.GetByIdempotencyKeyAsync(Guid.NewGuid(), "clave-unica-123");
             Assert.Null(otroSolicitante);
         }
+
+        [Fact]
+        public async Task GetFilteredAsync_ConFiltroSolicitanteId_DebeDevolverSoloRequisicionesDeEseSolicitante()
+        {
+            await using var context = await CreateSeededDbContextAsync();
+            var repository = new RequisicionRepository(context);
+
+            var solicitanteA = Guid.NewGuid();
+            var solicitanteB = Guid.NewGuid();
+            var cementoId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+
+            var reqA1 = new Requisicion(
+                Guid.NewGuid(),
+                "REQ-2026-0050",
+                ObraAlphaId,
+                solicitanteA,
+                new[]
+                {
+                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, cementoId, "Cemento Portland", 20m, UnidadesMedida.Bolsa)
+                },
+                etapa: "Etapa A1");
+
+            var reqA2 = new Requisicion(
+                Guid.NewGuid(),
+                "REQ-2026-0051",
+                ObraBetaId,
+                solicitanteA,
+                new[]
+                {
+                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, cementoId, "Cemento Portland", 30m, UnidadesMedida.Bolsa)
+                },
+                etapa: "Etapa A2");
+
+            var reqB1 = new Requisicion(
+                Guid.NewGuid(),
+                "REQ-2026-0052",
+                ObraAlphaId,
+                solicitanteB,
+                new[]
+                {
+                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, cementoId, "Cemento Portland", 40m, UnidadesMedida.Bolsa)
+                },
+                etapa: "Etapa B1");
+
+            await repository.AddAsync(reqA1);
+            await repository.AddAsync(reqA2);
+            await repository.AddAsync(reqB1);
+            await repository.SaveChangesAsync();
+
+            var resultadoA = await repository.GetFilteredAsync(solicitanteId: solicitanteA);
+            Assert.Equal(2, resultadoA.Count);
+            Assert.All(resultadoA, r => Assert.Equal(solicitanteA, r.SolicitanteId));
+
+            var resultadoB = await repository.GetFilteredAsync(solicitanteId: solicitanteB);
+            Assert.Single(resultadoB);
+            Assert.Equal(solicitanteB, resultadoB[0].SolicitanteId);
+            Assert.Equal("REQ-2026-0052", resultadoB[0].NumeroRequisicion);
+
+            var resultadoInexistente = await repository.GetFilteredAsync(solicitanteId: Guid.NewGuid());
+            Assert.Empty(resultadoInexistente);
+        }
     }
 }

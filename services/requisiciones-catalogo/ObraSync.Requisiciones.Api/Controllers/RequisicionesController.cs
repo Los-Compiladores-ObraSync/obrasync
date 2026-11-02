@@ -52,7 +52,20 @@ namespace ObraSync.Requisiciones.Api.Controllers
             [FromQuery] string? estado = null,
             CancellationToken cancellationToken = default)
         {
-            var query = new GetRequisicionesQuery(obraId, estado);
+            Guid? solicitanteId = null;
+            if (EsCapatazSinPrivilegiosSuperiores())
+            {
+                if (!TryGetUserId(out var userId))
+                {
+                    return Problem(
+                        detail: "El token JWT no contiene un claim 'sub' válido con formato GUID.",
+                        statusCode: StatusCodes.Status401Unauthorized,
+                        title: "Usuario no identificado");
+                }
+                solicitanteId = userId;
+            }
+
+            var query = new GetRequisicionesQuery(obraId, estado, solicitanteId);
             var requisiciones = await _getRequisicionesHandler.Handle(query, cancellationToken);
             return Ok(requisiciones);
         }
@@ -70,9 +83,22 @@ namespace ObraSync.Requisiciones.Api.Controllers
             Guid id,
             CancellationToken cancellationToken = default)
         {
+            Guid? solicitanteIdRestriccion = null;
+            if (EsCapatazSinPrivilegiosSuperiores())
+            {
+                if (!TryGetUserId(out var userId))
+                {
+                    return Problem(
+                        detail: "El token JWT no contiene un claim 'sub' válido con formato GUID.",
+                        statusCode: StatusCodes.Status401Unauthorized,
+                        title: "Usuario no identificado");
+                }
+                solicitanteIdRestriccion = userId;
+            }
+
             try
             {
-                var query = new GetRequisicionByIdQuery(id);
+                var query = new GetRequisicionByIdQuery(id, solicitanteIdRestriccion);
                 var requisicion = await _getByIdHandler.Handle(query, cancellationToken);
                 return Ok(requisicion);
             }
@@ -275,6 +301,9 @@ namespace ObraSync.Requisiciones.Api.Controllers
                     title: "Motivo de rechazo inválido");
             }
         }
+
+        private bool EsCapatazSinPrivilegiosSuperiores() =>
+            User.IsInRole("Capataz") && !User.IsInRole("Comprador") && !User.IsInRole("Admin");
 
         private bool TryGetUserId(out Guid userId)
         {

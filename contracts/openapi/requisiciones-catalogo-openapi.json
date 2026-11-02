@@ -246,6 +246,7 @@
           "Requisiciones"
         ],
         "summary": "Listar requisiciones con filtros opcionales (Roles: Capataz, Comprador, Admin)",
+        "description": "Lista requisiciones registradas en el sistema. Si el usuario autenticado tiene exclusivamente el rol 'Capataz', la lista devuelve únicamente las requisiciones creadas por dicho usuario (solicitanteId igual al 'sub' del JWT). Los roles 'Comprador' y 'Admin' continúan visualizando todas las requisiciones del sistema.",
         "parameters": [
           {
             "name": "obraId",
@@ -508,6 +509,7 @@
           "Requisiciones"
         ],
         "summary": "Obtener el detalle de una requisición por su identificador (Roles: Capataz, Comprador, Admin)",
+        "description": "Obtiene el detalle completo de una requisición por su identificador único. Si el usuario autenticado tiene el rol 'Capataz', solo puede acceder a sus propias requisiciones; en caso de consultar una requisición ajena o inexistente, se responde 404 Not Found con ProblemDetails para evitar divulgación de información.",
         "parameters": [
           {
             "name": "id",
@@ -582,7 +584,7 @@
             }
           },
           "404": {
-            "description": "Not Found (Requisición inexistente)",
+            "description": "Not Found (Requisición inexistente o perteneciente a otro solicitante en caso de usuario Capataz)",
             "content": {
               "text/plain": {
                 "schema": {

@@ -4,6 +4,7 @@ namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Queries
 {
     public record GetRequisicionesQuery(
         Guid? ObraId = null,
-        string? Estado = null
+        string? Estado = null,
+        Guid? SolicitanteId = null
     );
 }

@@ -65,6 +65,7 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Repositories
         public async Task<IReadOnlyList<Requisicion>> GetFilteredAsync(
             Guid? obraId = null,
             string? estado = null,
+            Guid? solicitanteId = null,
             CancellationToken cancellationToken = default)
         {
             var dbQuery = _context.Requisiciones
@@ -81,6 +82,11 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Repositories
             {
                 var estadoNormalizado = estado.Trim();
                 dbQuery = dbQuery.Where(r => r.Estado.ToLower() == estadoNormalizado.ToLower());
+            }
+
+            if (solicitanteId.HasValue && solicitanteId.Value != Guid.Empty)
+            {
+                dbQuery = dbQuery.Where(r => r.SolicitanteId == solicitanteId.Value);
             }
 
             return await dbQuery

@@ -26,6 +26,7 @@ namespace ObraSync.Requisiciones.Application.Interfaces
         Task<IReadOnlyList<Requisicion>> GetFilteredAsync(
             Guid? obraId = null,
             string? estado = null,
+            Guid? solicitanteId = null,
             CancellationToken cancellationToken = default);
 
         Task<int> GetNextSequenceNumberAsync(
