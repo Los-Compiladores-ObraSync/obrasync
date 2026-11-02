@@ -33,7 +33,6 @@ public class RecepcionesController : ControllerBase
     /// <summary>
     /// Obtiene las recepciones registradas, opcionalmente filtradas por ObraId.
     /// </summary>
-    [Authorize(Roles = "Capataz,Comprador,Admin")]
     [HttpGet]
     public async Task<IActionResult> ObtenerRecepciones(
         [FromQuery] Guid? obraId,
