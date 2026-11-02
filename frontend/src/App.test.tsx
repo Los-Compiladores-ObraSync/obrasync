@@ -309,3 +309,59 @@ describe('App - campana de notificaciones', () => {
     ).toBeInTheDocument()
   })
 })
+
+describe('App - detalle de una requisición', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setToken(null)
+    reiniciarRequisicionesMock()
+  })
+
+  it('desde el historial se abre el detalle y al volver se conserva el filtro', async () => {
+    const usuario = userEvent.setup()
+    iniciarSesionComo('Comprador')
+    renderApp('/compras/requisiciones/historial')
+
+    await screen.findByText('REQ-2026-0011')
+    await usuario.selectOptions(screen.getByLabelText('Estado'), 'Aprobada')
+    await usuario.click(await screen.findByRole('link', { name: 'REQ-2026-0009' }))
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'REQ-2026-0009' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Obra: Torre Alvear')).toBeInTheDocument()
+
+    await usuario.click(screen.getByRole('link', { name: '← Volver al historial' }))
+
+    expect(await screen.findByRole('link', { name: 'REQ-2026-0009' })).toBeInTheDocument()
+    expect(screen.queryByText('REQ-2026-0011')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Estado')).toHaveValue('Aprobada')
+  })
+
+  it('el Capataz abre el detalle desde su historial', async () => {
+    const usuario = userEvent.setup()
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        usuario: {
+          id: 'a1b2c3d4-0000-0000-0000-000000000001',
+          nombreCompleto: 'Juan Pérez',
+          email: 'capataz@obrasync.com',
+          rol: 'Capataz',
+        },
+        token: 'token-jwt-prueba',
+      }),
+    )
+    renderApp('/obra/requisiciones')
+
+    await usuario.click(await screen.findByRole('link', { name: 'REQ-2026-0011' }))
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'REQ-2026-0011' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '← Volver al historial' })).toHaveAttribute(
+      'href',
+      '/obra/requisiciones',
+    )
+  })
+})

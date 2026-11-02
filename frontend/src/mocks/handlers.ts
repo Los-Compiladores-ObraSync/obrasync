@@ -372,6 +372,18 @@ export const handlers: RequestHandler[] = [
     return HttpResponse.json(lista, { status: 200 })
   }),
 
+  // Contrato: GET /api/requisiciones/{id} → 200 RequisicionResponseDto | 404 ProblemDetails
+  http.get('*/api/requisiciones/:id', ({ params }) => {
+    const req = requisicionesMock.find((r) => r.requisicionId === params.id)
+    if (!req) {
+      return HttpResponse.json(
+        { title: 'No encontrada', status: 404, detail: 'La requisición no existe.' },
+        { status: 404 },
+      )
+    }
+    return HttpResponse.json(req, { status: 200 })
+  }),
+
   // Contrato: POST /api/requisiciones/{id}/aprobar → 200 | 404 | 409 ProblemDetails
   http.post('*/api/requisiciones/:id/aprobar', ({ params }) => {
     const req = requisicionesMock.find((r) => r.requisicionId === params.id)

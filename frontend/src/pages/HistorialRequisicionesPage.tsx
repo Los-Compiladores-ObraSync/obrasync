@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { listarRequisiciones, obtenerObras } from '../requisiciones/requisicionesService'
@@ -32,8 +32,14 @@ export function HistorialRequisicionesPage({
   const { usuario } = useAuth()
   const [requisiciones, setRequisiciones] = useState<RequisicionResponseDto[]>([])
   const [obras, setObras] = useState<ObraResumen[]>([])
-  const [estadoFiltro, setEstadoFiltro] = useState('')
-  const [obraFiltro, setObraFiltro] = useState('')
+
+  // Los filtros viven en la URL (?estado=…&obraId=…): así se conservan al entrar al detalle
+  // de una requisición y volver, y también al recargar la página.
+  const [params, setParams] = useSearchParams()
+  const { pathname, search } = useLocation()
+  const estadoParam = params.get('estado') ?? ''
+  const estadoFiltro = ESTADOS.some((e) => e === estadoParam) ? estadoParam : ''
+  const obraFiltro = params.get('obraId') ?? ''
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
 
@@ -90,21 +96,18 @@ export function HistorialRequisicionesPage({
   }
 
   // Cada cambio de filtro muestra "Cargando…" hasta que llega la lista nueva.
-  function cambiarEstado(valor: string) {
-    setEstadoFiltro(valor)
-    setErrorCarga(null)
-    setCargando(true)
-  }
-
-  function cambiarObra(valor: string) {
-    setObraFiltro(valor)
+  function cambiarFiltro(nombre: 'estado' | 'obraId', valor: string) {
+    const siguiente = new URLSearchParams(params)
+    if (valor) siguiente.set(nombre, valor)
+    else siguiente.delete(nombre)
+    // replace: elegir filtros no llena de pasos el botón "atrás" del navegador.
+    setParams(siguiente, { replace: true })
     setErrorCarga(null)
     setCargando(true)
   }
 
   function quitarFiltros() {
-    setEstadoFiltro('')
-    setObraFiltro('')
+    setParams({}, { replace: true })
     setErrorCarga(null)
     setCargando(true)
   }
@@ -133,7 +136,7 @@ export function HistorialRequisicionesPage({
           <select
             id="filtro-estado"
             value={estadoFiltro}
-            onChange={(e) => cambiarEstado(e.target.value)}
+            onChange={(e) => cambiarFiltro('estado', e.target.value)}
           >
             <option value="">Todos</option>
             {ESTADOS.map((estado) => (
@@ -148,7 +151,7 @@ export function HistorialRequisicionesPage({
           <select
             id="filtro-obra"
             value={obraFiltro}
-            onChange={(e) => cambiarObra(e.target.value)}
+            onChange={(e) => cambiarFiltro('obraId', e.target.value)}
           >
             <option value="">Todas</option>
             {obras.map((obra) => (
@@ -196,7 +199,15 @@ export function HistorialRequisicionesPage({
           {visibles.map((req) => (
             <li key={req.requisicionId} className={styles.tarjeta}>
               <div className={styles.encabezado}>
-                <h2 className={styles.numero}>{req.numeroRequisicion}</h2>
+                <h2 className={styles.numero}>
+                  {/* Toda la tarjeta es clickeable (ver .enlaceFila::after). Los filtros viajan en "search". */}
+                  <Link
+                    to={{ pathname: `${pathname.replace(/\/$/, '')}/${req.requisicionId}`, search }}
+                    className={styles.enlaceFila}
+                  >
+                    {req.numeroRequisicion}
+                  </Link>
+                </h2>
                 <span
                   className={`${styles.estado} ${CLASE_POR_ESTADO[req.estado] ?? ''}`}
                 >

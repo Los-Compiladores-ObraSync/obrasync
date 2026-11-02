@@ -1,7 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { AuthContext, type SesionUsuario } from '../auth/sessionContext'
 import { reiniciarRequisicionesMock } from '../mocks/handlers'
@@ -10,11 +10,18 @@ import { HistorialRequisicionesPage } from './HistorialRequisicionesPage'
 
 const ID_CAPATAZ = 'a1b2c3d4-0000-0000-0000-000000000001'
 
-function renderPagina(usuario: SesionUsuario) {
+// Muestra la URL actual para poder comprobar que los filtros viajan en ella.
+function UbicacionActual() {
+  const { pathname, search } = useLocation()
+  return <p data-testid="ubicacion">{pathname + search}</p>
+}
+
+function renderPagina(usuario: SesionUsuario, ruta = '/compras/requisiciones/historial') {
   return render(
     <AuthContext.Provider value={{ usuario, login: () => {}, logout: () => {} }}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[ruta]}>
         <HistorialRequisicionesPage volverA="/compras" textoVolver="← Volver a Gestión y Compras" />
+        <UbicacionActual />
       </MemoryRouter>
     </AuthContext.Provider>,
   )
@@ -274,5 +281,64 @@ describe('HistorialRequisicionesPage - filtros', () => {
 
     expect(await screen.findByText('No hay requisiciones con esos filtros.')).toBeInTheDocument()
     expect(screen.queryByText('REQ-2026-0010')).not.toBeInTheDocument()
+  })
+})
+
+describe('enlaces al detalle y filtros en la URL', () => {
+  beforeEach(() => {
+    reiniciarRequisicionesMock()
+  })
+
+  it('el número de cada requisición lleva a su detalle', async () => {
+    renderPagina(comprador)
+
+    const enlace = await screen.findByRole('link', { name: 'REQ-2026-0009' })
+    expect(enlace).toHaveAttribute(
+      'href',
+      '/compras/requisiciones/historial/d1d2d3d4-0000-0000-0000-000000000009',
+    )
+  })
+
+  it('el enlace al detalle lleva los filtros elegidos', async () => {
+    const user = userEvent.setup()
+    renderPagina(comprador)
+    await screen.findByText('REQ-2026-0011')
+
+    await user.selectOptions(screen.getByLabelText('Estado'), 'Aprobada')
+
+    const enlace = await screen.findByRole('link', { name: 'REQ-2026-0009' })
+    expect(enlace).toHaveAttribute(
+      'href',
+      '/compras/requisiciones/historial/d1d2d3d4-0000-0000-0000-000000000009?estado=Aprobada',
+    )
+    expect(screen.getByTestId('ubicacion')).toHaveTextContent(
+      '/compras/requisiciones/historial?estado=Aprobada',
+    )
+  })
+
+  it('arranca con los filtros que vienen en la URL', async () => {
+    renderPagina(comprador, '/compras/requisiciones/historial?estado=Aprobada')
+
+    expect(await screen.findByText('REQ-2026-0009')).toBeInTheDocument()
+    expect(screen.queryByText('REQ-2026-0011')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Estado')).toHaveValue('Aprobada')
+  })
+
+  it('ignora un estado inválido en la URL', async () => {
+    renderPagina(comprador, '/compras/requisiciones/historial?estado=Cualquiera')
+
+    expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
+    expect(screen.getByLabelText('Estado')).toHaveValue('')
+  })
+
+  it('"Quitar filtros" deja la URL limpia', async () => {
+    const user = userEvent.setup()
+    renderPagina(comprador, '/compras/requisiciones/historial?estado=Aprobada')
+    await screen.findByText('REQ-2026-0009')
+
+    await user.click(screen.getByRole('button', { name: 'Quitar filtros' }))
+
+    expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
+    expect(screen.getByTestId('ubicacion')).toHaveTextContent(/^\/compras\/requisiciones\/historial$/)
   })
 })
