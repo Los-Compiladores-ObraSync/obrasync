@@ -23,17 +23,20 @@ namespace ObraSync.Requisiciones.Api.Controllers
         private readonly GetRequisicionesQueryHandler _getRequisicionesHandler;
         private readonly GetRequisicionByIdQueryHandler _getByIdHandler;
         private readonly AprobarRequisicionCommandHandler _aprobarHandler;
+        private readonly RechazarRequisicionCommandHandler _rechazarHandler;
 
         public RequisicionesController(
             CreateRequisicionCommandHandler createHandler,
             GetRequisicionesQueryHandler getRequisicionesHandler,
             GetRequisicionByIdQueryHandler getByIdHandler,
-            AprobarRequisicionCommandHandler aprobarHandler)
+            AprobarRequisicionCommandHandler aprobarHandler,
+            RechazarRequisicionCommandHandler rechazarHandler)
         {
             _createHandler = createHandler;
             _getRequisicionesHandler = getRequisicionesHandler;
             _getByIdHandler = getByIdHandler;
             _aprobarHandler = aprobarHandler;
+            _rechazarHandler = rechazarHandler;
         }
 
         /// <summary>
@@ -209,6 +212,67 @@ namespace ObraSync.Requisiciones.Api.Controllers
                     detail: ex.Message,
                     statusCode: StatusCodes.Status400BadRequest,
                     title: "Solicitud inválida");
+            }
+        }
+
+        /// <summary>
+        /// Rechazar una requisición pendiente con motivo obligatorio (Roles: Comprador, Admin)
+        /// </summary>
+        [HttpPost("{id:guid}/rechazar")]
+        [Authorize(Roles = "Comprador,Admin")]
+        [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        public async Task<ActionResult<RequisicionResponseDto>> RechazarRequisicion(
+            Guid id,
+            [FromBody] RechazarRequisicionRequestDto? request,
+            CancellationToken cancellationToken = default)
+        {
+            if (!TryGetUserId(out var rechazadorId))
+            {
+                return Problem(
+                    detail: "El token JWT no contiene un claim 'sub' válido con formato GUID.",
+                    statusCode: StatusCodes.Status401Unauthorized,
+                    title: "Usuario no identificado");
+            }
+
+            if (request == null || string.IsNullOrWhiteSpace(request.Motivo))
+            {
+                return Problem(
+                    detail: "El motivo de rechazo de la requisición es obligatorio.",
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: "Motivo de rechazo inválido");
+            }
+
+            try
+            {
+                var command = new RechazarRequisicionCommand(id, rechazadorId, request.Motivo);
+                var rechazada = await _rechazarHandler.Handle(command, cancellationToken);
+                return Ok(rechazada);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return Problem(
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status404NotFound,
+                    title: "Requisición no encontrada");
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Problem(
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Conflicto de estado en la requisición");
+            }
+            catch (ArgumentException ex)
+            {
+                return Problem(
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: "Motivo de rechazo inválido");
             }
         }
 

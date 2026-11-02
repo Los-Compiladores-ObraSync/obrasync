@@ -11,10 +11,13 @@ namespace ObraSync.Requisiciones.Application.DTOs
         public string? Etapa { get; set; }
         public Guid SolicitanteId { get; set; }
         public Guid? AprobadorId { get; set; }
+        public Guid? RechazadorId { get; set; }
         public string Estado { get; set; } = string.Empty;
         public string? Observaciones { get; set; }
+        public string? MotivoRechazo { get; set; }
         public DateTime FechaCreacion { get; set; }
         public DateTime? FechaAprobacion { get; set; }
+        public DateTime? FechaRechazo { get; set; }
         public List<RequisicionItemDto> Items { get; set; } = new();
     }
 }

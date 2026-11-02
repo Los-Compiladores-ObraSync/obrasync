@@ -44,6 +44,9 @@ namespace ObraSync.Requisiciones.Tests.Domain
             Assert.Equal(EstadoRequisicion.Pendiente, requisicion.Estado);
             Assert.Null(requisicion.AprobadorId);
             Assert.Null(requisicion.FechaAprobacion);
+            Assert.Null(requisicion.RechazadorId);
+            Assert.Null(requisicion.MotivoRechazo);
+            Assert.Null(requisicion.FechaRechazo);
             Assert.Single(requisicion.Items);
             Assert.Equal(80m, requisicion.Items[0].Cantidad);
             Assert.Equal(UnidadesMedida.Bolsa, requisicion.Items[0].UnidadMedida);
@@ -115,6 +118,107 @@ namespace ObraSync.Requisiciones.Tests.Domain
 
             Assert.Throws<InvalidOperationException>(() =>
                 requisicion.Aprobar(Guid.NewGuid()));
+        }
+
+        [Fact]
+        public void Rechazar_RequisicionPendiente_DebeCambiarEstadoARechazadaYGuardarRechazadorMotivoYFecha()
+        {
+            var requisicion = new Requisicion(
+                Guid.NewGuid(),
+                "REQ-2026-0005",
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                new[]
+                {
+                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, Guid.NewGuid(), "Cemento", 80m, UnidadesMedida.Bolsa)
+                },
+                "Estructura");
+
+            var rechazadorId = Guid.NewGuid();
+            var fechaRechazo = new DateTime(2026, 10, 25, 15, 30, 0, DateTimeKind.Utc);
+
+            requisicion.Rechazar(rechazadorId, "  Presupuesto excedido para etapa Estructura  ", fechaRechazo);
+
+            Assert.Equal(EstadoRequisicion.Rechazada, requisicion.Estado);
+            Assert.Equal(rechazadorId, requisicion.RechazadorId);
+            Assert.Equal("Presupuesto excedido para etapa Estructura", requisicion.MotivoRechazo);
+            Assert.Equal(fechaRechazo, requisicion.FechaRechazo);
+            Assert.Null(requisicion.AprobadorId);
+            Assert.Null(requisicion.FechaAprobacion);
+        }
+
+        [Fact]
+        public void Rechazar_RequisicionYaAprobadaORechazada_DebeLanzarInvalidOperationException()
+        {
+            var reqAprobada = new Requisicion(
+                Guid.NewGuid(),
+                "REQ-2026-0006",
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                new[]
+                {
+                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, Guid.NewGuid(), "Cemento", 80m, UnidadesMedida.Bolsa)
+                });
+
+            reqAprobada.Aprobar(Guid.NewGuid());
+
+            Assert.Throws<InvalidOperationException>(() =>
+                reqAprobada.Rechazar(Guid.NewGuid(), "No se puede rechazar luego de aprobada"));
+
+            var reqRechazada = new Requisicion(
+                Guid.NewGuid(),
+                "REQ-2026-0007",
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                new[]
+                {
+                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, Guid.NewGuid(), "Cemento", 80m, UnidadesMedida.Bolsa)
+                });
+
+            reqRechazada.Rechazar(Guid.NewGuid(), "Primer rechazo");
+
+            Assert.Throws<InvalidOperationException>(() =>
+                reqRechazada.Rechazar(Guid.NewGuid(), "Segundo rechazo"));
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("   ")]
+        public void Rechazar_ConMotivoVacioOSoloEspacios_DebeLanzarArgumentException(string motivoInvalido)
+        {
+            var requisicion = new Requisicion(
+                Guid.NewGuid(),
+                "REQ-2026-0008",
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                new[]
+                {
+                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, Guid.NewGuid(), "Cemento", 80m, UnidadesMedida.Bolsa)
+                });
+
+            Assert.Throws<ArgumentException>(() =>
+                requisicion.Rechazar(Guid.NewGuid(), motivoInvalido));
+        }
+
+        [Fact]
+        public void Rechazar_ConRechazadorIdVacioOMotivoMayorA500Caracteres_DebeLanzarArgumentException()
+        {
+            var requisicion = new Requisicion(
+                Guid.NewGuid(),
+                "REQ-2026-0009",
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                new[]
+                {
+                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, Guid.NewGuid(), "Cemento", 80m, UnidadesMedida.Bolsa)
+                });
+
+            Assert.Throws<ArgumentException>(() =>
+                requisicion.Rechazar(Guid.Empty, "Motivo válido"));
+
+            var motivoLargo = new string('A', 501);
+            Assert.Throws<ArgumentException>(() =>
+                requisicion.Rechazar(Guid.NewGuid(), motivoLargo));
         }
     }
 }

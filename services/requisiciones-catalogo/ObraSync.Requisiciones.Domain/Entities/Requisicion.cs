@@ -13,11 +13,14 @@ namespace ObraSync.Requisiciones.Domain.Entities
         public string? Etapa { get; set; }
         public Guid SolicitanteId { get; set; }
         public Guid? AprobadorId { get; set; }
+        public Guid? RechazadorId { get; set; }
         public string Estado { get; set; } = EstadoRequisicion.Pendiente;
         public string? Observaciones { get; set; }
+        public string? MotivoRechazo { get; set; }
         public string? IdempotencyKey { get; set; }
         public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
         public DateTime? FechaAprobacion { get; set; }
+        public DateTime? FechaRechazo { get; set; }
         public List<RequisicionItem> Items { get; set; } = new();
 
         public Requisicion() { }
@@ -120,6 +123,27 @@ namespace ObraSync.Requisiciones.Domain.Entities
             Estado = EstadoRequisicion.Aprobada;
             AprobadorId = aprobadorId;
             FechaAprobacion = fechaAprobacion?.ToUniversalTime() ?? DateTime.UtcNow;
+        }
+
+        public void Rechazar(Guid rechazadorId, string motivo, DateTime? fechaRechazo = null)
+        {
+            if (rechazadorId == Guid.Empty)
+                throw new ArgumentException("El identificador del usuario que rechaza es obligatorio.", nameof(rechazadorId));
+
+            if (string.IsNullOrWhiteSpace(motivo))
+                throw new ArgumentException("El motivo de rechazo es obligatorio.", nameof(motivo));
+
+            var motivoLimpio = motivo.Trim();
+            if (motivoLimpio.Length > 500)
+                throw new ArgumentException("El motivo de rechazo no puede superar los 500 caracteres.", nameof(motivo));
+
+            if (!string.Equals(Estado, EstadoRequisicion.Pendiente, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"No se puede rechazar una requisición en estado '{Estado}'. Solo se pueden rechazar requisiciones pendientes.");
+
+            Estado = EstadoRequisicion.Rechazada;
+            RechazadorId = rechazadorId;
+            MotivoRechazo = motivoLimpio;
+            FechaRechazo = fechaRechazo?.ToUniversalTime() ?? DateTime.UtcNow;
         }
     }
 }

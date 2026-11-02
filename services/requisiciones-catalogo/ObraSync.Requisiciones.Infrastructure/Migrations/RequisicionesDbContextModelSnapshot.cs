@@ -205,9 +205,16 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                     b.Property<DateTime>("FechaCreacion")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("FechaRechazo")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("IdempotencyKey")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("MotivoRechazo")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("NumeroRequisicion")
                         .IsRequired()
@@ -220,6 +227,9 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
                     b.Property<string>("Observaciones")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("RechazadorId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("SolicitanteId")
                         .HasColumnType("uniqueidentifier");

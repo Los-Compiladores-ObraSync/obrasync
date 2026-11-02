@@ -507,5 +507,120 @@ namespace ObraSync.Requisiciones.Tests.Integration
             Assert.NotNull(lista);
             Assert.Equal(2, lista.Count);
         }
+
+        [Fact]
+        public async Task RechazarRequisicion_FlujoCompletoYValidacionesDeRolesMotivoEstadoYNotFound()
+        {
+            var capatazId = Guid.NewGuid();
+            var compradorId = Guid.NewGuid();
+            var adminId = Guid.NewGuid();
+            var obraId = Guid.NewGuid();
+            var cementoSeedId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+            var calSeedId = Guid.Parse("11111111-1111-1111-1111-111111110003");
+
+            var client = _factory.CreateClient();
+
+            // 1. Capataz crea dos requisiciones pendientes
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", capatazId));
+
+            var respReq1 = await client.PostAsJsonAsync("/api/requisiciones", new CrearRequisicionRequestDto
+            {
+                ObraId = obraId,
+                Etapa = "Estructura",
+                Observaciones = "Requisición a rechazar por Comprador",
+                Items = new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = cementoSeedId, Cantidad = 120m }
+                }
+            });
+            Assert.Equal(HttpStatusCode.Created, respReq1.StatusCode);
+            var req1 = await respReq1.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(req1);
+
+            var respReq2 = await client.PostAsJsonAsync("/api/requisiciones", new CrearRequisicionRequestDto
+            {
+                ObraId = obraId,
+                Etapa = "Terminaciones",
+                Observaciones = "Requisición a rechazar por Admin",
+                Items = new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = calSeedId, Cantidad = 45m }
+                }
+            });
+            Assert.Equal(HttpStatusCode.Created, respReq2.StatusCode);
+            var req2 = await respReq2.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(req2);
+
+            // 2. Rol Capataz intentando rechazar recibe 403 Forbidden
+            var forbiddenResp = await client.PostAsJsonAsync(
+                $"/api/requisiciones/{req1.RequisicionId}/rechazar",
+                new RechazarRequisicionRequestDto { Motivo = "Intento de capataz" });
+            Assert.Equal(HttpStatusCode.Forbidden, forbiddenResp.StatusCode);
+
+            // 3. Rol Comprador intentando rechazar con motivo vacío recibe 400 Bad Request
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Comprador", compradorId));
+
+            var badRequestResp = await client.PostAsJsonAsync(
+                $"/api/requisiciones/{req1.RequisicionId}/rechazar",
+                new RechazarRequisicionRequestDto { Motivo = "   " });
+            Assert.Equal(HttpStatusCode.BadRequest, badRequestResp.StatusCode);
+
+            // 4. Rol Comprador intentando rechazar un ID inexistente recibe 404 Not Found
+            var notFoundResp = await client.PostAsJsonAsync(
+                $"/api/requisiciones/{Guid.NewGuid()}/rechazar",
+                new RechazarRequisicionRequestDto { Motivo = "Motivo válido" });
+            Assert.Equal(HttpStatusCode.NotFound, notFoundResp.StatusCode);
+
+            // 5. Rol Comprador rechaza req1 exitosamente -> 200 OK, estado Rechazada y fecha UTC con 'Z'
+            var motivoComprador = "Cantidad excede el presupuesto asignado a Estructura.";
+            var rechazar1Resp = await client.PostAsJsonAsync(
+                $"/api/requisiciones/{req1.RequisicionId}/rechazar",
+                new RechazarRequisicionRequestDto { Motivo = motivoComprador });
+            Assert.Equal(HttpStatusCode.OK, rechazar1Resp.StatusCode);
+
+            using var rechazar1Json = JsonDocument.Parse(await rechazar1Resp.Content.ReadAsStringAsync());
+            Assert.EndsWith("Z", rechazar1Json.RootElement.GetProperty("fechaRechazo").GetString());
+
+            var req1Rechazada = rechazar1Json.RootElement.Deserialize<RequisicionResponseDto>(
+                new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            Assert.NotNull(req1Rechazada);
+            Assert.Equal(EstadoRequisicion.Rechazada, req1Rechazada.Estado);
+            Assert.Equal(compradorId, req1Rechazada.RechazadorId);
+            Assert.Equal(motivoComprador, req1Rechazada.MotivoRechazo);
+            Assert.NotNull(req1Rechazada.FechaRechazo);
+
+            // 6. Intentar rechazar nuevamente una requisición ya rechazada -> 409 Conflict
+            var conflictRechazadaResp = await client.PostAsJsonAsync(
+                $"/api/requisiciones/{req1.RequisicionId}/rechazar",
+                new RechazarRequisicionRequestDto { Motivo = "Rechazo duplicado" });
+            Assert.Equal(HttpStatusCode.Conflict, conflictRechazadaResp.StatusCode);
+
+            // 7. Rol Admin también puede rechazar (req2) -> 200 OK
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Admin", adminId));
+
+            var motivoAdmin = "Insumo reemplazado por mezcla adhesiva en pliego técnico.";
+            var rechazar2Resp = await client.PostAsJsonAsync(
+                $"/api/requisiciones/{req2.RequisicionId}/rechazar",
+                new RechazarRequisicionRequestDto { Motivo = motivoAdmin });
+            Assert.Equal(HttpStatusCode.OK, rechazar2Resp.StatusCode);
+
+            var req2Rechazada = await rechazar2Resp.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(req2Rechazada);
+            Assert.Equal(EstadoRequisicion.Rechazada, req2Rechazada.Estado);
+            Assert.Equal(adminId, req2Rechazada.RechazadorId);
+            Assert.Equal(motivoAdmin, req2Rechazada.MotivoRechazo);
+
+            // 8. Verificar en GET /api/requisiciones que se refleje el estado Rechazada y su motivoRechazo
+            var historialResp = await client.GetAsync($"/api/requisiciones?obraId={obraId}&estado=Rechazada");
+            Assert.Equal(HttpStatusCode.OK, historialResp.StatusCode);
+            var rechazadas = await historialResp.Content.ReadFromJsonAsync<List<RequisicionResponseDto>>();
+            Assert.NotNull(rechazadas);
+            Assert.Equal(2, rechazadas.Count);
+            Assert.Contains(rechazadas, r => r.RequisicionId == req1.RequisicionId && r.MotivoRechazo == motivoComprador);
+            Assert.Contains(rechazadas, r => r.RequisicionId == req2.RequisicionId && r.MotivoRechazo == motivoAdmin);
+        }
     }
 }
