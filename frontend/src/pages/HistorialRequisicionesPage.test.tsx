@@ -1,6 +1,6 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http, HttpResponse } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { AuthContext, type SesionUsuario } from '../auth/sessionContext'
@@ -115,5 +115,164 @@ describe('HistorialRequisicionesPage', () => {
       'href',
       '/compras',
     )
+  })
+})
+
+const OBRA_ID = 'b1b2c3d4-0000-0000-0000-0000000000a1'
+
+describe('HistorialRequisicionesPage - filtros', () => {
+  beforeEach(() => {
+    reiniciarRequisicionesMock()
+  })
+
+  it('ofrece los tres estados y las obras para filtrar', async () => {
+    renderPagina(comprador)
+
+    await screen.findByText('REQ-2026-0011')
+    const estados = within(screen.getByLabelText('Estado')).getAllByRole('option')
+    expect(estados.map((o) => o.textContent)).toEqual([
+      'Todos',
+      'Pendiente',
+      'Aprobada',
+      'Rechazada',
+    ])
+
+    expect(await screen.findByRole('option', { name: 'Torre Alvear' })).toBeInTheDocument()
+    const obras = within(screen.getByLabelText('Obra')).getAllByRole('option')
+    expect(obras.map((o) => o.textContent)).toEqual(['Todas', 'Torre Alvear'])
+  })
+
+  it('al elegir un estado pide solo esas requisiciones', async () => {
+    const user = userEvent.setup()
+    renderPagina(comprador)
+    await screen.findByText('REQ-2026-0011')
+
+    await user.selectOptions(screen.getByLabelText('Estado'), 'Aprobada')
+
+    expect(await screen.findByText('REQ-2026-0009')).toBeInTheDocument()
+    expect(screen.queryByText('REQ-2026-0011')).not.toBeInTheDocument()
+    expect(screen.queryByText('REQ-2026-0010')).not.toBeInTheDocument()
+  })
+
+  it('manda los parámetros estado y obraId al elegir cada filtro', async () => {
+    const pedidos: string[] = []
+    server.use(
+      http.get('*/api/requisiciones', ({ request }) => {
+        pedidos.push(new URL(request.url).search)
+        return HttpResponse.json([])
+      }),
+    )
+    const user = userEvent.setup()
+    renderPagina(comprador)
+    await screen.findByText('Todavía no hay requisiciones.')
+    await screen.findByRole('option', { name: 'Torre Alvear' })
+
+    await user.selectOptions(screen.getByLabelText('Estado'), 'Aprobada')
+    await screen.findByText('No hay requisiciones con esos filtros.')
+    await user.selectOptions(screen.getByLabelText('Obra'), OBRA_ID)
+    await screen.findByText('No hay requisiciones con esos filtros.')
+
+    expect(pedidos).toEqual(['', '?estado=Aprobada', `?estado=Aprobada&obraId=${OBRA_ID}`])
+  })
+
+  it('"Quitar filtros" está apagado sin filtros y los limpia al tocarlo', async () => {
+    const user = userEvent.setup()
+    renderPagina(comprador)
+    await screen.findByText('REQ-2026-0011')
+    const quitar = screen.getByRole('button', { name: 'Quitar filtros' })
+    expect(quitar).toBeDisabled()
+
+    await user.selectOptions(screen.getByLabelText('Estado'), 'Rechazada')
+    await screen.findByText('REQ-2026-0010')
+    expect(quitar).toBeEnabled()
+
+    await user.click(quitar)
+
+    expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
+    expect(screen.getByText('REQ-2026-0010')).toBeInTheDocument()
+    expect(screen.getByLabelText('Estado')).toHaveValue('')
+    expect(screen.getByLabelText('Obra')).toHaveValue('')
+    expect(quitar).toBeDisabled()
+  })
+
+  it('avisa si no hay requisiciones con esos filtros', async () => {
+    server.use(
+      http.get('*/api/requisiciones', ({ request }) =>
+        new URL(request.url).searchParams.get('estado')
+          ? HttpResponse.json([])
+          : undefined,
+      ),
+    )
+    const user = userEvent.setup()
+    renderPagina(comprador)
+    await screen.findByText('REQ-2026-0011')
+
+    await user.selectOptions(screen.getByLabelText('Estado'), 'Aprobada')
+
+    expect(await screen.findByText('No hay requisiciones con esos filtros.')).toBeInTheDocument()
+  })
+
+  it('si falla al filtrar muestra el error y Reintentar conserva el filtro', async () => {
+    let falla = true
+    server.use(
+      http.get('*/api/requisiciones', ({ request }) =>
+        falla && new URL(request.url).searchParams.get('estado')
+          ? HttpResponse.error()
+          : undefined,
+      ),
+    )
+    const user = userEvent.setup()
+    renderPagina(comprador)
+    await screen.findByText('REQ-2026-0011')
+
+    await user.selectOptions(screen.getByLabelText('Estado'), 'Aprobada')
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No se pudieron cargar las requisiciones.',
+    )
+    expect(screen.getByLabelText('Estado')).toHaveValue('Aprobada')
+
+    falla = false
+    await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+
+    expect(await screen.findByText('REQ-2026-0009')).toBeInTheDocument()
+    expect(screen.getByLabelText('Estado')).toHaveValue('Aprobada')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('ignora una respuesta vieja que llega tarde', async () => {
+    server.use(
+      http.get('*/api/requisiciones', async ({ request }) => {
+        // La de "Pendiente" tarda más que la de "Aprobada": llega cuando ya se eligió otra.
+        if (new URL(request.url).searchParams.get('estado') === 'Pendiente') {
+          await delay(150)
+        }
+        return undefined
+      }),
+    )
+    const user = userEvent.setup()
+    renderPagina(comprador)
+    await screen.findByText('REQ-2026-0011')
+
+    await user.selectOptions(screen.getByLabelText('Estado'), 'Pendiente')
+    await user.selectOptions(screen.getByLabelText('Estado'), 'Aprobada')
+
+    expect(await screen.findByText('REQ-2026-0009')).toBeInTheDocument()
+    await act(async () => {
+      await new Promise((resolver) => setTimeout(resolver, 300))
+    })
+    expect(screen.getByText('REQ-2026-0009')).toBeInTheDocument()
+    expect(screen.queryByText('REQ-2026-0011')).not.toBeInTheDocument()
+  })
+
+  it('el Capataz sigue viendo solo las suyas aunque filtre', async () => {
+    const user = userEvent.setup()
+    renderPagina(capataz)
+    await screen.findByText('REQ-2026-0011')
+
+    // La única rechazada (REQ-2026-0010) la pidió otra persona.
+    await user.selectOptions(screen.getByLabelText('Estado'), 'Rechazada')
+
+    expect(await screen.findByText('No hay requisiciones con esos filtros.')).toBeInTheDocument()
+    expect(screen.queryByText('REQ-2026-0010')).not.toBeInTheDocument()
   })
 })

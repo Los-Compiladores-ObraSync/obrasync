@@ -363,8 +363,11 @@ export const handlers: RequestHandler[] = [
     const url = new URL(request.url)
     const estado = url.searchParams.get('estado')
     const obraId = url.searchParams.get('obraId')
+    // El backend real compara el estado sin distinguir mayúsculas.
     const lista = requisicionesMock.filter(
-      (r) => (!estado || r.estado === estado) && (!obraId || r.obraId === obraId),
+      (r) =>
+        (!estado || r.estado.toLowerCase() === estado.toLowerCase()) &&
+        (!obraId || r.obraId === obraId),
     )
     return HttpResponse.json(lista, { status: 200 })
   }),
