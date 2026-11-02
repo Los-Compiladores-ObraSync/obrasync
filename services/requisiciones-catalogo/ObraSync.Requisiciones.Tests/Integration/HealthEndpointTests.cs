@@ -107,6 +107,138 @@ namespace ObraSync.Requisiciones.Tests.Integration
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         }
 
+        [Theory]
+        [InlineData("cemento")]
+        [InlineData("CEMENTO")]
+        [InlineData("Cemento")]
+        [InlineData("cEmEnTo")]
+        public async Task GetInsumos_ConParametroSearch_InsensibleAMayusculasYMinusculas_DebeDevolverMismosResultados(string search)
+        {
+            var client = _factory.CreateClient();
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz"));
+
+            var response = await client.GetAsync($"/api/catalogo/insumos?search={search}");
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var insumos = await response.Content.ReadFromJsonAsync<List<InsumoCatalogoDto>>();
+            Assert.NotNull(insumos);
+            Assert.Equal(2, insumos.Count);
+            Assert.Equal("MAT-CEM-001", insumos[0].Codigo);
+            Assert.Equal("MAT-CEM-002", insumos[1].Codigo);
+        }
+
+        [Fact]
+        public async Task GetInsumos_ConParametroSearch_SinResultados_DebeDevolverListaVacia()
+        {
+            var client = _factory.CreateClient();
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz"));
+
+            var response = await client.GetAsync("/api/catalogo/insumos?search=TERMINO_INEXISTENTE_999");
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var insumos = await response.Content.ReadFromJsonAsync<List<InsumoCatalogoDto>>();
+            Assert.NotNull(insumos);
+            Assert.Empty(insumos);
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("   ")]
+        public async Task GetInsumos_ConParametroSearchVacioOEspacios_DebeDevolverTodosLosActivos(string search)
+        {
+            var client = _factory.CreateClient();
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Comprador"));
+
+            var url = string.IsNullOrWhiteSpace(search) && search.Length > 0
+                ? $"/api/catalogo/insumos?search={Uri.EscapeDataString(search)}"
+                : "/api/catalogo/insumos?search=";
+
+            var response = await client.GetAsync(url);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var insumos = await response.Content.ReadFromJsonAsync<List<InsumoCatalogoDto>>();
+            Assert.NotNull(insumos);
+            Assert.True(insumos.Count >= 11);
+            Assert.All(insumos, i => Assert.True(i.Activo));
+        }
+
+        [Fact]
+        public async Task GetInsumos_ConSoloActivosFalso_DebeIncluirInsumosInactivos()
+        {
+            var client = _factory.CreateClient();
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Comprador"));
+
+            var codigoInactivo = $"MAT-INA-{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+            var requestInactivo = new CrearInsumoRequestDto
+            {
+                Codigo = codigoInactivo,
+                Descripcion = "Insumo Especial Fuera de Produccion",
+                UnidadMedida = UnidadesMedida.Unidad,
+                Moneda = Monedas.PesoArgentino,
+                PrecioReferencia = 500m,
+                Activo = false
+            };
+
+            var postResponse = await client.PostAsJsonAsync("/api/catalogo/insumos", requestInactivo);
+            Assert.Equal(HttpStatusCode.Created, postResponse.StatusCode);
+
+            // Por defecto soloActivos = true -> no debe incluirlo
+            var activosResp = await client.GetAsync("/api/catalogo/insumos?soloActivos=true");
+            Assert.Equal(HttpStatusCode.OK, activosResp.StatusCode);
+            var activos = await activosResp.Content.ReadFromJsonAsync<List<InsumoCatalogoDto>>();
+            Assert.NotNull(activos);
+            Assert.DoesNotContain(activos, i => i.Codigo == codigoInactivo);
+
+            // Con soloActivos = false -> debe incluirlo
+            var todosResp = await client.GetAsync("/api/catalogo/insumos?soloActivos=false");
+            Assert.Equal(HttpStatusCode.OK, todosResp.StatusCode);
+            var todos = await todosResp.Content.ReadFromJsonAsync<List<InsumoCatalogoDto>>();
+            Assert.NotNull(todos);
+            Assert.Contains(todos, i => i.Codigo == codigoInactivo && !i.Activo);
+        }
+
+        [Fact]
+        public async Task GetInsumos_SensibilidadATildes_DebeDistinguirConYSinTildeSegunCollation()
+        {
+            var client = _factory.CreateClient();
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz"));
+
+            // Con tilde: "Río" encuentra "Arena Gruesa Lavada de Río"
+            var conTildeResp = await client.GetAsync($"/api/catalogo/insumos?search={Uri.EscapeDataString("Río")}");
+            Assert.Equal(HttpStatusCode.OK, conTildeResp.StatusCode);
+            var conTilde = await conTildeResp.Content.ReadFromJsonAsync<List<InsumoCatalogoDto>>();
+            Assert.NotNull(conTilde);
+            Assert.Single(conTilde);
+            Assert.Equal("MAT-ARI-001", conTilde[0].Codigo);
+
+            // Sin tilde: "rio" no coincide por collation sensible a tildes (_AS)
+            var sinTildeResp = await client.GetAsync("/api/catalogo/insumos?search=rio");
+            Assert.Equal(HttpStatusCode.OK, sinTildeResp.StatusCode);
+            var sinTilde = await sinTildeResp.Content.ReadFromJsonAsync<List<InsumoCatalogoDto>>();
+            Assert.NotNull(sinTilde);
+            Assert.Empty(sinTilde);
+
+            // Con tilde: "Granítica" encuentra "Piedra Partida Granítica 6-20 mm"
+            var conTildeGraniticaResp = await client.GetAsync($"/api/catalogo/insumos?search={Uri.EscapeDataString("Granítica")}");
+            Assert.Equal(HttpStatusCode.OK, conTildeGraniticaResp.StatusCode);
+            var conTildeGranitica = await conTildeGraniticaResp.Content.ReadFromJsonAsync<List<InsumoCatalogoDto>>();
+            Assert.NotNull(conTildeGranitica);
+            Assert.Single(conTildeGranitica);
+            Assert.Equal("MAT-ARI-002", conTildeGranitica[0].Codigo);
+
+            // Sin tilde: "granitica" no coincide
+            var sinTildeGraniticaResp = await client.GetAsync("/api/catalogo/insumos?search=granitica");
+            Assert.Equal(HttpStatusCode.OK, sinTildeGraniticaResp.StatusCode);
+            var sinTildeGranitica = await sinTildeGraniticaResp.Content.ReadFromJsonAsync<List<InsumoCatalogoDto>>();
+            Assert.NotNull(sinTildeGranitica);
+            Assert.Empty(sinTildeGranitica);
+        }
+
         [Fact]
         public async Task PostInsumo_ConRolCompradorYDatosValidos_DebeRetornarCreatedConMonedaARS()
         {

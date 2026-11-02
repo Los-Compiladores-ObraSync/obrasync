@@ -99,10 +99,13 @@ function crearRequisicionesMock() {
       etapa: 'Estructura',
       solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000001',
       aprobadorId: null as string | null,
+      rechazadorId: null as string | null,
       estado: 'Pendiente',
       observaciones: null,
+      motivoRechazo: null as string | null,
       fechaCreacion: '2026-10-19T12:00:00Z',
       fechaAprobacion: null as string | null,
+      fechaRechazo: null as string | null,
       items: [{ articuloId: MOCK_CATALOGO[0].articuloId, descripcion: MOCK_CATALOGO[0].descripcion, cantidad: 80, unidadMedida: MOCK_CATALOGO[0].unidadMedida }],
     },
     {
@@ -112,10 +115,13 @@ function crearRequisicionesMock() {
       etapa: 'Fundaciones',
       solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000001',
       aprobadorId: null as string | null,
+      rechazadorId: null as string | null,
       estado: 'Pendiente',
       observaciones: 'Urgente',
+      motivoRechazo: null as string | null,
       fechaCreacion: '2026-10-19T12:30:00Z',
       fechaAprobacion: null as string | null,
+      fechaRechazo: null as string | null,
       items: [{ articuloId: MOCK_CATALOGO[0].articuloId, descripcion: MOCK_CATALOGO[0].descripcion, cantidad: 20, unidadMedida: MOCK_CATALOGO[0].unidadMedida }],
     },
     // Dos más, ya resueltas, para ver el historial con los tres estados (la 0010 la pidió otra persona).
@@ -126,10 +132,13 @@ function crearRequisicionesMock() {
       etapa: 'Fundaciones',
       solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000001',
       aprobadorId: 'a1b2c3d4-0000-0000-0000-000000000002' as string | null,
+      rechazadorId: null as string | null,
       estado: 'Aprobada',
       observaciones: null,
+      motivoRechazo: null as string | null,
       fechaCreacion: '2026-10-15T12:00:00Z',
       fechaAprobacion: '2026-10-16T12:00:00Z' as string | null,
+      fechaRechazo: null as string | null,
       items: [{ articuloId: MOCK_CATALOGO[1].articuloId, descripcion: MOCK_CATALOGO[1].descripcion, cantidad: 12, unidadMedida: MOCK_CATALOGO[1].unidadMedida }],
     },
     {
@@ -138,11 +147,14 @@ function crearRequisicionesMock() {
       obraId: OBRA_MOCK_ID,
       etapa: 'Estructura',
       solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000099',
-      aprobadorId: 'a1b2c3d4-0000-0000-0000-000000000002' as string | null,
+      aprobadorId: null as string | null,
+      rechazadorId: 'a1b2c3d4-0000-0000-0000-000000000002' as string | null,
       estado: 'Rechazada',
       observaciones: 'Cantidad fuera de presupuesto',
+      motivoRechazo: 'Cantidad fuera de presupuesto',
       fechaCreacion: '2026-10-17T12:00:00Z',
       fechaAprobacion: null as string | null,
+      fechaRechazo: '2026-10-18T12:00:00Z' as string | null,
       items: [{ articuloId: MOCK_CATALOGO[2].articuloId, descripcion: MOCK_CATALOGO[2].descripcion, cantidad: 40, unidadMedida: MOCK_CATALOGO[2].unidadMedida }],
     },
   ]
@@ -402,6 +414,43 @@ export const handlers: RequestHandler[] = [
     req.estado = 'Aprobada'
     req.aprobadorId = 'a1b2c3d4-0000-0000-0000-000000000002'
     req.fechaAprobacion = new Date().toISOString()
+    return HttpResponse.json(req, { status: 200 })
+  }),
+
+  // Contrato: POST /api/requisiciones/{id}/rechazar → 200 | 400 | 404 | 409 ProblemDetails
+  http.post('*/api/requisiciones/:id/rechazar', async ({ params, request }) => {
+    const req = requisicionesMock.find((r) => r.requisicionId === params.id)
+    if (!req) {
+      return HttpResponse.json(
+        { title: 'No encontrada', status: 404, detail: 'La requisición ya no existe. Recargá la lista.' },
+        { status: 404 },
+      )
+    }
+
+    const body = (await request.json().catch(() => ({}))) as { motivo?: string }
+    const motivoTrimmed = typeof body.motivo === 'string' ? body.motivo.trim() : ''
+    if (!motivoTrimmed || (body.motivo?.length ?? 0) > 500) {
+      return HttpResponse.json(
+        {
+          title: 'Datos inválidos',
+          status: 400,
+          detail: 'El motivo de rechazo es obligatorio y debe tener como máximo 500 caracteres.',
+        },
+        { status: 400 },
+      )
+    }
+
+    if (req.estado !== 'Pendiente') {
+      return HttpResponse.json(
+        { title: 'Conflicto', status: 409, detail: 'Solo se pueden rechazar requisiciones pendientes.' },
+        { status: 409 },
+      )
+    }
+
+    req.estado = 'Rechazada'
+    req.motivoRechazo = body.motivo ?? ''
+    req.rechazadorId = 'a1b2c3d4-0000-0000-0000-000000000002'
+    req.fechaRechazo = new Date().toISOString()
     return HttpResponse.json(req, { status: 200 })
   }),
 ]

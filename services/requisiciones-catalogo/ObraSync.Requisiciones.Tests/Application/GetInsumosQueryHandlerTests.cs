@@ -84,5 +84,21 @@ namespace ObraSync.Requisiciones.Tests.Application
             Assert.Equal("ARS", resultado[0].Moneda);
             await repository.Received(1).GetFilteredAsync("Arena", true, Arg.Any<CancellationToken>());
         }
+
+        [Fact]
+        public async Task Handle_ConTerminoSinResultados_DebeRetornarListaVacia()
+        {
+            var repository = Substitute.For<IInsumoRepository>();
+            repository.GetFilteredAsync("Inexistente", true, Arg.Any<CancellationToken>())
+                .Returns(new List<Insumo>());
+
+            var handler = new GetInsumosQueryHandler(repository);
+
+            var query = new GetInsumosQuery(Search: "Inexistente", SoloActivos: true);
+            var resultado = await handler.Handle(query, CancellationToken.None);
+
+            Assert.Empty(resultado);
+            await repository.Received(1).GetFilteredAsync("Inexistente", true, Arg.Any<CancellationToken>());
+        }
     }
 }
