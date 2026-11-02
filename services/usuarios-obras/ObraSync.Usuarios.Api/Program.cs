@@ -167,3 +167,6 @@ app.MapControllers();
 await app.SeedDatabaseAsync();
 
 app.Run();
+
+// Clase parcial para habilitar WebApplicationFactory<Program> en pruebas de integracion (tarjeta #117)
+public partial class Program { }

@@ -18,15 +18,25 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Registra un nuevo usuario en el sistema con un rol asignado.
+    /// Registra un nuevo usuario en el sistema según la matriz de permisos por rol (tarjeta #117):
+    /// sin token solo permite Proveedor; Comprador crea Capataz/Proveedor; Admin crea Capataz/Comprador/Proveedor.
     /// </summary>
     [HttpPost("registro")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Registrar([FromBody] RegisterRequestDto request)
     {
-        var response = await _authService.RegistrarAsync(request);
+        // Si el cliente envió cabecera Authorization pero el token es inválido o venció,
+        // devolvemos 401 antes de evaluar los permisos como anónimo.
+        if (Request?.Headers.ContainsKey("Authorization") == true && !(User.Identity?.IsAuthenticated ?? false))
+        {
+            throw new UnauthorizedAccessException("El token proporcionado es inválido o ha expirado.");
+        }
+
+        var response = await _authService.RegistrarAsync(request, User);
         return CreatedAtAction(nameof(Registrar), new { id = response.Id }, response);
     }
 
