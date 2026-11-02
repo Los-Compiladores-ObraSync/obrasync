@@ -50,6 +50,9 @@ export function NuevaObraPage() {
   const [apiError, setApiError] = useState<string | null>(null)
   const [creada, setCreada] = useState(false)
   const [enviando, setEnviando] = useState(false)
+  // Guard inmediato: "enviando" (estado) recién cambia en el próximo render, y dos envíos
+  // seguidos (doble clic, o Enter + clic) pueden entrar antes. Un ref cambia al instante.
+  const enviandoRef = useRef(false)
 
   // Cada cambio de `intentoCapataces` vuelve a pedir la lista (primer intento y "Reintentar").
   useEffect(() => {
@@ -98,6 +101,7 @@ export function NuevaObraPage() {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (enviandoRef.current) return
     setCreada(false)
     setApiError(null)
 
@@ -108,6 +112,7 @@ export function NuevaObraPage() {
       return
     }
     setErrores({})
+    enviandoRef.current = true
     setEnviando(true)
 
     try {
@@ -123,6 +128,7 @@ export function NuevaObraPage() {
     } catch (err) {
       setApiError(mensajeDeError(err))
     } finally {
+      enviandoRef.current = false
       setEnviando(false)
     }
   }

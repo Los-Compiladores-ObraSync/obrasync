@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http, HttpResponse } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { server } from '../mocks/server'
@@ -166,5 +166,51 @@ describe('NuevaObraPage', () => {
     await user.click(screen.getByRole('button', { name: 'Crear obra' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo conectar')
+  })
+
+  it('un doble envío seguido crea la obra una sola vez', async () => {
+    let llamadas = 0
+    server.use(
+      http.post(URL_OBRAS, async () => {
+        llamadas++
+        await delay(50)
+        return HttpResponse.text('id-nuevo')
+      }),
+    )
+    const user = userEvent.setup()
+    renderPagina()
+    await completarFormulario(user)
+
+    // Dos envíos en el mismo instante (doble clic, o Enter + clic): el botón todavía no se deshabilitó.
+    const formulario = screen.getByRole('button', { name: 'Crear obra' }).closest('form')!
+    act(() => {
+      fireEvent.submit(formulario)
+      fireEvent.submit(formulario)
+    })
+
+    expect(await screen.findByText('Obra creada correctamente.')).toBeInTheDocument()
+    expect(llamadas).toBe(1)
+  })
+
+  it('después de un error se puede volver a enviar', async () => {
+    let llamadas = 0
+    server.use(
+      http.post(URL_OBRAS, () => {
+        llamadas++
+        return llamadas === 1
+          ? HttpResponse.json({ status: 500 }, { status: 500 })
+          : HttpResponse.text('id-nuevo')
+      }),
+    )
+    const user = userEvent.setup()
+    renderPagina()
+    await completarFormulario(user)
+
+    await user.click(screen.getByRole('button', { name: 'Crear obra' }))
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Crear obra' }))
+
+    expect(await screen.findByText('Obra creada correctamente.')).toBeInTheDocument()
+    expect(llamadas).toBe(2)
   })
 })

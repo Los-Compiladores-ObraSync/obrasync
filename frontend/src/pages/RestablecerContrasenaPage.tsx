@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { IconoOjo } from '../auth/IconoOjo'
@@ -55,9 +55,13 @@ export function RestablecerContrasenaPage() {
   const [campoError, setCampoError] = useState<ErroresCampo>({})
   const [errorApi, setErrorApi] = useState<ErrorApi | null>(null)
   const [enviando, setEnviando] = useState(false)
+  // Guard inmediato contra el doble envío: el token es de un solo uso, así que el segundo
+  // pedido fallaría con 400 y taparía el éxito del primero.
+  const enviandoRef = useRef(false)
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (enviandoRef.current) return
 
     // 1. Validación local: no llama a la API si hay errores de campo
     const errores = validarCampos(password, repetir)
@@ -67,6 +71,7 @@ export function RestablecerContrasenaPage() {
     }
     setCampoError({})
     setErrorApi(null)
+    enviandoRef.current = true
     setEnviando(true)
 
     try {
@@ -88,6 +93,7 @@ export function RestablecerContrasenaPage() {
           ofrecerEnlaceNuevo: false,
         })
       }
+      enviandoRef.current = false
       setEnviando(false)
     }
   }
