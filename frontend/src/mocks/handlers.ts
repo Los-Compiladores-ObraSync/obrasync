@@ -118,6 +118,33 @@ function crearRequisicionesMock() {
       fechaAprobacion: null as string | null,
       items: [{ articuloId: MOCK_CATALOGO[0].articuloId, descripcion: MOCK_CATALOGO[0].descripcion, cantidad: 20, unidadMedida: MOCK_CATALOGO[0].unidadMedida }],
     },
+    // Dos más, ya resueltas, para ver el historial con los tres estados (la 0010 la pidió otra persona).
+    {
+      requisicionId: 'd1d2d3d4-0000-0000-0000-000000000009',
+      numeroRequisicion: 'REQ-2026-0009',
+      obraId: OBRA_MOCK_ID,
+      etapa: 'Fundaciones',
+      solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000001',
+      aprobadorId: 'a1b2c3d4-0000-0000-0000-000000000002' as string | null,
+      estado: 'Aprobada',
+      observaciones: null,
+      fechaCreacion: '2026-10-15T12:00:00Z',
+      fechaAprobacion: '2026-10-16T12:00:00Z' as string | null,
+      items: [{ articuloId: MOCK_CATALOGO[1].articuloId, descripcion: MOCK_CATALOGO[1].descripcion, cantidad: 12, unidadMedida: MOCK_CATALOGO[1].unidadMedida }],
+    },
+    {
+      requisicionId: 'd1d2d3d4-0000-0000-0000-000000000010',
+      numeroRequisicion: 'REQ-2026-0010',
+      obraId: OBRA_MOCK_ID,
+      etapa: 'Estructura',
+      solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000099',
+      aprobadorId: 'a1b2c3d4-0000-0000-0000-000000000002' as string | null,
+      estado: 'Rechazada',
+      observaciones: 'Cantidad fuera de presupuesto',
+      fechaCreacion: '2026-10-17T12:00:00Z',
+      fechaAprobacion: null as string | null,
+      items: [{ articuloId: MOCK_CATALOGO[2].articuloId, descripcion: MOCK_CATALOGO[2].descripcion, cantidad: 40, unidadMedida: MOCK_CATALOGO[2].unidadMedida }],
+    },
   ]
 }
 
