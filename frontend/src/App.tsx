@@ -11,6 +11,7 @@ import { NuevaObraPage } from './pages/NuevaObraPage'
 import { NuevaRequisicionPage } from './pages/NuevaRequisicionPage'
 import { ObraPage } from './pages/ObraPage'
 import { ObrasPage } from './pages/ObrasPage'
+import { PendientesPage } from './pages/PendientesPage'
 import { ProveedoresPage } from './pages/ProveedoresPage'
 import { RecuperarContrasenaPage } from './pages/RecuperarContrasenaPage'
 import { RestablecerContrasenaPage } from './pages/RestablecerContrasenaPage'
@@ -57,6 +58,7 @@ function App() {
               <Route index element={<ComprasPage />} />
               <Route path="obras" element={<ObrasPage />} />
               <Route path="obras/nueva" element={<NuevaObraPage />} />
+              <Route path="pendientes" element={<PendientesPage />} />
               <Route path="requisiciones" element={<AprobarRequisicionesPage />} />
               <Route
                 path="requisiciones/historial"

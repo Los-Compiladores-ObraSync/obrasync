@@ -7,6 +7,11 @@ export function ComprasPage() {
       <p className="intro">Cargá obras y aprobá los pedidos de materiales.</p>
       <ul className="lista-acciones">
         <li>
+          <Link to="/compras/pendientes" className="accion-grande">
+            Pendientes
+          </Link>
+        </li>
+        <li>
           <Link to="/compras/requisiciones" className="accion-grande">
             Aprobar requisiciones
           </Link>

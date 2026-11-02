@@ -365,3 +365,57 @@ describe('App - detalle de una requisición', () => {
     )
   })
 })
+
+describe('App - tablero de pendientes', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setToken(null)
+    reiniciarRequisicionesMock()
+  })
+
+  it('el Comprador llega desde Inicio y ve sus pendientes más antiguos primero', async () => {
+    const usuario = userEvent.setup()
+    iniciarSesionComo('Comprador')
+    renderApp('/')
+
+    await usuario.click(screen.getByRole('link', { name: 'Pendientes' }))
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Pendientes' })).toBeInTheDocument()
+    expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
+    expect(screen.getByText('REQ-2026-0012')).toBeInTheDocument()
+    expect(screen.getByLabelText('2 pendientes')).toBeInTheDocument()
+  })
+
+  it('desde el panel de la campana se llega al tablero', async () => {
+    const usuario = userEvent.setup()
+    iniciarSesionComo('Comprador')
+    renderApp('/')
+
+    await usuario.click(await screen.findByRole('button', { name: 'Notificaciones: 2 sin leer' }))
+    await usuario.click(screen.getByRole('link', { name: 'Ver tablero de pendientes' }))
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Pendientes' })).toBeInTheDocument()
+  })
+
+  it('al aprobar una desde el tablero, baja la cantidad', async () => {
+    const usuario = userEvent.setup()
+    iniciarSesionComo('Comprador')
+    renderApp('/compras/pendientes')
+
+    expect(await screen.findByLabelText('2 pendientes')).toBeInTheDocument()
+    await usuario.click(screen.getByRole('link', { name: 'Ir a Aprobar requisiciones' }))
+    await usuario.click(await screen.findByRole('button', { name: 'Aprobar REQ-2026-0011' }))
+    await screen.findByRole('button', { name: 'Notificaciones: 1 sin leer' })
+    await usuario.click(screen.getByRole('link', { name: '← Volver a Gestión y Compras' }))
+    await usuario.click(await screen.findByRole('link', { name: 'Pendientes' }))
+
+    expect(await screen.findByLabelText('1 pendientes')).toBeInTheDocument()
+  })
+
+  it('el Capataz no entra al tablero', async () => {
+    iniciarSesionComo('Capataz')
+    renderApp('/compras/pendientes')
+
+    expect(screen.queryByRole('heading', { level: 1, name: 'Pendientes' })).not.toBeInTheDocument()
+  })
+})

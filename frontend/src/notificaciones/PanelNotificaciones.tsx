@@ -27,6 +27,9 @@ export function PanelNotificaciones({ id, cantidad, onNavegar }: Props) {
         < Link to = "/compras/requisiciones" className = { styles.enlace } onClick = { onNavegar } >
             Ir a Aprobar requisiciones
                 </Link>
+            < Link to = "/compras/pendientes" className = { styles.enlace } onClick = { onNavegar } >
+                Ver tablero de pendientes
+                    </Link>
                 </>
       ) : (
         <p className= { styles.vacio } > No tenés avisos </p>

@@ -1,0 +1,101 @@
+/* ── PendientesPage — mobile-first ─────────────────────────────────────────
+   Usa las variables de index.css (--azul, --borde, --texto, --texto-suave).
+─────────────────────────────────────────────────────────────────────────── */
+
+.contenedor {
+  width: 100%;
+}
+
+.volver {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px; /* área de toque cómoda */
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--azul);
+  text-decoration: none;
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1.25rem;
+  border-left: 6px solid var(--naranja);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+}
+
+.encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.titulo {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+/* El número va escrito en grande: se lee de un vistazo. */
+.cantidad {
+  min-width: 2.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 1.375rem;
+  font-weight: 700;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.fila {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: #f1f5f9;
+}
+
+.numero {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.dato {
+  margin: 0;
+  font-size: 1.0625rem;
+  color: var(--texto-suave);
+}
+
+.alDia {
+  margin: 0 0 0.25rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #166534;
+}
+
+.errorApi {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.4;
+  background: #fef2f2;
+  border: 2px solid #fca5a5;
+  color: #991b1b;
+}
