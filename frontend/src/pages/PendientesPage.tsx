@@ -25,9 +25,10 @@ export function PendientesPage() {
     }
   }, [])
 
-  // Las ISO 8601 en UTC se ordenan bien como texto; sort sobre una copia para no tocar la lista del proveedor.
+  // Se ordena por fecha real (no como texto: "…12:00:00.5Z" y "…12:00:00Z" no se comparan bien
+  // como string). Sort sobre una copia para no tocar la lista del proveedor.
   const masAntiguas = [...pendientes]
-    .sort((a, b) => a.fechaCreacion.localeCompare(b.fechaCreacion))
+    .sort((a, b) => Date.parse(a.fechaCreacion) - Date.parse(b.fechaCreacion))
     .slice(0, MAX_PENDIENTES_EN_TABLERO)
 
   return (
@@ -56,9 +57,7 @@ export function PendientesPage() {
             <h2 id="titulo-por-aprobar" className={styles.titulo}>
               Requisiciones por aprobar
             </h2>
-            <span className={styles.cantidad} aria-label={`${cantidad} pendientes`}>
-              {cantidad}
-            </span>
+            <span className={styles.cantidad}>{cantidad}</span>
           </div>
 
           {cantidad === 0 ? (

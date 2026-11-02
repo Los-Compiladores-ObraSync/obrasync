@@ -38,6 +38,11 @@ function requisicion(n: number, fechaCreacion: string): RequisicionResponseDto {
   }
 }
 
+/** La tarjeta "Requisiciones por aprobar" (el título y el número van juntos). */
+function tarjeta() {
+  return screen.getByRole('region', { name: 'Requisiciones por aprobar' })
+}
+
 /** Renderiza la página con un valor del contexto a mano (sin pedir nada al servidor). */
 function renderConContexto(valor: Partial<PendientesContextValue>) {
   const completo: PendientesContextValue = {
@@ -72,7 +77,7 @@ describe('PendientesPage', () => {
     renderConContexto({ pendientes: [requisicion(11, '2026-10-19T12:00:00Z')] })
 
     expect(screen.getByRole('heading', { level: 2, name: 'Requisiciones por aprobar' })).toBeInTheDocument()
-    expect(screen.getByLabelText('1 pendientes')).toHaveTextContent('1')
+    expect(tarjeta()).toHaveTextContent('Requisiciones por aprobar1')
     const lista = screen.getByRole('list', { name: 'Requisiciones más antiguas' })
     expect(within(lista).getByText('REQ-2026-0011')).toBeInTheDocument()
     expect(within(lista).getByText(/Etapa: Estructura/)).toBeInTheDocument()
@@ -94,6 +99,21 @@ describe('PendientesPage', () => {
       .getAllByRole('listitem')
       .map((li) => li.textContent?.slice(0, 13))
     expect(numeros).toEqual(['REQ-2026-0001', 'REQ-2026-0002', 'REQ-2026-0003'])
+  })
+
+  it('ordena por fecha real aunque unas lleguen con fracción de segundo y otras no', () => {
+    renderConContexto({
+      pendientes: [
+        requisicion(1, '2026-10-19T12:00:00.500Z'), // medio segundo DESPUÉS de la 0002
+        requisicion(2, '2026-10-19T12:00:00Z'),
+      ],
+    })
+
+    const numeros = within(screen.getByRole('list', { name: 'Requisiciones más antiguas' }))
+      .getAllByRole('listitem')
+      .map((li) => li.textContent?.slice(0, 13))
+    // Comparando como texto quedaba primero la 0001 ('.' va antes que 'Z'): estaba mal.
+    expect(numeros).toEqual(['REQ-2026-0002', 'REQ-2026-0001'])
   })
 
   it('muestra solo las más antiguas y avisa cuántas hay en total', () => {
@@ -184,7 +204,7 @@ describe('PendientesPage', () => {
     )
 
     expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
-    expect(screen.getByLabelText('2 pendientes')).toBeInTheDocument()
+    expect(tarjeta()).toHaveTextContent('Requisiciones por aprobar2')
     expect(pedidos).toBe(1)
   })
 })
