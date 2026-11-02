@@ -1,5 +1,8 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using ObraSync.Usuarios.Domain.Entities;
 using ObraSync.Usuarios.Infrastructure.Data;
 
@@ -10,17 +13,22 @@ public static class DatabaseMigrationExtensions
     public static async Task SeedDatabaseAsync(this IApplicationBuilder app)
     {
         using var scope = app.ApplicationServices.CreateScope();
-        var services = scope.ServiceProvider;
-        var logger = services.GetRequiredService<ILogger<AuthDbContext>>();
+        await SeedDatabaseAsync(scope.ServiceProvider);
+    }
 
-        // Se elimina el try-catch silencioso: si la conexión o migración falla,
-        // la excepción escala para que el contenedor falle (fail-fast) en Docker.
+    public static async Task SeedDatabaseAsync(IServiceProvider services)
+    {
+        var logger = services.GetRequiredService<ILogger<AuthDbContext>>();
         var context = services.GetRequiredService<AuthDbContext>();
 
         // 1. Aplica migraciones pendientes si la base de datos SQL Server recién arranca en Docker
         if (context.Database.IsSqlServer())
         {
             await context.Database.MigrateAsync();
+        }
+        else if (context.Database.ProviderName?.Contains("InMemory") == true)
+        {
+            await context.Database.EnsureCreatedAsync();
         }
 
         var roleManager = services.GetRequiredService<RoleManager<AppRole>>();
@@ -43,10 +51,10 @@ public static class DatabaseMigrationExtensions
 
         var demoUsers = new (string Email, string NombreCompleto, string Rol)[]
         {
-    ("admin@obrasync.com", "Admin Sistema", UserRoles.Admin),
-    ("capataz@obrasync.com", "Carlos Capataz", UserRoles.Capataz),
-    ("comprador@obrasync.com", "Claudia Compradora", UserRoles.Comprador),
-    ("proveedor@obrasync.com", "Pedro Proveedor", UserRoles.Proveedor)
+            ("admin@obrasync.com", "Admin Sistema", UserRoles.Admin),
+            ("capataz@obrasync.com", "Carlos Capataz", UserRoles.Capataz),
+            ("comprador@obrasync.com", "Claudia Compradora", UserRoles.Comprador),
+            ("proveedor@obrasync.com", "Pedro Proveedor", UserRoles.Proveedor)
         };
 
         foreach (var (email, nombreCompleto, rol) in demoUsers)
@@ -74,6 +82,72 @@ public static class DatabaseMigrationExtensions
                         email, string.Join(", ", createResult.Errors.Select(e => e.Description)));
                 }
             }
+        }
+
+        // 4. Sembrado de Obras y Etapas de Ejemplo para la Demo (Tarjeta #60)
+        // NOTA: Mismo alcance y mecanismo que los usuarios de prueba. Antes de cualquier
+        // despliegue real, se decide si el sembrado se limita a Development.
+        var capatazUser = await userManager.FindByEmailAsync("capataz@obrasync.com");
+        if (capatazUser != null)
+        {
+            var demoObras = new (string Nombre, string Ubicacion, DateTime FechaInicio, string[] Etapas)[]
+            {
+                (
+                    "Torre Alvear",
+                    "Av. Alvear 1850, CABA",
+                    new DateTime(2026, 9, 1, 8, 0, 0, DateTimeKind.Utc),
+                    new[] { "Cimientos", "Estructura", "Mampostería", "Terminaciones" }
+                ),
+                (
+                    "Residencial Parque",
+                    "Av. del Libertador 4500, CABA",
+                    new DateTime(2026, 10, 1, 8, 0, 0, DateTimeKind.Utc),
+                    new[] { "Cimientos", "Estructura", "Instalaciones" }
+                ),
+                (
+                    "Complejo Industrial Sur",
+                    "Ruta 2 Km 45, Berazategui",
+                    new DateTime(2026, 10, 15, 8, 0, 0, DateTimeKind.Utc),
+                    new[] { "Movimiento de Suelos", "Fundaciones", "Estructura Metálica", "Cerramientos" }
+                )
+            };
+
+            foreach (var (nombre, ubicacion, fechaInicio, etapas) in demoObras)
+            {
+                // Idempotente: antes de crear, comprobar por nombre que la obra no exista
+                var existeObra = await context.Obras.AnyAsync(o => o.Nombre == nombre);
+                if (!existeObra)
+                {
+                    var obra = new Obra
+                    {
+                        Id = Guid.NewGuid(),
+                        Nombre = nombre,
+                        Ubicacion = ubicacion,
+                        FechaInicio = fechaInicio,
+                        CapatazId = capatazUser.Id
+                    };
+
+                    foreach (var nombreEtapa in etapas)
+                    {
+                        obra.Etapas.Add(new EtapaObra
+                        {
+                            Id = Guid.NewGuid(),
+                            NombreEtapa = nombreEtapa,
+                            Estado = "Pendiente"
+                        });
+                    }
+
+                    context.Obras.Add(obra);
+                    logger.LogInformation("Obra de prueba creada: {Nombre} con {EtapasCount} etapas para capataz {CapatazEmail}",
+                        nombre, etapas.Length, capatazUser.Email);
+                }
+            }
+
+            await context.SaveChangesAsync();
+        }
+        else
+        {
+            logger.LogWarning("No se encontró el usuario 'capataz@obrasync.com'. No se sembraron las obras de ejemplo.");
         }
     }
 }
