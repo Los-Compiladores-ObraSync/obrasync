@@ -10,6 +10,14 @@
         "tags": [
           "Auth"
         ],
+        "summary": "Registrar un nuevo usuario según matriz de permisos por rol",
+        "description": "Endpoint de acceso mixto (token JWT opcional). Reglas de permisos (tarjeta #117): (1) Sin token (anónimo): solo puede registrar el rol Proveedor; pedir Capataz, Comprador o Admin responde 403 Forbidden con ProblemDetails. (2) Con token de Comprador: puede crear Capataz y Proveedor; pedir Comprador o Admin responde 403 Forbidden. (3) Con token de Admin: puede crear Capataz, Comprador y Proveedor. (4) El rol Admin NO se crea por este endpoint (solo por seed). (5) Con token de Capataz o Proveedor: responde 403 Forbidden. (6) Si se envía cabecera Authorization con un token inválido o expirado, responde 401 Unauthorized con ProblemDetails.",
+        "security": [
+          {},
+          {
+            "bearerAuth": []
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -70,8 +78,23 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthorized (El token JWT enviado en Authorization es inválido o ha expirado)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "403": {
-            "description": "Forbidden (No está permitido registrar cuentas con rol Admin de forma pública)",
+            "description": "Forbidden (El rol solicitado no está permitido para quien realiza la petición: sin token solo se admite Proveedor, Comprador solo crea Capataz/Proveedor, y Admin no se crea por este medio)",
             "content": {
               "text/plain": {
                 "schema": {
@@ -462,6 +485,14 @@
     }
   },
   "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Token JWT emitido por ObraSync.Usuarios.Api (HS256) con claims: sub, email, name, role."
+      }
+    },
     "schemas": {
       "AuthResponseDto": {
         "type": "object",
