@@ -9,6 +9,7 @@ import { LoginPage } from './pages/LoginPage'
 import { NuevaObraPage } from './pages/NuevaObraPage'
 import { NuevaRequisicionPage } from './pages/NuevaRequisicionPage'
 import { ObraPage } from './pages/ObraPage'
+import { ObrasPage } from './pages/ObrasPage'
 import { ProveedoresPage } from './pages/ProveedoresPage'
 import { RutaProtegida } from './routes/RutaProtegida'
 import { SoloPortal } from './routes/SoloPortal'
@@ -45,6 +46,7 @@ function App() {
             </Route>
             <Route path="compras" element={<SoloPortal portalId="compras" />}>
               <Route index element={<ComprasPage />} />
+              <Route path="obras" element={<ObrasPage />} />
               <Route path="obras/nueva" element={<NuevaObraPage />} />
               <Route path="requisiciones" element={<AprobarRequisicionesPage />} />
               <Route

@@ -28,6 +28,10 @@ const HISTORIAL_REQUISICIONES_COMPRAS: AccionRapida = {
   texto: 'Historial de requisiciones',
   ruta: '/compras/requisiciones/historial',
 }
+const VER_OBRAS: AccionRapida = {
+  texto: 'Ver obras',
+  ruta: '/compras/obras',
+}
 const CREAR_OBRA: AccionRapida = {
   texto: 'Crear una obra nueva',
   ruta: '/compras/obras/nueva',
@@ -35,8 +39,14 @@ const CREAR_OBRA: AccionRapida = {
 
 const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
   Capataz: [NUEVA_REQUISICION, HISTORIAL_REQUISICIONES_OBRA],
-  Comprador: [APROBAR_REQUISICIONES, HISTORIAL_REQUISICIONES_COMPRAS, CREAR_OBRA],
-  Admin: [NUEVA_REQUISICION, APROBAR_REQUISICIONES, HISTORIAL_REQUISICIONES_COMPRAS, CREAR_OBRA],
+  Comprador: [APROBAR_REQUISICIONES, HISTORIAL_REQUISICIONES_COMPRAS, VER_OBRAS, CREAR_OBRA],
+  Admin: [
+    NUEVA_REQUISICION,
+    APROBAR_REQUISICIONES,
+    HISTORIAL_REQUISICIONES_COMPRAS,
+    VER_OBRAS,
+    CREAR_OBRA,
+  ],
   // El portal de Proveedores todavía no tiene pantallas: por ahora no hay accesos rápidos.
   Proveedor: [],
 }
