@@ -21,7 +21,7 @@
           {
             "name": "search",
             "in": "query",
-            "description": "Filtro opcional por código o descripción del insumo.",
+            "description": "Filtro opcional por código o descripción del insumo. Búsqueda por subcadena (contiene), insensible a mayúsculas/minúsculas pero sensible a tildes según la collation de la base de datos (SQL_Latin1_General_CP1_CI_AS).",
             "required": false,
             "schema": {
               "type": "string",

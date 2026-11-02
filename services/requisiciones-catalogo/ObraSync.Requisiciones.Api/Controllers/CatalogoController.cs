@@ -31,7 +31,7 @@ namespace ObraSync.Requisiciones.Api.Controllers
         /// <summary>
         /// Listar los insumos del catálogo (Roles: Capataz, Comprador, Admin)
         /// </summary>
-        /// <param name="search">Filtro opcional por código o descripción del insumo.</param>
+        /// <param name="search">Filtro opcional por código o descripción del insumo. Búsqueda por subcadena (contiene), insensible a mayúsculas/minúsculas pero sensible a tildes según la collation de la base de datos (SQL_Latin1_General_CP1_CI_AS).</param>
         /// <param name="soloActivos">Filtrar únicamente insumos activos (por defecto true).</param>
         /// <param name="cancellationToken">Token de cancelación.</param>
         [HttpGet("insumos")]
