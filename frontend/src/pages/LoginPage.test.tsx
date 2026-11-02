@@ -52,6 +52,32 @@ describe('LoginPage', () => {
     )
   })
 
+  it('muestra el aviso de éxito si se llega después de restablecer la contraseña', () => {
+    render(
+      <MemoryRouter
+        initialEntries={[{ pathname: '/login', state: { contrasenaRestablecida: true } }]}
+      >
+        <AuthProvider>
+          <LoginPage />
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Tu contraseña se cambió. Ya podés iniciar sesión.',
+    )
+  })
+
+  it('no muestra el aviso de éxito en un ingreso normal', () => {
+    render(
+      <ConRouterYSesion>
+        <LoginPage />
+      </ConRouterYSesion>,
+    )
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it('no llama a la API y muestra errores inline si faltan campos', async () => {
     const user = userEvent.setup()
     let llamadaApiRealizada = false

@@ -82,6 +82,30 @@ describe('App - sin sesión', () => {
     ).toBeInTheDocument()
   })
 
+  it('muestra la pantalla de elegir la nueva contraseña sin necesitar sesión', () => {
+    renderApp('/restablecer-contrasena?email=capataz%40obrasync.com&token=abc123')
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Elegí tu nueva contraseña' }),
+    ).toBeInTheDocument()
+  })
+
+  it('al elegir la nueva contraseña vuelve al login con el aviso de éxito', async () => {
+    const usuario = userEvent.setup()
+    renderApp('/restablecer-contrasena?email=capataz%40obrasync.com&token=abc123')
+
+    await usuario.type(screen.getByLabelText('Nueva contraseña'), 'Nueva123!')
+    await usuario.type(screen.getByLabelText('Repetí la contraseña'), 'Nueva123!')
+    await usuario.click(screen.getByRole('button', { name: 'Guardar contraseña' }))
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Iniciar sesión' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Tu contraseña se cambió. Ya podés iniciar sesión.',
+    )
+  })
+
   it('después de iniciar sesión entra al inicio con el menú de su rol', async () => {
     const usuario = userEvent.setup()
     renderApp('/obra')

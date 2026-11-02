@@ -12,6 +12,7 @@ import { ObraPage } from './pages/ObraPage'
 import { ObrasPage } from './pages/ObrasPage'
 import { ProveedoresPage } from './pages/ProveedoresPage'
 import { RecuperarContrasenaPage } from './pages/RecuperarContrasenaPage'
+import { RestablecerContrasenaPage } from './pages/RestablecerContrasenaPage'
 import { RutaProtegida } from './routes/RutaProtegida'
 import { SoloPortal } from './routes/SoloPortal'
 import { SoloSinSesion } from './routes/SoloSinSesion'
@@ -28,6 +29,7 @@ function App() {
         <Route element={<SoloSinSesion />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/recuperar-contrasena" element={<RecuperarContrasenaPage />} />
+          <Route path="/restablecer-contrasena" element={<RestablecerContrasenaPage />} />
         </Route>
 
         {/* Protegidas: requieren sesión y comparten el encabezado con el menú */}

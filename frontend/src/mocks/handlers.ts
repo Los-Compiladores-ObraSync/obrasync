@@ -207,6 +207,37 @@ export const handlers: RequestHandler[] = [
     )
   }),
 
+  // Contrato: POST /api/usuarios/password/restablecer → 200 { mensaje } | 400 ProblemDetails.
+  // Es público: no necesita sesión. Para ver el error del enlace vencido, abrir
+  // /restablecer-contrasena?email=capataz%40obrasync.com&token=token-vencido
+  http.post('*/api/usuarios/password/restablecer', async ({ request }) => {
+    const body = (await request.json()) as {
+      email?: string
+      token?: string
+      nuevaPassword?: string
+    }
+
+    if (!body.email || !body.token || !body.nuevaPassword) {
+      return HttpResponse.json(
+        { title: 'Datos inválidos', status: 400, detail: 'Faltan datos para restablecer la contraseña.' },
+        { status: 400 },
+      )
+    }
+    if (body.token === 'token-vencido') {
+      return HttpResponse.json(
+        { title: 'Token inválido', status: 400, detail: 'El enlace venció o no es válido. Pedí uno nuevo.' },
+        { status: 400 },
+      )
+    }
+    if (body.nuevaPassword.length < 6) {
+      return HttpResponse.json(
+        { title: 'Contraseña inválida', status: 400, detail: 'La contraseña debe tener al menos 6 caracteres.' },
+        { status: 400 },
+      )
+    }
+    return HttpResponse.json({ mensaje: 'Contraseña restablecida exitosamente.' }, { status: 200 })
+  }),
+
   // Contrato: POST /api/obras → 200 (string) | 400 | 403 | 409.
   // Solo para desarrollo y pruebas. Para ver el error 409 en pantalla, crear una obra
   // llamada "Obra Duplicada".
