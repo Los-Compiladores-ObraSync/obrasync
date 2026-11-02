@@ -383,7 +383,7 @@ describe('App - tablero de pendientes', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Pendientes' })).toBeInTheDocument()
     expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
     expect(screen.getByText('REQ-2026-0012')).toBeInTheDocument()
-    expect(screen.getByLabelText('2 pendientes')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Requisiciones por aprobar' })).toHaveTextContent('2')
   })
 
   it('desde el panel de la campana se llega al tablero', async () => {
@@ -402,14 +402,14 @@ describe('App - tablero de pendientes', () => {
     iniciarSesionComo('Comprador')
     renderApp('/compras/pendientes')
 
-    expect(await screen.findByLabelText('2 pendientes')).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Requisiciones por aprobar' })).toHaveTextContent('2')
     await usuario.click(screen.getByRole('link', { name: 'Ir a Aprobar requisiciones' }))
     await usuario.click(await screen.findByRole('button', { name: 'Aprobar REQ-2026-0011' }))
     await screen.findByRole('button', { name: 'Notificaciones: 1 sin leer' })
     await usuario.click(screen.getByRole('link', { name: '← Volver a Gestión y Compras' }))
     await usuario.click(await screen.findByRole('link', { name: 'Pendientes' }))
 
-    expect(await screen.findByLabelText('1 pendientes')).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Requisiciones por aprobar' })).toHaveTextContent('1')
   })
 
   it('el Capataz no entra al tablero', async () => {
