@@ -1,7 +1,8 @@
 import { type FormEvent, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { loginApi } from '../auth/authService'
+import { IconoOjo } from '../auth/IconoOjo'
 import { useAuth } from '../auth/useAuth'
 import { validarEmail } from '../auth/validacionEmail'
 import styles from './LoginPage.module.css'
@@ -28,34 +29,15 @@ function validarCampos(email: string, password: string): ErroresCampo {
   return errores
 }
 
-// ── Icono del botón "ver contraseña" ─────────────────────────────────────────
-// SVG en línea (sin librerías). aria-hidden: el nombre del botón lo da su aria-label.
-
-function IconoOjo({ tachado }: { tachado: boolean }) {
-  return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
-      <circle cx="12" cy="12" r="3" />
-      {tachado && <line x1="3" y1="3" x2="21" y2="21" />}
-    </svg>
-  )
-}
-
 // ── Componente ────────────────────────────────────────────────────────────────
 
 export function LoginPage() {
   const auth = useAuth()
+
+  // Si se llega desde "Elegí tu nueva contraseña" (RestablecerContrasenaPage), se avisa que salió bien.
+  const { state } = useLocation()
+  const contrasenaRestablecida =
+    (state as { contrasenaRestablecida?: boolean } | null)?.contrasenaRestablecida === true
 
   // Campos del formulario
   const [email, setEmail] = useState('')
@@ -125,6 +107,12 @@ export function LoginPage() {
         aria-describedby={apiError ? idErrorApi : undefined}
       >
         <h1 className={styles.titulo}>Iniciar sesión</h1>
+
+        {contrasenaRestablecida && (
+          <p className={styles.exito} role="status">
+            Tu contraseña se cambió. Ya podés iniciar sesión.
+          </p>
+        )}
 
         {/* Mensaje de error del servidor — role="alert" para lectores de pantalla */}
         {apiError && (
