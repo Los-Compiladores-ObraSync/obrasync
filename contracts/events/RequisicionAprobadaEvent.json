@@ -44,6 +44,13 @@
       "format": "uuid",
       "description": "Identificador de la obra a la que pertenece la requisición."
     },
+    "etapa": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Etapa de obra asociada a la requisición (ej: Estructura, Fundaciones, Terminaciones)."
+    },
     "solicitanteId": {
       "type": "string",
       "format": "uuid",

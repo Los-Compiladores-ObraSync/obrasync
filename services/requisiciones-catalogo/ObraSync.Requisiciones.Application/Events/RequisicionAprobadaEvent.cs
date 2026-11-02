@@ -16,7 +16,8 @@ namespace ObraSync.Contracts.Events
         Guid ObraId,
         Guid SolicitanteId,
         Guid AprobadorId,
-        IReadOnlyList<RequisicionAprobadaItemEvent> Items
+        IReadOnlyList<RequisicionAprobadaItemEvent> Items,
+        string? Etapa = null
     );
 
     public record RequisicionAprobadaItemEvent(

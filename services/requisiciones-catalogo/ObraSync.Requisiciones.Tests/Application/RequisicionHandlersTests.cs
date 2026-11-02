@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using NSubstitute;
@@ -102,7 +103,7 @@ namespace ObraSync.Requisiciones.Tests.Application
         }
 
         [Fact]
-        public async Task AprobarRequisicion_ConRequisicionPendiente_DebeAprobarYPublicarRequisicionAprobadaEvent()
+        public async Task AprobarRequisicion_ConRequisicionPendiente_DebeAprobarYPublicarRequisicionAprobadaEventConEtapa()
         {
             var requisicionRepo = Substitute.For<IRequisicionRepository>();
             var eventPublisher = Substitute.For<IRequisicionEventPublisher>();
@@ -151,6 +152,7 @@ namespace ObraSync.Requisiciones.Tests.Application
                     ev.RequisicionId == requisicionId &&
                     ev.NumeroRequisicion == "REQ-2026-0001" &&
                     ev.ObraId == obraId &&
+                    ev.Etapa == "Estructura" &&
                     ev.SolicitanteId == solicitanteId &&
                     ev.AprobadorId == aprobadorId &&
                     ev.Items.Count == 1 &&
@@ -158,6 +160,122 @@ namespace ObraSync.Requisiciones.Tests.Application
                     ev.Items[0].Cantidad == 80m &&
                     ev.Items[0].UnidadMedida == UnidadesMedida.Bolsa),
                 Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task AprobarRequisicion_SinEtapa_DebePublicarRequisicionAprobadaEventConEtapaNull()
+        {
+            var requisicionRepo = Substitute.For<IRequisicionRepository>();
+            var eventPublisher = Substitute.For<IRequisicionEventPublisher>();
+
+            var requisicionId = Guid.NewGuid();
+            var obraId = Guid.NewGuid();
+            var solicitanteId = Guid.NewGuid();
+            var aprobadorId = Guid.NewGuid();
+            var correlationId = Guid.NewGuid();
+            var cementoId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+
+            var requisicion = new Requisicion(
+                requisicionId,
+                "REQ-2026-0002",
+                obraId,
+                solicitanteId,
+                new[]
+                {
+                    new RequisicionItem(
+                        Guid.NewGuid(),
+                        requisicionId,
+                        cementoId,
+                        "Cemento Portland Normal (bolsa 50 kg)",
+                        40m,
+                        UnidadesMedida.Bolsa)
+                },
+                etapa: null);
+
+            requisicionRepo.GetByIdAsync(requisicionId, Arg.Any<CancellationToken>())
+                .Returns(requisicion);
+
+            var handler = new AprobarRequisicionCommandHandler(requisicionRepo, eventPublisher);
+
+            var command = new AprobarRequisicionCommand(requisicionId, aprobadorId, correlationId);
+            await handler.Handle(command, CancellationToken.None);
+
+            await eventPublisher.Received(1).PublishRequisicionAprobadaAsync(
+                Arg.Is<RequisicionAprobadaEvent>(ev =>
+                    ev.RequisicionId == requisicionId &&
+                    ev.Etapa == null),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public void RequisicionAprobadaEvent_SerializacionYDeserializacionJson_DebeSoportarEtapaConValorNullYCampoAusente()
+        {
+            var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+
+            // 1. Con etapa definida ("Estructura")
+            var eventoConEtapa = new RequisicionAprobadaEvent(
+                EventId: Guid.NewGuid(),
+                OccurredAt: new DateTime(2026, 11, 2, 14, 0, 0, DateTimeKind.Utc),
+                CorrelationId: Guid.NewGuid(),
+                RequisicionId: Guid.NewGuid(),
+                NumeroRequisicion: "REQ-2026-0015",
+                ObraId: Guid.NewGuid(),
+                SolicitanteId: Guid.NewGuid(),
+                AprobadorId: Guid.NewGuid(),
+                Items: new[]
+                {
+                    new RequisicionAprobadaItemEvent(
+                        Guid.NewGuid(),
+                        "Cemento Portland Normal (bolsa 50 kg)",
+                        80m,
+                        UnidadesMedida.Bolsa)
+                },
+                Etapa: "Estructura");
+
+            var jsonConEtapa = JsonSerializer.Serialize(eventoConEtapa, options);
+            using (var doc = JsonDocument.Parse(jsonConEtapa))
+            {
+                Assert.Equal("Estructura", doc.RootElement.GetProperty("etapa").GetString());
+            }
+
+            var deserializadoConEtapa = JsonSerializer.Deserialize<RequisicionAprobadaEvent>(jsonConEtapa, options);
+            Assert.NotNull(deserializadoConEtapa);
+            Assert.Equal("Estructura", deserializadoConEtapa.Etapa);
+            Assert.Equal(eventoConEtapa.RequisicionId, deserializadoConEtapa.RequisicionId);
+
+            // 2. Con etapa null
+            var eventoSinEtapa = eventoConEtapa with { Etapa = null };
+            var jsonSinEtapa = JsonSerializer.Serialize(eventoSinEtapa, options);
+            var deserializadoSinEtapa = JsonSerializer.Deserialize<RequisicionAprobadaEvent>(jsonSinEtapa, options);
+            Assert.NotNull(deserializadoSinEtapa);
+            Assert.Null(deserializadoSinEtapa.Etapa);
+
+            // 3. Deserialización retrocompatible cuando el JSON entrante no trae la propiedad "etapa"
+            const string jsonSinPropiedadEtapa = """
+            {
+              "eventId": "11111111-1111-1111-1111-111111111111",
+              "occurredAt": "2026-11-02T14:00:00Z",
+              "correlationId": "22222222-2222-2222-2222-222222222222",
+              "requisicionId": "33333333-3333-3333-3333-333333333333",
+              "numeroRequisicion": "REQ-2026-0001",
+              "obraId": "44444444-4444-4444-4444-444444444444",
+              "solicitanteId": "55555555-5555-5555-5555-555555555555",
+              "aprobadorId": "66666666-6666-6666-6666-666666666666",
+              "items": [
+                {
+                  "articuloId": "11111111-1111-1111-1111-111111110001",
+                  "descripcion": "Cemento Portland Normal (bolsa 50 kg)",
+                  "cantidad": 80,
+                  "unidadMedida": "BOLSA"
+                }
+              ]
+            }
+            """;
+
+            var deserializadoSinPropiedad = JsonSerializer.Deserialize<RequisicionAprobadaEvent>(jsonSinPropiedadEtapa, options);
+            Assert.NotNull(deserializadoSinPropiedad);
+            Assert.Null(deserializadoSinPropiedad.Etapa);
+            Assert.Equal("REQ-2026-0001", deserializadoSinPropiedad.NumeroRequisicion);
         }
 
         [Fact]

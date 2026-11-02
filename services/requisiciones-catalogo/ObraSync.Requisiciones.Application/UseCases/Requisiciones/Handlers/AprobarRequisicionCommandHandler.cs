@@ -56,7 +56,8 @@ namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers
                     i.ArticuloId,
                     i.Descripcion,
                     i.Cantidad,
-                    i.UnidadMedida)).ToList());
+                    i.UnidadMedida)).ToList(),
+                Etapa: requisicion.Etapa);
 
             await _eventPublisher.PublishRequisicionAprobadaAsync(evento, cancellationToken);
 
