@@ -43,10 +43,13 @@ export interface RequisicionResponseDto {
   etapa?: string | null
   solicitanteId: string
   aprobadorId?: string | null
+  rechazadorId?: string | null
   estado: EstadoRequisicion
   observaciones?: string | null
+  motivoRechazo?: string | null
   fechaCreacion: string
   fechaAprobacion?: string | null
+  fechaRechazo?: string | null
   items: RequisicionItemDto[]
 }
 

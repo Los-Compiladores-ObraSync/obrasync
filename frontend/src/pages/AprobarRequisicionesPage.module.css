@@ -73,15 +73,126 @@
   font-weight: 700;
 }
 
+.acciones {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: auto;
+}
+
 .boton {
-  width: 100%;
+  flex: 1;
   min-height: 64px; /* es la acción principal: el botón más grande */
-  margin-top: auto; /* empuja el botón al fondo: quedan alineados aunque cambie el texto de arriba */
   font-size: 1.25rem;
   font-weight: 700;
 }
 
 .boton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.botonRechazar {
+  flex: 1;
+  min-height: 64px;
+  padding: 0 1rem;
+  border: 2px solid var(--azul);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--azul);
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.botonRechazar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.contenedorRechazo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
+}
+
+.labelMotivo {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.textareaMotivo {
+  width: 100%;
+  min-height: 90px;
+  padding: 0.625rem 0.75rem;
+  border: 2px solid var(--borde);
+  border-radius: 10px;
+  font-size: 1.0625rem;
+  color: var(--texto);
+  background: #ffffff;
+  resize: vertical;
+}
+
+.textareaMotivo:focus {
+  border-color: var(--foco);
+}
+
+.textareaMotivo:disabled {
+  background: #f8fafc;
+  cursor: not-allowed;
+}
+
+.contador {
+  align-self: flex-end;
+  font-size: 0.875rem;
+  color: var(--texto-suave);
+}
+
+.errorMotivo {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.accionesRechazo {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.botonConfirmar {
+  flex: 1;
+  min-height: var(--alto-toque);
+  background: #dc2626;
+  color: #ffffff;
+  border: 0;
+  border-radius: 10px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.botonConfirmar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.botonCancelar {
+  flex: 1;
+  min-height: var(--alto-toque);
+  background: #ffffff;
+  color: var(--texto-suave);
+  border: 2px solid var(--borde);
+  border-radius: 10px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.botonCancelar:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }

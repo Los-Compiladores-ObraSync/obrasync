@@ -61,13 +61,13 @@ export function crearRequisicion(
  * Fuente: GET /api/requisiciones (Capataz, Comprador, Admin)
  */
 export function listarRequisiciones(
-    filtros: { estado?: string; obraId?: string } = {},
+  filtros: { estado?: string; obraId?: string } = {},
 ): Promise<RequisicionResponseDto[]> {
-    const params = new URLSearchParams()
-    if (filtros.estado) params.set('estado', filtros.estado)
-    if (filtros.obraId) params.set('obraId', filtros.obraId)
-    const query = params.toString() ? `?${params.toString()}` : ''
-    return apiFetch<RequisicionResponseDto[]>(`/api/requisiciones${query}`)
+  const params = new URLSearchParams()
+  if (filtros.estado) params.set('estado', filtros.estado)
+  if (filtros.obraId) params.set('obraId', filtros.obraId)
+  const query = params.toString() ? `?${params.toString()}` : ''
+  return apiFetch<RequisicionResponseDto[]>(`/api/requisiciones${query}`)
 }
 
 /**
@@ -75,7 +75,7 @@ export function listarRequisiciones(
  * Fuente: GET /api/requisiciones/{id} (Capataz, Comprador, Admin). Responde 404 si no existe.
  */
 export function obtenerRequisicion(id: string): Promise<RequisicionResponseDto> {
-    return apiFetch<RequisicionResponseDto>(`/api/requisiciones/${encodeURIComponent(id)}`)
+  return apiFetch<RequisicionResponseDto>(`/api/requisiciones/${encodeURIComponent(id)}`)
 }
 
 /**
@@ -83,8 +83,25 @@ export function obtenerRequisicion(id: string): Promise<RequisicionResponseDto> 
  * Fuente: POST /api/requisiciones/{id}/aprobar (Comprador, Admin)
  */
 export function aprobarRequisicion(id: string): Promise<RequisicionResponseDto> {
-    return apiFetch<RequisicionResponseDto>(
-        `/api/requisiciones/${encodeURIComponent(id)}/aprobar`,
-        { method: 'POST' },
-    )
+  return apiFetch<RequisicionResponseDto>(
+    `/api/requisiciones/${encodeURIComponent(id)}/aprobar`,
+    { method: 'POST' },
+  )
+}
+
+/**
+ * Rechaza una requisición pendiente.
+ * Fuente: POST /api/requisiciones/{id}/rechazar (Comprador, Admin)
+ */
+export function rechazarRequisicion(
+  id: string,
+  motivo: string,
+): Promise<RequisicionResponseDto> {
+  return apiFetch<RequisicionResponseDto>(
+    `/api/requisiciones/${encodeURIComponent(id)}/rechazar`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ motivo }),
+    },
+  )
 }
