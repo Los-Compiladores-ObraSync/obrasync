@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -64,10 +65,13 @@ builder.Services.AddProblemDetails(options =>
     options.CustomizeProblemDetails = ctx =>
     {
         var correlationId = ctx.HttpContext.Request.Headers["X-Correlation-ID"].ToString();
-        if (!string.IsNullOrEmpty(correlationId))
+        if (string.IsNullOrWhiteSpace(correlationId))
         {
-            ctx.ProblemDetails.Extensions["correlationId"] = correlationId;
+            correlationId = ctx.HttpContext.TraceIdentifier;
         }
+
+        ctx.ProblemDetails.Instance ??= ctx.HttpContext.Request.Path;
+        ctx.ProblemDetails.Extensions["correlationId"] = correlationId;
     };
 });
 
@@ -92,6 +96,90 @@ builder.Services
             ValidateLifetime = true,
             NameClaimType = "name",
             RoleClaimType = "role"
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnChallenge = async context =>
+            {
+                context.HandleResponse();
+
+                var httpContext = context.HttpContext;
+                httpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                httpContext.Response.ContentType = "application/problem+json";
+
+                var correlationId = httpContext.Request.Headers["X-Correlation-ID"].ToString();
+                if (string.IsNullOrWhiteSpace(correlationId))
+                {
+                    correlationId = httpContext.TraceIdentifier;
+                }
+
+                var problemDetails = new ProblemDetails
+                {
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.5.2",
+                    Title = "No autorizado",
+                    Status = StatusCodes.Status401Unauthorized,
+                    Detail = "Se requiere un token JWT válido para acceder a este recurso.",
+                    Instance = httpContext.Request.Path
+                };
+                problemDetails.Extensions["correlationId"] = correlationId;
+
+                var problemDetailsService = httpContext.RequestServices.GetService<IProblemDetailsService>();
+                if (problemDetailsService != null)
+                {
+                    await problemDetailsService.WriteAsync(new ProblemDetailsContext
+                    {
+                        HttpContext = httpContext,
+                        ProblemDetails = problemDetails
+                    });
+                }
+                else
+                {
+                    await httpContext.Response.WriteAsJsonAsync(
+                        problemDetails,
+                        options: null,
+                        contentType: "application/problem+json");
+                }
+            },
+            OnForbidden = async context =>
+            {
+                var httpContext = context.HttpContext;
+                httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+                httpContext.Response.ContentType = "application/problem+json";
+
+                var correlationId = httpContext.Request.Headers["X-Correlation-ID"].ToString();
+                if (string.IsNullOrWhiteSpace(correlationId))
+                {
+                    correlationId = httpContext.TraceIdentifier;
+                }
+
+                var problemDetails = new ProblemDetails
+                {
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.5.4",
+                    Title = "Acceso denegado",
+                    Status = StatusCodes.Status403Forbidden,
+                    Detail = "Su rol no posee permisos suficientes para consultar o modificar este recurso.",
+                    Instance = httpContext.Request.Path
+                };
+                problemDetails.Extensions["correlationId"] = correlationId;
+
+                var problemDetailsService = httpContext.RequestServices.GetService<IProblemDetailsService>();
+                if (problemDetailsService != null)
+                {
+                    await problemDetailsService.WriteAsync(new ProblemDetailsContext
+                    {
+                        HttpContext = httpContext,
+                        ProblemDetails = problemDetails
+                    });
+                }
+                else
+                {
+                    await httpContext.Response.WriteAsJsonAsync(
+                        problemDetails,
+                        options: null,
+                        contentType: "application/problem+json");
+                }
+            }
         };
     });
 
