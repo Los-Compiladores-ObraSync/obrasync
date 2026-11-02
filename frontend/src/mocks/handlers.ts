@@ -189,6 +189,24 @@ export const handlers: RequestHandler[] = [
     )
   }),
 
+  // Contrato: POST /api/usuarios/password/recuperar → 200 { mensaje } | 400 ProblemDetails.
+  // Como el backend real, responde siempre lo mismo exista o no la cuenta; solo falla (400)
+  // si el email viene vacío. Es público: no necesita sesión.
+  http.post('*/api/usuarios/password/recuperar', async ({ request }) => {
+    const body = (await request.json()) as { email?: string }
+
+    if (!body.email) {
+      return HttpResponse.json(
+        { title: 'Datos inválidos', status: 400, detail: 'El email es obligatorio.' },
+        { status: 400 },
+      )
+    }
+    return HttpResponse.json(
+      { mensaje: 'Si el email existe, se envió el enlace de recuperación.' },
+      { status: 200 },
+    )
+  }),
+
   // Contrato: POST /api/obras → 200 (string) | 400 | 403 | 409.
   // Solo para desarrollo y pruebas. Para ver el error 409 en pantalla, crear una obra
   // llamada "Obra Duplicada".

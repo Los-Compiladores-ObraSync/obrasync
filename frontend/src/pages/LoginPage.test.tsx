@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
+import type { ReactNode } from 'react'
+import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { setToken } from '../api/client'
 import { AuthProvider } from '../auth/AuthContext'
@@ -8,6 +10,15 @@ import { STORAGE_KEY } from '../auth/sessionContext'
 import { useAuth } from '../auth/useAuth'
 import { server } from '../mocks/server'
 import { LoginPage } from './LoginPage'
+
+// El login tiene un enlace (<Link>), que necesita un Router; y todo necesita la sesión.
+function ConRouterYSesion({ children }: { children: ReactNode }) {
+  return (
+    <MemoryRouter>
+      <AuthProvider>{children}</AuthProvider>
+    </MemoryRouter>
+  )
+}
 
 function HarnessConEstado() {
   const { usuario } = useAuth()
@@ -28,6 +39,19 @@ describe('LoginPage', () => {
     setToken(null)
   })
 
+  it('tiene el enlace para recuperar la contraseña', () => {
+    render(
+      <ConRouterYSesion>
+        <LoginPage />
+      </ConRouterYSesion>,
+    )
+
+    expect(screen.getByRole('link', { name: '¿Olvidaste tu contraseña?' })).toHaveAttribute(
+      'href',
+      '/recuperar-contrasena',
+    )
+  })
+
   it('no llama a la API y muestra errores inline si faltan campos', async () => {
     const user = userEvent.setup()
     let llamadaApiRealizada = false
@@ -39,9 +63,9 @@ describe('LoginPage', () => {
     )
 
     render(
-      <AuthProvider>
+      <ConRouterYSesion>
         <LoginPage />
-      </AuthProvider>,
+      </ConRouterYSesion>,
     )
 
     await user.click(screen.getByRole('button', { name: 'Ingresar' }))
@@ -62,9 +86,9 @@ describe('LoginPage', () => {
     )
 
     render(
-      <AuthProvider>
+      <ConRouterYSesion>
         <LoginPage />
-      </AuthProvider>,
+      </ConRouterYSesion>,
     )
 
     await user.type(screen.getByLabelText('Email'), 'email-sin-formato')
@@ -92,9 +116,9 @@ describe('LoginPage', () => {
     )
 
     render(
-      <AuthProvider>
+      <ConRouterYSesion>
         <LoginPage />
-      </AuthProvider>,
+      </ConRouterYSesion>,
     )
 
     await user.type(screen.getByLabelText('Email'), 'capataz@obrasync.com')
@@ -117,9 +141,9 @@ describe('LoginPage', () => {
     const user = userEvent.setup()
 
     render(
-      <AuthProvider>
+      <ConRouterYSesion>
         <LoginPage />
-      </AuthProvider>,
+      </ConRouterYSesion>,
     )
 
     await user.type(screen.getByLabelText('Email'), 'capataz@obrasync.com')
@@ -137,9 +161,9 @@ describe('LoginPage', () => {
     server.use(http.post('*/api/usuarios/login', () => HttpResponse.error()))
 
     render(
-      <AuthProvider>
+      <ConRouterYSesion>
         <LoginPage />
-      </AuthProvider>,
+      </ConRouterYSesion>,
     )
 
     await user.type(screen.getByLabelText('Email'), 'capataz@obrasync.com')
@@ -154,9 +178,9 @@ describe('LoginPage', () => {
     const user = userEvent.setup()
 
     render(
-      <AuthProvider>
+      <ConRouterYSesion>
         <HarnessConEstado />
-      </AuthProvider>,
+      </ConRouterYSesion>,
     )
 
     await user.type(screen.getByLabelText('Email'), 'capataz@obrasync.com')
@@ -184,9 +208,9 @@ describe('LoginPage', () => {
   describe('ver u ocultar la contraseña', () => {
     it('arranca oculta, con el botón "Mostrar contraseña" sin presionar', () => {
       render(
-        <AuthProvider>
+        <ConRouterYSesion>
           <LoginPage />
-        </AuthProvider>,
+        </ConRouterYSesion>,
       )
 
       expect(screen.getByLabelText('Contraseña')).toHaveAttribute('type', 'password')
@@ -198,9 +222,9 @@ describe('LoginPage', () => {
     it('al tocar el botón muestra el texto y al tocarlo de nuevo lo oculta, sin perder lo escrito', async () => {
       const user = userEvent.setup()
       render(
-        <AuthProvider>
+        <ConRouterYSesion>
           <LoginPage />
-        </AuthProvider>,
+        </ConRouterYSesion>,
       )
 
       const campo = screen.getByLabelText('Contraseña')
@@ -221,9 +245,9 @@ describe('LoginPage', () => {
     it('se puede usar con el teclado', async () => {
       const user = userEvent.setup()
       render(
-        <AuthProvider>
+        <ConRouterYSesion>
           <LoginPage />
-        </AuthProvider>,
+        </ConRouterYSesion>,
       )
 
       screen.getByRole('button', { name: 'Mostrar contraseña' }).focus()
@@ -235,9 +259,9 @@ describe('LoginPage', () => {
     it('no envía el formulario: no aparecen errores de campos vacíos', async () => {
       const user = userEvent.setup()
       render(
-        <AuthProvider>
+        <ConRouterYSesion>
           <LoginPage />
-        </AuthProvider>,
+        </ConRouterYSesion>,
       )
 
       await user.click(screen.getByRole('button', { name: 'Mostrar contraseña' }))

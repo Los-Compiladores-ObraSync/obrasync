@@ -165,6 +165,17 @@
   cursor: not-allowed;
 }
 
+.enlaceOlvido {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px; /* área de toque cómoda */
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--azul);
+  text-decoration: none;
+}
+
 /* ── Pantallas grandes ────────────────────────────────────────────────────── */
 @media (min-width: 768px) {
   .contenedor {
