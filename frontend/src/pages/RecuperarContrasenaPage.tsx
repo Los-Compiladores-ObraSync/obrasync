@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { solicitarRecuperacionPassword } from '../auth/passwordService'
@@ -16,9 +16,12 @@ export function RecuperarContrasenaPage() {
   const [apiError, setApiError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(false)
+  // Guard inmediato contra el doble envío (si no, se mandan dos emails con dos tokens distintos).
+  const enviandoRef = useRef(false)
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (enviandoRef.current) return
 
     // 1. Validación local: no llama a la API si el email está mal
     const error = validarEmail(email)
@@ -28,6 +31,7 @@ export function RecuperarContrasenaPage() {
     }
     setErrorEmail(undefined)
     setApiError(null)
+    enviandoRef.current = true
     setEnviando(true)
 
     try {
@@ -41,6 +45,7 @@ export function RecuperarContrasenaPage() {
         setApiError('No se pudo conectar. Intentá de nuevo más tarde.')
       }
     } finally {
+      enviandoRef.current = false
       setEnviando(false)
     }
   }

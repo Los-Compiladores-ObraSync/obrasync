@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
@@ -146,5 +146,28 @@ describe('RecuperarContrasenaPage', () => {
       'href',
       '/login',
     )
+  })
+
+  it('un doble envío seguido pide las instrucciones una sola vez', async () => {
+    let llamadas = 0
+    server.use(
+      http.post('*/api/usuarios/password/recuperar', async () => {
+        llamadas++
+        await delay(50)
+        return HttpResponse.json({ mensaje: 'ok' })
+      }),
+    )
+    const user = userEvent.setup()
+    renderPagina()
+    await user.type(screen.getByLabelText('Email'), 'capataz@obrasync.com')
+
+    const formulario = screen.getByRole('button', { name: 'Enviar instrucciones' }).closest('form')!
+    act(() => {
+      fireEvent.submit(formulario)
+      fireEvent.submit(formulario)
+    })
+
+    expect(await screen.findByText(MENSAJE_NEUTRO)).toBeInTheDocument()
+    expect(llamadas).toBe(1)
   })
 })

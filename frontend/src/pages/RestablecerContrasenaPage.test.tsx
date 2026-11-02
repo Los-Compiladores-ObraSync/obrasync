@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
@@ -220,5 +220,29 @@ describe('RestablecerContrasenaPage', () => {
     await user.click(screen.getByRole('button', { name: 'Mostrar contraseña' }))
     expect(nueva).toHaveAttribute('type', 'password')
     expect(repetir).toHaveAttribute('type', 'password')
+  })
+
+  it('un doble envío seguido restablece la contraseña una sola vez', async () => {
+    let llamadas = 0
+    server.use(
+      http.post('*/api/usuarios/password/restablecer', async () => {
+        llamadas++
+        await delay(50)
+        return HttpResponse.json({ mensaje: 'ok' })
+      }),
+    )
+    const user = userEvent.setup()
+    renderPagina()
+    await user.type(screen.getByLabelText('Nueva contraseña'), 'nueva123')
+    await user.type(screen.getByLabelText('Repetí la contraseña'), 'nueva123')
+
+    const formulario = screen.getByRole('button', { name: 'Guardar contraseña' }).closest('form')!
+    act(() => {
+      fireEvent.submit(formulario)
+      fireEvent.submit(formulario)
+    })
+
+    expect(await screen.findByText(/^LOGIN /)).toBeInTheDocument()
+    expect(llamadas).toBe(1)
   })
 })

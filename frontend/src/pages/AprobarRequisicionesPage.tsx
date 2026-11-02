@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import {
@@ -32,6 +32,8 @@ export function AprobarRequisicionesPage() {
   const [errorAprobar, setErrorAprobar] = useState<string | null>(null)
   const [aprobada, setAprobada] = useState<string | null>(null)
   const { refrescar: refrescarCampana } = usePendientes()
+  // Guard inmediato contra el doble clic: "aprobandoId" (estado) recién cambia en el próximo render.
+  const aprobandoRef = useRef(false)
 
   // Cada vez que cambia "intento" se vuelve a pedir la lista (así funciona "Reintentar")
   const [intento, setIntento] = useState(0)
@@ -71,6 +73,8 @@ export function AprobarRequisicionesPage() {
   }
 
   async function aprobar(req: RequisicionResponseDto) {
+    if (aprobandoRef.current) return
+    aprobandoRef.current = true
     setAprobandoId(req.requisicionId)
     setErrorAprobar(null)
     setAprobada(null)
@@ -83,6 +87,7 @@ export function AprobarRequisicionesPage() {
     } catch (err) {
       setErrorAprobar(mensajeDeErrorAprobar(err))
     } finally {
+      aprobandoRef.current = false
       setAprobandoId(null)
     }
   }

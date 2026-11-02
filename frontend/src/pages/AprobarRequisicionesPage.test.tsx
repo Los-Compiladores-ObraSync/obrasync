@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http, HttpResponse } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { reiniciarRequisicionesMock } from '../mocks/handlers'
@@ -92,5 +92,31 @@ describe('AprobarRequisicionesPage', () => {
       'No se pudieron cargar las requisiciones.',
     )
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
+  })
+
+  it('un doble clic seguido aprueba la requisición una sola vez', async () => {
+    let llamadas = 0
+    server.use(
+      http.post('*/api/requisiciones/:id/aprobar', async ({ params }) => {
+        llamadas++
+        await delay(50)
+        return HttpResponse.json({
+          requisicionId: params.id,
+          numeroRequisicion: 'REQ-2026-0011',
+          estado: 'Aprobada',
+        })
+      }),
+    )
+    renderPagina()
+    const boton = await screen.findByRole('button', { name: 'Aprobar REQ-2026-0011' })
+
+    // Dos clics en el mismo instante: el botón todavía no se deshabilitó.
+    act(() => {
+      fireEvent.click(boton)
+      fireEvent.click(boton)
+    })
+
+    expect(await screen.findByRole('status')).toHaveTextContent('fue aprobada')
+    expect(llamadas).toBe(1)
   })
 })
