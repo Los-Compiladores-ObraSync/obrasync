@@ -158,7 +158,7 @@ public class DatabaseSeedingTests
         var result = await controller.ListarObras();
 
         // Assert
-        var okResult = Assert.IsType<OkObjectResult>(result);
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
         Assert.NotNull(okResult.Value);
 
         var json = JsonSerializer.Serialize(okResult.Value, new JsonSerializerOptions(JsonSerializerDefaults.Web));
@@ -170,6 +170,8 @@ public class DatabaseSeedingTests
         foreach (var obra in obras)
         {
             Assert.Equal("Carlos Capataz", obra.GetProperty("capataz").GetString());
+            var capatazId = obra.GetProperty("capatazId").GetGuid();
+            Assert.NotEqual(Guid.Empty, capatazId);
             var etapas = obra.GetProperty("etapas").EnumerateArray().ToList();
             Assert.True(etapas.Count >= 3);
             Assert.All(etapas, e => Assert.Equal("Pendiente", e.GetProperty("estado").GetString()));
