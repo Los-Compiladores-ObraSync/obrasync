@@ -8,4 +8,5 @@ public interface IAuthService
     Task<AuthResponseDto> LoginAsync(LoginRequestDto request);
     Task<IEnumerable<CapatazDto>> GetCapatacesActivosAsync();
     Task<MensajeResponseDto> RecuperarPasswordAsync(RecuperarPasswordRequestDto request);
+    Task<MensajeResponseDto> RestablecerPasswordAsync(RestablecerPasswordRequestDto request);
 }

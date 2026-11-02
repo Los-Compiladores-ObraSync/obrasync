@@ -18,6 +18,15 @@ public class AuthServiceTests
     private const string MensajeRecuperacionGenerico =
         "Si el correo está registrado, se enviaron las instrucciones para restablecer la contraseña.";
 
+    private const string MensajeEnlaceInvalidoOExpirado =
+        "El enlace de recuperación es inválido o ha expirado. Por favor, solicitá uno nuevo.";
+
+    private const string MensajePasswordCorta =
+        "La contraseña debe tener al menos 6 caracteres.";
+
+    private const string MensajePasswordRestablecida =
+        "Contraseña restablecida con éxito.";
+
     private readonly UserManager<AppUser> _userManager;
     private readonly IJwtProvider _jwtProvider;
     private readonly ILogger<AuthService> _logger;
@@ -262,6 +271,96 @@ public class AuthServiceTests
         Assert.Equal(MensajeRecuperacionGenerico, result.Mensaje);
         await _userManager.DidNotReceive().GeneratePasswordResetTokenAsync(Arg.Any<AppUser>());
         Assert.Empty(MensajesPasswordResetLogueados());
+    }
+
+    // ── Tarjeta #54: RestablecerPasswordAsync ─────────────────────────────────
+
+    [Fact]
+    public async Task RestablecerPasswordAsync_DebeCambiarPasswordYRetornarExito_CuandoUsuarioEstaActivoYTokenEsValido()
+    {
+        // Arrange
+        var request = new RestablecerPasswordRequestDto("capataz@obrasync.com", "CfDJ8+token-valido==", "NuevaClave123");
+        var usuario = new AppUser { Id = Guid.NewGuid(), Email = request.Email, NombreCompleto = "Carlos Capataz", Activo = true };
+
+        _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(usuario));
+        _userManager.ResetPasswordAsync(usuario, request.Token, request.NuevaPassword)
+            .Returns(Task.FromResult(IdentityResult.Success));
+
+        // Act
+        var result = await _authService.RestablecerPasswordAsync(request);
+
+        // Assert
+        Assert.Equal(MensajePasswordRestablecida, result.Mensaje);
+        await _userManager.Received(1).ResetPasswordAsync(usuario, request.Token, request.NuevaPassword);
+    }
+
+    [Fact]
+    public async Task RestablecerPasswordAsync_DebeLanzarArgumentException_CuandoTokenEsInvalidoOVencido()
+    {
+        // Arrange
+        var request = new RestablecerPasswordRequestDto("capataz@obrasync.com", "token-vencido", "NuevaClave123");
+        var usuario = new AppUser { Id = Guid.NewGuid(), Email = request.Email, NombreCompleto = "Carlos Capataz", Activo = true };
+        var errorToken = new IdentityError { Code = "InvalidToken", Description = "Invalid token." };
+
+        _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(usuario));
+        _userManager.ResetPasswordAsync(usuario, request.Token, request.NuevaPassword)
+            .Returns(Task.FromResult(IdentityResult.Failed(errorToken)));
+
+        // Act
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.RestablecerPasswordAsync(request));
+
+        // Assert
+        Assert.Equal(MensajeEnlaceInvalidoOExpirado, ex.Message);
+    }
+
+    [Fact]
+    public async Task RestablecerPasswordAsync_DebeLanzarArgumentException_CuandoUsuarioNoExiste()
+    {
+        // Arrange
+        var request = new RestablecerPasswordRequestDto("noexiste@obrasync.com", "token-cualquiera", "NuevaClave123");
+        _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(null));
+
+        // Act
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.RestablecerPasswordAsync(request));
+
+        // Assert: mismo mensaje amigable que con token inválido, sin invocar ResetPasswordAsync
+        Assert.Equal(MensajeEnlaceInvalidoOExpirado, ex.Message);
+        await _userManager.DidNotReceive().ResetPasswordAsync(Arg.Any<AppUser>(), Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task RestablecerPasswordAsync_DebeLanzarArgumentException_CuandoUsuarioEstaInactivo()
+    {
+        // Arrange
+        var request = new RestablecerPasswordRequestDto("inactivo@obrasync.com", "token-cualquiera", "NuevaClave123");
+        var usuario = new AppUser { Id = Guid.NewGuid(), Email = request.Email, NombreCompleto = "Usuario Inactivo", Activo = false };
+        _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(usuario));
+
+        // Act
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.RestablecerPasswordAsync(request));
+
+        // Assert: mismo mensaje amigable que con token inválido, sin invocar ResetPasswordAsync
+        Assert.Equal(MensajeEnlaceInvalidoOExpirado, ex.Message);
+        await _userManager.DidNotReceive().ResetPasswordAsync(Arg.Any<AppUser>(), Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task RestablecerPasswordAsync_DebeLanzarArgumentException_CuandoPasswordEsDemasiadoCorta()
+    {
+        // Arrange
+        var request = new RestablecerPasswordRequestDto("capataz@obrasync.com", "token-valido", "123");
+        var usuario = new AppUser { Id = Guid.NewGuid(), Email = request.Email, NombreCompleto = "Carlos Capataz", Activo = true };
+        var errorPassword = new IdentityError { Code = "PasswordTooShort", Description = "Passwords must be at least 6 characters." };
+
+        _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(usuario));
+        _userManager.ResetPasswordAsync(usuario, request.Token, request.NuevaPassword)
+            .Returns(Task.FromResult(IdentityResult.Failed(errorPassword)));
+
+        // Act
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.RestablecerPasswordAsync(request));
+
+        // Assert
+        Assert.Equal(MensajePasswordCorta, ex.Message);
     }
 
     // LogInformation(...) es un método de extensión: por dentro llama a ILogger.Log<TState> con un tipo

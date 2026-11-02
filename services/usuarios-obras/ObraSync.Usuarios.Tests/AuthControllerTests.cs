@@ -36,4 +36,24 @@ public class AuthControllerTests
         Assert.Equal(StatusCodes.Status200OK, ok.StatusCode);
         Assert.Same(respuesta, ok.Value);
     }
+
+    [Fact]
+    public async Task RestablecerPassword_DebeRetornar200ConElMensajeDelServicio()
+    {
+        // Arrange
+        var request = new RestablecerPasswordRequestDto(
+            "capataz@obrasync.com",
+            "CfDJ8+token-valido==",
+            "NuevaClave123");
+        var respuesta = new MensajeResponseDto("Contraseña restablecida con éxito.");
+        _authService.RestablecerPasswordAsync(request).Returns(respuesta);
+
+        // Act
+        var result = await _controller.RestablecerPassword(request);
+
+        // Assert
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(StatusCodes.Status200OK, ok.StatusCode);
+        Assert.Same(respuesta, ok.Value);
+    }
 }

@@ -286,7 +286,7 @@
           "Auth"
         ],
         "summary": "Restablecer contraseña mediante token",
-        "description": "Aplica una nueva contraseña verificando el token de recuperación generado por el sistema.",
+        "description": "Endpoint público (sin JWT). Aplica una nueva contraseña verificando el token de recuperación de un solo uso (UserManager.ResetPasswordAsync, vigencia de 1 hora). La nueva contraseña cumple las mismas reglas que el registro (mínimo 6 caracteres). Si el token es inválido, venció o ya fue usado, si el usuario no existe o está inactivo, o si la contraseña no cumple los requisitos, responde 400 Bad Request con ProblemDetails y correlationId.",
         "requestBody": {
           "required": true,
           "content": {
