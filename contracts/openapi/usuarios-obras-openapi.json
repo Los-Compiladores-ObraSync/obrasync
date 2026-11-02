@@ -225,7 +225,7 @@
           "Auth"
         ],
         "summary": "Solicitar enlace o token de recuperación de contraseña",
-        "description": "Genera un token de recuperación para el usuario. Para desarrollo y demo, el enlace/token se emite en los logs del servicio (sin proveedor SMTP externo).",
+        "description": "Endpoint público (sin JWT). Si el email existe y la cuenta está activa, genera un token de recuperación de un solo uso con vigencia de 1 hora (DataProtectionTokenProviderOptions.TokenLifespan). La respuesta es siempre la misma (200 con mensaje genérico), exista o no el email y aunque la cuenta esté inactiva, para no revelar qué cuentas existen. Para desarrollo y demo (decisión #51, sin proveedor SMTP externo) el enlace se emite en los logs del servicio, en una sola línea con el prefijo [PASSWORD-RESET] y el formato: {Frontend:BaseUrl}/restablecer-contrasena?email=<email>&token=<token>, con email y token codificados con Uri.EscapeDataString. Frontend:BaseUrl se configura con la variable de entorno Frontend__BaseUrl (por defecto http://localhost:5173). Riesgo conocido: no tiene límite de intentos (rate limiting), fuera del alcance de este sprint.",
         "requestBody": {
           "required": true,
           "content": {

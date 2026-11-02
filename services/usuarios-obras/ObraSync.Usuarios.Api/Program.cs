@@ -4,6 +4,7 @@ using ObraSync.Usuarios.Api.Extensions;
 using ObraSync.Usuarios.Api.Middlewares;
 using ObraSync.Usuarios.Application.Interfaces;
 using ObraSync.Usuarios.Application.Services;
+using ObraSync.Usuarios.Application.Settings;
 using ObraSync.Usuarios.Domain.Entities;
 using ObraSync.Usuarios.Infrastructure.Data;
 using ObraSync.Usuarios.Infrastructure.Services;
@@ -39,6 +40,10 @@ builder.Services.AddIdentity<AppUser, AppRole>(options =>
 .AddEntityFrameworkStores<AuthDbContext>()
 .AddDefaultTokenProviders();
 
+// 2b. Vencimiento explicito de los tokens de Identity (recuperacion de contrasena, tarjeta #53):
+//     1 hora, igual que el Magic Link (decision de Agus, 26/10). El valor por defecto de Identity es 1 dia.
+builder.Services.Configure<DataProtectionTokenProviderOptions>(opt => opt.TokenLifespan = TimeSpan.FromHours(1));
+
 // 3. Opciones tipadas de JwtSettings con validación al inicio de la aplicación
 builder.Services
     .AddOptions<JwtSettings>()
@@ -46,6 +51,11 @@ builder.Services
     .Validate(settings => !string.IsNullOrWhiteSpace(settings.Secret),
     "La clave secreta JWT ('Jwt__Secret') no está configurada en las variables de entorno.")
     .ValidateOnStart();
+
+// 3b. URL base del frontend para armar el enlace de restablecimiento (se pisa con Frontend__BaseUrl)
+builder.Services
+    .AddOptions<FrontendSettings>()
+    .BindConfiguration(FrontendSettings.SectionName);
 
 // 4. Inyección de dependencias de servicios
 builder.Services.AddScoped<IJwtProvider, JwtProvider>();
