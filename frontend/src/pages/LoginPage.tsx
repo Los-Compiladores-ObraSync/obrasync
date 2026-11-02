@@ -1,12 +1,12 @@
 import { type FormEvent, useState } from 'react'
+import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { loginApi } from '../auth/authService'
 import { useAuth } from '../auth/useAuth'
+import { validarEmail } from '../auth/validacionEmail'
 import styles from './LoginPage.module.css'
 
 // ── Validación ────────────────────────────────────────────────────────────────
-
-const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 interface ErroresCampo {
   email?: string
@@ -16,10 +16,9 @@ interface ErroresCampo {
 function validarCampos(email: string, password: string): ErroresCampo {
   const errores: ErroresCampo = {}
 
-  if (!email.trim()) {
-    errores.email = 'El email es obligatorio.'
-  } else if (!RE_EMAIL.test(email)) {
-    errores.email = 'Ingresá un email válido.'
+  const errorEmail = validarEmail(email)
+  if (errorEmail) {
+    errores.email = errorEmail
   }
 
   if (!password) {
@@ -200,6 +199,10 @@ export function LoginPage() {
         >
           {enviando ? 'Ingresando…' : 'Ingresar'}
         </button>
+
+        <Link to="/recuperar-contrasena" className={styles.enlaceOlvido}>
+          ¿Olvidaste tu contraseña?
+        </Link>
       </form>
     </div>
   )

@@ -1,0 +1,32 @@
+/* Estilos propios de la pantalla de recuperar contraseña.
+   El formulario, los campos y el botón reutilizan los de LoginPage.module.css. */
+
+.intro {
+  margin: 0;
+  color: var(--texto-suave);
+  font-size: 1.0625rem;
+  line-height: 1.4;
+}
+
+.exito {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #166534;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.enlace {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px; /* área de toque cómoda */
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--azul);
+  text-decoration: none;
+}

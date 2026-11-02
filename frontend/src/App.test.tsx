@@ -63,6 +63,25 @@ describe('App - sin sesión', () => {
     ).toBeInTheDocument()
   })
 
+  it('muestra la pantalla de recuperar contraseña sin necesitar sesión', () => {
+    renderApp('/recuperar-contrasena')
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Recuperar contraseña' }),
+    ).toBeInTheDocument()
+  })
+
+  it('desde el login se llega a recuperar contraseña con el enlace', async () => {
+    const usuario = userEvent.setup()
+    renderApp('/login')
+
+    await usuario.click(screen.getByRole('link', { name: '¿Olvidaste tu contraseña?' }))
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Recuperar contraseña' }),
+    ).toBeInTheDocument()
+  })
+
   it('después de iniciar sesión entra al inicio con el menú de su rol', async () => {
     const usuario = userEvent.setup()
     renderApp('/obra')
