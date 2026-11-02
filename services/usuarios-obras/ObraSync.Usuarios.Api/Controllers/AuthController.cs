@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ObraSync.Usuarios.Application.DTOs;
 using ObraSync.Usuarios.Application.Interfaces;
@@ -41,6 +41,24 @@ public class AuthController : ControllerBase
     {
         var response = await _authService.LoginAsync(request);
         return Ok(response);
+    }
+
+    /// <summary>
+    /// Inicia la recuperación de contraseña: si el email existe y la cuenta está activa,
+    /// genera un token de un solo uso (vigencia: 1 hora) y emite el enlace en los logs del servicio.
+    /// Siempre responde lo mismo, exista o no el email, para no revelar qué cuentas existen.
+    /// </summary>
+    /// <remarks>
+    /// Endpoint público (sin JWT). RIESGO CONOCIDO: no tiene límite de intentos (rate limiting);
+    /// queda fuera del alcance de este sprint (tarjeta #53).
+    /// </remarks>
+    [HttpPost("password/recuperar")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(MensajeResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RecuperarPassword([FromBody] RecuperarPasswordRequestDto request)
+    {
+        return Ok(await _authService.RecuperarPasswordAsync(request));
     }
 
     [HttpGet("capataces")]

@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using ObraSync.Usuarios.Application.DTOs;
 using ObraSync.Usuarios.Application.Interfaces;
+using ObraSync.Usuarios.Application.Settings;
 using ObraSync.Usuarios.Domain.Entities;
 using ObraSync.Usuarios.Domain.Exceptions; // <-- NUEVO
 
@@ -8,15 +11,25 @@ namespace ObraSync.Usuarios.Application.Services;
 
 public class AuthService : IAuthService
 {
+    // Respuesta única de "olvidé mi contraseña": es la misma exista o no el email (tarjeta #53)
+    private const string MensajeRecuperacionGenerico =
+        "Si el correo está registrado, se enviaron las instrucciones para restablecer la contraseña.";
+
     private readonly UserManager<AppUser> _userManager;
     private readonly IJwtProvider _jwtProvider;
+    private readonly ILogger<AuthService> _logger;
+    private readonly FrontendSettings _frontendSettings;
 
     public AuthService(
         UserManager<AppUser> userManager,
-        IJwtProvider jwtProvider)
+        IJwtProvider jwtProvider,
+        ILogger<AuthService> logger,
+        IOptions<FrontendSettings> frontendOptions)
     {
         _userManager = userManager;
         _jwtProvider = jwtProvider;
+        _logger = logger;
+        _frontendSettings = frontendOptions.Value;
     }
 
     public async Task<AuthResponseDto> RegistrarAsync(RegisterRequestDto request)
@@ -119,5 +132,38 @@ public class AuthService : IAuthService
         return usuariosCapataz
             .Where(u => u.Activo)
             .Select(u => new CapatazDto(u.Id, u.NombreCompleto));
+    }
+
+    public async Task<MensajeResponseDto> RecuperarPasswordAsync(RecuperarPasswordRequestDto request)
+    {
+        var respuesta = new MensajeResponseDto(MensajeRecuperacionGenerico);
+
+        // 1. Si el usuario no existe o está inactivo, no se genera token ni se loguea nada,
+        //    pero se responde lo mismo para no revelar qué cuentas existen
+        var usuario = await _userManager.FindByEmailAsync(request.Email);
+        if (usuario is null || !usuario.Activo)
+        {
+            return respuesta;
+        }
+
+        // 2. Token de Identity: queda atado al SecurityStamp del usuario, así que deja de servir
+        //    cuando se cambia la contraseña (un solo uso). Vence según TokenLifespan (1 hora, en Program.cs)
+        var token = await _userManager.GeneratePasswordResetTokenAsync(usuario);
+
+        // 3. Enlace a la pantalla del frontend, con email y token codificados para ir en la URL
+        var baseUrl = string.IsNullOrWhiteSpace(_frontendSettings.BaseUrl)
+            ? FrontendSettings.BaseUrlPorDefecto
+            : _frontendSettings.BaseUrl;
+        var escapedEmail = Uri.EscapeDataString(usuario.Email!);
+        var escapedToken = Uri.EscapeDataString(token);
+        var enlace = $"{baseUrl.TrimEnd('/')}/restablecer-contrasena?email={escapedEmail}&token={escapedToken}";
+
+        // 4. Entrega por log (decisión #51: desarrollo y demo, sin SMTP). Plantilla estructurada, sin $"..." (CA2254)
+        _logger.LogInformation(
+            "[PASSWORD-RESET] Enlace de restablecimiento para {Email}: {Enlace}",
+            usuario.Email,
+            enlace);
+
+        return respuesta;
     }
 }
