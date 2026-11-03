@@ -31,12 +31,14 @@ public class RecepcionesController : ControllerBase
     }
 
     /// <summary>
-    /// Obtiene las recepciones registradas, opcionalmente filtradas por ObraId.
+    /// Obtiene las recepciones registradas, opcionalmente filtradas por ObraId y/o OrdenCompraId.
+    /// Ambos filtros son opcionales y se pueden combinar.
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> ObtenerRecepciones(
         [FromQuery] Guid? obraId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [FromQuery] Guid? ordenCompraId = null)
     {
         var query = _context.Recepciones
             .Include(r => r.Detalles)
@@ -45,6 +47,11 @@ public class RecepcionesController : ControllerBase
         if (obraId.HasValue)
         {
             query = query.Where(r => r.ObraId == obraId.Value);
+        }
+
+        if (ordenCompraId.HasValue)
+        {
+            query = query.Where(r => r.OrdenCompraId == ordenCompraId.Value);
         }
 
         var resultado = await query.ToListAsync(cancellationToken);
