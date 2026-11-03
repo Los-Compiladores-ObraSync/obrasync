@@ -34,6 +34,7 @@ public class RecepcionesController : ControllerBase
     /// Obtiene las recepciones registradas, opcionalmente filtradas por ObraId y/o OrdenCompraId.
     /// Ambos filtros son opcionales y se pueden combinar.
     /// </summary>
+    [Authorize(Roles = "Capataz,Comprador,Admin")]
     [HttpGet]
     public async Task<IActionResult> ObtenerRecepciones(
         [FromQuery] Guid? obraId,
@@ -62,6 +63,7 @@ public class RecepcionesController : ControllerBase
     /// <summary>
     /// Obtiene una recepción por su identificador.
     /// </summary>
+    [Authorize(Roles = "Capataz,Comprador,Admin")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> ObtenerRecepcionPorId(
         Guid id,
