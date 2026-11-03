@@ -1,4 +1,4 @@
-﻿using ObraSync.Recepcion.Domain.Entities;
+using ObraSync.Recepcion.Domain.Entities;
 using ObraSync.Recepcion.Domain.Enums;
 
 namespace ObraSync.Recepcion.Api.DTOs;
@@ -26,12 +26,22 @@ public class RecepcionDto
             OrdenCompraId = entidad.OrdenCompraId,
             RecepcionadoPorUsuarioId = entidad.RecepcionadoPorUsuarioId,
             NumeroRemito = entidad.NumeroRemito,
-            FechaRecepcion = entidad.FechaRecepcion,
+            FechaRecepcion = ToUtc(entidad.FechaRecepcion),
             Estado = entidad.Estado,
             Observaciones = entidad.Observaciones,
-            CreatedAt = entidad.CreatedAt,
-            UpdatedAt = entidad.UpdatedAt,
+            CreatedAt = ToUtc(entidad.CreatedAt),
+            UpdatedAt = entidad.UpdatedAt.HasValue ? ToUtc(entidad.UpdatedAt.Value) : null,
             Detalles = entidad.Detalles.Select(DetalleRecepcionDto.DesdeEntidad).ToList()
+        };
+    }
+
+    private static DateTime ToUtc(DateTime valor)
+    {
+        return valor.Kind switch
+        {
+            DateTimeKind.Unspecified => DateTime.SpecifyKind(valor, DateTimeKind.Utc),
+            DateTimeKind.Local => valor.ToUniversalTime(),
+            _ => valor
         };
     }
 }

@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -120,5 +120,21 @@ public class CrearRecepcionPublicacionTests
         Assert.Equal(400, Assert.IsType<ObjectResult>(result).StatusCode);
         await publisher.DidNotReceiveWithAnyArgs().PublishRecepcionConfirmadaAsync(default!, default, default);
     }
-}
 
+    [Fact]
+    public async Task CrearRecepcion_Exitoso_DevuelveRecepcionDto()
+    {
+        var (controller, _, request, db) = Preparar(null);
+
+        var result = await controller.CrearRecepcion(request, CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(201, objectResult.StatusCode);
+        var dto = Assert.IsType<RecepcionDto>(objectResult.Value);
+        Assert.NotEqual(Guid.Empty, dto.Id);
+
+        var guardada = await db.Recepciones.FindAsync(dto.Id);
+        Assert.NotNull(guardada);
+        Assert.Equal(guardada.Id, dto.Id);
+    }
+}

@@ -367,7 +367,7 @@ public class RecepcionesController : ControllerBase
                 recepcion.Id, correlationId);
         }
 
-        return StatusCode(201, recepcion);
+        return StatusCode(201, RecepcionDto.DesdeEntidad(recepcion));
     }
 
     private Guid GetCorrelationIdFromHeader()

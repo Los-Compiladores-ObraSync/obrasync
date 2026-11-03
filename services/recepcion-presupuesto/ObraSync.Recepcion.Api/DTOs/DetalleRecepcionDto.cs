@@ -1,4 +1,4 @@
-﻿using ObraSync.Recepcion.Domain.Entities;
+using ObraSync.Recepcion.Domain.Entities;
 
 namespace ObraSync.Recepcion.Api.DTOs;
 
@@ -29,8 +29,18 @@ public class DetalleRecepcionDto
             UnidadMedida = entidad.UnidadMedida,
             Conforme = entidad.Conforme,
             Observacion = entidad.Observacion,
-            CreatedAt = entidad.CreatedAt,
-            UpdatedAt = entidad.UpdatedAt
+            CreatedAt = ToUtc(entidad.CreatedAt),
+            UpdatedAt = entidad.UpdatedAt.HasValue ? ToUtc(entidad.UpdatedAt.Value) : null
+        };
+    }
+
+    private static DateTime ToUtc(DateTime valor)
+    {
+        return valor.Kind switch
+        {
+            DateTimeKind.Unspecified => DateTime.SpecifyKind(valor, DateTimeKind.Utc),
+            DateTimeKind.Local => valor.ToUniversalTime(),
+            _ => valor
         };
     }
 }
