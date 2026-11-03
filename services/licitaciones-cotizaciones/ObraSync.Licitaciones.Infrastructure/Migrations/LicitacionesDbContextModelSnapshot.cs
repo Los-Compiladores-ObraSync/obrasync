@@ -17,10 +17,133 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.32")
+                .HasAnnotation("ProductVersion", "8.0.33")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.Licitacion", b =>
+                {
+                    b.Property<Guid>("LicitacionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaLimiteCotizacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NumeroRequisicion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("ObraId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RequisicionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("LicitacionId");
+
+                    b.HasIndex("RequisicionId");
+
+                    b.ToTable("Licitaciones");
+                });
+
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.LicitacionItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ArticuloId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid>("LicitacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UnidadMedida")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LicitacionId");
+
+                    b.ToTable("LicitacionItems");
+                });
+
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.RequisicionAprobada", b =>
+                {
+                    b.Property<Guid>("RequisicionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NumeroRequisicion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("ObraId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("RecibidaEnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("RequisicionId");
+
+                    b.ToTable("RequisicionesAprobadas");
+                });
+
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.RequisicionAprobadaItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ArticuloId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid>("RequisicionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UnidadMedida")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequisicionId");
+
+                    b.ToTable("RequisicionAprobadaItems");
+                });
 
             modelBuilder.Entity("ObraSync.Licitaciones.Infrastructure.EventoProcesado", b =>
                 {
@@ -46,6 +169,34 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("EventosProcesados");
+                });
+
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.LicitacionItem", b =>
+                {
+                    b.HasOne("ObraSync.Licitaciones.Domain.Entities.Licitacion", null)
+                        .WithMany("Items")
+                        .HasForeignKey("LicitacionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.RequisicionAprobadaItem", b =>
+                {
+                    b.HasOne("ObraSync.Licitaciones.Domain.Entities.RequisicionAprobada", null)
+                        .WithMany("Items")
+                        .HasForeignKey("RequisicionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.Licitacion", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.RequisicionAprobada", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }

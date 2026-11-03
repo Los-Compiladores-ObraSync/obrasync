@@ -62,6 +62,28 @@ public class RequisicionAprobadaConsumerTests
     }
 
     [Fact]
+    public async Task Mensaje_nuevo_guarda_la_requisicion_con_sus_items()
+    {
+        await using var db = CrearDb();
+        var consumer = new RequisicionAprobadaConsumer(db, NullLogger<RequisicionAprobadaConsumer>.Instance);
+        var evento = CrearEvento();
+
+        await consumer.Consume(CrearContexto(evento));
+
+        var guardada = await db.RequisicionesAprobadas
+            .Include(r => r.Items)
+            .SingleAsync(r => r.RequisicionId == evento.RequisicionId);
+
+        Assert.Equal(evento.NumeroRequisicion, guardada.NumeroRequisicion);
+        Assert.Equal(evento.ObraId, guardada.ObraId);
+        var item = Assert.Single(guardada.Items);
+        Assert.Equal(evento.Items[0].ArticuloId, item.ArticuloId);
+        Assert.Equal("Cemento", item.Descripcion);
+        Assert.Equal(80m, item.Cantidad);
+        Assert.Equal("bolsa", item.UnidadMedida);
+    }
+
+    [Fact]
     public async Task Mensaje_repetido_no_duplica_el_efecto()
     {
         await using var db = CrearDb();
@@ -72,6 +94,24 @@ public class RequisicionAprobadaConsumerTests
         await consumer.Consume(CrearContexto(evento)); // mismo EventId otra vez
 
         Assert.Equal(1, await db.EventosProcesados.CountAsync());
+        Assert.Equal(1, await db.RequisicionesAprobadas.CountAsync());
+        Assert.Equal(1, await db.RequisicionAprobadaItems.CountAsync());
+    }
+
+    [Fact]
+    public async Task Misma_requisicion_con_otro_EventId_no_se_guarda_dos_veces()
+    {
+        await using var db = CrearDb();
+        var consumer = new RequisicionAprobadaConsumer(db, NullLogger<RequisicionAprobadaConsumer>.Instance);
+        var evento = CrearEvento();
+        var otroEvento = evento with { EventId = Guid.NewGuid() };   // misma requisición, otro EventId
+
+        await consumer.Consume(CrearContexto(evento));
+        await consumer.Consume(CrearContexto(otroEvento));
+
+        Assert.Equal(2, await db.EventosProcesados.CountAsync());      // los dos eventos quedan registrados
+        Assert.Equal(1, await db.RequisicionesAprobadas.CountAsync()); // pero la requisición es una sola
+        Assert.Equal(1, await db.RequisicionAprobadaItems.CountAsync());
     }
 
     [Fact]
@@ -83,6 +123,7 @@ public class RequisicionAprobadaConsumerTests
         await consumer.Consume(CrearContexto(CrearEvento(eventId: Guid.Empty)));
 
         Assert.Equal(0, await db.EventosProcesados.CountAsync());
+        Assert.Equal(0, await db.RequisicionesAprobadas.CountAsync());
     }
 
     [Fact]
@@ -94,5 +135,6 @@ public class RequisicionAprobadaConsumerTests
         await consumer.Consume(CrearContexto(CrearEvento(conItems: false)));
 
         Assert.Equal(0, await db.EventosProcesados.CountAsync());
+        Assert.Equal(0, await db.RequisicionesAprobadas.CountAsync());
     }
 }

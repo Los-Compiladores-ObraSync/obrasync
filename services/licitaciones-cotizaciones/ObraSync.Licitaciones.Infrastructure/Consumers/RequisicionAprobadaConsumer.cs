@@ -2,6 +2,7 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ObraSync.Contracts.Events;
+using ObraSync.Licitaciones.Domain.Entities;
 using Microsoft.Data.SqlClient;
 
 namespace ObraSync.Licitaciones.Infrastructure.Consumers;
@@ -44,8 +45,34 @@ public class RequisicionAprobadaConsumer : IConsumer<RequisicionAprobadaEvent>
             ProcesadoEn = DateTime.UtcNow
         });
 
+        // La requisición se guarda una sola vez, aunque llegue con otro EventId
+        var yaExiste = await _db.RequisicionesAprobadas.AnyAsync(r => r.RequisicionId == msg.RequisicionId);
+        if (!yaExiste)
+        {
+            _db.RequisicionesAprobadas.Add(new RequisicionAprobada
+            {
+                RequisicionId = msg.RequisicionId,
+                NumeroRequisicion = msg.NumeroRequisicion ?? "",
+                ObraId = msg.ObraId,
+                RecibidaEnUtc = DateTime.UtcNow,
+                Items = msg.Items.Select(i => new RequisicionAprobadaItem
+                {
+                    Id = Guid.NewGuid(),
+                    ArticuloId = i.ArticuloId,
+                    Descripcion = i.Descripcion ?? "",
+                    Cantidad = (decimal)i.Cantidad,
+                    UnidadMedida = i.UnidadMedida
+                }).ToList()
+            });
+        }
+        else
+        {
+            _logger.LogInformation("Requisicion {RequisicionId} ya estaba guardada", msg.RequisicionId);
+        }
+
         try
         {
+            // Un solo guardado: el evento procesado y los datos entran juntos o no entra nada
             await _db.SaveChangesAsync();
         }
         catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
@@ -59,6 +86,6 @@ public class RequisicionAprobadaConsumer : IConsumer<RequisicionAprobadaEvent>
             "RequisicionAprobada recibida. Requisicion {RequisicionId}, Obra {ObraId}, CorrelationId {CorrelationId}",
             msg.RequisicionId, msg.ObraId, msg.CorrelationId);
 
-        // Qué más hace el servicio con el evento no está definido: por ahora solo lo registra.
+        // El pliego lo publica el Comprador a mano (tarjeta #69): acá solo se guarda la requisición.
     }
 }
