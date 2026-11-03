@@ -242,10 +242,12 @@ public class CrearRecepcionEndpointTests : IClassFixture<RecepcionApiFactory>
         Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
     }
 
-    [Fact]
-    public async Task CrearRecepcion_RolNoPermitido_Devuelve403()
+    [Theory]
+    [InlineData("Comprador")]
+    [InlineData("Proveedor")]
+    public async Task CrearRecepcion_RolNoPermitido_Devuelve403(string rol)
     {
-        using var client = CrearClienteConToken(rol: "Comprador");
+        using var client = CrearClienteConToken(rol: rol);
 
         var solicitud = CrearSolicitud(
             Guid.NewGuid(),
@@ -385,5 +387,48 @@ public class CrearRecepcionEndpointTests : IClassFixture<RecepcionApiFactory>
             .AnyAsync(r => r.OrdenCompraId == ordenId);
 
         Assert.False(seGuardo);
+    }
+
+    [Fact]
+    public async Task CrearRecepcion_ConTokenInvalido_Devuelve401()
+    {
+        using var client = _factory.CreateClient();
+
+        var token = RecepcionApiFactory.CreateToken(
+            customSecret: "secreto-completamente-invalido-y-diferente!");
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
+
+        var solicitud = CrearSolicitud(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid());
+
+        var respuesta = await client.PostAsJsonAsync(
+            "/api/recepciones", solicitud);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task CrearRecepcion_ConTokenExpirado_Devuelve401()
+    {
+        using var client = _factory.CreateClient();
+
+        var token = RecepcionApiFactory.CreateToken(expired: true);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
+
+        var solicitud = CrearSolicitud(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid());
+
+        var respuesta = await client.PostAsJsonAsync(
+            "/api/recepciones", solicitud);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
     }
 }
