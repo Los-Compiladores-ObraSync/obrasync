@@ -18,7 +18,7 @@
           "Recepciones"
         ],
         "summary": "Consultar recepciones",
-        "description": "Obtiene las recepciones registradas y sus materiales. Permite filtrar opcionalmente por obra y por orden de compra.",
+        "description": "Obtiene las recepciones registradas y sus materiales. Permite filtrar opcionalmente por obra y por orden de compra. Roles permitidos: Capataz, Comprador y Admin.",
         "security": [
           {
             "bearerAuth": []
@@ -135,7 +135,7 @@
           "Recepciones"
         ],
         "summary": "Consultar recepción por identificador",
-        "description": "Obtiene una recepción por su identificador único junto con el detalle de materiales recibidos.",
+        "description": "Obtiene una recepción por su identificador único junto con el detalle de materiales recibidos. Roles permitidos: Capataz, Comprador y Admin.",
         "security": [
           {
             "bearerAuth": []
@@ -167,6 +167,9 @@
           "401": {
             "description": "No se proporcionó un token válido."
           },
+          "403": {
+            "description": "Rol no autorizado."
+          },
           "404": {
             "description": "La recepción no existe.",
             "content": {
@@ -186,7 +189,7 @@
           "Recepciones"
         ],
         "summary": "Consultar órdenes de compra pendientes",
-        "description": "Obtiene las órdenes de compra que aún no tienen una recepción completa, con cálculo acumulado de cantidades recibidas. Permite filtrar opcionalmente por obra. Requiere rol Capataz o Admin.",
+        "description": "Obtiene las órdenes de compra que aún no tienen una recepción completa, con cálculo acumulado de cantidades recibidas. Permite filtrar opcionalmente por obra. Roles permitidos: Capataz, Comprador y Admin.",
         "security": [
           {
             "bearerAuth": []
