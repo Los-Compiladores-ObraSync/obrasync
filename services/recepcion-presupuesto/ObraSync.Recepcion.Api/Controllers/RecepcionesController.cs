@@ -80,6 +80,67 @@ public class RecepcionesController : ControllerBase
 
         return Ok(recepcion);
     }
+
+    /// <summary>
+    /// Obtiene las órdenes de compra pendientes de recibir (sin recepción completa),
+    /// opcionalmente filtradas por ObraId.
+    /// </summary>
+    [Authorize(Roles = "Capataz,Admin")]
+    [HttpGet("ordenes-pendientes")]
+    public async Task<IActionResult> ObtenerOrdenesPendientes(
+        [FromQuery] Guid? obraId,
+        CancellationToken cancellationToken)
+    {
+        var query = _context.OrdenesCompra
+            .Include(o => o.Items)
+            .AsNoTracking()
+            .Where(o => !_context.Recepciones.Any(
+                r => r.OrdenCompraId == o.Id &&
+                     r.Estado == EstadoRecepcion.Completa));
+
+        if (obraId.HasValue)
+        {
+            query = query.Where(o => o.ObraId == obraId.Value);
+        }
+
+        var ordenes = await query.ToListAsync(cancellationToken);
+
+        // Una sola consulta adicional con lo ya recibido de las órdenes obtenidas.
+        var ordenesIds = ordenes.Select(o => o.Id).ToList();
+
+        var recibidos = await _context.Recepciones
+            .AsNoTracking()
+            .Where(r => ordenesIds.Contains(r.OrdenCompraId))
+            .SelectMany(r => r.Detalles.Select(d => new
+            {
+                r.OrdenCompraId,
+                d.ArticuloId,
+                d.CantidadRecibida
+            }))
+            .ToListAsync(cancellationToken);
+
+        var resultado = ordenes
+            .Select(o => new OrdenPendienteDto
+            {
+                OrdenCompraId = o.Id,
+                ObraId = o.ObraId,
+                Items = o.Items
+                    .Select(i => new ItemOrdenPendienteDto
+                    {
+                        ArticuloId = i.ArticuloId,
+                        DescripcionArticulo = i.Descripcion ?? string.Empty,
+                        CantidadEsperada = i.Cantidad,
+                        CantidadRecibida = recibidos
+                            .Where(d => d.OrdenCompraId == o.Id && d.ArticuloId == i.ArticuloId)
+                            .Sum(d => d.CantidadRecibida),
+                        UnidadMedida = i.UnidadMedida
+                    })
+                    .ToList()
+            })
+            .ToList();
+
+        return Ok(resultado);
+    }
     /// <summary>
     /// Registra una recepción total de materiales contra una orden de compra.
     /// </summary>
