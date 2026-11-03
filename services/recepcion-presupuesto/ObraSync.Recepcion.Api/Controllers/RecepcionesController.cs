@@ -54,7 +54,8 @@ public class RecepcionesController : ControllerBase
             query = query.Where(r => r.OrdenCompraId == ordenCompraId.Value);
         }
 
-        var resultado = await query.ToListAsync(cancellationToken);
+        var recepciones = await query.ToListAsync(cancellationToken);
+        var resultado = recepciones.Select(RecepcionDto.DesdeEntidad).ToList();
         return Ok(resultado);
     }
 
@@ -78,7 +79,7 @@ public class RecepcionesController : ControllerBase
                 detail: "La recepción no existe.");
         }
 
-        return Ok(recepcion);
+        return Ok(RecepcionDto.DesdeEntidad(recepcion));
     }
 
     /// <summary>

@@ -1,3 +1,4 @@
+﻿using ObraSync.Recepcion.Api.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -33,10 +34,10 @@ public class ObtenerRecepcionesFiltrosTests
             NumeroRemito = remito
         };
 
-    private static List<RecepcionEntity> ExtraerLista(IActionResult resultado)
+    private static List<RecepcionDto> ExtraerLista(IActionResult resultado)
     {
         var ok = Assert.IsType<OkObjectResult>(resultado);
-        return Assert.IsAssignableFrom<List<RecepcionEntity>>(ok.Value);
+        return Assert.IsAssignableFrom<List<RecepcionDto>>(ok.Value);
     }
 
     [Fact]

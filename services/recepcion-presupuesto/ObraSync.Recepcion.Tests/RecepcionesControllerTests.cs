@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using ObraSync.Recepcion.Api.DTOs;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using ObraSync.Recepcion.Api.Controllers;
@@ -36,7 +37,7 @@ public class RecepcionesControllerTests
         var actionResult = await controller.ObtenerRecepciones(null, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult);
-        var lista = Assert.IsAssignableFrom<List<RecepcionEntity>>(okResult.Value);
+        var lista = Assert.IsAssignableFrom<List<RecepcionDto>>(okResult.Value);
         Assert.Equal(2, lista.Count);
     }
 
@@ -58,7 +59,7 @@ public class RecepcionesControllerTests
         var actionResult = await controller.ObtenerRecepciones(obraTarget, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult);
-        var lista = Assert.IsAssignableFrom<List<RecepcionEntity>>(okResult.Value);
+        var lista = Assert.IsAssignableFrom<List<RecepcionDto>>(okResult.Value);
         Assert.Equal(2, lista.Count);
         Assert.All(lista, r => Assert.Equal(obraTarget, r.ObraId));
     }
@@ -74,7 +75,7 @@ public class RecepcionesControllerTests
         var actionResult = await controller.ObtenerRecepciones(Guid.NewGuid(), CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult);
-        var lista = Assert.IsAssignableFrom<List<RecepcionEntity>>(okResult.Value);
+        var lista = Assert.IsAssignableFrom<List<RecepcionDto>>(okResult.Value);
         Assert.Empty(lista);
     }
 
@@ -117,7 +118,7 @@ public class RecepcionesControllerTests
         var actionResult = await controller.ObtenerRecepciones(null, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult);
-        var lista = Assert.IsAssignableFrom<List<RecepcionEntity>>(okResult.Value);
+        var lista = Assert.IsAssignableFrom<List<RecepcionDto>>(okResult.Value);
         Assert.Single(lista);
         Assert.Single(lista[0].Detalles);
 

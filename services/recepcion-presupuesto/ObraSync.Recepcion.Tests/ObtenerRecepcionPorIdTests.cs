@@ -1,3 +1,4 @@
+﻿using ObraSync.Recepcion.Api.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -71,10 +72,55 @@ public class ObtenerRecepcionPorIdTests
 
         // Assert
         var ok = Assert.IsType<OkObjectResult>(resultado);
-        var devuelta = Assert.IsType<RecepcionEntity>(ok.Value);
+        var devuelta = Assert.IsType<RecepcionDto>(ok.Value);
         Assert.Equal(recepcionId, devuelta.Id);
         Assert.Equal("REM-200", devuelta.NumeroRemito);
         Assert.Single(devuelta.Detalles);
     }
-}
 
+    [Fact]
+    public async Task ObtenerRecepcionPorId_MapeaDetallesAlDto()
+    {
+        // Arrange
+        using var db = CreateInMemoryContext($"Db_PorId_Detalles_{Guid.NewGuid()}");
+        var recepcionId = Guid.NewGuid();
+        var articuloId = Guid.NewGuid();
+        var detalleId = Guid.NewGuid();
+        var recepcion = new RecepcionEntity
+        {
+            Id = recepcionId,
+            ObraId = Guid.NewGuid(),
+            OrdenCompraId = Guid.NewGuid(),
+            NumeroRemito = "REM-MAP-1"
+        };
+        recepcion.Detalles.Add(new DetalleRecepcion
+        {
+            Id = detalleId,
+            RecepcionId = recepcionId,
+            ArticuloId = articuloId,
+            DescripcionArticulo = "Hierro 8mm",
+            CantidadEsperada = 20,
+            CantidadRecibida = 20,
+            UnidadMedida = "BARRA",
+            Conforme = true
+        });
+        db.Recepciones.Add(recepcion);
+        await db.SaveChangesAsync();
+        var controller = CrearController(db);
+
+        // Act
+        var resultado = await controller.ObtenerRecepcionPorId(recepcionId, CancellationToken.None);
+
+        // Assert
+        var ok = Assert.IsType<OkObjectResult>(resultado);
+        var dto = Assert.IsType<RecepcionDto>(ok.Value);
+        Assert.Equal(recepcionId, dto.Id);
+        var detalleDto = Assert.Single(dto.Detalles);
+        Assert.Equal(detalleId, detalleDto.Id);
+        Assert.Equal(articuloId, detalleDto.ArticuloId);
+        Assert.Equal(20, detalleDto.CantidadRecibida);
+        Assert.Equal(20, detalleDto.CantidadEsperada);
+        Assert.Equal("BARRA", detalleDto.UnidadMedida);
+        Assert.Equal("Hierro 8mm", detalleDto.DescripcionArticulo);
+    }
+}
