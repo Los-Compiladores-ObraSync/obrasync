@@ -106,6 +106,23 @@ builder.Services.AddProblemDetails(options =>
         var correlationId = httpContext.Request.Headers["X-Correlation-ID"].FirstOrDefault()
                             ?? httpContext.TraceIdentifier;
 
+        context.ProblemDetails.Instance ??= httpContext.Request.Path;
+        if (string.IsNullOrWhiteSpace(context.ProblemDetails.Detail))
+        {
+            if (context.ProblemDetails is HttpValidationProblemDetails validationProblem && validationProblem.Errors.Count > 0)
+            {
+                context.ProblemDetails.Detail = validationProblem.Errors.Values.SelectMany(v => v).FirstOrDefault();
+            }
+            else if (context.ProblemDetails.Status == StatusCodes.Status401Unauthorized)
+            {
+                context.ProblemDetails.Detail = "Se requiere un token JWT valido para acceder a este recurso.";
+            }
+            else if (context.ProblemDetails.Status == StatusCodes.Status403Forbidden)
+            {
+                context.ProblemDetails.Detail = "No tiene permisos para acceder a este recurso.";
+            }
+        }
+
         context.ProblemDetails.Extensions["correlationId"] = correlationId;
         httpContext.Response.ContentType = "application/problem+json";
     };

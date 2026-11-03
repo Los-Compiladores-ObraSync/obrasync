@@ -83,6 +83,19 @@ public class AuthController : ControllerBase
         return Ok(await _authService.RestablecerPasswordAsync(request));
     }
 
+    /// <summary>
+    /// Cambia la contraseña del usuario autenticado verificando su contraseña actual (tarjeta #121).
+    /// </summary>
+    [HttpPost("cambiar-password")]
+    [Authorize]
+    [ProducesResponseType(typeof(MensajeResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> CambiarPassword([FromBody] CambiarPasswordRequestDto request)
+    {
+        return Ok(await _authService.CambiarPasswordAsync(request, User));
+    }
+
     [HttpGet("capataces")]
     [Authorize(Roles = $"{UserRoles.Comprador},{UserRoles.Admin}")]
     public async Task<ActionResult<IEnumerable<CapatazDto>>> GetCapatacesActivos()

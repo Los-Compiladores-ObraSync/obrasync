@@ -16,13 +16,21 @@ public class AuthService : IAuthService
     private const string MensajeRecuperacionGenerico =
         "Si el correo está registrado, se enviaron las instrucciones para restablecer la contraseña.";
 
-    // Mensajes de restablecimiento de contraseña (tarjeta #54)
+    // Mensajes de restablecimiento y cambio de contraseña (tarjetas #54 y #121)
     private const string MensajeEnlaceInvalidoOExpirado =
         "El enlace de recuperación es inválido o ha expirado. Por favor, solicitá uno nuevo.";
     private const string MensajePasswordCorta =
         "La contraseña debe tener al menos 6 caracteres.";
     private const string MensajePasswordRestablecida =
         "Contraseña restablecida con éxito.";
+    private const string MensajePasswordActualizada =
+        "Contraseña actualizada con éxito.";
+    private const string MensajeConfirmacionNoCoincide =
+        "La nueva contraseña y su confirmación no coinciden.";
+    private const string MensajePasswordIgualAActual =
+        "La nueva contraseña no puede ser igual a la contraseña actual.";
+    private const string MensajePasswordActualIncorrecta =
+        "La contraseña actual es incorrecta.";
 
     private readonly UserManager<AppUser> _userManager;
     private readonly IJwtProvider _jwtProvider;
@@ -235,5 +243,56 @@ public class AuthService : IAuthService
         }
 
         return new MensajeResponseDto(MensajePasswordRestablecida);
+    }
+
+    public async Task<MensajeResponseDto> CambiarPasswordAsync(CambiarPasswordRequestDto request, ClaimsPrincipal ejecutor)
+    {
+        // 1. Extraer el ID del usuario desde el claim "sub" del JWT (con fallback a NameIdentifier)
+        var userId = ejecutor?.FindFirst("sub")?.Value
+                     ?? ejecutor?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            throw new UnauthorizedAccessException("Token inválido: no se encontró el identificador del usuario.");
+        }
+
+        // 2. Verificar que el usuario exista y su cuenta esté activa
+        var usuario = await _userManager.FindByIdAsync(userId);
+        if (usuario is null || !usuario.Activo)
+        {
+            throw new UnauthorizedAccessException("Usuario no encontrado o cuenta desactivada.");
+        }
+
+        // 3. Validar coincidencia con la confirmación y que la nueva clave sea distinta de la actual
+        if (!string.Equals(request.NuevaPassword, request.ConfirmarPassword, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(MensajeConfirmacionNoCoincide);
+        }
+
+        if (string.Equals(request.PasswordActual, request.NuevaPassword, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(MensajePasswordIgualAActual);
+        }
+
+        // 4. Cambiar contraseña mediante Identity (verifica PasswordActual y las reglas de longitud/complejidad)
+        var result = await _userManager.ChangePasswordAsync(usuario, request.PasswordActual, request.NuevaPassword);
+        if (!result.Succeeded)
+        {
+            if (result.Errors.Any(e => string.Equals(e.Code, "PasswordMismatch", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ArgumentException(MensajePasswordActualIncorrecta);
+            }
+
+            if (result.Errors.Any(e => e.Code.Contains("PasswordTooShort", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ArgumentException(MensajePasswordCorta);
+            }
+
+            var errores = string.Join(" ", result.Errors.Select(e => e.Description));
+            throw new ArgumentException(
+                string.IsNullOrWhiteSpace(errores) ? MensajePasswordCorta : errores);
+        }
+
+        return new MensajeResponseDto(MensajePasswordActualizada);
     }
 }
