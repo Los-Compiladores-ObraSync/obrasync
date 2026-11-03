@@ -364,6 +364,87 @@
         }
       }
     },
+    "/api/usuarios/cambiar-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Cambiar la contraseña del usuario con la sesión iniciada",
+        "description": "Endpoint protegido con JWT ([Authorize], cualquier rol con sesión activa). Recibe la contraseña actual, la nueva contraseña y su confirmación, y aplica el cambio con UserManager.ChangePasswordAsync. Responde 400 Bad Request con ProblemDetails y correlationId si la contraseña actual es incorrecta, si la nueva contraseña es igual a la actual, si la confirmación no coincide o si la nueva contraseña no cumple la política (mínimo 6 caracteres). Responde 401 Unauthorized con ProblemDetails si falta el token o es inválido/vencido.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CambiarPasswordRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CambiarPasswordRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CambiarPasswordRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contraseña actualizada exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MensajeResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MensajeResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Contraseña actual incorrecta, nueva contraseña igual a la actual, confirmación no coincide o no cumple los requisitos",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No autenticado (falta token JWT o es inválido/vencido)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Obras": {
       "post": {
         "tags": [
@@ -674,6 +755,36 @@
             "format": "password",
             "minLength": 6,
             "example": "Password123!"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CambiarPasswordRequestDto": {
+        "type": "object",
+        "required": [
+          "passwordActual",
+          "nuevaPassword",
+          "confirmarPassword"
+        ],
+        "properties": {
+          "passwordActual": {
+            "type": "string",
+            "format": "password",
+            "description": "Contraseña actual del usuario autenticado",
+            "example": "Password123!"
+          },
+          "nuevaPassword": {
+            "type": "string",
+            "format": "password",
+            "minLength": 6,
+            "description": "Nueva contraseña (mínimo 6 caracteres, distinta de la actual)",
+            "example": "NuevaClave456!"
+          },
+          "confirmarPassword": {
+            "type": "string",
+            "format": "password",
+            "description": "Confirmación de la nueva contraseña (debe coincidir con nuevaPassword)",
+            "example": "NuevaClave456!"
           }
         },
         "additionalProperties": false

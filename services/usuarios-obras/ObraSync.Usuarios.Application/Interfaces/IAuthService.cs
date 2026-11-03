@@ -10,4 +10,5 @@ public interface IAuthService
     Task<IEnumerable<CapatazDto>> GetCapatacesActivosAsync();
     Task<MensajeResponseDto> RecuperarPasswordAsync(RecuperarPasswordRequestDto request);
     Task<MensajeResponseDto> RestablecerPasswordAsync(RestablecerPasswordRequestDto request);
+    Task<MensajeResponseDto> CambiarPasswordAsync(CambiarPasswordRequestDto request, ClaimsPrincipal ejecutor);
 }

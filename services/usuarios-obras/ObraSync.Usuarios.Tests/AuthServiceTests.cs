@@ -28,6 +28,9 @@ public class AuthServiceTests
     private const string MensajePasswordRestablecida =
         "Contraseña restablecida con éxito.";
 
+    private const string MensajePasswordActualizada =
+        "Contraseña actualizada con éxito.";
+
     private readonly UserManager<AppUser> _userManager;
     private readonly IJwtProvider _jwtProvider;
     private readonly ILogger<AuthService> _logger;
@@ -48,12 +51,12 @@ public class AuthServiceTests
     }
 
     // Arma un ClaimsPrincipal autenticado usando roleType: "role", igual que Program.cs en producción
-    private static ClaimsPrincipal CrearEjecutorConRol(string rol)
+    private static ClaimsPrincipal CrearEjecutorConRol(string rol, Guid? userId = null)
     {
         var identity = new ClaimsIdentity(
             new[]
             {
-                new Claim("sub", Guid.NewGuid().ToString()),
+                new Claim("sub", (userId ?? Guid.NewGuid()).ToString()),
                 new Claim("name", $"Usuario {rol}"),
                 new Claim("role", rol)
             },
@@ -473,6 +476,130 @@ public class AuthServiceTests
 
         // Assert
         Assert.Equal(MensajePasswordCorta, ex.Message);
+    }
+
+    // ── Tarjeta #121: CambiarPasswordAsync ────────────────────────────────────
+
+    [Fact]
+    public async Task CambiarPasswordAsync_DebeActualizarPasswordYRetornarExito_CuandoDatosSonValidos()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var usuario = new AppUser { Id = userId, Email = "capataz@obrasync.com", NombreCompleto = "Carlos Capataz", Activo = true };
+        var ejecutor = CrearEjecutorConRol(UserRoles.Capataz, userId);
+        var request = new CambiarPasswordRequestDto("Password123!", "NuevaClave456!", "NuevaClave456!");
+
+        _userManager.FindByIdAsync(userId.ToString()).Returns(Task.FromResult<AppUser?>(usuario));
+        _userManager.ChangePasswordAsync(usuario, request.PasswordActual, request.NuevaPassword)
+            .Returns(Task.FromResult(IdentityResult.Success));
+
+        // Act
+        var result = await _authService.CambiarPasswordAsync(request, ejecutor);
+
+        // Assert
+        Assert.Equal(MensajePasswordActualizada, result.Mensaje);
+        await _userManager.Received(1).ChangePasswordAsync(usuario, request.PasswordActual, request.NuevaPassword);
+    }
+
+    [Fact]
+    public async Task CambiarPasswordAsync_DebeLanzarArgumentException_CuandoConfirmacionNoCoincide()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var usuario = new AppUser { Id = userId, Email = "capataz@obrasync.com", Activo = true };
+        var ejecutor = CrearEjecutorConRol(UserRoles.Capataz, userId);
+        var request = new CambiarPasswordRequestDto("Password123!", "NuevaClave456!", "OtraClaveDistinta!");
+
+        _userManager.FindByIdAsync(userId.ToString()).Returns(Task.FromResult<AppUser?>(usuario));
+
+        // Act
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.CambiarPasswordAsync(request, ejecutor));
+
+        // Assert
+        Assert.Equal("La nueva contraseña y su confirmación no coinciden.", ex.Message);
+        await _userManager.DidNotReceive().ChangePasswordAsync(Arg.Any<AppUser>(), Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task CambiarPasswordAsync_DebeLanzarArgumentException_CuandoNuevaPasswordEsIgualALaActual()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var usuario = new AppUser { Id = userId, Email = "capataz@obrasync.com", Activo = true };
+        var ejecutor = CrearEjecutorConRol(UserRoles.Capataz, userId);
+        var request = new CambiarPasswordRequestDto("Password123!", "Password123!", "Password123!");
+
+        _userManager.FindByIdAsync(userId.ToString()).Returns(Task.FromResult<AppUser?>(usuario));
+
+        // Act
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.CambiarPasswordAsync(request, ejecutor));
+
+        // Assert
+        Assert.Equal("La nueva contraseña no puede ser igual a la contraseña actual.", ex.Message);
+        await _userManager.DidNotReceive().ChangePasswordAsync(Arg.Any<AppUser>(), Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task CambiarPasswordAsync_DebeLanzarArgumentException_CuandoPasswordActualEsIncorrecta()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var usuario = new AppUser { Id = userId, Email = "capataz@obrasync.com", Activo = true };
+        var ejecutor = CrearEjecutorConRol(UserRoles.Capataz, userId);
+        var request = new CambiarPasswordRequestDto("ClaveIncorrecta", "NuevaClave456!", "NuevaClave456!");
+        var errorMismatch = new IdentityError { Code = "PasswordMismatch", Description = "Incorrect password." };
+
+        _userManager.FindByIdAsync(userId.ToString()).Returns(Task.FromResult<AppUser?>(usuario));
+        _userManager.ChangePasswordAsync(usuario, request.PasswordActual, request.NuevaPassword)
+            .Returns(Task.FromResult(IdentityResult.Failed(errorMismatch)));
+
+        // Act
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.CambiarPasswordAsync(request, ejecutor));
+
+        // Assert
+        Assert.Equal("La contraseña actual es incorrecta.", ex.Message);
+    }
+
+    [Fact]
+    public async Task CambiarPasswordAsync_DebeLanzarArgumentException_CuandoNuevaPasswordEsDemasiadoCorta()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var usuario = new AppUser { Id = userId, Email = "capataz@obrasync.com", Activo = true };
+        var ejecutor = CrearEjecutorConRol(UserRoles.Capataz, userId);
+        var request = new CambiarPasswordRequestDto("Password123!", "123", "123");
+        var errorCorta = new IdentityError { Code = "PasswordTooShort", Description = "Passwords must be at least 6 characters." };
+
+        _userManager.FindByIdAsync(userId.ToString()).Returns(Task.FromResult<AppUser?>(usuario));
+        _userManager.ChangePasswordAsync(usuario, request.PasswordActual, request.NuevaPassword)
+            .Returns(Task.FromResult(IdentityResult.Failed(errorCorta)));
+
+        // Act
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.CambiarPasswordAsync(request, ejecutor));
+
+        // Assert
+        Assert.Equal(MensajePasswordCorta, ex.Message);
+    }
+
+    [Fact]
+    public async Task CambiarPasswordAsync_DebeLanzarUnauthorizedAccessException_CuandoUsuarioNoExisteOEstaInactivo()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var ejecutor = CrearEjecutorConRol(UserRoles.Capataz, userId);
+        var request = new CambiarPasswordRequestDto("Password123!", "NuevaClave456!", "NuevaClave456!");
+
+        _userManager.FindByIdAsync(userId.ToString()).Returns(Task.FromResult<AppUser?>(null));
+
+        // Act & Assert (usuario inexistente)
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _authService.CambiarPasswordAsync(request, ejecutor));
+
+        // Arrange (usuario inactivo)
+        _userManager.FindByIdAsync(userId.ToString())
+            .Returns(Task.FromResult<AppUser?>(new AppUser { Id = userId, Activo = false }));
+
+        // Act & Assert (usuario inactivo)
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _authService.CambiarPasswordAsync(request, ejecutor));
     }
 
     // LogInformation(...) es un método de extensión: por dentro llama a ILogger.Log<TState> con un tipo

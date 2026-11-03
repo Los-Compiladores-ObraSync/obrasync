@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
@@ -16,7 +17,13 @@ public class AuthControllerTests
     public AuthControllerTests()
     {
         _authService = Substitute.For<IAuthService>();
-        _controller = new AuthController(_authService);
+        _controller = new AuthController(_authService)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
     }
 
     [Fact]
@@ -50,6 +57,23 @@ public class AuthControllerTests
 
         // Act
         var result = await _controller.RestablecerPassword(request);
+
+        // Assert
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(StatusCodes.Status200OK, ok.StatusCode);
+        Assert.Same(respuesta, ok.Value);
+    }
+
+    [Fact]
+    public async Task CambiarPassword_DebeRetornar200ConElMensajeDelServicio()
+    {
+        // Arrange
+        var request = new CambiarPasswordRequestDto("Password123!", "NuevaClave456!", "NuevaClave456!");
+        var respuesta = new MensajeResponseDto("Contraseña actualizada con éxito.");
+        _authService.CambiarPasswordAsync(request, Arg.Any<ClaimsPrincipal>()).Returns(respuesta);
+
+        // Act
+        var result = await _controller.CambiarPassword(request);
 
         // Assert
         var ok = Assert.IsType<OkObjectResult>(result);
