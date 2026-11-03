@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -46,6 +47,23 @@ public class AuthServiceTests
         _authService = new AuthService(_userManager, _jwtProvider, _logger, frontendOptions);
     }
 
+    // Arma un ClaimsPrincipal autenticado usando roleType: "role", igual que Program.cs en producción
+    private static ClaimsPrincipal CrearEjecutorConRol(string rol)
+    {
+        var identity = new ClaimsIdentity(
+            new[]
+            {
+                new Claim("sub", Guid.NewGuid().ToString()),
+                new Claim("name", $"Usuario {rol}"),
+                new Claim("role", rol)
+            },
+            authenticationType: "Test",
+            nameType: "name",
+            roleType: "role");
+
+        return new ClaimsPrincipal(identity);
+    }
+
     [Fact]
     public void DataProtectionTokenLifespan_DebeEstarConfiguradoEnUnaHora()
     {
@@ -84,21 +102,24 @@ public class AuthServiceTests
     [Fact]
     public async Task RegistrarAsync_DeberiaLanzarForbiddenException_CuandoRolEsAdmin()
     {
-        // Arrange
+        // Arrange: ni anónimo ni un propio Admin pueden registrar otra cuenta Admin
         var request = new RegisterRequestDto("Juan Admin", "admin@test.com", "Password123!", UserRoles.Admin);
+        var ejecutorAdmin = CrearEjecutorConRol(UserRoles.Admin);
 
         // Act
-        var ex = await Assert.ThrowsAsync<ForbiddenException>(() => _authService.RegistrarAsync(request));
+        var exAnonimo = await Assert.ThrowsAsync<ForbiddenException>(() => _authService.RegistrarAsync(request));
+        var exAdmin = await Assert.ThrowsAsync<ForbiddenException>(() => _authService.RegistrarAsync(request, ejecutorAdmin));
 
         // Assert
-        Assert.Contains("No está permitido registrar cuentas con rol Admin", ex.Message);
+        Assert.Contains("No está permitido registrar cuentas con rol Admin", exAnonimo.Message);
+        Assert.Contains("No está permitido registrar cuentas con rol Admin", exAdmin.Message);
     }
 
     [Fact]
     public async Task RegistrarAsync_DeberiaLanzarInvalidOperationException_CuandoEmailYaExiste()
     {
-        // Arrange
-        var request = new RegisterRequestDto("Juan Perez", "existente@test.com", "Password123!", UserRoles.Capataz);
+        // Arrange: usa Proveedor para pasar el chequeo de registro público (#117) y llegar a la validación de email duplicado
+        var request = new RegisterRequestDto("Juan Proveedor", "existente@test.com", "Password123!", UserRoles.Proveedor);
         _userManager.FindByEmailAsync(request.Email)
             .Returns(Task.FromResult<AppUser?>(new AppUser { Email = request.Email }));
 
@@ -132,15 +153,15 @@ public class AuthServiceTests
     [Fact]
     public async Task RegistrarAsync_DeberiaRetornarAuthResponseDto_CuandoRegistroEsExitoso()
     {
-        // Arrange
+        // Arrange: para registrar un Capataz se requiere sesión de Comprador o Admin (#117)
         var request = new RegisterRequestDto("Juan Capataz", "capataz@test.com", "Password123!", UserRoles.Capataz);
+        var ejecutorComprador = CrearEjecutorConRol(UserRoles.Comprador);
 
         _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(null));
 
         _userManager.CreateAsync(Arg.Any<AppUser>(), request.Password)
             .Returns(Task.FromResult(IdentityResult.Success));
 
-        // Se agrega el mock de AddToRoleAsync
         _userManager.AddToRoleAsync(Arg.Any<AppUser>(), Arg.Any<string>())
             .Returns(Task.FromResult(IdentityResult.Success));
 
@@ -151,13 +172,104 @@ public class AuthServiceTests
             .Returns("fake-jwt-token");
 
         // Act
-        var result = await _authService.RegistrarAsync(request);
+        var result = await _authService.RegistrarAsync(request, ejecutorComprador);
 
         // Assert
         Assert.NotNull(result);
         Assert.Equal(request.Email, result.Email);
         Assert.Equal("fake-jwt-token", result.Token);
         Assert.Contains(UserRoles.Capataz, result.Roles);
+    }
+
+    // ── Tarjeta #117: Matriz de permisos en RegistrarAsync ────────────────────
+
+    [Fact]
+    public async Task RegistrarAsync_AnonimoRegistrandoProveedor_DebeSerExitoso()
+    {
+        // Arrange
+        var request = new RegisterRequestDto("Proveedor S.A.", "proveedor@test.com", "Password123!", UserRoles.Proveedor);
+
+        _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(null));
+        _userManager.CreateAsync(Arg.Any<AppUser>(), request.Password).Returns(Task.FromResult(IdentityResult.Success));
+        _userManager.AddToRoleAsync(Arg.Any<AppUser>(), UserRoles.Proveedor).Returns(Task.FromResult(IdentityResult.Success));
+        _userManager.GetRolesAsync(Arg.Any<AppUser>())
+            .Returns(Task.FromResult<IList<string>>(new List<string> { UserRoles.Proveedor }));
+        _jwtProvider.GenerarToken(Arg.Any<AppUser>(), Arg.Any<IEnumerable<string>>()).Returns("fake-jwt-token");
+
+        // Act
+        var result = await _authService.RegistrarAsync(request, ejecutor: null);
+
+        // Assert
+        Assert.Equal(request.Email, result.Email);
+        Assert.Contains(UserRoles.Proveedor, result.Roles);
+    }
+
+    [Theory]
+    [InlineData(UserRoles.Capataz)]
+    [InlineData(UserRoles.Comprador)]
+    public async Task RegistrarAsync_AnonimoSolicitandoRolNoPublico_DebeLanzarForbiddenException(string rolSolicitado)
+    {
+        // Arrange
+        var request = new RegisterRequestDto("Usuario", "usuario@test.com", "Password123!", rolSolicitado);
+        var ejecutorAnonimo = new ClaimsPrincipal(new ClaimsIdentity());
+
+        // Act
+        var ex = await Assert.ThrowsAsync<ForbiddenException>(() => _authService.RegistrarAsync(request, ejecutorAnonimo));
+
+        // Assert
+        Assert.Equal("El registro público solo está permitido para el rol Proveedor.", ex.Message);
+    }
+
+    [Fact]
+    public async Task RegistrarAsync_CompradorSolicitandoComprador_DebeLanzarForbiddenException()
+    {
+        // Arrange
+        var request = new RegisterRequestDto("Otro Comprador", "comprador2@test.com", "Password123!", UserRoles.Comprador);
+        var ejecutorComprador = CrearEjecutorConRol(UserRoles.Comprador);
+
+        // Act
+        var ex = await Assert.ThrowsAsync<ForbiddenException>(() => _authService.RegistrarAsync(request, ejecutorComprador));
+
+        // Assert
+        Assert.Equal("El rol Comprador no tiene permisos para crear usuarios con rol Comprador.", ex.Message);
+    }
+
+    [Fact]
+    public async Task RegistrarAsync_AdminRegistrandoComprador_DebeSerExitoso()
+    {
+        // Arrange
+        var request = new RegisterRequestDto("Nuevo Comprador", "comprador-nuevo@test.com", "Password123!", UserRoles.Comprador);
+        var ejecutorAdmin = CrearEjecutorConRol(UserRoles.Admin);
+
+        _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(null));
+        _userManager.CreateAsync(Arg.Any<AppUser>(), request.Password).Returns(Task.FromResult(IdentityResult.Success));
+        _userManager.AddToRoleAsync(Arg.Any<AppUser>(), UserRoles.Comprador).Returns(Task.FromResult(IdentityResult.Success));
+        _userManager.GetRolesAsync(Arg.Any<AppUser>())
+            .Returns(Task.FromResult<IList<string>>(new List<string> { UserRoles.Comprador }));
+        _jwtProvider.GenerarToken(Arg.Any<AppUser>(), Arg.Any<IEnumerable<string>>()).Returns("fake-jwt-token");
+
+        // Act
+        var result = await _authService.RegistrarAsync(request, ejecutorAdmin);
+
+        // Assert
+        Assert.Equal(request.Email, result.Email);
+        Assert.Contains(UserRoles.Comprador, result.Roles);
+    }
+
+    [Theory]
+    [InlineData(UserRoles.Capataz)]
+    [InlineData(UserRoles.Proveedor)]
+    public async Task RegistrarAsync_RolOperativoAutenticado_DebeLanzarForbiddenException(string rolEjecutor)
+    {
+        // Arrange: ni Capataz ni Proveedor autenticados tienen permisos para gestionar altas
+        var request = new RegisterRequestDto("Otro Proveedor", "otro@test.com", "Password123!", UserRoles.Proveedor);
+        var ejecutor = CrearEjecutorConRol(rolEjecutor);
+
+        // Act
+        var ex = await Assert.ThrowsAsync<ForbiddenException>(() => _authService.RegistrarAsync(request, ejecutor));
+
+        // Assert
+        Assert.Equal("No tiene permisos para dar de alta nuevos usuarios.", ex.Message);
     }
 
     [Fact]

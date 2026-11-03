@@ -44,12 +44,12 @@ builder.Services.AddIdentity<AppUser, AppRole>(options =>
 //     1 hora, igual que el Magic Link (decision de Agus, 26/10). El valor por defecto de Identity es 1 dia.
 builder.Services.Configure<DataProtectionTokenProviderOptions>(opt => opt.TokenLifespan = TimeSpan.FromHours(1));
 
-// 3. Opciones tipadas de JwtSettings con validaciÛn al inicio de la aplicaciÛn
+// 3. Opciones tipadas de JwtSettings con validaci√≥n al inicio de la aplicaci√≥n
 builder.Services
     .AddOptions<JwtSettings>()
     .BindConfiguration(JwtSettings.SectionName)
     .Validate(settings => !string.IsNullOrWhiteSpace(settings.Secret),
-    "La clave secreta JWT ('Jwt__Secret') no est· configurada en las variables de entorno.")
+    "La clave secreta JWT ('Jwt__Secret') no est√° configurada en las variables de entorno.")
     .ValidateOnStart();
 
 // 3b. URL base del frontend para armar el enlace de restablecimiento (se pisa con Frontend__BaseUrl)
@@ -57,11 +57,11 @@ builder.Services
     .AddOptions<FrontendSettings>()
     .BindConfiguration(FrontendSettings.SectionName);
 
-// 4. InyecciÛn de dependencias de servicios
+// 4. Inyecci√≥n de dependencias de servicios
 builder.Services.AddScoped<IJwtProvider, JwtProvider>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
-// 1. ObtenciÛn y validaciÛn de la clave secreta JWT
+// 1. Obtenci√≥n y validaci√≥n de la clave secreta JWT
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>();
 var jwtSecret = jwtSettings?.Secret
     ?? builder.Configuration["Jwt__Secret"]
@@ -69,10 +69,10 @@ var jwtSecret = jwtSettings?.Secret
 
 if (string.IsNullOrWhiteSpace(jwtSecret))
 {
-    throw new InvalidOperationException("La variable de entorno 'Jwt__Secret' no est· configurada.");
+    throw new InvalidOperationException("La variable de entorno 'Jwt__Secret' no est√° configurada.");
 }
 
-// 2. Registro del servicio de autenticaciÛn JWT Bearer
+// 2. Registro del servicio de autenticaci√≥n JWT Bearer
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -82,7 +82,7 @@ builder.Services.AddAuthentication(options =>
 {
     options.RequireHttpsMetadata = false;
     options.SaveToken = true;
-    options.MapInboundClaims = false; // Desactiva la conversiÛn autom·tica de claims a URIs de Microsoft
+    options.MapInboundClaims = false; // Desactiva la conversi√≥n autom√°tica de claims a URIs de Microsoft
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = false,
@@ -97,7 +97,7 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddControllers();
 
-// <-- NUEVO: Registra el servicio para estandarizar errores vacÌos a ProblemDetails
+// <-- NUEVO: Registra el servicio para estandarizar errores vac√≠os a ProblemDetails
 builder.Services.AddProblemDetails(options =>
 {
     options.CustomizeProblemDetails = context =>
@@ -116,7 +116,7 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new() { Title = "ObraSync.Usuarios.Api", Version = "v1" });
 
-    // Configura el soporte para JWT Bearer y hace aparecer el botÛn Authorize
+    // Configura el soporte para JWT Bearer y hace aparecer el bot√≥n Authorize
     options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -124,7 +124,7 @@ builder.Services.AddSwaggerGen(options =>
         Scheme = "Bearer",
         BearerFormat = "JWT",
         In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Description = "Ingres· el token JWT obtenido en el login."
+        Description = "Ingres√° el token JWT obtenido en el login."
     });
 
     options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
@@ -145,7 +145,7 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// <-- Intercepta cÛdigos de error HTTP (como 401 y 403) y les inyecta el ProblemDetails
+// <-- Intercepta c√≥digos de error HTTP (como 401 y 403) y les inyecta el ProblemDetails
 app.UseStatusCodePages();
 
 // 5. Registrar Middleware de Excepciones al principio del pipeline
@@ -167,3 +167,6 @@ app.MapControllers();
 await app.SeedDatabaseAsync();
 
 app.Run();
+
+// Clase parcial para habilitar WebApplicationFactory<Program> en pruebas de integracion (tarjeta #117)
+public partial class Program { }

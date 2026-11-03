@@ -1,10 +1,11 @@
+using System.Security.Claims;
 using ObraSync.Usuarios.Application.DTOs;
 
 namespace ObraSync.Usuarios.Application.Interfaces;
 
 public interface IAuthService
 {
-    Task<AuthResponseDto> RegistrarAsync(RegisterRequestDto request);
+    Task<AuthResponseDto> RegistrarAsync(RegisterRequestDto request, ClaimsPrincipal? ejecutor = null);
     Task<AuthResponseDto> LoginAsync(LoginRequestDto request);
     Task<IEnumerable<CapatazDto>> GetCapatacesActivosAsync();
     Task<MensajeResponseDto> RecuperarPasswordAsync(RecuperarPasswordRequestDto request);
