@@ -1,40 +1,86 @@
-# Cambios de la tarjeta #79 (paso 1): GET /api/recepciones/{id}
+# Cambios de la tarjeta #79: Completar Consultas de Recepciones
 
-## Resumen
-Tarjeta #79 (completar consultas de recepciones), paso 1. Se agregó el endpoint `GET /api/recepciones/{id}`, que devuelve una recepción con sus detalles o un 404 si no existe. También se corrigió un problema de formato al final de `RecepcionesController.cs`. No se tocó ningún otro endpoint, servicio, contrato ni configuración.
+## 1. Resumen de la Tarjeta #79
+La tarjeta **#79** ("Completar consultas de recepciones") amplía y estandariza la API del microservicio `recepcion-presupuesto` (`ObraSync.Recepcion.Api`), incorporando endpoints de consulta faltantes, soporte de filtros avanzados, serialización tipada mediante DTOs desacoplados del modelo de dominio con fechas normalizadas en UTC, y control de acceso basado en roles (RBAC).
 
-## Cambios por archivo
-- `ObraSync.Recepcion.Api/Controllers/RecepcionesController.cs`
-  - Nuevo método `ObtenerRecepcionPorId`, ubicado justo después de `ObtenerRecepciones`. Busca la recepción por `Id` incluyendo `Detalles`, en modo solo lectura (`AsNoTracking`). Si no existe responde 404 con `Problem(statusCode: 404, detail: "La recepción no existe.")`, el mismo estilo que usan los demás métodos.
-  - Corrección de formato: el cierre de `GetCorrelationIdFromHeader` y el de la clase estaban en la misma línea (`}}`). Ahora están en líneas separadas. No hay cambio de comportamiento.
-- `ObraSync.Recepcion.Tests/ObtenerRecepcionPorIdTests.cs` (nuevo): pruebas del endpoint. Ver "Pruebas agregadas".
-- `CAMBIOS_TARJETA_79.md` (nuevo): este documento.
+La implementación se realizó en los siguientes pasos sucesivos:
+1. **GET `/api/recepciones/{id}` (Paso 1):** Consulta de una recepción puntual por identificador (`Guid`), retornando `404 Not Found` (`ProblemDetails`) si no existe.
+2. **Filtro `ordenCompraId` (Paso 2):** Inclusión del parámetro de consulta opcional `ordenCompraId` en `GET /api/recepciones`, combinable con el filtro existente `obraId`.
+3. **GET `/api/recepciones/ordenes-pendientes` (Paso 3):** Endpoint para consultar órdenes de compra que aún no han sido recibidas por completo (excluye aquellas con recepción `Completa`), calculando cantidades recibidas y pendientes por cada ítem, con filtro opcional por `obraId`.
+4. **Migración a DTOs en consultas GET (Paso 4):** Desacoplamiento de las entidades de dominio `Recepcion` y `DetalleRecepcion`, respondiendo `RecepcionDto` y `DetalleRecepcionDto` en `GET /api/recepciones` y `GET /api/recepciones/{id}`.
+5. **Migración a DTO y normalización UTC en POST (Paso 5):** `POST /api/recepciones` (creación de recepción) pasa de responder la entidad de dominio a responder `RecepcionDto` (HTTP 201). Se normalizan las fechas (`fechaRecepcion`, `createdAt`, `updatedAt`) a UTC con indicador ISO 8601 `"Z"`.
+6. **Permisos y control de acceso RBAC (Paso 6):** Configuración de permisos de lectura en `GET /api/recepciones` y `GET /api/recepciones/{id}` para los roles `Capataz`, `Comprador` y `Admin`, denegando acceso (HTTP 403 Forbidden) a roles no autorizados como `Proveedor`.
 
-## Endpoints afectados
-| Método | Ruta | Respuesta | Cuerpo |
-|---|---|---|---|
-| GET | `/api/recepciones/{id}` (`id` es un GUID) | 200 | La entidad `Recepcion` con su colección `Detalles`, igual que en el listado. |
-| GET | `/api/recepciones/{id}` | 404 | `ProblemDetails` con `detail: "La recepción no existe."`. |
+---
 
-- El endpoint hereda `[Authorize]` del controller: requiere un token válido. No exige rol específico, igual que `GET /api/recepciones`.
-- Un `id` que no es un GUID válido no coincide con la ruta (restricción `{id:guid}`) y ASP.NET responde 404 antes de entrar al método.
-- `GET /api/recepciones` (`ObtenerRecepciones`) no cambió, ni en firma ni en respuesta.
+## 2. Endpoints del Servicio de Recepción
 
-## Cambios de contrato
-Ninguno en este paso. No se modificaron eventos, esquemas de `contracts/` ni DTOs.
+| Método | Ruta | Roles autorizados | Respuestas HTTP | Cuerpo / Contenido |
+|---|---|---|---|---|
+| `GET` | `/api/recepciones` | `Capataz, Comprador, Admin` | `200 OK`<br>`401 Unauthorized`<br>`403 Forbidden` | Array de `RecepcionDto` con sus `DetalleRecepcionDto`. Permite filtrar por `obraId` y `ordenCompraId`. |
+| `GET` | `/api/recepciones/{id:guid}` | `Capataz, Comprador, Admin` | `200 OK`<br>`401 Unauthorized`<br>`403 Forbidden`<br>`404 Not Found` | Objeto `RecepcionDto` individual con sus detalles, o `ProblemDetails` con detalle `"La recepción no existe."` si el `id` no fue encontrado. |
+| `GET` | `/api/recepciones/ordenes-pendientes` | `Capataz, Admin` | `200 OK`<br>`401 Unauthorized`<br>`403 Forbidden` | Array de `OrdenPendienteDto` (cada una con `items` de tipo `ItemOrdenPendienteDto` indicando `cantidadEsperada`, `cantidadRecibida` acumulada y `cantidadPendiente`). Permite filtro opcional por `obraId`. |
+| `POST` | `/api/recepciones` | `Capataz, Admin` | `201 Created`<br>`400 Bad Request`<br>`401 Unauthorized`<br>`403 Forbidden`<br>`409 Conflict` | Request: `CrearRecepcionRequest`. Response (201): `RecepcionDto` de la recepción confirmada con fechas normalizadas en UTC. Publica el evento `RecepcionConfirmadaEvent` a RabbitMQ. |
 
-## Impacto en otros equipos
-Ninguno en este paso. Es un endpoint nuevo y aditivo. No se modificó ningún otro servicio, el gateway, `docker-compose.yml` ni `.env`.
+---
 
-## Pruebas agregadas
-Archivo `ObtenerRecepcionPorIdTests.cs`. Usan un `DbContext` con base InMemory y un publisher simulado con NSubstitute, el mismo patrón que `RecepcionesControllerTests`. (`Include`, `AsNoTracking` y `FirstOrDefaultAsync` no se pueden simular con NSubstitute, por eso se usa InMemory.)
-- `ObtenerRecepcionPorId_IdInexistente_Devuelve404`: con una base que tiene otra recepción, pedir un id aleatorio devuelve un `ObjectResult` con `StatusCode` 404 y `ProblemDetails.Detail` igual a "La recepción no existe.".
-- `ObtenerRecepcionPorId_IdExistente_Devuelve200ConLaRecepcion`: pedir el id de una recepción existente (hay otra en la base) devuelve un `OkObjectResult` con la recepción correcta (mismo `Id`, `NumeroRemito` y un detalle incluido).
+## 3. Cambios de Contrato
+- **Contrato OpenAPI (`contracts/openapi/recepciones-openapi.json`):**
+  - Se agregaron las definiciones de esquemas `RecepcionDto`, `DetalleRecepcionDto`, `OrdenPendienteDto` y `ItemOrdenPendienteDto`.
+  - Se actualizaron las rutas:
+    - `GET /api/recepciones`: La respuesta `200` referencia `#/components/schemas/RecepcionDto` (array). Se agregaron parámetros de query `obraId` y `ordenCompraId`.
+    - `GET /api/recepciones/{id}`: La respuesta `200` referencia `#/components/schemas/RecepcionDto`. Se documentó la respuesta `404` con `ProblemDetails`.
+    - `GET /api/recepciones/ordenes-pendientes`: Nueva ruta documentada retornando array de `#/components/schemas/OrdenPendienteDto` y parámetro opcional `obraId`.
+    - `POST /api/recepciones`: La respuesta `201` actualizó su esquema de retorno hacia `#/components/schemas/RecepcionDto`.
+  - Se mantuvieron los esquemas previos `Recepcion` y `DetalleRecepcion` para retrocompatibilidad histórica.
 
-## Pendientes
-- **Paso a DTO:** el endpoint devuelve la entidad, igual que el listado. Se migrará a DTO después para toda la lista, para no mezclar formatos de respuesta.
-- **Filtro `ordenCompraId`** en `GET /api/recepciones`: no se hizo en este paso.
-- **Consulta de órdenes de compra pendientes:** no se hizo en este paso.
-- **Decisión de serialización de #78:** sigue pendiente. No se tocó nada del evento ni de la configuración de MassTransit.
-- **Verificación en Docker/RabbitMQ:** no se hizo en este paso.
+---
 
+## 4. Impacto en Otros Equipos
+- **Frontend / UI:**
+  - Debe actualizar el consumo de recepciones: los endpoints `GET /api/recepciones`, `GET /api/recepciones/{id}` y `POST /api/recepciones` ahora retornan la estructura limpia de `RecepcionDto` (sin propiedades de navegación cíclicas de EF Core).
+  - Todas las marcas temporales (`fechaRecepcion`, `createdAt`, `updatedAt`) vienen expresadas en estándar UTC terminadas en `Z`.
+  - Se encuentra disponible la nueva pantalla o consulta de órdenes de compra pendientes en `GET /api/recepciones/ordenes-pendientes`.
+  - Aviso enviado al equipo de Frontend sobre la actualización del contrato.
+- **Mensajería RabbitMQ:**
+  - Sin impacto. La estructura de `RecepcionConfirmadaEvent` y su publicación en el bus de MassTransit se mantiene inalterada.
+- **Infraestructura / Gateway / Base de Datos:**
+  - No se requieren nuevas migraciones de base de datos ni modificaciones en variables de entorno o `docker-compose.yml`.
+
+---
+
+## 5. Pruebas Agregadas
+Se añadieron suites de pruebas unitarias y de integración en `ObraSync.Recepcion.Tests`:
+
+1. **`ObtenerRecepcionPorIdTests.cs` (Paso 1):**
+   - `ObtenerRecepcionPorId_IdInexistente_Devuelve404`
+   - `ObtenerRecepcionPorId_IdExistente_Devuelve200ConLaRecepcion`
+2. **`ObtenerRecepcionesFiltrosTests.cs` (Paso 2):**
+   - `ObtenerRecepciones_SinFiltroOrdenCompra_DevuelveTodas`
+   - `ObtenerRecepciones_FiltrandoPorOrdenCompraId_DevuelveSoloEsaOrden`
+   - `ObtenerRecepciones_FiltrandoPorObraYOrdenCompra_AplicaAmbosFiltros`
+   - `ObtenerRecepciones_OrdenCompraSinRecepciones_DevuelveListaVacia`
+3. **`ObtenerOrdenesPendientesTests.cs` (Paso 3):**
+   - `ObtenerOrdenesPendientes_SinOrdenes_DevuelveListaVacia`
+   - `ObtenerOrdenesPendientes_OrdenConRecepcionCompleta_NoLaIncluye`
+   - `ObtenerOrdenesPendientes_OrdenSinRecepcion_LaIncluyeConCantidadPendienteTotal`
+   - `ObtenerOrdenesPendientes_OrdenConRecepcionParcial_RestaCantidadYaRecibida`
+   - `ObtenerOrdenesPendientes_FiltroPorObraId_DevuelveSoloLasDeEsaObra`
+   - `ObtenerOrdenesPendientes_MultiplesRecepciones_AcumulaCantidadesRecibidas`
+4. **`RecepcionesControllerDtoTests.cs` (Paso 4):**
+   - `ObtenerRecepciones_DevuelveListaDeRecepcionDto`
+   - `ObtenerRecepcionPorId_Existente_DevuelveRecepcionDto`
+5. **`CrearRecepcionPublicacionTests.cs` y `RecepcionDtoFechasTests.cs` (Paso 5):**
+   - `CrearRecepcion_Exitoso_DevuelveRecepcionDto`
+   - `RecepcionDto_NormalizaFechasAUtc`
+6. **`RecepcionesPermisosLecturaTests.cs` (Paso 6):**
+   - `GetRecepciones_ConTokenProveedor_DebeRetornar403Forbidden`
+   - `GetRecepciones_ConTokenComprador_DebeRetornar200Ok`
+   - `GetRecepcionPorId_ConTokenProveedor_DebeRetornar403Forbidden`
+   - `GetRecepcionPorId_ConTokenComprador_DebeRetornar200Ok`
+
+---
+
+## 6. Pendientes Fuera de la Tarjeta
+- **Serialización de decimales (#128):** Resuelto y mergeado previamente en `main`. Garantiza que las cantidades decimales se serialicen numéricamente sin comillas en eventos y APIs.
+- **Flujo de recepción parcial en frontend:** El backend ya soporta el estado y cálculo de pendientes; el frontend implementará la interfaz de recepción por remito parcial según su planificación de sprints.
