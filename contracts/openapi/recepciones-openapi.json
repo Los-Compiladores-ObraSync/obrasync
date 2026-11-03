@@ -95,7 +95,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Recepcion"
+                  "$ref": "#/components/schemas/RecepcionDto"
                 }
               }
             }
