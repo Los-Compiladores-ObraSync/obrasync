@@ -1,4 +1,4 @@
-
+﻿
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -31,12 +31,15 @@ public class RecepcionesController : ControllerBase
     }
 
     /// <summary>
-    /// Obtiene las recepciones registradas, opcionalmente filtradas por ObraId.
+    /// Obtiene las recepciones registradas, opcionalmente filtradas por ObraId y/o OrdenCompraId.
+    /// Ambos filtros son opcionales y se pueden combinar.
     /// </summary>
+    [Authorize(Roles = "Capataz,Comprador,Admin")]
     [HttpGet]
     public async Task<IActionResult> ObtenerRecepciones(
         [FromQuery] Guid? obraId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [FromQuery] Guid? ordenCompraId = null)
     {
         var query = _context.Recepciones
             .Include(r => r.Detalles)
@@ -47,10 +50,100 @@ public class RecepcionesController : ControllerBase
             query = query.Where(r => r.ObraId == obraId.Value);
         }
 
-        var resultado = await query.ToListAsync(cancellationToken);
+        if (ordenCompraId.HasValue)
+        {
+            query = query.Where(r => r.OrdenCompraId == ordenCompraId.Value);
+        }
+
+        var recepciones = await query.ToListAsync(cancellationToken);
+        var resultado = recepciones.Select(RecepcionDto.DesdeEntidad).ToList();
         return Ok(resultado);
     }
 
+    /// <summary>
+    /// Obtiene una recepción por su identificador.
+    /// </summary>
+    [Authorize(Roles = "Capataz,Comprador,Admin")]
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> ObtenerRecepcionPorId(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var recepcion = await _context.Recepciones
+            .Include(r => r.Detalles)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        if (recepcion == null)
+        {
+            return Problem(
+                statusCode: 404,
+                detail: "La recepción no existe.");
+        }
+
+        return Ok(RecepcionDto.DesdeEntidad(recepcion));
+    }
+
+    /// <summary>
+    /// Obtiene las órdenes de compra pendientes de recibir (sin recepción completa),
+    /// opcionalmente filtradas por ObraId.
+    /// </summary>
+    [Authorize(Roles = "Capataz,Admin")]
+    [HttpGet("ordenes-pendientes")]
+    public async Task<IActionResult> ObtenerOrdenesPendientes(
+        [FromQuery] Guid? obraId,
+        CancellationToken cancellationToken)
+    {
+        var query = _context.OrdenesCompra
+            .Include(o => o.Items)
+            .AsNoTracking()
+            .Where(o => !_context.Recepciones.Any(
+                r => r.OrdenCompraId == o.Id &&
+                     r.Estado == EstadoRecepcion.Completa));
+
+        if (obraId.HasValue)
+        {
+            query = query.Where(o => o.ObraId == obraId.Value);
+        }
+
+        var ordenes = await query.ToListAsync(cancellationToken);
+
+        // Una sola consulta adicional con lo ya recibido de las órdenes obtenidas.
+        var ordenesIds = ordenes.Select(o => o.Id).ToList();
+
+        var recibidos = await _context.Recepciones
+            .AsNoTracking()
+            .Where(r => ordenesIds.Contains(r.OrdenCompraId))
+            .SelectMany(r => r.Detalles.Select(d => new
+            {
+                r.OrdenCompraId,
+                d.ArticuloId,
+                d.CantidadRecibida
+            }))
+            .ToListAsync(cancellationToken);
+
+        var resultado = ordenes
+            .Select(o => new OrdenPendienteDto
+            {
+                OrdenCompraId = o.Id,
+                ObraId = o.ObraId,
+                Items = o.Items
+                    .Select(i => new ItemOrdenPendienteDto
+                    {
+                        ArticuloId = i.ArticuloId,
+                        DescripcionArticulo = i.Descripcion ?? string.Empty,
+                        CantidadEsperada = i.Cantidad,
+                        CantidadRecibida = recibidos
+                            .Where(d => d.OrdenCompraId == o.Id && d.ArticuloId == i.ArticuloId)
+                            .Sum(d => d.CantidadRecibida),
+                        UnidadMedida = i.UnidadMedida
+                    })
+                    .ToList()
+            })
+            .ToList();
+
+        return Ok(resultado);
+    }
     /// <summary>
     /// Registra una recepción total de materiales contra una orden de compra.
     /// </summary>
@@ -276,7 +369,7 @@ public class RecepcionesController : ControllerBase
                 recepcion.Id, correlationId);
         }
 
-        return StatusCode(201, recepcion);
+        return StatusCode(201, RecepcionDto.DesdeEntidad(recepcion));
     }
 
     private Guid GetCorrelationIdFromHeader()
@@ -285,4 +378,5 @@ public class RecepcionesController : ControllerBase
         return Guid.TryParse(header, out var correlationId) && correlationId != Guid.Empty
             ? correlationId
             : Guid.NewGuid();
-    }}
+    }
+}
