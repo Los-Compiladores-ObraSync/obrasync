@@ -1,3 +1,4 @@
+﻿using System.Text.Json.Serialization;
 using System.Text;
 using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -45,6 +46,18 @@ builder.Services.AddMassTransit(x =>
                 h.Password(password);
             });
 
+            cfg.ConfigureJsonSerializerOptions(options =>
+            {
+                for (var i = options.Converters.Count - 1; i >= 0; i--)
+                {
+                    if (options.Converters[i].GetType().Name == "StringDecimalJsonConverter")
+                        options.Converters.RemoveAt(i);
+                }
+
+                // sin el convertidor, los consumidores dejarían de poder leer decimales que lleguen como texto (mensajes viejos)
+                options.NumberHandling = JsonNumberHandling.AllowReadingFromString;
+                return options;
+            });
             cfg.ConfigureEndpoints(context);
         });
     }
