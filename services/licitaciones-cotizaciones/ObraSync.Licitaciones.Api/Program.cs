@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ObraSync.Licitaciones.Application.Interfaces;
+using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Handlers;
 using ObraSync.Licitaciones.Infrastructure;
 using ObraSync.Licitaciones.Infrastructure.Consumers;
@@ -36,8 +37,10 @@ builder.Services.AddDbContext<LicitacionesDbContext>(options =>
 
 // Repositorios y Handlers de Aplicación
 builder.Services.AddScoped<ILicitacionRepository, LicitacionRepository>();
+builder.Services.AddScoped<ICotizacionRepository, CotizacionRepository>();
 builder.Services.AddScoped<GetLicitacionesQueryHandler>();
 builder.Services.AddScoped<GetLicitacionByIdQueryHandler>();
+builder.Services.AddScoped<CrearCotizacionCommandHandler>();
 
 // RabbitMQ + MassTransit (misma convención que Requisiciones)
 var useInMemoryTransport = string.Equals(
