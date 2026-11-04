@@ -186,6 +186,16 @@ public class RecepcionesController : ControllerBase
                 detail: "La fecha de recepción es obligatoria.");
         }
 
+        // Se permite un dia de tolerancia por la diferencia horaria con UTC.
+        DateTime fechaMaximaPermitida = DateTime.UtcNow.Date.AddDays(1);
+
+        if (request.FechaRecepcion.Date > fechaMaximaPermitida)
+        {
+            return Problem(
+                statusCode: 400,
+                detail: "La fecha de recepcion no puede ser futura.");
+        }
+
         if (request.Observaciones?.Length > 500)
         {
             return Problem(

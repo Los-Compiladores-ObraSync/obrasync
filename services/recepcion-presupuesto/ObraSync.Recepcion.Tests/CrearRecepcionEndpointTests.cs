@@ -70,14 +70,14 @@ public class CrearRecepcionEndpointTests : IClassFixture<RecepcionApiFactory>
         Guid obraId,
         Guid articuloId,
         decimal cantidadEsperada = 100,
-        decimal cantidadRecibida = 100)
+        decimal cantidadRecibida = 100, DateTime? fechaRecepcion = null)
     {
         return new
         {
             obraId,
             ordenCompraId,
             numeroRemito = $"REM-{Guid.NewGuid():N}",
-            fechaRecepcion = DateTime.UtcNow,
+            fechaRecepcion = fechaRecepcion ?? DateTime.UtcNow,
             observaciones = "Entrega de materiales",
             detalles = new[]
             {
@@ -430,5 +430,58 @@ public class CrearRecepcionEndpointTests : IClassFixture<RecepcionApiFactory>
             "/api/recepciones", solicitud);
 
         Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(0)]
+    [InlineData(1)]
+    public async Task CrearRecepcion_FechaPermitida_Devuelve201(int dias)
+    {
+        var (ordenId, obraId, articuloId) = await CrearOrdenCompraDePrueba();
+
+        using var client = CrearClienteConToken();
+
+        DateTime fechaRecepcion = DateTime.UtcNow.Date.AddDays(dias);
+
+        var solicitud = CrearSolicitud(
+            ordenId,
+            obraId,
+            articuloId,
+            fechaRecepcion: fechaRecepcion);
+
+        var respuesta = await client.PostAsJsonAsync(
+            "/api/recepciones", solicitud);
+
+        Assert.Equal(HttpStatusCode.Created, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task CrearRecepcion_FechaFutura_Devuelve400()
+    {
+        var (ordenId, obraId, articuloId) = await CrearOrdenCompraDePrueba();
+
+        using var client = CrearClienteConToken();
+
+        DateTime fechaRecepcion = DateTime.UtcNow.Date.AddDays(2);
+
+        var solicitud = CrearSolicitud(
+            ordenId,
+            obraId,
+            articuloId,
+            fechaRecepcion: fechaRecepcion);
+
+        var respuesta = await client.PostAsJsonAsync(
+            "/api/recepciones", solicitud);
+
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+
+        bool seGuardo = await db.Recepciones
+            .AnyAsync(r => r.OrdenCompraId == ordenId);
+
+        Assert.False(seGuardo);
     }
 }
