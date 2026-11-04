@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ObraSync.Licitaciones.Domain.Entities;
 
 namespace ObraSync.Licitaciones.Infrastructure;
@@ -12,9 +13,15 @@ public class LicitacionesDbContext : DbContext
     public DbSet<RequisicionAprobadaItem> RequisicionAprobadaItems => Set<RequisicionAprobadaItem>();
     public DbSet<Licitacion> Licitaciones => Set<Licitacion>();
     public DbSet<LicitacionItem> LicitacionItems => Set<LicitacionItem>();
+    public DbSet<Cotizacion> Cotizaciones => Set<Cotizacion>();
+    public DbSet<CotizacionItem> CotizacionItems => Set<CotizacionItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        var utcDateTimeConverter = new ValueConverter<DateTime, DateTime>(
+            v => v.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v, DateTimeKind.Utc),
+            v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
         // Índice único: la base de datos misma impide procesar dos veces el mismo EventId
         modelBuilder.Entity<EventoProcesado>()
             .HasIndex(e => e.EventId)
@@ -50,6 +57,33 @@ public class LicitacionesDbContext : DbContext
             e.Property(x => x.Cantidad).HasPrecision(18, 3);
             e.Property(x => x.Descripcion).HasMaxLength(300);
             e.Property(x => x.UnidadMedida).HasMaxLength(20);
+        });
+
+        modelBuilder.Entity<Cotizacion>(e =>
+        {
+            e.ToTable("Cotizaciones");
+            e.HasKey(x => x.CotizacionId);
+            e.HasIndex(x => x.LicitacionId);
+            e.HasIndex(x => new { x.LicitacionId, x.ProveedorId }).IsUnique();
+            e.Property(x => x.Flete).HasPrecision(18, 2);
+            e.Property(x => x.FechaCreacion).HasConversion(utcDateTimeConverter);
+
+            e.HasOne<Licitacion>()
+                .WithMany()
+                .HasForeignKey(x => x.LicitacionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(x => x.Items)
+                .WithOne()
+                .HasForeignKey(i => i.CotizacionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CotizacionItem>(e =>
+        {
+            e.ToTable("CotizacionItems");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.PrecioUnitario).HasPrecision(18, 2);
         });
     }
 }
