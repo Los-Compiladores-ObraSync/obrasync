@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ObraSync.Licitaciones.Infrastructure;
 using ObraSync.Licitaciones.Infrastructure.Consumers;
+using ObraSync.Licitaciones.Application.Interfaces;
+using ObraSync.Licitaciones.Application.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +24,10 @@ builder.Services.AddProblemDetails(options =>
 
 builder.Services.AddDbContext<LicitacionesDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DbLicit")));
+
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<ILicitacionRepository, LicitacionRepository>();
+builder.Services.AddScoped<ILicitacionService, LicitacionService>();
 
 // RabbitMQ + MassTransit (misma convención que Requisiciones)
 var useInMemoryTransport = string.Equals(
