@@ -41,6 +41,7 @@ builder.Services.AddScoped<ICotizacionRepository, CotizacionRepository>();
 builder.Services.AddScoped<GetLicitacionesQueryHandler>();
 builder.Services.AddScoped<GetLicitacionByIdQueryHandler>();
 builder.Services.AddScoped<CrearCotizacionCommandHandler>();
+builder.Services.AddScoped<GetCotizacionesByLicitacionIdQueryHandler>();
 
 // RabbitMQ + MassTransit (misma convención que Requisiciones)
 var useInMemoryTransport = string.Equals(

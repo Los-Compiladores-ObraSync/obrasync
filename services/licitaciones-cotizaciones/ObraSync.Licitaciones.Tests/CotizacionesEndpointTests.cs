@@ -456,4 +456,150 @@ public class CotizacionesEndpointTests : IClassFixture<WebApplicationFactory<Pro
         var forbiddenCompradorResp = await client.PostAsJsonAsync("/api/cotizaciones", payload);
         await AssertProblemDetailsWithCorrelationIdAsync(forbiddenCompradorResp, HttpStatusCode.Forbidden, correlationId);
     }
+
+    [Theory]
+    [InlineData("Comprador")]
+    [InlineData("Admin")]
+    public async Task GetCotizaciones_ConRolCompradorOAdmin_RetornaListaDeCotizacionesDeLaLicitacionConFechasUtc(string rolConsulta)
+    {
+        var articulo1 = Guid.NewGuid();
+        var articulo2 = Guid.NewGuid();
+        var licitacion = await SembrarLicitacionAsync(EstadoLicitacion.Abierta, null, articulo1, articulo2);
+        var proveedor1Id = Guid.NewGuid();
+        var proveedor2Id = Guid.NewGuid();
+
+        var client = _factory.CreateClient();
+
+        // Dos proveedores cargan sus cotizaciones para la misma licitación
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedor1Id));
+        var post1 = await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacion.LicitacionId,
+            ProveedorId = proveedor1Id,
+            Flete = 10000m,
+            PlazoEntregaDias = 5,
+            Items = new List<CrearCotizacionItemDto>
+            {
+                new() { ArticuloId = articulo1, PrecioUnitario = 8500m },
+                new() { ArticuloId = articulo2, PrecioUnitario = 4000m }
+            }
+        });
+        Assert.Equal(HttpStatusCode.Created, post1.StatusCode);
+
+        await Task.Delay(20);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedor2Id));
+        var post2 = await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacion.LicitacionId,
+            ProveedorId = proveedor2Id,
+            Flete = 12000m,
+            PlazoEntregaDias = 3,
+            Items = new List<CrearCotizacionItemDto>
+            {
+                new() { ArticuloId = articulo1, PrecioUnitario = 8100m },
+                new() { ArticuloId = articulo2, PrecioUnitario = 4150m }
+            }
+        });
+        Assert.Equal(HttpStatusCode.Created, post2.StatusCode);
+
+        // El Comprador o Admin consulta la matriz comparativa
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt(rolConsulta));
+
+        var getResp = await client.GetAsync($"/api/cotizaciones?licitacionId={licitacion.LicitacionId}");
+        Assert.Equal(HttpStatusCode.OK, getResp.StatusCode);
+
+        var rawJson = await getResp.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(rawJson);
+        Assert.Equal(2, doc.RootElement.GetArrayLength());
+        foreach (var elem in doc.RootElement.EnumerateArray())
+        {
+            Assert.EndsWith("Z", elem.GetProperty("fechaCreacion").GetString());
+        }
+
+        var cotizaciones = doc.RootElement.Deserialize<List<CotizacionResponseDto>>(
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.NotNull(cotizaciones);
+        Assert.Equal(2, cotizaciones.Count);
+        Assert.Equal(proveedor2Id, cotizaciones[0].ProveedorId);
+        Assert.Equal(proveedor1Id, cotizaciones[1].ProveedorId);
+        Assert.All(cotizaciones, c => Assert.Equal(2, c.Items.Count));
+    }
+
+    [Fact]
+    public async Task GetCotizaciones_LicitacionExistenteSinCotizaciones_Retorna200OkConListaVacia()
+    {
+        var licitacion = await SembrarLicitacionAsync(EstadoLicitacion.Abierta);
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
+
+        var response = await client.GetAsync($"/api/cotizaciones?licitacionId={licitacion.LicitacionId}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var lista = await response.Content.ReadFromJsonAsync<List<CotizacionResponseDto>>();
+        Assert.NotNull(lista);
+        Assert.Empty(lista);
+    }
+
+    [Fact]
+    public async Task GetCotizaciones_SinParametroLicitacionIdOConGuidVacio_Retorna400BadRequestConProblemDetailsYCorrelationId()
+    {
+        var correlationId = Guid.NewGuid().ToString();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
+
+        // 1. Sin licitacionId en query string
+        var respSinParam = await client.GetAsync("/api/cotizaciones");
+        await AssertProblemDetailsWithCorrelationIdAsync(respSinParam, HttpStatusCode.BadRequest, correlationId);
+
+        // 2. Con licitacionId = Guid.Empty
+        var respGuidVacio = await client.GetAsync($"/api/cotizaciones?licitacionId={Guid.Empty}");
+        await AssertProblemDetailsWithCorrelationIdAsync(respGuidVacio, HttpStatusCode.BadRequest, correlationId);
+    }
+
+    [Fact]
+    public async Task GetCotizaciones_LicitacionInexistente_Retorna404NotFoundConProblemDetailsYCorrelationId()
+    {
+        var correlationId = Guid.NewGuid().ToString();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
+
+        var response = await client.GetAsync($"/api/cotizaciones?licitacionId={Guid.NewGuid()}");
+        await AssertProblemDetailsWithCorrelationIdAsync(response, HttpStatusCode.NotFound, correlationId);
+    }
+
+    [Fact]
+    public async Task GetCotizaciones_SeguridadPorRol_SinTokenRetorna401_ProveedorOCapatazRetornan403ConProblemDetailsYCorrelationId()
+    {
+        var licitacion = await SembrarLicitacionAsync(EstadoLicitacion.Abierta);
+        var correlationId = Guid.NewGuid().ToString();
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
+
+        // 1. Sin token -> 401 Unauthorized
+        var unauthResp = await client.GetAsync($"/api/cotizaciones?licitacionId={licitacion.LicitacionId}");
+        await AssertProblemDetailsWithCorrelationIdAsync(unauthResp, HttpStatusCode.Unauthorized, correlationId);
+
+        // 2. Rol Proveedor -> 403 Forbidden (un proveedor no puede espiar cotizaciones de la matriz comparativa)
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor"));
+        var forbiddenProvResp = await client.GetAsync($"/api/cotizaciones?licitacionId={licitacion.LicitacionId}");
+        await AssertProblemDetailsWithCorrelationIdAsync(forbiddenProvResp, HttpStatusCode.Forbidden, correlationId);
+
+        // 3. Rol Capataz -> 403 Forbidden
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Capataz"));
+        var forbiddenCapatazResp = await client.GetAsync($"/api/cotizaciones?licitacionId={licitacion.LicitacionId}");
+        await AssertProblemDetailsWithCorrelationIdAsync(forbiddenCapatazResp, HttpStatusCode.Forbidden, correlationId);
+    }
 }
