@@ -47,3 +47,22 @@ public class LicitacionItem
     public decimal Cantidad { get; set; }
     public string UnidadMedida { get; set; } = "";
 }
+
+public class Cotizacion
+{
+    public Guid CotizacionId { get; set; }
+    public Guid LicitacionId { get; set; }
+    public Guid ProveedorId { get; set; }
+    public decimal Flete { get; set; }
+    public int PlazoEntregaDias { get; set; }
+    public DateTime FechaCreacion { get; set; }
+    public List<CotizacionItem> Items { get; set; } = new();
+}
+
+public class CotizacionItem
+{
+    public Guid Id { get; set; }
+    public Guid CotizacionId { get; set; }
+    public Guid ArticuloId { get; set; }
+    public decimal PrecioUnitario { get; set; }
+}
