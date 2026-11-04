@@ -1,7 +1,7 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
-import { fechaEnPalabras } from '../obras/fechaEnPalabras'
+import { esFechaPasada, fechaEnPalabras } from '../obras/fechaEnPalabras'
 import { type Capataz, obtenerCapataces } from '../obras/capatacesService'
 import { crearObra } from '../obras/obrasService'
 import {
@@ -207,6 +207,12 @@ export function NuevaObraPage() {
           />
           {fechaEnPalabras(fechaInicio) && (
             <p className={styles.ayuda}>Empieza el {fechaEnPalabras(fechaInicio)}.</p>
+          )}
+          {/* Aviso suave (#127): una obra que ya empezó es un caso válido, así que no bloquea. */}
+          {esFechaPasada(fechaInicio) && (
+            <p className={styles.aviso} role="status">
+              Esta fecha ya pasó. ¿La obra ya empezó? Si es así, está bien.
+            </p>
           )}
           {errores.fechaInicio && (
             <p id="obra-fecha-error" className={styles.errorCampo}>{errores.fechaInicio}</p>

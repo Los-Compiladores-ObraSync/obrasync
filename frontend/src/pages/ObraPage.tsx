@@ -12,6 +12,11 @@ export function ObraPage() {
           </Link>
         </li>
         <li>
+          <Link to="/obra/recepcion" className="accion-grande">
+            Recibir mercadería
+          </Link>
+        </li>
+        <li>
           <Link to="/obra/requisiciones" className="accion-grande">
             Historial de requisiciones
           </Link>

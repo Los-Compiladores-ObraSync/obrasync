@@ -167,6 +167,35 @@ export function reiniciarRequisicionesMock() {
   requisicionesMock = crearRequisicionesMock()
 }
 
+// Órdenes de compra pendientes de recibir (pantalla de recepción del Capataz).
+// En memoria: al registrar una recepción total, la orden sale de la lista hasta recargar.
+function crearOrdenesPendientesMock() {
+  return [
+    {
+      ordenCompraId: 'e1e2e3e4-0000-0000-0000-000000000001',
+      obraId: OBRA_MOCK_ID,
+      items: [
+        { articuloId: MOCK_CATALOGO[0].articuloId, descripcionArticulo: MOCK_CATALOGO[0].descripcion, cantidadEsperada: 80, cantidadRecibida: 0, unidadMedida: MOCK_CATALOGO[0].unidadMedida },
+        { articuloId: MOCK_CATALOGO[1].articuloId, descripcionArticulo: MOCK_CATALOGO[1].descripcion, cantidadEsperada: 12, cantidadRecibida: 0, unidadMedida: MOCK_CATALOGO[1].unidadMedida },
+      ],
+    },
+    {
+      ordenCompraId: 'e1e2e3e4-0000-0000-0000-000000000002',
+      obraId: OBRA_MOCK_ID,
+      items: [
+        { articuloId: MOCK_CATALOGO[2].articuloId, descripcionArticulo: MOCK_CATALOGO[2].descripcion, cantidadEsperada: 40, cantidadRecibida: 0, unidadMedida: MOCK_CATALOGO[2].unidadMedida },
+      ],
+    },
+  ]
+}
+
+let ordenesPendientesMock = crearOrdenesPendientesMock()
+
+/** Solo para tests: vuelve las órdenes pendientes simuladas a su estado inicial. */
+export function reiniciarRecepcionesMock() {
+  ordenesPendientesMock = crearOrdenesPendientesMock()
+}
+
 export const handlers: RequestHandler[] = [
   // Contrato: POST /api/usuarios/login → 200 AuthResponseDto | 401 ProblemDetails
   // Se usa '*/api/usuarios/login' para interceptar la ruta tanto relativa (en browser con proxy)
@@ -495,5 +524,62 @@ export const handlers: RequestHandler[] = [
     req.rechazadorId = 'a1b2c3d4-0000-0000-0000-000000000002'
     req.fechaRechazo = new Date().toISOString()
     return HttpResponse.json(req, { status: 200 })
+  }),
+
+  // Contrato: GET /api/recepciones/ordenes-pendientes?obraId= → 200 OrdenPendienteDto[]
+  http.get('*/api/recepciones/ordenes-pendientes', ({ request }) => {
+    const obraId = new URL(request.url).searchParams.get('obraId')
+    const lista = ordenesPendientesMock.filter((o) => !obraId || o.obraId === obraId)
+    return HttpResponse.json(lista, { status: 200 })
+  }),
+
+  // Contrato: POST /api/recepciones → 201 RecepcionDto | 400 | 409 ProblemDetails
+  // Solo acepta recepciones TOTALES (como el backend en este sprint). Errores de red, 403 y 409
+  // se configuran en los tests con server.use().
+  http.post('*/api/recepciones', async ({ request }) => {
+    const body = (await request.json()) as {
+      obraId?: string
+      ordenCompraId?: string
+      numeroRemito?: string
+      fechaRecepcion?: string
+      observaciones?: string | null
+      detalles?: { articuloId: string; cantidadEsperada: number; cantidadRecibida: number }[]
+    }
+    const orden = ordenesPendientesMock.find((o) => o.ordenCompraId === body.ordenCompraId)
+    if (!orden) {
+      return HttpResponse.json(
+        { title: 'Orden inexistente', status: 400, detail: 'La orden de compra no existe o ya fue recibida.' },
+        { status: 400 },
+      )
+    }
+    if (!body.numeroRemito?.trim() || !body.fechaRecepcion || !body.detalles?.length) {
+      return HttpResponse.json(
+        { title: 'Datos inválidos', status: 400, detail: 'Faltan datos de la recepción.' },
+        { status: 400 },
+      )
+    }
+    if (body.detalles.some((d) => d.cantidadRecibida !== d.cantidadEsperada)) {
+      return HttpResponse.json(
+        { title: 'Entrega parcial', status: 400, detail: 'La recepción parcial todavía no está disponible.' },
+        { status: 400 },
+      )
+    }
+
+    ordenesPendientesMock = ordenesPendientesMock.filter((o) => o.ordenCompraId !== orden.ordenCompraId)
+    return HttpResponse.json(
+      {
+        id: 'f1f2f3f4-0000-0000-0000-000000000001',
+        obraId: orden.obraId,
+        ordenCompraId: orden.ordenCompraId,
+        recepcionadoPorUsuarioId: 'a1b2c3d4-0000-0000-0000-000000000001',
+        numeroRemito: body.numeroRemito.trim(),
+        fechaRecepcion: body.fechaRecepcion,
+        estado: 3,
+        observaciones: body.observaciones ?? null,
+        createdAt: new Date().toISOString(),
+        updatedAt: null,
+      },
+      { status: 201 },
+    )
   }),
 ]

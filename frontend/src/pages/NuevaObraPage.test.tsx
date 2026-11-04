@@ -49,6 +49,26 @@ describe('NuevaObraPage', () => {
     expect(await screen.findByRole('option', { name: 'Juan Pérez' })).toBeInTheDocument()
   })
 
+  it('avisa (sin bloquear) cuando la fecha de inicio ya pasó', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+
+    await user.type(screen.getByLabelText('Fecha de inicio'), '2020-01-01')
+
+    expect(
+      screen.getByText('Esta fecha ya pasó. ¿La obra ya empezó? Si es así, está bien.'),
+    ).toBeInTheDocument()
+  })
+
+  it('no avisa cuando la fecha de inicio es futura', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+
+    await user.type(screen.getByLabelText('Fecha de inicio'), '2999-12-31')
+
+    expect(screen.queryByText(/Esta fecha ya pasó/)).not.toBeInTheDocument()
+  })
+
   it('arranca con una etapa vacía', () => {
     renderPagina()
 
