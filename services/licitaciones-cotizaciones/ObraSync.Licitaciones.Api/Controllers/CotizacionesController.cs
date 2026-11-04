@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Commands;
 using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Handlers;
+using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Queries;
 
 namespace ObraSync.Licitaciones.Api.Controllers;
 
@@ -14,10 +15,58 @@ namespace ObraSync.Licitaciones.Api.Controllers;
 public class CotizacionesController : ControllerBase
 {
     private readonly CrearCotizacionCommandHandler _crearCotizacionHandler;
+    private readonly GetCotizacionesByLicitacionIdQueryHandler _getCotizacionesHandler;
 
-    public CotizacionesController(CrearCotizacionCommandHandler crearCotizacionHandler)
+    public CotizacionesController(
+        CrearCotizacionCommandHandler crearCotizacionHandler,
+        GetCotizacionesByLicitacionIdQueryHandler getCotizacionesHandler)
     {
         _crearCotizacionHandler = crearCotizacionHandler;
+        _getCotizacionesHandler = getCotizacionesHandler;
+    }
+
+    /// <summary>
+    /// Listar las cotizaciones de un pliego para la matriz comparativa (Roles: Comprador, Admin).
+    /// </summary>
+    [HttpGet]
+    [Authorize(Roles = "Comprador,Admin")]
+    [ProducesResponseType(typeof(IEnumerable<CotizacionResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCotizaciones(
+        [FromQuery] Guid? licitacionId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!licitacionId.HasValue || licitacionId.Value == Guid.Empty)
+        {
+            return Problem(
+                detail: "El parámetro de consulta 'licitacionId' es obligatorio y debe ser un GUID válido.",
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Parámetro licitacionId inválido");
+        }
+
+        try
+        {
+            var query = new GetCotizacionesByLicitacionIdQuery(licitacionId.Value);
+            var cotizaciones = await _getCotizacionesHandler.Handle(query, cancellationToken);
+            return Ok(cotizaciones);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Licitación no encontrada");
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Parámetro licitacionId inválido");
+        }
     }
 
     /// <summary>
@@ -65,9 +114,8 @@ public class CotizacionesController : ControllerBase
             var creada = await _crearCotizacionHandler.Handle(command, cancellationToken);
 
             return CreatedAtAction(
-                nameof(LicitacionesController.ObtenerPorId),
-                "Licitaciones",
-                new { id = creada.LicitacionId },
+                nameof(GetCotizaciones),
+                new { licitacionId = creada.LicitacionId },
                 creada);
         }
         catch (KeyNotFoundException ex)
