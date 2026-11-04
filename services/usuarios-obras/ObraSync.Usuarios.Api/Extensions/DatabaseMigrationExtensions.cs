@@ -149,5 +149,56 @@ public static class DatabaseMigrationExtensions
         {
             logger.LogWarning("No se encontró el usuario 'capataz@obrasync.com'. No se sembraron las obras de ejemplo.");
         }
+        // 5. Sembrado de Plantillas de Obra de Ejemplo (Tarjeta #114)
+        var demoPlantillas = new (string Nombre, string Descripcion, string[] Etapas)[]
+        {
+            (
+                "Edificio en Altura",
+                "Plantilla estándar para desarrollo inmobiliario de múltiples pisos.",
+                new[] { "Cimientos y Subsuelo", "Estructura de Hormigón", "Mampostería", "Instalaciones", "Terminaciones" }
+            ),
+            (
+                "Vivienda Unifamiliar",
+                "Plantilla básica para casas residenciales de una o dos plantas.",
+                new[] { "Replanteo y Nivelación", "Fundaciones", "Muros y Cubierta", "Instalaciones y Yesería", "Terminaciones" }
+            ),
+            (
+                "Nave Industrial",
+                "Plantilla para galpones, centros de distribución y depósitos logísticos.",
+                new[] { "Movimiento de Suelos", "Fundaciones y Bases", "Estructura Metálica", "Cerramientos y Cubierta", "Pisos Industriales" }
+            )
+        };
+
+        foreach (var (nombre, descripcion, etapas) in demoPlantillas)
+        {
+            // Idempotente: antes de crear, comprobar por nombre que la plantilla no exista
+            var existePlantilla = await context.PlantillasObra.AnyAsync(p => p.Nombre == nombre);
+            if (!existePlantilla)
+            {
+                var plantilla = new PlantillaObra
+                {
+                    Id = Guid.NewGuid(),
+                    Nombre = nombre,
+                    Descripcion = descripcion
+                };
+
+                int orden = 1;
+                foreach (var nombreEtapa in etapas)
+                {
+                    plantilla.Etapas.Add(new EtapaPlantilla
+                    {
+                        Id = Guid.NewGuid(),
+                        NombreEtapa = nombreEtapa,
+                        Orden = orden++
+                    });
+                }
+
+                context.PlantillasObra.Add(plantilla);
+                logger.LogInformation("Plantilla de prueba creada: {Nombre} con {EtapasCount} etapas",
+                    nombre, etapas.Length);
+            }
+        }
+
+        await context.SaveChangesAsync();
     }
 }
