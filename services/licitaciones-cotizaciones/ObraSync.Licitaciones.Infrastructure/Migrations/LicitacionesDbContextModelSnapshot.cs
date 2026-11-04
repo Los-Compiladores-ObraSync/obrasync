@@ -22,6 +22,61 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.Cotizacion", b =>
+                {
+                    b.Property<Guid>("CotizacionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Flete")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("LicitacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("PlazoEntregaDias")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ProveedorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("CotizacionId");
+
+                    b.HasIndex("LicitacionId");
+
+                    b.HasIndex("LicitacionId", "ProveedorId")
+                        .IsUnique();
+
+                    b.ToTable("Cotizaciones", (string)null);
+                });
+
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.CotizacionItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ArticuloId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CotizacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("PrecioUnitario")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CotizacionId");
+
+                    b.ToTable("CotizacionItems", (string)null);
+                });
+
             modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.Licitacion", b =>
                 {
                     b.Property<Guid>("LicitacionId")
@@ -171,6 +226,24 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                     b.ToTable("EventosProcesados");
                 });
 
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.Cotizacion", b =>
+                {
+                    b.HasOne("ObraSync.Licitaciones.Domain.Entities.Licitacion", null)
+                        .WithMany()
+                        .HasForeignKey("LicitacionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.CotizacionItem", b =>
+                {
+                    b.HasOne("ObraSync.Licitaciones.Domain.Entities.Cotizacion", null)
+                        .WithMany("Items")
+                        .HasForeignKey("CotizacionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.LicitacionItem", b =>
                 {
                     b.HasOne("ObraSync.Licitaciones.Domain.Entities.Licitacion", null)
@@ -187,6 +260,11 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                         .HasForeignKey("RequisicionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.Cotizacion", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.Licitacion", b =>

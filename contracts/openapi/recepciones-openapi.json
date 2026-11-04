@@ -286,7 +286,8 @@
           },
           "fechaRecepcion": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "La fecha no puede superar el dia siguiente a la fecha UTC del servidor. Se permite un dia de tolerancia por la diferencia horaria con Argentina."
           },
           "observaciones": {
             "type": "string",
