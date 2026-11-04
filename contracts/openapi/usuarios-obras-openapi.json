@@ -563,6 +563,130 @@
           }
         }
       }
+    },
+    "/api/plantillas-obra": {
+      "get": {
+        "tags": [
+          "PlantillasObra"
+        ],
+        "summary": "Obtiene todas las plantillas de obra preconfiguradas",
+        "description": "Roles permitidos: Admin, Comprador, Capataz",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Listado de plantillas obtenido exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlantillaObraResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No autenticado"
+          },
+          "403": {
+            "description": "No autorizado para este rol"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "PlantillasObra"
+        ],
+        "summary": "Crea una nueva plantilla de obra personalizada",
+        "description": "Roles permitidos: Admin, Comprador",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearPlantillaObraRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Plantilla creada exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlantillaObraResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos de entrada inválidos"
+          },
+          "401": {
+            "description": "No autenticado"
+          },
+          "403": {
+            "description": "No autorizado para este rol"
+          }
+        }
+      }
+    },
+    "/api/plantillas-obra/{id}": {
+      "get": {
+        "tags": [
+          "PlantillasObra"
+        ],
+        "summary": "Obtiene una plantilla de obra por su identificador",
+        "description": "Roles permitidos: Admin, Comprador, Capataz",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plantilla encontrada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlantillaObraResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No autenticado"
+          },
+          "403": {
+            "description": "No autorizado para este rol"
+          },
+          "404": {
+            "description": "Plantilla no encontrada"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -645,6 +769,65 @@
               "type": "string"
             },
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CrearPlantillaObraRequestDto": {
+        "type": "object",
+        "required": [
+          "nombre"
+        ],
+        "properties": {
+          "nombre": {
+            "type": "string"
+          },
+          "descripcion": {
+            "type": "string"
+          },
+          "etapas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlantillaObraResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "descripcion": {
+            "type": "string"
+          },
+          "etapas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EtapaPlantillaDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "EtapaPlantillaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nombreEtapa": {
+            "type": "string"
+          },
+          "orden": {
+            "type": "integer"
           }
         },
         "additionalProperties": false

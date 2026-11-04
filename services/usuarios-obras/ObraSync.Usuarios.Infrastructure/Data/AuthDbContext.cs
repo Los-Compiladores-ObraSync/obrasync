@@ -13,9 +13,11 @@ public class AuthDbContext : IdentityDbContext<AppUser, AppRole, Guid>
     {
     }
 
-    // NUEVOS DBSETS PARA OBRAS Y ETAPAS
+    // DBSETS EXISTENTES Y DE PLANTILLAS
     public DbSet<Obra> Obras { get; set; }
     public DbSet<EtapaObra> EtapasObras { get; set; }
+    public DbSet<PlantillaObra> PlantillasObra { get; set; }
+    public DbSet<EtapaPlantilla> EtapasPlantilla { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -73,6 +75,40 @@ public class AuthDbContext : IdentityDbContext<AppUser, AppRole, Guid>
             entity.Property(e => e.Estado)
                 .HasMaxLength(50)
                 .HasDefaultValue("Pendiente");
+        });
+
+        // CONFIGURACIÓN DE LA ENTIDAD PLANTILLA OBRA
+        builder.Entity<PlantillaObra>(entity =>
+        {
+            entity.ToTable("PlantillasObra");
+            entity.HasKey(p => p.Id);
+
+            entity.Property(p => p.Nombre)
+                .IsRequired()
+                .HasMaxLength(150);
+
+            entity.Property(p => p.Descripcion)
+                .HasMaxLength(500);
+
+            // Relación con las Etapas de la Plantilla (1 Plantilla -> Muchas Etapas)
+            entity.HasMany(p => p.Etapas)
+                .WithOne(e => e.PlantillaObra)
+                .HasForeignKey(e => e.PlantillaObraId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // CONFIGURACIÓN DE LA ENTIDAD ETAPA PLANTILLA
+        builder.Entity<EtapaPlantilla>(entity =>
+        {
+            entity.ToTable("EtapasPlantilla");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.NombreEtapa)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(e => e.Orden)
+                .IsRequired();
         });
     }
 }

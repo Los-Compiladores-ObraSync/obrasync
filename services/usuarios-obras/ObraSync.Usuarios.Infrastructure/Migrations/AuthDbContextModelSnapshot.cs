@@ -260,6 +260,30 @@ namespace ObraSync.Usuarios.Infrastructure.Migrations
                     b.ToTable("EtapasObras", (string)null);
                 });
 
+            modelBuilder.Entity("ObraSync.Usuarios.Domain.Entities.EtapaPlantilla", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NombreEtapa")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Orden")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PlantillaObraId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlantillaObraId");
+
+                    b.ToTable("EtapasPlantilla", (string)null);
+                });
+
             modelBuilder.Entity("ObraSync.Usuarios.Domain.Entities.Obra", b =>
                 {
                     b.Property<Guid>("Id")
@@ -287,6 +311,27 @@ namespace ObraSync.Usuarios.Infrastructure.Migrations
                     b.HasIndex("CapatazId");
 
                     b.ToTable("Obras", (string)null);
+                });
+
+            modelBuilder.Entity("ObraSync.Usuarios.Domain.Entities.PlantillaObra", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PlantillasObra", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -351,6 +396,17 @@ namespace ObraSync.Usuarios.Infrastructure.Migrations
                     b.Navigation("Obra");
                 });
 
+            modelBuilder.Entity("ObraSync.Usuarios.Domain.Entities.EtapaPlantilla", b =>
+                {
+                    b.HasOne("ObraSync.Usuarios.Domain.Entities.PlantillaObra", "PlantillaObra")
+                        .WithMany("Etapas")
+                        .HasForeignKey("PlantillaObraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PlantillaObra");
+                });
+
             modelBuilder.Entity("ObraSync.Usuarios.Domain.Entities.Obra", b =>
                 {
                     b.HasOne("ObraSync.Usuarios.Domain.Entities.AppUser", "Capataz")
@@ -363,6 +419,11 @@ namespace ObraSync.Usuarios.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("ObraSync.Usuarios.Domain.Entities.Obra", b =>
+                {
+                    b.Navigation("Etapas");
+                });
+
+            modelBuilder.Entity("ObraSync.Usuarios.Domain.Entities.PlantillaObra", b =>
                 {
                     b.Navigation("Etapas");
                 });
