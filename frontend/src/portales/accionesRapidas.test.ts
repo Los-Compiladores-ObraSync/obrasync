@@ -25,12 +25,14 @@ describe('accionesParaRol', () => {
     ])
   })
 
-  it('el Proveedor y un rol desconocido no tienen accesos rápidos', () => {
-    expect(accionesParaRol('Proveedor')).toEqual([])
+  it('el Proveedor ve las licitaciones abiertas y un rol desconocido no tiene accesos rápidos', () => {
+    expect(accionesParaRol('Proveedor').map((a) => a.texto)).toEqual([
+      'Licitaciones abiertas',
+    ])
     expect(accionesParaRol('Inventado')).toEqual([])
   })
 
-  it.each(['Capataz', 'Comprador', 'Admin'])(
+  it.each(['Capataz', 'Comprador', 'Admin', 'Proveedor'])(
     'todas las acciones de %s llevan a un portal al que ese rol puede entrar',
     (rol) => {
       for (const accion of accionesParaRol(rol)) {

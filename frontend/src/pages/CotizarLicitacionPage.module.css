@@ -1,0 +1,193 @@
+/* ── CotizarLicitacionPage — mobile-first ────────────────────────────────────
+   Formulario pensado para celular: una columna, inputs grandes y área de toque cómoda.
+─────────────────────────────────────────────────────────────────────────── */
+
+.contenedor {
+  width: 100%;
+}
+
+.volver {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--azul);
+  text-decoration: none;
+}
+
+.volver:hover {
+  text-decoration: underline;
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem 1.25rem;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+}
+
+.grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.label {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.input {
+  width: 100%;
+  min-height: var(--alto-toque);
+  padding: 0 0.875rem;
+  border: 2px solid var(--borde);
+  border-radius: 10px;
+  font-size: 1.125rem;
+  color: var(--texto);
+  background: var(--fondo);
+}
+
+.input:focus {
+  border-color: var(--foco);
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.inputInvalido,
+.inputInvalido:focus {
+  border-color: #dc2626;
+  outline-color: #dc2626;
+}
+
+.errorCampo {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.itemsFieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.itemsLegend {
+  padding: 0;
+  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.filaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 2px solid var(--borde);
+  border-left: 6px solid var(--naranja);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.infoItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.descripcionItem {
+  font-size: 1.125rem;
+  color: var(--azul);
+}
+
+.cantidadItem {
+  font-size: 1rem;
+  color: var(--texto-suave);
+}
+
+.botonEnviar {
+  width: 100%;
+  min-height: 64px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-top: 0.5rem;
+}
+
+.botonEnviar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.tarjetaConfirmacion {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 2px solid #86efac;
+  border-radius: 16px;
+  background: #f0fdf4;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+}
+
+.tituloExito {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #166534;
+}
+
+.tarjetaAviso {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-left: 6px solid var(--naranja);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+}
+
+.enlaceVolver {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--alto-toque);
+  padding: 0 1.25rem;
+  border: 2px solid var(--azul);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--azul);
+  font-size: 1.125rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.enlaceVolver:hover {
+  border-color: var(--azul);
+  text-decoration: underline;
+}
+
+.errorApi {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 1rem;
+  line-height: 1.4;
+  background: #fef2f2;
+  border: 2px solid #fca5a5;
+  color: #991b1b;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}

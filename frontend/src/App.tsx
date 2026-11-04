@@ -4,6 +4,7 @@ import { LayoutApp } from './layout/LayoutApp'
 import { AprobarRequisicionesPage } from './pages/AprobarRequisicionesPage'
 import { CambiarContrasenaPage } from './pages/CambiarContrasenaPage'
 import { ComprasPage } from './pages/ComprasPage'
+import { CotizarLicitacionPage } from './pages/CotizarLicitacionPage'
 import { DetalleRequisicionPage } from './pages/DetalleRequisicionPage'
 import { HistorialRequisicionesPage } from './pages/HistorialRequisicionesPage'
 import { InicioPage } from './pages/InicioPage'
@@ -79,6 +80,7 @@ function App() {
             </Route>
             <Route path="proveedores" element={<SoloPortal portalId="proveedores" />}>
               <Route index element={<ProveedoresPage />} />
+              <Route path="licitaciones/:id" element={<CotizarLicitacionPage />} />
             </Route>
           </Route>
         </Route>

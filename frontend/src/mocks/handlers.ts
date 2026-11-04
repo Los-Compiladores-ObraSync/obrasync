@@ -196,6 +196,104 @@ export function reiniciarRecepcionesMock() {
   ordenesPendientesMock = crearOrdenesPendientesMock()
 }
 
+// Licitaciones simuladas para el portal de proveedores.
+function crearLicitacionesMock() {
+  return [
+    {
+      licitacionId: 'b1b2c3d4-1111-0000-0000-000000000001',
+      requisicionId: 'd1d2d3d4-0000-0000-0000-000000000011',
+      numeroRequisicion: 'REQ-2026-0011',
+      obraId: OBRA_MOCK_ID,
+      estado: 'Abierta',
+      fechaCreacion: '2026-10-20T10:00:00Z',
+      fechaLimiteCotizacion: '2026-11-20T18:00:00Z',
+      items: [
+        {
+          articuloId: MOCK_CATALOGO[0].articuloId,
+          descripcion: MOCK_CATALOGO[0].descripcion,
+          cantidad: 80,
+          unidadMedida: MOCK_CATALOGO[0].unidadMedida,
+        },
+        {
+          articuloId: MOCK_CATALOGO[1].articuloId,
+          descripcion: MOCK_CATALOGO[1].descripcion,
+          cantidad: 15,
+          unidadMedida: MOCK_CATALOGO[1].unidadMedida,
+        },
+      ],
+    },
+    {
+      licitacionId: 'b1b2c3d4-1111-0000-0000-000000000002',
+      requisicionId: 'd1d2d3d4-0000-0000-0000-000000000012',
+      numeroRequisicion: 'REQ-2026-0012',
+      obraId: OBRA_MOCK_ID,
+      estado: 'Abierta',
+      fechaCreacion: '2026-10-21T11:00:00Z',
+      fechaLimiteCotizacion: '2026-11-25T18:00:00Z',
+      items: [
+        {
+          articuloId: MOCK_CATALOGO[0].articuloId,
+          descripcion: MOCK_CATALOGO[0].descripcion,
+          cantidad: 20,
+          unidadMedida: MOCK_CATALOGO[0].unidadMedida,
+        },
+        {
+          articuloId: MOCK_CATALOGO[1].articuloId,
+          descripcion: MOCK_CATALOGO[1].descripcion,
+          cantidad: 10,
+          unidadMedida: MOCK_CATALOGO[1].unidadMedida,
+        },
+        {
+          articuloId: MOCK_CATALOGO[2].articuloId,
+          descripcion: MOCK_CATALOGO[2].descripcion,
+          cantidad: 30,
+          unidadMedida: MOCK_CATALOGO[2].unidadMedida,
+        },
+      ],
+    },
+    {
+      licitacionId: 'b1b2c3d4-1111-0000-0000-000000000003',
+      requisicionId: 'd1d2d3d4-0000-0000-0000-000000000010',
+      numeroRequisicion: 'REQ-2026-0010',
+      obraId: OBRA_MOCK_ID,
+      estado: 'Cerrada',
+      fechaCreacion: '2026-10-15T10:00:00Z',
+      fechaLimiteCotizacion: '2026-10-22T18:00:00Z',
+      items: [
+        {
+          articuloId: MOCK_CATALOGO[2].articuloId,
+          descripcion: MOCK_CATALOGO[2].descripcion,
+          cantidad: 40,
+          unidadMedida: MOCK_CATALOGO[2].unidadMedida,
+        },
+      ],
+    },
+  ]
+}
+
+interface CotizacionMock {
+  cotizacionId: string
+  licitacionId: string
+  proveedorId: string
+  flete?: number
+  plazoEntregaDias?: number
+  fechaCreacion: string
+  items: Array<{ articuloId: string; precioUnitario: number }>
+}
+
+function crearCotizacionesMock(): CotizacionMock[] {
+  return []
+}
+
+let licitacionesMock = crearLicitacionesMock()
+let cotizacionesMock = crearCotizacionesMock()
+
+/** Solo para tests: vuelve las licitaciones y cotizaciones simuladas a su estado inicial. */
+export function reiniciarLicitacionesMock() {
+  licitacionesMock = crearLicitacionesMock()
+  cotizacionesMock = crearCotizacionesMock()
+}
+
 export const handlers: RequestHandler[] = [
   // Contrato: POST /api/usuarios/login → 200 AuthResponseDto | 401 ProblemDetails
   // Se usa '*/api/usuarios/login' para interceptar la ruta tanto relativa (en browser con proxy)
@@ -581,5 +679,92 @@ export const handlers: RequestHandler[] = [
       },
       { status: 201 },
     )
+  }),
+
+  // Contrato: GET /api/licitaciones → 200 LicitacionResponseDto[]
+  // Al Proveedor el backend ya le devuelve únicamente las abiertas.
+  http.get('*/api/licitaciones', () => {
+    const abiertas = licitacionesMock.filter((l) => l.estado === 'Abierta')
+    return HttpResponse.json(abiertas, { status: 200 })
+  }),
+
+  // Contrato: GET /api/licitaciones/{id} → 200 LicitacionResponseDto | 404 ProblemDetails
+  http.get('*/api/licitaciones/:id', ({ params }) => {
+    const lic = licitacionesMock.find((l) => l.licitacionId === params.id)
+    if (!lic) {
+      return HttpResponse.json(
+        { title: 'No encontrada', status: 404, detail: 'La licitación no existe.' },
+        { status: 404 },
+      )
+    }
+    return HttpResponse.json(lic, { status: 200 })
+  }),
+
+  // Contrato: POST /api/cotizaciones → 201 CotizacionResponseDto | 400 | 404 | 409 ProblemDetails
+  http.post('*/api/cotizaciones', async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as {
+      licitacionId?: string
+      proveedorId?: string
+      flete?: number
+      plazoEntregaDias?: number
+      items?: Array<{ articuloId: string; precioUnitario: number }>
+    }
+
+    const lic = licitacionesMock.find((l) => l.licitacionId === body.licitacionId)
+    if (!lic) {
+      return HttpResponse.json(
+        { title: 'No encontrada', status: 404, detail: 'La licitación no existe.' },
+        { status: 404 },
+      )
+    }
+
+    if (lic.estado !== 'Abierta') {
+      return HttpResponse.json(
+        {
+          title: 'Licitación cerrada',
+          status: 400,
+          detail: 'La licitación ya se encuentra cerrada y no recibe cotizaciones.',
+        },
+        { status: 400 },
+      )
+    }
+
+    const yaCotizo = cotizacionesMock.some(
+      (c) => c.licitacionId === body.licitacionId && c.proveedorId === body.proveedorId,
+    )
+    if (yaCotizo) {
+      return HttpResponse.json(
+        {
+          title: 'Cotización duplicada',
+          status: 409,
+          detail: 'Ya cotizaste para esta licitación.',
+        },
+        { status: 409 },
+      )
+    }
+
+    if (!body.items || body.items.length === 0 || body.items.some((it) => it.precioUnitario <= 0)) {
+      return HttpResponse.json(
+        {
+          title: 'Datos inválidos',
+          status: 400,
+          detail: 'Todos los ítems deben tener un precio unitario mayor a cero.',
+        },
+        { status: 400 },
+      )
+    }
+
+    const nuevaCotizacion = {
+      cotizacionId: `cot-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      licitacionId: lic.licitacionId,
+      proveedorId: body.proveedorId ?? '',
+      flete: body.flete ?? 0,
+      plazoEntregaDias: body.plazoEntregaDias ?? 0,
+      fechaCreacion: new Date().toISOString(),
+      items: body.items,
+    }
+
+    cotizacionesMock.push(nuevaCotizacion)
+    return HttpResponse.json(nuevaCotizacion, { status: 201 })
   }),
 ]
