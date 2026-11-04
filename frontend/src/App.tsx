@@ -13,6 +13,7 @@ import { NuevaRequisicionPage } from './pages/NuevaRequisicionPage'
 import { ObraPage } from './pages/ObraPage'
 import { ObrasPage } from './pages/ObrasPage'
 import { ProveedoresPage } from './pages/ProveedoresPage'
+import { RecepcionPage } from './pages/RecepcionPage'
 import { RecuperarContrasenaPage } from './pages/RecuperarContrasenaPage'
 import { RestablecerContrasenaPage } from './pages/RestablecerContrasenaPage'
 import { RutaProtegida } from './routes/RutaProtegida'
@@ -45,6 +46,7 @@ function App() {
             <Route path="obra" element={<SoloPortal portalId="obra" />}>
               <Route index element={<ObraPage />} />
               <Route path="requisicion/nueva" element={<NuevaRequisicionPage />} />
+              <Route path="recepcion" element={<RecepcionPage />} />
               <Route
                 path="requisiciones"
                 element={

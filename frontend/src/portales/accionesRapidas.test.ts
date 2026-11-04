@@ -10,9 +10,10 @@ function portalDeRuta(ruta: string): PortalId {
 }
 
 describe('accionesParaRol', () => {
-  it('el Capataz crea requisiciones y ve su historial', () => {
+  it('el Capataz crea requisiciones, recibe mercadería y ve su historial', () => {
     expect(accionesParaRol('Capataz').map((a) => a.texto)).toEqual([
       'Nueva requisición',
+      'Recibir mercadería',
       'Historial de requisiciones',
     ])
   })

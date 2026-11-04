@@ -247,6 +247,18 @@ describe('App - acceso a los portales', () => {
     ).toBeInTheDocument()
   })
 
+  it('el Capataz llega a "Recibir mercadería" desde su portal', async () => {
+    const usuario = userEvent.setup()
+    iniciarSesionComo('Capataz')
+    renderApp('/obra')
+
+    await usuario.click(screen.getByRole('link', { name: 'Recibir mercadería' }))
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Recibir mercadería' }),
+    ).toBeInTheDocument()
+  })
+
   it.each(PORTALES.map((portal) => [portal.nombre, portal.ruta]))(
     'el Admin llega a "%s" por su ruta %s',
     (nombre, ruta) => {
