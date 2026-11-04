@@ -16,6 +16,15 @@ export interface RestablecerPasswordRequest {
   nuevaPassword: string
 }
 
+/** Cuerpo de POST /api/usuarios/cambiar-password (CambiarPasswordRequestDto del contrato). */
+export interface CambiarPasswordRequest {
+  passwordActual: string
+  /** Mínimo 6 caracteres y distinta de la actual. */
+  nuevaPassword: string
+  /** Tiene que coincidir con nuevaPassword. */
+  confirmarPassword: string
+}
+
 /**
  * Pide el enlace para restablecer la contraseña.
  * Fuente: POST /api/usuarios/password/recuperar (público, sin JWT).
@@ -40,6 +49,21 @@ export function solicitarRecuperacionPassword(email: string): Promise<MensajeRes
  */
 export function restablecerPassword(datos: RestablecerPasswordRequest): Promise<MensajeResponseDto> {
   return apiFetch<MensajeResponseDto>('/api/usuarios/password/restablecer', {
+    method: 'POST',
+    body: JSON.stringify(datos),
+  })
+}
+
+/**
+ * Cambia la contraseña del usuario con la sesión iniciada.
+ * Fuente: POST /api/usuarios/cambiar-password (requiere JWT, cualquier rol).
+ *
+ * Lanza ApiError con status 400 si la contraseña actual es incorrecta, si la nueva es igual a
+ * la actual, si la confirmación no coincide o si no cumple la política. Con 401 (token vencido)
+ * apiFetch ya cierra la sesión solo.
+ */
+export function cambiarPassword(datos: CambiarPasswordRequest): Promise<MensajeResponseDto> {
+  return apiFetch<MensajeResponseDto>('/api/usuarios/cambiar-password', {
     method: 'POST',
     body: JSON.stringify(datos),
   })

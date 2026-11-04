@@ -82,13 +82,13 @@ describe('ObrasPage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('el enlace de arriba vuelve a Gestión y Compras', async () => {
+  it('el enlace de arriba vuelve al inicio', async () => {
     renderPagina()
 
     await screen.findByRole('heading', { level: 2, name: 'Torre Alvear' })
-    expect(screen.getByRole('link', { name: '← Volver a Gestión y Compras' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '← Volver al inicio' })).toHaveAttribute(
       'href',
-      '/compras',
+      '/',
     )
   })
 })

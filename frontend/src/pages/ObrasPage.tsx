@@ -42,8 +42,8 @@ export function ObrasPage() {
 
   return (
     <section className={`${styles.contenedor} pantalla-ancha`}>
-      <Link to="/compras" className={styles.volver}>
-        ← Volver a Gestión y Compras
+      <Link to="/" className={styles.volver}>
+        ← Volver al inicio
       </Link>
       <h1>Obras</h1>
 

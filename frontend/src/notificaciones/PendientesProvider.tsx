@@ -11,10 +11,10 @@ interface Props {
   intervaloMs?: number
 }
 
-/** Mantiene al día las requisiciones que esperan aprobación (#48, #123).
+/** Mantiene al día las requisiciones que esperan aprobación (#48).
  *  Pide la lista con ?estado=Pendiente y cuenta; el backend no tiene un
- *  endpoint que devuelva solo la cantidad. La misma lista la usa el tablero de
- *  pendientes, así no se pide dos veces.
+ *  endpoint que devuelva solo la cantidad. La misma lista la usan la campana, su panel y
+ *  la tarjeta de Inicio, así no se pide dos veces.
  *  Se actualiza: al montarse (al iniciar sesión), cada intervalo, al volver a la
  *  pestaña y cuando alguien llama a refrescar(). No pide nada con la pestaña oculta. */
 export function PendientesProvider({
@@ -49,7 +49,7 @@ export function PendientesProvider({
         setHuboError(false)
       } catch {
         // Un error de red no tiene que romper el encabezado: se conserva el último número.
-        // Se avisa con huboError para que el tablero pueda ofrecer "Reintentar".
+        // Se avisa con huboError para que la tarjeta de Inicio pueda avisarlo.
         if (!cancelado) setHuboError(true)
       }
     }
