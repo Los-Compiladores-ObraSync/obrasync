@@ -139,8 +139,8 @@ export function NuevaObraPage() {
 
   return (
     <section className={styles.contenedor}>
-      <Link to="/compras" className={styles.volver}>
-        ← Volver a Gestión y Compras
+      <Link to="/" className={styles.volver}>
+        ← Volver al inicio
       </Link>
       <h1>Nueva obra</h1>
 

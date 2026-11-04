@@ -54,6 +54,21 @@
   font-size: 1.5rem;
 }
 
+/* La requisición elegida desde la campana: se distingue de las demás. */
+.seleccionada {
+  box-shadow: 0 0 0 3px var(--azul), 0 2px 12px rgba(15, 23, 42, 0.12);
+}
+
+.etiquetaSeleccion {
+  align-self: flex-start;
+  padding: 0.125rem 0.75rem;
+  border-radius: 999px;
+  background: var(--azul);
+  color: #ffffff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
 .dato {
   margin: 0;
   font-size: 1.0625rem;

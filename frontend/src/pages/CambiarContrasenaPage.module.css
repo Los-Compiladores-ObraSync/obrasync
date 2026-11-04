@@ -1,0 +1,145 @@
+/* ── CambiarContrasenaPage — mobile-first ─────────────────────────────────
+   Va dentro del layout con sesión (fondo claro), igual que NuevaObraPage.
+   Usa las variables de index.css (--azul, --borde, --texto, --texto-suave, --alto-toque).
+─────────────────────────────────────────────────────────────────────────── */
+
+.contenedor {
+  width: 100%;
+  /* Bloque angosto y centrado en la columna: el link, el título y la tarjeta quedan
+     alineados entre sí. En el celular ocupa todo el ancho. */
+  max-width: 30rem;
+  margin: 0 auto;
+}
+
+.volver {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px; /* área de toque cómoda */
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--azul);
+  text-decoration: none;
+}
+
+/* Panel blanco con sombra suave sobre el fondo gris de la app. */
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+}
+
+.grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.label {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.input {
+  width: 100%;
+  min-height: var(--alto-toque);
+  padding: 0 0.75rem;
+  border: 2px solid var(--borde);
+  border-radius: 8px;
+  font-size: 1.125rem; /* ≥ 16px para evitar zoom en iOS */
+  color: var(--texto);
+  background: var(--fondo);
+  outline-offset: 2px;
+  transition: border-color 0.15s;
+}
+
+.input:focus {
+  border-color: var(--azul);
+}
+
+.inputInvalido,
+.inputInvalido:focus {
+  border-color: #dc2626;
+  outline-color: #dc2626;
+}
+
+.campoClave {
+  position: relative;
+}
+
+/* Deja lugar a la derecha para que el texto no quede debajo del botón del ojo. */
+.inputClave {
+  padding-right: var(--alto-toque);
+}
+
+/* Botón con el ojo: transparente (no hereda el naranja del button global) y de 44 px para el dedo. */
+.verClave {
+  box-shadow: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--alto-toque);
+  height: 100%;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--texto-suave);
+  border-radius: 8px;
+}
+
+.verClave:hover {
+  color: var(--azul);
+}
+
+.verClave:hover,
+.verClave:active {
+  transform: none;
+  filter: none;
+}
+
+.errorCampo {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #b91c1c;
+}
+
+.boton {
+  width: 100%;
+  min-height: 64px; /* es el botón principal: el más grande */
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.boton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.errorApi,
+.exito {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.errorApi {
+  background: #fef2f2;
+  border: 2px solid #fca5a5;
+  color: #991b1b;
+}
+
+.exito {
+  background: #f0fdf4;
+  border: 2px solid #86efac;
+  color: #166534;
+}

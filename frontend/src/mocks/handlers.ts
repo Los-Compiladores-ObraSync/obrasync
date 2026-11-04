@@ -250,6 +250,49 @@ export const handlers: RequestHandler[] = [
     return HttpResponse.json({ mensaje: 'Contraseña restablecida exitosamente.' }, { status: 200 })
   }),
 
+  // Contrato: POST /api/usuarios/cambiar-password → 200 { mensaje } | 400 | 401 ProblemDetails.
+  // Requiere sesión (JWT). La contraseña actual de todos los usuarios simulados es MOCK_PASSWORD.
+  // Para ver el 401 (sesión vencida) se puede mandar la contraseña actual "token-vencido".
+  http.post('*/api/usuarios/cambiar-password', async ({ request }) => {
+    if (!request.headers.get('Authorization')) {
+      return HttpResponse.json(
+        { title: 'No autenticado', status: 401, detail: 'Se requiere un token JWT valido para acceder a este recurso.' },
+        { status: 401 },
+      )
+    }
+    const body = (await request.json()) as {
+      passwordActual?: string
+      nuevaPassword?: string
+      confirmarPassword?: string
+    }
+
+    if (body.passwordActual === 'token-vencido') {
+      return HttpResponse.json(
+        { title: 'No autenticado', status: 401, detail: 'Se requiere un token JWT valido para acceder a este recurso.' },
+        { status: 401 },
+      )
+    }
+    const invalido = (detail: string) =>
+      HttpResponse.json({ title: 'Datos inválidos', status: 400, detail }, { status: 400 })
+
+    if (!body.passwordActual || !body.nuevaPassword || !body.confirmarPassword) {
+      return invalido('Faltan datos para cambiar la contraseña.')
+    }
+    if (body.nuevaPassword !== body.confirmarPassword) {
+      return invalido('La confirmación de la contraseña no coincide.')
+    }
+    if (body.passwordActual === body.nuevaPassword) {
+      return invalido('La nueva contraseña debe ser distinta de la actual.')
+    }
+    if (body.passwordActual !== MOCK_PASSWORD) {
+      return invalido('La contraseña actual es incorrecta.')
+    }
+    if (body.nuevaPassword.length < 6) {
+      return invalido('La contraseña debe tener al menos 6 caracteres.')
+    }
+    return HttpResponse.json({ mensaje: 'Contraseña actualizada exitosamente.' }, { status: 200 })
+  }),
+
   // Contrato: POST /api/obras → 200 (string) | 400 | 403 | 409.
   // Solo para desarrollo y pruebas. Para ver el error 409 en pantalla, crear una obra
   // llamada "Obra Duplicada".

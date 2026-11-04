@@ -17,13 +17,10 @@ describe('accionesParaRol', () => {
     ])
   })
 
-  it('el Comprador ve sus pendientes, aprueba requisiciones, ve el historial, mira las obras y crea obras', () => {
+  it('el Comprador ve el historial y las obras (aprobar es la tarjeta de arriba)', () => {
     expect(accionesParaRol('Comprador').map((a) => a.texto)).toEqual([
-      'Pendientes',
-      'Aprobar requisiciones',
       'Historial de requisiciones',
       'Ver obras',
-      'Crear una obra nueva',
     ])
   })
 

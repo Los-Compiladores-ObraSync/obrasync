@@ -2,8 +2,9 @@ import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { CampanaConPendientes } from '../notificaciones/CampanaConPendientes'
 import { PendientesProvider } from '../notificaciones/PendientesProvider'
-import { portalesParaRol } from '../portales/portales'
+import { portalesParaRol, ROLES_SIN_PESTAÑAS } from '../portales/portales'
 import styles from './LayoutApp.module.css'
+import { MenuUsuario } from './MenuUsuario'
 
 function claseLink({ isActive }: { isActive: boolean }): string {
   return isActive ? `${styles.link} ${styles.activo}` : styles.link
@@ -12,8 +13,9 @@ function claseLink({ isActive }: { isActive: boolean }): string {
 /** Estructura común de las pantallas con sesión: encabezado, menú según el rol
  *  y, debajo, la pantalla que corresponda a la ruta (<Outlet />). */
 export function LayoutApp() {
-  const { usuario, logout } = useAuth()
+  const { usuario } = useAuth()
   const portales = usuario ? portalesParaRol(usuario.rol) : []
+  const conPestañas = usuario ? !ROLES_SIN_PESTAÑAS.includes(usuario.rol) : true
 
   return (
     <PendientesProvider>
@@ -25,28 +27,28 @@ export function LayoutApp() {
           </span>
           <div className={styles.acciones}>
             <CampanaConPendientes />
-            <button type="button" className={styles.salir} onClick={logout}>
-              Cerrar sesión
-            </button>
+            <MenuUsuario />
           </div>
         </div>
 
-        <nav aria-label="Menú principal" className={styles.menu}>
-          <ul className={styles.lista}>
-            <li>
-              <NavLink to="/" end className={claseLink}>
-                Inicio
-              </NavLink>
-            </li>
-            {portales.map((portal) => (
-              <li key={portal.id}>
-                <NavLink to={portal.ruta} className={claseLink}>
-                  {portal.nombre}
+        {conPestañas && (
+          <nav aria-label="Menú principal" className={styles.menu}>
+            <ul className={styles.lista}>
+              <li>
+                <NavLink to="/" end className={claseLink}>
+                  Inicio
                 </NavLink>
               </li>
-            ))}
-          </ul>
-        </nav>
+              {portales.map((portal) => (
+                <li key={portal.id}>
+                  <NavLink to={portal.ruta} className={claseLink}>
+                    {portal.nombre}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
       </header>
 
       <main className="app-contenido">

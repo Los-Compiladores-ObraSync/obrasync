@@ -59,17 +59,6 @@ describe('CampanaConPendientes - panel de avisos', () => {
         ).toHaveAttribute('href', '/compras/requisiciones')
     })
 
-    it('también ofrece el tablero de pendientes', async () => {
-        const usuario = userEvent.setup()
-        renderizar(2)
-
-        await usuario.click(campana())
-
-        expect(
-            screen.getByRole('link', { name: 'Ver tablero de pendientes' }),
-        ).toHaveAttribute('href', '/compras/pendientes')
-    })
-
     it('sin pendientes muestra "No tenés avisos" y ningún enlace', async () => {
         const usuario = userEvent.setup()
         renderizar(0)

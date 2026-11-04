@@ -170,6 +170,33 @@ a {
     outline-color: var(--azul);
 }
 
+/* Opción secundaria: más liviana que el botón naranja (que queda para lo principal). */
+.accion-secundaria {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 64px;
+    padding: 0.75rem 1.25rem;
+    border: 2px solid var(--borde);
+    border-radius: 12px;
+    background: #ffffff;
+    color: var(--azul);
+    font-size: 1.125rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.accion-secundaria::after {
+    content: '›';
+    font-size: 1.75rem;
+    line-height: 1;
+    color: var(--texto-suave);
+}
+
+.accion-secundaria:focus-visible {
+    outline-color: var(--azul);
+}
+
 /* ---- Estructura general de la app ---- */
 .app-encabezado {
     background: var(--azul);
