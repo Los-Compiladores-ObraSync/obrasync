@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ObraSync.Licitaciones.Application.Interfaces;
+using ObraSync.Licitaciones.Application.Services;
 using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Handlers;
 using ObraSync.Licitaciones.Infrastructure;
@@ -35,8 +36,10 @@ builder.Services.AddProblemDetails(options =>
 builder.Services.AddDbContext<LicitacionesDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DbLicit")));
 
-// Repositorios y Handlers de Aplicación
+// Servicios, Repositorios y Handlers de Aplicación
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ILicitacionRepository, LicitacionRepository>();
+builder.Services.AddScoped<ILicitacionService, LicitacionService>();
 builder.Services.AddScoped<ICotizacionRepository, CotizacionRepository>();
 builder.Services.AddScoped<GetLicitacionesQueryHandler>();
 builder.Services.AddScoped<GetLicitacionByIdQueryHandler>();

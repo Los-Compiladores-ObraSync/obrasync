@@ -45,7 +45,7 @@
       },
       "post": {
         "tags": ["Licitaciones"],
-        "summary": "Publicar un pliego a partir de una requisición aprobada, con el plazo para cotizar (Roles: Comprador, Admin). 404 si la requisición no existe, 400 si no está aprobada o la fecha límite no es futura.",
+        "summary": "Publicar un pliego a partir de una requisición aprobada, con el plazo para cotizar (Roles: Comprador, Admin). 404 si la requisición no existe o no está aprobada (acá solo se guardan requisiciones aprobadas, es el mismo caso; el 400 por 'no aprobada' no se usa). 400 si la fecha límite no es futura (UTC). 409 si ya hay una licitación Abierta para esa requisición.",
         "requestBody": {
           "required": true,
           "content": {
@@ -66,7 +66,8 @@
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
         }
       }
     },
@@ -179,6 +180,10 @@
       },
       "NotFound": {
         "description": "Not Found (Recurso inexistente)",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } }
+      },
+      "Conflict": {
+        "description": "Conflict (Ya existe una licitación abierta para la requisición)",
         "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } }
       }
     },

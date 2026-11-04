@@ -13,6 +13,28 @@ public class LicitacionRepository : ILicitacionRepository
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
+    public Task<RequisicionAprobada?> ObtenerRequisicionAsync(
+        Guid requisicionId,
+        CancellationToken ct = default) =>
+        _context.RequisicionesAprobadas
+            .AsNoTracking()
+            .Include(r => r.Items)
+            .FirstOrDefaultAsync(r => r.RequisicionId == requisicionId, ct);
+
+    public Task<bool> ExisteAbiertaAsync(
+        Guid requisicionId,
+        CancellationToken ct = default) =>
+        _context.Licitaciones
+            .AnyAsync(l => l.RequisicionId == requisicionId && l.Estado == EstadoLicitacion.Abierta, ct);
+
+    public async Task AgregarAsync(
+        Licitacion licitacion,
+        CancellationToken ct = default)
+    {
+        _context.Licitaciones.Add(licitacion);
+        await _context.SaveChangesAsync(ct);
+    }
+
     public async Task<Licitacion?> GetByIdAsync(
         Guid id,
         CancellationToken cancellationToken = default)
