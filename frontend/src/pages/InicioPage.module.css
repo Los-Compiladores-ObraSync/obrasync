@@ -5,8 +5,9 @@
   color: var(--texto-suave);
 }
 
-/* Tarjeta con los datos de quien inició sesión. */
+/* Tarjeta con los datos de quien inició sesión (va debajo de los accesos rápidos). */
 .perfil {
+  margin-top: 2rem;
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -70,6 +71,6 @@
 }
 
 .subtitulo {
-  margin: 2rem 0 0;
+  margin: 0;
   font-size: 1.25rem;
 }

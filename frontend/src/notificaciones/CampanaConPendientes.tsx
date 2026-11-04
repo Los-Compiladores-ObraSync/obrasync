@@ -8,7 +8,7 @@ import { usePendientes } from './usePendientes'
 /** La campana del encabezado conectada a la cantidad real de pendientes, con
  *  el panel de avisos que se abre al tocarla (#49). */
 export function CampanaConPendientes() {
-    const { cantidad } = usePendientes()
+    const { cantidad, pendientes } = usePendientes()
     const [abierto, setAbierto] = useState(false)
     const idPanel = useId()
     const contenedorRef = useRef<HTMLDivElement>(null)
@@ -56,6 +56,7 @@ export function CampanaConPendientes() {
         <PanelNotificaciones
           id={ idPanel }
     cantidad = { cantidad }
+    pendientes = { pendientes }
     onNavegar = {() => setAbierto(false)
 }
         />

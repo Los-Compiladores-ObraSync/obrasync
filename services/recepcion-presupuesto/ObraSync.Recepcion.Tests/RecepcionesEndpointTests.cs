@@ -18,6 +18,27 @@ public class RecepcionesEndpointTests : IClassFixture<RecepcionApiFactory>
         _factory = factory;
     }
 
+    [Theory]
+    [InlineData("Capataz", HttpStatusCode.OK)]
+    [InlineData("Comprador", HttpStatusCode.OK)]
+    [InlineData("Admin", HttpStatusCode.OK)]
+    [InlineData("Proveedor", HttpStatusCode.Forbidden)]
+    public async Task GetRecepciones_SegunRol_DevuelveRespuestaEsperada(
+        string rol,
+        HttpStatusCode codigoEsperado)
+    {
+        using var client = _factory.CreateClient();
+
+        var token = RecepcionApiFactory.CreateToken(role: rol);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
+
+        var respuesta = await client.GetAsync("/api/Recepciones");
+
+        Assert.Equal(codigoEsperado, respuesta.StatusCode);
+    }
+
     [Fact]
     public async Task GetRecepciones_SinToken_DebeRetornar401Unauthorized()
     {
@@ -200,5 +221,156 @@ public class RecepcionesEndpointTests : IClassFixture<RecepcionApiFactory>
         Assert.NotEmpty(item.Detalles);
         Assert.Equal(50, item.Detalles.First().CantidadRecibida);
         Assert.Equal("Cemento Portland 50kg", item.Detalles.First().DescripcionArticulo);
+    }
+
+    [Theory]
+    [InlineData("Capataz", HttpStatusCode.OK)]
+    [InlineData("Comprador", HttpStatusCode.OK)]
+    [InlineData("Admin", HttpStatusCode.OK)]
+    [InlineData("Proveedor", HttpStatusCode.Forbidden)]
+    public async Task GetRecepcionPorId_SegunRol_DevuelveRespuestaEsperada(
+        string rol,
+        HttpStatusCode codigoEsperado)
+    {
+        var recepcionId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+
+            db.Recepciones.Add(new RecepcionEntity
+            {
+                Id = recepcionId,
+                ObraId = Guid.NewGuid(),
+                OrdenCompraId = Guid.NewGuid(),
+                RecepcionadoPorUsuarioId = Guid.NewGuid(),
+                NumeroRemito = $"REM-ROL-{Guid.NewGuid():N}",
+                Estado = EstadoRecepcion.Completa
+            });
+
+            await db.SaveChangesAsync();
+        }
+
+        using var client = _factory.CreateClient();
+
+        var token = RecepcionApiFactory.CreateToken(role: rol);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
+
+        var respuesta = await client.GetAsync(
+            $"/api/recepciones/{recepcionId}");
+
+        Assert.Equal(codigoEsperado, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetRecepcionPorId_SinToken_Devuelve401()
+    {
+        using var client = _factory.CreateClient();
+
+        var respuesta = await client.GetAsync(
+            $"/api/recepciones/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetRecepcionPorId_ConTokenInvalido_Devuelve401()
+    {
+        using var client = _factory.CreateClient();
+
+        var token = RecepcionApiFactory.CreateToken(
+            customSecret: "secreto-completamente-invalido-y-diferente!");
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
+
+        var respuesta = await client.GetAsync(
+            $"/api/recepciones/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetRecepcionPorId_ConTokenExpirado_Devuelve401()
+    {
+        using var client = _factory.CreateClient();
+
+        var token = RecepcionApiFactory.CreateToken(expired: true);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
+
+        var respuesta = await client.GetAsync(
+            $"/api/recepciones/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("Capataz", HttpStatusCode.OK)]
+    [InlineData("Comprador", HttpStatusCode.OK)]
+    [InlineData("Admin", HttpStatusCode.OK)]
+    [InlineData("Proveedor", HttpStatusCode.Forbidden)]
+    public async Task GetOrdenesPendientes_SegunRol_DevuelveRespuestaEsperada(
+        string rol,
+        HttpStatusCode codigoEsperado)
+    {
+        using var client = _factory.CreateClient();
+
+        var token = RecepcionApiFactory.CreateToken(role: rol);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
+
+        var respuesta = await client.GetAsync(
+            "/api/recepciones/ordenes-pendientes");
+
+        Assert.Equal(codigoEsperado, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetOrdenesPendientes_SinToken_Devuelve401()
+    {
+        using var client = _factory.CreateClient();
+
+        var respuesta = await client.GetAsync(
+            "/api/recepciones/ordenes-pendientes");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetOrdenesPendientes_ConTokenInvalido_Devuelve401()
+    {
+        using var client = _factory.CreateClient();
+
+        var token = RecepcionApiFactory.CreateToken(
+            customSecret: "secreto-completamente-invalido-y-diferente!");
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
+
+        var respuesta = await client.GetAsync(
+            "/api/recepciones/ordenes-pendientes");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetOrdenesPendientes_ConTokenExpirado_Devuelve401()
+    {
+        using var client = _factory.CreateClient();
+
+        var token = RecepcionApiFactory.CreateToken(expired: true);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
+
+        var respuesta = await client.GetAsync(
+            "/api/recepciones/ordenes-pendientes");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, respuesta.StatusCode);
     }
 }

@@ -14,13 +14,9 @@ const NUEVA_REQUISICION: AccionRapida = {
   texto: 'Nueva requisición',
   ruta: '/obra/requisicion/nueva',
 }
-const PENDIENTES: AccionRapida = {
-  texto: 'Pendientes',
-  ruta: '/compras/pendientes',
-}
-const APROBAR_REQUISICIONES: AccionRapida = {
-  texto: 'Aprobar requisiciones',
-  ruta: '/compras/requisiciones',
+const RECIBIR_MERCADERIA: AccionRapida = {
+  texto: 'Recibir mercadería',
+  ruta: '/obra/recepcion',
 }
 // El Capataz entra por /obra y el Comprador por /compras: es la misma pantalla en dos portales.
 // El Capataz ve solo las suyas; el Comprador y el Admin ven todas.
@@ -36,22 +32,14 @@ const VER_OBRAS: AccionRapida = {
   texto: 'Ver obras',
   ruta: '/compras/obras',
 }
-const CREAR_OBRA: AccionRapida = {
-  texto: 'Crear una obra nueva',
-  ruta: '/compras/obras/nueva',
-}
 
+// Quien aprueba requisiciones (Comprador y Admin) ve primero la tarjeta "Tenés N requisiciones para
+// aprobar" (ResumenAprobacion), así que acá van solo las opciones secundarias. Crear una obra se hace
+// desde "Ver obras".
 const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
-  Capataz: [NUEVA_REQUISICION, HISTORIAL_REQUISICIONES_OBRA],
-  Comprador: [PENDIENTES, APROBAR_REQUISICIONES, HISTORIAL_REQUISICIONES_COMPRAS, VER_OBRAS, CREAR_OBRA],
-  Admin: [
-    NUEVA_REQUISICION,
-    PENDIENTES,
-    APROBAR_REQUISICIONES,
-    HISTORIAL_REQUISICIONES_COMPRAS,
-    VER_OBRAS,
-    CREAR_OBRA,
-  ],
+  Capataz: [NUEVA_REQUISICION, RECIBIR_MERCADERIA, HISTORIAL_REQUISICIONES_OBRA],
+  Comprador: [HISTORIAL_REQUISICIONES_COMPRAS, VER_OBRAS],
+  Admin: [NUEVA_REQUISICION, RECIBIR_MERCADERIA, HISTORIAL_REQUISICIONES_COMPRAS, VER_OBRAS],
   // El portal de Proveedores todavía no tiene pantallas: por ahora no hay accesos rápidos.
   Proveedor: [],
 }

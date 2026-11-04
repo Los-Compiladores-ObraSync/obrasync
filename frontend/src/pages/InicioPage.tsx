@@ -1,23 +1,20 @@
 import { Link } from 'react-router'
+import { iniciales } from '../auth/iniciales'
 import { useAuth } from '../auth/useAuth'
+import { ROLES_QUE_VEN_PENDIENTES } from '../notificaciones/configuracionAvisos'
+import { ResumenAprobacion } from '../notificaciones/ResumenAprobacion'
 import { accionesParaRol } from '../portales/accionesRapidas'
 import { portalesParaRol } from '../portales/portales'
 import styles from './InicioPage.module.css'
 
-/** "Juan Pérez" → "JP". Sirve para el círculo con las iniciales. */
-function iniciales(nombre: string): string {
-  return nombre
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((palabra) => palabra[0].toUpperCase())
-    .join('')
-}
-
 export function InicioPage() {
   const { usuario } = useAuth()
   const portales = usuario ? portalesParaRol(usuario.rol) : []
+
   const acciones = usuario ? accionesParaRol(usuario.rol) : []
+  // Quien aprueba requisiciones (Comprador, Admin) ve primero cuántas esperan; el resto de las
+  // opciones pasan a ser botones secundarios.
+  const apruebaRequisiciones = usuario ? ROLES_QUE_VEN_PENDIENTES.includes(usuario.rol) : false
   // Si el rol no tiene accesos rápidos (hoy, el Proveedor), se muestran sus portales.
   const botones =
     acciones.length > 0
@@ -27,6 +24,34 @@ export function InicioPage() {
   return (
     <>
       <h1>Bienvenido, {usuario?.nombreCompleto}</h1>
+
+      {portales.length === 0 && (
+        <p role="status" className={styles.aviso}>
+          Tu rol todavía no tiene portales asignados. Consultá con un administrador.
+        </p>
+      )}
+      {apruebaRequisiciones && <ResumenAprobacion />}
+      {botones.length > 0 && (
+        <>
+          {!apruebaRequisiciones && (
+            <h2 className={styles.subtitulo}>
+              {acciones.length > 0 ? 'Accesos rápidos' : '¿A dónde vas?'}
+            </h2>
+          )}
+          <ul className="lista-acciones">
+            {botones.map((boton) => (
+              <li key={boton.clave}>
+                <Link
+                  to={boton.ruta}
+                  className={apruebaRequisiciones ? 'accion-secundaria' : 'accion-grande'}
+                >
+                  {boton.texto}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
       <section className={styles.perfil} aria-label="Tus datos">
         <div className={styles.avatar} aria-hidden="true">
@@ -43,28 +68,6 @@ export function InicioPage() {
           </p>
         </div>
       </section>
-
-      {portales.length === 0 && (
-        <p role="status" className={styles.aviso}>
-          Tu rol todavía no tiene portales asignados. Consultá con un administrador.
-        </p>
-      )}
-      {botones.length > 0 && (
-        <>
-          <h2 className={styles.subtitulo}>
-            {acciones.length > 0 ? 'Accesos rápidos' : '¿A dónde vas?'}
-          </h2>
-          <ul className="lista-acciones">
-            {botones.map((boton) => (
-              <li key={boton.clave}>
-                <Link to={boton.ruta} className="accion-grande">
-                  {boton.texto}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
     </>
   )
 }

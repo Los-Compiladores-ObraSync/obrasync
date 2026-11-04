@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router'
 import { AuthProvider } from './auth/AuthContext'
 import { LayoutApp } from './layout/LayoutApp'
 import { AprobarRequisicionesPage } from './pages/AprobarRequisicionesPage'
+import { CambiarContrasenaPage } from './pages/CambiarContrasenaPage'
 import { ComprasPage } from './pages/ComprasPage'
 import { DetalleRequisicionPage } from './pages/DetalleRequisicionPage'
 import { HistorialRequisicionesPage } from './pages/HistorialRequisicionesPage'
@@ -11,8 +12,8 @@ import { NuevaObraPage } from './pages/NuevaObraPage'
 import { NuevaRequisicionPage } from './pages/NuevaRequisicionPage'
 import { ObraPage } from './pages/ObraPage'
 import { ObrasPage } from './pages/ObrasPage'
-import { PendientesPage } from './pages/PendientesPage'
 import { ProveedoresPage } from './pages/ProveedoresPage'
+import { RecepcionPage } from './pages/RecepcionPage'
 import { RecuperarContrasenaPage } from './pages/RecuperarContrasenaPage'
 import { RestablecerContrasenaPage } from './pages/RestablecerContrasenaPage'
 import { RutaProtegida } from './routes/RutaProtegida'
@@ -38,11 +39,14 @@ function App() {
         <Route element={<RutaProtegida />}>
           <Route element={<LayoutApp />}>
             <Route index element={<InicioPage />} />
+            {/* Cualquier rol con sesión puede cambiar su propia contraseña. */}
+            <Route path="cambiar-contrasena" element={<CambiarContrasenaPage />} />
 
             {/* Un portal por rol. Cada portal puede sumar subrutas como hijas. */}
             <Route path="obra" element={<SoloPortal portalId="obra" />}>
               <Route index element={<ObraPage />} />
               <Route path="requisicion/nueva" element={<NuevaRequisicionPage />} />
+              <Route path="recepcion" element={<RecepcionPage />} />
               <Route
                 path="requisiciones"
                 element={
@@ -58,14 +62,13 @@ function App() {
               <Route index element={<ComprasPage />} />
               <Route path="obras" element={<ObrasPage />} />
               <Route path="obras/nueva" element={<NuevaObraPage />} />
-              <Route path="pendientes" element={<PendientesPage />} />
               <Route path="requisiciones" element={<AprobarRequisicionesPage />} />
               <Route
                 path="requisiciones/historial"
                 element={
                   <HistorialRequisicionesPage
-                    volverA="/compras"
-                    textoVolver="← Volver a Gestión y Compras"
+                    volverA="/"
+                    textoVolver="← Volver al inicio"
                   />
                 }
               />

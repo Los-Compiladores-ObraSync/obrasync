@@ -117,7 +117,8 @@ describe('App - sin sesión', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Bienvenido, Marta Gómez' }),
     ).toBeInTheDocument()
-    expect(linksDelMenu()).toEqual(['Inicio', 'Gestión y Compras'])
+    // El Comprador no ve la barra de pestañas: su Inicio ya trae todo lo del portal.
+    expect(screen.queryByRole('navigation', { name: 'Menú principal' })).not.toBeInTheDocument()
   })
 })
 
@@ -129,7 +130,6 @@ describe('App - menú según el rol', () => {
 
   it.each([
     ['Capataz', ['Inicio', 'Obra / Terreno']],
-    ['Comprador', ['Inicio', 'Gestión y Compras']],
     ['Proveedor', ['Inicio', 'Proveedores']],
     ['Admin', ['Inicio', 'Obra / Terreno', 'Gestión y Compras', 'Proveedores']],
   ])('el %s ve estos links', (rol, esperados) => {
@@ -137,6 +137,13 @@ describe('App - menú según el rol', () => {
     renderApp('/')
 
     expect(linksDelMenu()).toEqual(esperados)
+  })
+
+  it('el Comprador no ve la barra de pestañas', () => {
+    iniciarSesionComo('Comprador')
+    renderApp('/')
+
+    expect(screen.queryByRole('navigation', { name: 'Menú principal' })).not.toBeInTheDocument()
   })
 
   it('muestra los datos del usuario en el inicio', () => {
@@ -161,6 +168,70 @@ describe('App - menú según el rol', () => {
   })
 })
 
+describe('App - cambiar contraseña', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setToken(null)
+  })
+
+  it('sin sesión, entrar a /cambiar-contrasena lleva al login', () => {
+    renderApp('/cambiar-contrasena')
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Iniciar sesión' }),
+    ).toBeInTheDocument()
+  })
+
+  it.each(['Capataz', 'Comprador', 'Proveedor', 'Admin'])(
+    'el %s llega desde el menú de la cuenta a la pantalla de cambiar contraseña',
+    async (rol) => {
+      iniciarSesionComo(rol)
+      const usuario = userEvent.setup()
+      renderApp('/')
+
+      await usuario.click(screen.getByRole('button', { name: 'Menú de la cuenta' }))
+      await usuario.click(screen.getByRole('link', { name: 'Cambiar contraseña' }))
+
+      expect(
+        screen.getByRole('heading', { level: 1, name: 'Cambiar contraseña' }),
+      ).toBeInTheDocument()
+    },
+  )
+
+  it('cambia la contraseña con la sesión abierta y sigue en la pantalla', async () => {
+    iniciarSesionComo('Comprador')
+    const usuario = userEvent.setup()
+    renderApp('/cambiar-contrasena')
+
+    await usuario.type(screen.getByLabelText('Contraseña actual'), 'Test1234!')
+    await usuario.type(screen.getByLabelText('Nueva contraseña'), 'Nueva123!')
+    await usuario.type(screen.getByLabelText('Repetí la nueva contraseña'), 'Nueva123!')
+    await usuario.click(screen.getByRole('button', { name: 'Cambiar contraseña' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Tu contraseña se cambió correctamente.',
+    )
+    expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull()
+  })
+
+  it('si el token venció (401) cierra la sesión y vuelve al login', async () => {
+    iniciarSesionComo('Comprador')
+    const usuario = userEvent.setup()
+    renderApp('/cambiar-contrasena')
+
+    // El mock responde 401 con esta contraseña actual, como un token vencido.
+    await usuario.type(screen.getByLabelText('Contraseña actual'), 'token-vencido')
+    await usuario.type(screen.getByLabelText('Nueva contraseña'), 'Nueva123!')
+    await usuario.type(screen.getByLabelText('Repetí la nueva contraseña'), 'Nueva123!')
+    await usuario.click(screen.getByRole('button', { name: 'Cambiar contraseña' }))
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Iniciar sesión' }),
+    ).toBeInTheDocument()
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+  })
+})
+
 describe('App - acceso a los portales', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -173,6 +244,18 @@ describe('App - acceso a los portales', () => {
 
     expect(
       screen.getByRole('heading', { level: 1, name: 'Obra / Terreno' }),
+    ).toBeInTheDocument()
+  })
+
+  it('el Capataz llega a "Recibir mercadería" desde su portal', async () => {
+    const usuario = userEvent.setup()
+    iniciarSesionComo('Capataz')
+    renderApp('/obra')
+
+    await usuario.click(screen.getByRole('link', { name: 'Recibir mercadería' }))
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Recibir mercadería' }),
     ).toBeInTheDocument()
   })
 
@@ -228,6 +311,7 @@ describe('App - cierre de sesión', () => {
     iniciarSesionComo('Capataz')
     renderApp('/obra')
 
+    await usuario.click(screen.getByRole('button', { name: 'Menú de la cuenta' }))
     await usuario.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
 
     expect(
@@ -366,56 +450,60 @@ describe('App - detalle de una requisición', () => {
   })
 })
 
-describe('App - tablero de pendientes', () => {
+describe('App - pendientes de aprobación del Comprador', () => {
   beforeEach(() => {
     localStorage.clear()
     setToken(null)
     reiniciarRequisicionesMock()
   })
 
-  it('el Comprador llega desde Inicio y ve sus pendientes más antiguos primero', async () => {
+  it('el Comprador ve en su inicio cuántas requisiciones esperan y llega a aprobarlas', async () => {
     const usuario = userEvent.setup()
     iniciarSesionComo('Comprador')
     renderApp('/')
 
-    await usuario.click(screen.getByRole('link', { name: 'Pendientes' }))
+    expect(await screen.findByText('Tenés 2 requisiciones para aprobar')).toBeInTheDocument()
+    await usuario.click(screen.getByRole('link', { name: 'Aprobar requisiciones' }))
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Pendientes' })).toBeInTheDocument()
-    expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
-    expect(screen.getByText('REQ-2026-0012')).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Requisiciones por aprobar' })).toHaveTextContent('2')
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Aprobar requisiciones' }),
+    ).toBeInTheDocument()
   })
 
-  it('desde el panel de la campana se llega al tablero', async () => {
+  it('desde la campana el Comprador elige una requisición y llega a ella, primera y marcada', async () => {
     const usuario = userEvent.setup()
     iniciarSesionComo('Comprador')
     renderApp('/')
 
     await usuario.click(await screen.findByRole('button', { name: 'Notificaciones: 2 sin leer' }))
-    await usuario.click(screen.getByRole('link', { name: 'Ver tablero de pendientes' }))
+    await usuario.click(await screen.findByRole('link', { name: /REQ-2026-0012/ }))
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Pendientes' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Aprobar requisiciones' }),
+    ).toBeInTheDocument()
+    const numeros = await screen.findAllByRole('heading', { level: 2 })
+    expect(numeros[0]).toHaveTextContent('REQ-2026-0012')
+    expect(screen.getByText('Seleccionada')).toBeInTheDocument()
   })
 
-  it('al aprobar una desde el tablero, baja la cantidad', async () => {
+  it('al aprobar una, baja la cantidad que ve en su inicio', async () => {
     const usuario = userEvent.setup()
     iniciarSesionComo('Comprador')
-    renderApp('/compras/pendientes')
+    renderApp('/compras/requisiciones')
 
-    expect(await screen.findByRole('region', { name: 'Requisiciones por aprobar' })).toHaveTextContent('2')
-    await usuario.click(screen.getByRole('link', { name: 'Ir a Aprobar requisiciones' }))
     await usuario.click(await screen.findByRole('button', { name: 'Aprobar REQ-2026-0011' }))
     await screen.findByRole('button', { name: 'Notificaciones: 1 sin leer' })
-    await usuario.click(screen.getByRole('link', { name: '← Volver a Gestión y Compras' }))
-    await usuario.click(await screen.findByRole('link', { name: 'Pendientes' }))
+    await usuario.click(screen.getByRole('link', { name: '← Volver al inicio' }))
 
-    expect(await screen.findByRole('region', { name: 'Requisiciones por aprobar' })).toHaveTextContent('1')
+    expect(await screen.findByText('Tenés 1 requisición para aprobar')).toBeInTheDocument()
   })
 
-  it('el Capataz no entra al tablero', async () => {
+  it('el Capataz no entra a aprobar requisiciones', async () => {
     iniciarSesionComo('Capataz')
-    renderApp('/compras/pendientes')
+    renderApp('/compras/requisiciones')
 
-    expect(screen.queryByRole('heading', { level: 1, name: 'Pendientes' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { level: 1, name: 'Aprobar requisiciones' }),
+    ).not.toBeInTheDocument()
   })
 })

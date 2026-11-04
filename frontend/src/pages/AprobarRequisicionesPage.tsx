@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import {
   aprobarRequisicion,
@@ -51,6 +51,10 @@ export function AprobarRequisicionesPage() {
   const [motivo, setMotivo] = useState('')
   const [errorMotivo, setErrorMotivo] = useState<string | null>(null)
   const { refrescar: refrescarCampana } = usePendientes()
+
+  // Si se llega desde la campana (?req=<id>), esa requisición va primera y queda marcada.
+  const [params] = useSearchParams()
+  const seleccionadaId = params.get('req')
 
   // Guard inmediato contra el doble clic: "operacionEnVuelo" (estado) recién cambia en el próximo render.
   // Un único ref para proteger tanto aprobar como rechazar.
@@ -164,10 +168,18 @@ export function AprobarRequisicionesPage() {
 
   const hayPeticionEnVuelo = operacionEnVuelo !== null
 
+  // El sort es estable: el resto conserva su orden. Si el id no está (ya se aprobó), no pasa nada.
+  const visibles = seleccionadaId
+    ? [...pendientes].sort(
+        (a, b) =>
+          Number(b.requisicionId === seleccionadaId) - Number(a.requisicionId === seleccionadaId),
+      )
+    : pendientes
+
   return (
     <section className={`${styles.contenedor} pantalla-ancha`}>
-      <Link to="/compras" className={styles.volver}>
-        ← Volver a Gestión y Compras
+      <Link to="/" className={styles.volver}>
+        ← Volver al inicio
       </Link>
       <h1>Aprobar requisiciones</h1>
 
@@ -201,8 +213,18 @@ export function AprobarRequisicionesPage() {
 
       {!cargando && !errorCarga && pendientes.length > 0 && (
         <ul className={styles.lista}>
-          {pendientes.map((req) => (
-            <li key={req.requisicionId} className={styles.tarjeta}>
+          {visibles.map((req) => (
+            <li
+              key={req.requisicionId}
+              className={
+                req.requisicionId === seleccionadaId
+                  ? `${styles.tarjeta} ${styles.seleccionada}`
+                  : styles.tarjeta
+              }
+            >
+              {req.requisicionId === seleccionadaId && (
+                <span className={styles.etiquetaSeleccion}>Seleccionada</span>
+              )}
               <h2 className={styles.numero}>{req.numeroRequisicion}</h2>
               <p className={styles.dato}>
                 Obra: {nombresObras[req.obraId] ?? req.obraId}

@@ -88,7 +88,7 @@ public class RecepcionesController : ControllerBase
     /// Obtiene las órdenes de compra pendientes de recibir (sin recepción completa),
     /// opcionalmente filtradas por ObraId.
     /// </summary>
-    [Authorize(Roles = "Capataz,Admin")]
+    [Authorize(Roles = "Capataz,Comprador,Admin")]
     [HttpGet("ordenes-pendientes")]
     public async Task<IActionResult> ObtenerOrdenesPendientes(
         [FromQuery] Guid? obraId,

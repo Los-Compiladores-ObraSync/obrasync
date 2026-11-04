@@ -62,6 +62,13 @@
   color: var(--texto-suave);
 }
 
+.aviso {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #92400e; /* ámbar oscuro: llama la atención sin ser un error */
+}
+
 .errorCampo {
   margin: 0;
   font-size: 1rem;
