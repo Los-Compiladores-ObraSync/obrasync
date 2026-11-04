@@ -32,6 +32,10 @@ const VER_OBRAS: AccionRapida = {
   texto: 'Ver obras',
   ruta: '/compras/obras',
 }
+const LICITACIONES_ABIERTAS: AccionRapida = {
+  texto: 'Licitaciones abiertas',
+  ruta: '/proveedores',
+}
 
 // Quien aprueba requisiciones (Comprador y Admin) ve primero la tarjeta "Tenés N requisiciones para
 // aprobar" (ResumenAprobacion), así que acá van solo las opciones secundarias. Crear una obra se hace
@@ -40,8 +44,7 @@ const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
   Capataz: [NUEVA_REQUISICION, RECIBIR_MERCADERIA, HISTORIAL_REQUISICIONES_OBRA],
   Comprador: [HISTORIAL_REQUISICIONES_COMPRAS, VER_OBRAS],
   Admin: [NUEVA_REQUISICION, RECIBIR_MERCADERIA, HISTORIAL_REQUISICIONES_COMPRAS, VER_OBRAS],
-  // El portal de Proveedores todavía no tiene pantallas: por ahora no hay accesos rápidos.
-  Proveedor: [],
+  Proveedor: [LICITACIONES_ABIERTAS],
 }
 
 /** Accesos rápidos de un rol (lista vacía si el rol no tiene o no es conocido). */
