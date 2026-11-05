@@ -55,6 +55,8 @@ describe('HistorialRequisicionesPage', () => {
 
     const tarjeta = screen.getByText('REQ-2026-0009').closest('li')!
     expect(within(tarjeta).getByText('Aprobada')).toBeInTheDocument()
+    // El marco de color depende de este atributo (ver el CSS de la pantalla).
+    expect(tarjeta).toHaveAttribute('data-estado', 'Aprobada')
     expect(within(tarjeta).getByText(/Obra: Torre Alvear · Etapa: Fundaciones/)).toBeInTheDocument()
     expect(within(tarjeta).getByText(/Creada el 15 de octubre de 2026/)).toBeInTheDocument()
     expect(

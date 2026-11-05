@@ -25,10 +25,18 @@ describe('accionesParaRol', () => {
     ])
   })
 
-  it('el Proveedor ve las licitaciones abiertas y un rol desconocido no tiene accesos rápidos', () => {
-    expect(accionesParaRol('Proveedor').map((a) => a.texto)).toEqual([
+  it('el Admin ve todo lo que hacen los otros roles, incluidas las licitaciones abiertas', () => {
+    expect(accionesParaRol('Admin').map((a) => a.texto)).toEqual([
+      'Nueva requisición',
+      'Recibir mercadería',
+      'Historial de requisiciones',
+      'Ver obras',
       'Licitaciones abiertas',
     ])
+  })
+
+  it('el Proveedor no tiene botones (su Inicio es la lista de licitaciones) y un rol desconocido tampoco', () => {
+    expect(accionesParaRol('Proveedor')).toEqual([])
     expect(accionesParaRol('Inventado')).toEqual([])
   })
 

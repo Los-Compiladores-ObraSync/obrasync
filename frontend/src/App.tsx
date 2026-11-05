@@ -51,7 +51,7 @@ function App() {
               <Route
                 path="requisiciones"
                 element={
-                  <HistorialRequisicionesPage volverA="/obra" textoVolver="← Volver a Obra / Terreno" />
+                  <HistorialRequisicionesPage volverA="/" textoVolver="← Volver al inicio" />
                 }
               />
               <Route

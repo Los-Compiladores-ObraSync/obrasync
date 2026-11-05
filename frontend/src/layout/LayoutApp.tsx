@@ -1,22 +1,14 @@
-import { NavLink, Outlet } from 'react-router'
-import { useAuth } from '../auth/useAuth'
+import { Outlet } from 'react-router'
 import { CampanaConPendientes } from '../notificaciones/CampanaConPendientes'
 import { PendientesProvider } from '../notificaciones/PendientesProvider'
-import { portalesParaRol, ROLES_SIN_PESTAÑAS } from '../portales/portales'
 import styles from './LayoutApp.module.css'
 import { MenuUsuario } from './MenuUsuario'
 
-function claseLink({ isActive }: { isActive: boolean }): string {
-  return isActive ? `${styles.link} ${styles.activo}` : styles.link
-}
-
-/** Estructura común de las pantallas con sesión: encabezado, menú según el rol
- *  y, debajo, la pantalla que corresponda a la ruta (<Outlet />). */
+/** Estructura común de las pantallas con sesión: encabezado (marca, avisos y menú de la cuenta)
+ *  y, debajo, la pantalla que corresponda a la ruta (<Outlet />).
+ *  No hay barra de pestañas: la pantalla de Inicio de cada rol ya trae todo lo que ese rol hace,
+ *  y las demás pantallas tienen un enlace "← Volver al inicio". */
 export function LayoutApp() {
-  const { usuario } = useAuth()
-  const portales = usuario ? portalesParaRol(usuario.rol) : []
-  const conPestañas = usuario ? !ROLES_SIN_PESTAÑAS.includes(usuario.rol) : true
-
   return (
     <PendientesProvider>
       <header className="app-encabezado">
@@ -30,25 +22,6 @@ export function LayoutApp() {
             <MenuUsuario />
           </div>
         </div>
-
-        {conPestañas && (
-          <nav aria-label="Menú principal" className={styles.menu}>
-            <ul className={styles.lista}>
-              <li>
-                <NavLink to="/" end className={claseLink}>
-                  Inicio
-                </NavLink>
-              </li>
-              {portales.map((portal) => (
-                <li key={portal.id}>
-                  <NavLink to={portal.ruta} className={claseLink}>
-                    {portal.nombre}
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        )}
       </header>
 
       <main className="app-contenido">

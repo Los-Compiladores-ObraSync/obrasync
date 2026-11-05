@@ -384,8 +384,8 @@ export function NuevaRequisicionPage() {
             >
               Cargar otra requisición
             </button>
-            <Link to="/obra" className={styles.enlaceBoton}>
-              Volver a Obra
+            <Link to="/" className={styles.enlaceBoton}>
+              Volver al inicio
             </Link>
           </div>
         </div>
@@ -395,8 +395,8 @@ export function NuevaRequisicionPage() {
 
   return (
     <section className={styles.contenedor}>
-      <Link to="/obra" className={styles.volver}>
-        ← Volver a Obra
+      <Link to="/" className={styles.volver}>
+        ← Volver al inicio
       </Link>
       <h1>Nueva requisición</h1>
 

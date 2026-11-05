@@ -33,7 +33,7 @@ describe('RecepcionPage', () => {
 
     expect(await screen.findAllByRole('button', { name: /Torre Alvear/ })).toHaveLength(2)
     expect(screen.getByText('80 bolsas · Cemento Portland Especial 50kg')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '← Volver a Obra' })).toHaveAttribute('href', '/obra')
+    expect(screen.getByRole('link', { name: '← Volver al inicio' })).toHaveAttribute('href', '/')
   })
 
   it('al elegir una orden muestra lo que tiene que haber llegado y el formulario del remito', async () => {

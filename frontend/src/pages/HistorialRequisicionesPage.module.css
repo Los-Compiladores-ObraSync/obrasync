@@ -84,6 +84,23 @@
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
 }
 
+/* Marco suave según el estado (el texto del estado sigue escrito: el color solo ayuda).
+   Se elige con el atributo data-estado que pone la pantalla en cada tarjeta. */
+.tarjeta[data-estado='Pendiente'] {
+  border: 2px solid #fdba74;
+  border-left: 6px solid #ea580c;
+}
+
+.tarjeta[data-estado='Aprobada'] {
+  border: 2px solid #86efac;
+  border-left: 6px solid #16a34a;
+}
+
+.tarjeta[data-estado='Rechazada'] {
+  border: 2px solid #fca5a5;
+  border-left: 6px solid #dc2626;
+}
+
 .encabezado {
   display: flex;
   align-items: center;
