@@ -1,10 +1,12 @@
 using System.Security.Claims;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Exceptions;
 using ObraSync.Licitaciones.Application.Interfaces;
+using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Commands;
 using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Queries;
 
@@ -18,15 +20,18 @@ public class LicitacionesController : ControllerBase
     private readonly ILicitacionService _service;
     private readonly GetLicitacionesQueryHandler _getLicitacionesHandler;
     private readonly GetLicitacionByIdQueryHandler _getByIdHandler;
+    private readonly IMediator _mediator;
 
     public LicitacionesController(
         ILicitacionService service,
         GetLicitacionesQueryHandler getLicitacionesHandler,
-        GetLicitacionByIdQueryHandler getByIdHandler)
+        GetLicitacionByIdQueryHandler getByIdHandler,
+        IMediator mediator)
     {
         _service = service;
         _getLicitacionesHandler = getLicitacionesHandler;
         _getByIdHandler = getByIdHandler;
+        _mediator = mediator;
     }
 
     /// <summary>
@@ -125,4 +130,51 @@ public class LicitacionesController : ControllerBase
                 title: "Conflicto");
         }
     }
+
+    /// <summary>
+    /// Adjudicar una cotización y emitir la Orden de Compra (Roles: Comprador, Admin).
+    /// </summary>
+    [HttpPost("{licitacionId}/adjudicar")]
+    [Authorize(Roles = "Comprador,Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Adjudicar(
+        Guid licitacionId,
+        [FromBody] AdjudicarCotizacionRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var command = new AdjudicarCotizacionCommand(licitacionId, request.CotizacionId);
+            var resultado = await _mediator.Send(command, cancellationToken);
+            return Ok(resultado);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Recurso no encontrado");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Conflicto en la adjudicación");
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Solicitud inválida");
+        }
+    }
 }
+
+public record AdjudicarCotizacionRequestDto(Guid CotizacionId);

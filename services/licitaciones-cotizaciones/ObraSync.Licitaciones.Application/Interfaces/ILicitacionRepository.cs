@@ -5,11 +5,11 @@ namespace ObraSync.Licitaciones.Application.Interfaces;
 public interface ILicitacionRepository
 {
     Task<RequisicionAprobada?> ObtenerRequisicionAsync(
-        Guid requisicionId,
+        Guid requisicionid,
         CancellationToken ct = default);
 
     Task<bool> ExisteAbiertaAsync(
-        Guid requisicionId,
+        Guid requisicionid,
         CancellationToken ct = default);
 
     Task AgregarAsync(
@@ -20,9 +20,13 @@ public interface ILicitacionRepository
         Guid id,
         CancellationToken cancellationToken = default);
 
+    Task UpdateAsync(
+        Licitacion licitacion,
+        CancellationToken ct = default);
+
     Task<IReadOnlyList<Licitacion>> GetFilteredAsync(
         Guid? obraId = null,
         string? estado = null,
         string? rolUsuario = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken ct = default);
 }

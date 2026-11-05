@@ -81,4 +81,10 @@ public class LicitacionRepository : ILicitacionRepository
             .OrderByDescending(l => l.FechaCreacion)
             .ToListAsync(cancellationToken);
     }
+
+    public Task UpdateAsync(Licitacion licitacion, CancellationToken cancellationToken = default)
+    {
+        _context.Licitaciones.Update(licitacion);
+        return Task.CompletedTask;
+    }
 }

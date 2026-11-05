@@ -57,6 +57,10 @@
       "format": "uuid",
       "description": "Identificador del proveedor adjudicado."
     },
+    "etapa": {
+      "type": ["string", "null"],
+      "description": "Etapa opcional de la obra heredada de la requisición y el pliego."
+    },
     "montoTotal": {
       "type": "number",
       "minimum": 0,
