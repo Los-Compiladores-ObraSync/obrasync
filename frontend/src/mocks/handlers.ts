@@ -40,6 +40,12 @@ const USUARIOS_MOCK = [
     rol: 'Admin',
   },
 ]
+const CANTIDAD_USUARIOS_INICIAL = USUARIOS_MOCK.length
+
+/** Solo para tests: quita los usuarios que se crearon por POST /api/usuarios/registro. */
+export function reiniciarUsuariosMock() {
+  USUARIOS_MOCK.length = CANTIDAD_USUARIOS_INICIAL
+}
 
 const MOCK_CATALOGO = [
   {
@@ -450,6 +456,44 @@ export const handlers: RequestHandler[] = [
         nombreCompleto: u.nombreCompleto,
       })),
       { status: 200 },
+    )
+  }),
+
+  // Contrato: POST /api/usuarios/registro → 201 AuthResponseDto | 400 | 403 | 409 (email repetido).
+  // Agrega el usuario a la lista del mock, así el capataz nuevo aparece en GET /capataces.
+  http.post('*/api/usuarios/registro', async ({ request }) => {
+    const body = (await request.json()) as {
+      nombreCompleto?: string
+      email?: string
+      password?: string
+      rol?: string
+    }
+    if (!body.nombreCompleto || !body.email || !body.password || (body.password?.length ?? 0) < 6) {
+      return HttpResponse.json(
+        { title: 'Datos inválidos', status: 400, detail: 'Faltan datos del usuario.' },
+        { status: 400 },
+      )
+    }
+    if (USUARIOS_MOCK.some((u) => u.email === body.email)) {
+      return HttpResponse.json(
+        {
+          title: 'Conflicto',
+          status: 409,
+          detail: 'Ya existe un usuario registrado con este correo electrónico.',
+        },
+        { status: 409 },
+      )
+    }
+    const nuevo = {
+      id: `a1b2c3d4-0000-0000-0000-${String(USUARIOS_MOCK.length + 1).padStart(12, '0')}`,
+      nombreCompleto: body.nombreCompleto,
+      email: body.email,
+      rol: body.rol ?? 'Capataz',
+    }
+    USUARIOS_MOCK.push(nuevo)
+    return HttpResponse.json(
+      { id: nuevo.id, nombreCompleto: nuevo.nombreCompleto, email: nuevo.email, token: MOCK_TOKEN, roles: [nuevo.rol] },
+      { status: 201 },
     )
   }),
 

@@ -2,7 +2,8 @@ import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { esFechaPasada, fechaEnPalabras } from '../obras/fechaEnPalabras'
-import { type Capataz, obtenerCapataces } from '../obras/capatacesService'
+import { type Capataz, type UsuarioCreado, obtenerCapataces } from '../obras/capatacesService'
+import { CrearCapatazForm } from '../obras/CrearCapatazForm'
 import { crearObra } from '../obras/obrasService'
 import {
   fechaAIso,
@@ -42,6 +43,8 @@ export function NuevaObraPage() {
   const [cargandoCapataces, setCargandoCapataces] = useState(true)
   const [errorCapataces, setErrorCapataces] = useState(false)
   const [intentoCapataces, setIntentoCapataces] = useState(0)
+  const [creandoCapataz, setCreandoCapataz] = useState(false)
+  const [capatazCreado, setCapatazCreado] = useState<string | null>(null)
 
   const siguienteId = useRef(2)
   const [etapas, setEtapas] = useState<EtapaForm[]>([{ id: 1, nombre: '' }])
@@ -76,6 +79,14 @@ export function NuevaObraPage() {
     setErrorCapataces(false)
     setCargandoCapataces(true)
     setIntentoCapataces((n) => n + 1)
+  }
+
+  function alCrearCapataz(nuevo: UsuarioCreado) {
+    // Se vuelve a pedir la lista (así queda como la ve el servidor) y el nuevo queda elegido.
+    setCapatazCreado(nuevo.nombreCompleto)
+    setCreandoCapataz(false)
+    setCapatazId(nuevo.id)
+    reintentarCapataces()
   }
 
   function agregarEtapa() {
@@ -251,6 +262,28 @@ export function NuevaObraPage() {
           )}
           {errores.capatazId && (
             <p id="obra-capataz-error" className={styles.errorCampo}>{errores.capatazId}</p>
+          )}
+          {capatazCreado && (
+            <p className={styles.exito} role="status">
+              Capataz {capatazCreado} creado y seleccionado.
+            </p>
+          )}
+          {creandoCapataz ? (
+            <CrearCapatazForm
+              alCrear={alCrearCapataz}
+              alCancelar={() => setCreandoCapataz(false)}
+            />
+          ) : (
+            <button
+              type="button"
+              className={styles.secundario}
+              onClick={() => {
+                setCapatazCreado(null)
+                setCreandoCapataz(true)
+              }}
+            >
+              + Crear capataz
+            </button>
           )}
         </div>
 
