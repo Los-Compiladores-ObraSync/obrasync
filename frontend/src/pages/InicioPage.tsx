@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 import { iniciales } from '../auth/iniciales'
 import { useAuth } from '../auth/useAuth'
+import { ListaLicitaciones } from '../licitaciones/ListaLicitaciones'
 import { ROLES_QUE_VEN_PENDIENTES } from '../notificaciones/configuracionAvisos'
 import { ResumenAprobacion } from '../notificaciones/ResumenAprobacion'
 import { accionesParaRol } from '../portales/accionesRapidas'
@@ -15,11 +16,8 @@ export function InicioPage() {
   // Quien aprueba requisiciones (Comprador, Admin) ve primero cuántas esperan; el resto de las
   // opciones pasan a ser botones secundarios.
   const apruebaRequisiciones = usuario ? ROLES_QUE_VEN_PENDIENTES.includes(usuario.rol) : false
-  // Si el rol no tiene accesos rápidos (hoy, el Proveedor), se muestran sus portales.
-  const botones =
-    acciones.length > 0
-      ? acciones.map((a) => ({ clave: a.ruta, ruta: a.ruta, texto: a.texto }))
-      : portales.map((p) => ({ clave: p.id, ruta: p.ruta, texto: `Ir a ${p.nombre}` }))
+  // El Proveedor cotiza: su Inicio muestra directamente las licitaciones abiertas.
+  const cotiza = usuario?.rol === 'Proveedor'
 
   return (
     <>
@@ -31,26 +29,25 @@ export function InicioPage() {
         </p>
       )}
       {apruebaRequisiciones && <ResumenAprobacion />}
-      {botones.length > 0 && (
+      {cotiza && (
         <>
-          {!apruebaRequisiciones && (
-            <h2 className={styles.subtitulo}>
-              {acciones.length > 0 ? 'Accesos rápidos' : '¿A dónde vas?'}
-            </h2>
-          )}
-          <ul className="lista-acciones">
-            {botones.map((boton) => (
-              <li key={boton.clave}>
-                <Link
-                  to={boton.ruta}
-                  className={apruebaRequisiciones ? 'accion-secundaria' : 'accion-grande'}
-                >
-                  {boton.texto}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <h2 className={styles.subtitulo}>Licitaciones abiertas</h2>
+          <ListaLicitaciones tituloTarjeta="h3" />
         </>
+      )}
+      {acciones.length > 0 && (
+        <ul className="lista-acciones">
+          {acciones.map((accion) => (
+            <li key={accion.ruta}>
+              <Link
+                to={accion.ruta}
+                className={apruebaRequisiciones ? 'accion-secundaria' : 'accion-grande'}
+              >
+                {accion.texto}
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
 
       <section className={styles.perfil} aria-label="Tus datos">

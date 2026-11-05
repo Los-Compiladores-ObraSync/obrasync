@@ -40,6 +40,13 @@ describe('ProveedoresPage', () => {
     )
   })
 
+  it('tiene un enlace para volver al inicio', async () => {
+    renderPagina()
+
+    expect(screen.getByRole('link', { name: '← Volver al inicio' })).toHaveAttribute('href', '/')
+    expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
+  })
+
   it('muestra mensaje cuando no hay licitaciones abiertas', async () => {
     server.use(
       http.get('*/api/licitaciones', () => {
