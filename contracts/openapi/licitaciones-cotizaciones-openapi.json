@@ -384,7 +384,7 @@
       },
       "CotizacionResponseDto": {
         "type": "object",
-        "required": ["cotizacionId", "licitacionId", "proveedorId", "fechaCreacion", "items"],
+        "required": ["cotizacionId", "licitacionId", "proveedorId", "fechaCreacion", "items", "puntajeTotal", "esGanadora"],
         "properties": {
           "cotizacionId": {
             "type": "string",
@@ -420,6 +420,15 @@
             "type": "array",
             "items": { "$ref": "#/components/schemas/CrearCotizacionItemDto" },
             "description": "Precios ofertados por artículo."
+          },
+          "puntajeTotal": {
+            "type": "number",
+            "format": "double",
+            "description": "Puntaje multivariable calculado para la oferta."
+          },
+          "esGanadora": {
+            "type": "boolean",
+            "description": "Indica si la cotización obtuvo el mayor puntaje y fue marcada como ganadora."
           }
         },
         "additionalProperties": false

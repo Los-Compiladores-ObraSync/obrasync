@@ -174,8 +174,8 @@ export function RecepcionPage() {
             <button type="button" className={styles.boton} onClick={recibirOtra}>
               Recibir otra orden
             </button>
-            <Link to="/obra" className={styles.enlaceBoton}>
-              Volver a Obra
+            <Link to="/" className={styles.enlaceBoton}>
+              Volver al inicio
             </Link>
           </div>
         </div>
@@ -309,8 +309,8 @@ export function RecepcionPage() {
   // ── Lista de órdenes pendientes ─────────────────────────────────────────────
   return (
     <section className={styles.contenedor}>
-      <Link to="/obra" className={styles.volverEnlace}>
-        ← Volver a Obra
+      <Link to="/" className={styles.volverEnlace}>
+        ← Volver al inicio
       </Link>
       <h1>Recibir mercadería</h1>
       <p className="intro">Elegí la orden que llegó a la obra.</p>

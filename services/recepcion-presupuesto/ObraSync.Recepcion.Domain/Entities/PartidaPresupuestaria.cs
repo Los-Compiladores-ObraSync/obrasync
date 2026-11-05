@@ -7,6 +7,10 @@ public class PartidaPresupuestaria : BaseEntity
     // Referencia a la Obra (solo GUID de Usuarios y Obras)
     public Guid ObraId { get; set; }
 
+    // Etapa de la obra a la que corresponde la partida (#107). Nula = partida de toda la obra.
+    // Es el mismo texto que viaja en OrdenCompraEmitidaEvent (comparación por texto).
+    public string? Etapa { get; set; }
+
     public string CodigoPartida { get; set; } = string.Empty;
     public string Descripcion { get; set; } = string.Empty;
 

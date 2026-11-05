@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
 import { setToken } from './api/client'
 import { STORAGE_KEY } from './auth/sessionContext'
-import { reiniciarRequisicionesMock } from './mocks/handlers'
+import { reiniciarLicitacionesMock, reiniciarRequisicionesMock } from './mocks/handlers'
 import { PORTALES } from './portales/portales'
 
 // <App /> declara las rutas pero no trae Router: acá usamos MemoryRouter,
@@ -31,11 +31,6 @@ function iniciarSesionComo(rol: string) {
       token: 'token-jwt-prueba',
     }),
   )
-}
-
-function linksDelMenu(): string[] {
-  const menu = screen.getByRole('navigation', { name: 'Menú principal' })
-  return Array.from(menu.querySelectorAll('a')).map((a) => a.textContent ?? '')
 }
 
 describe('App - sin sesión', () => {
@@ -117,33 +112,71 @@ describe('App - sin sesión', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Bienvenido, Marta Gómez' }),
     ).toBeInTheDocument()
-    // El Comprador no ve la barra de pestañas: su Inicio ya trae todo lo del portal.
+    // Ningún rol ve una barra de pestañas: su Inicio ya trae todo lo que hace.
     expect(screen.queryByRole('navigation', { name: 'Menú principal' })).not.toBeInTheDocument()
   })
 })
 
-describe('App - menú según el rol', () => {
+describe('App - pantalla de inicio según el rol', () => {
   beforeEach(() => {
     localStorage.clear()
     setToken(null)
+    reiniciarRequisicionesMock()
+    reiniciarLicitacionesMock()
   })
 
-  it.each([
-    ['Capataz', ['Inicio', 'Obra / Terreno']],
-    ['Proveedor', ['Inicio', 'Proveedores']],
-    ['Admin', ['Inicio', 'Obra / Terreno', 'Gestión y Compras', 'Proveedores']],
-  ])('el %s ve estos links', (rol, esperados) => {
-    iniciarSesionComo(rol)
+  it.each(['Capataz', 'Comprador', 'Proveedor', 'Admin'])(
+    'el %s no ve barra de pestañas',
+    (rol) => {
+      iniciarSesionComo(rol)
+      renderApp('/')
+
+      expect(screen.queryByRole('navigation', { name: 'Menú principal' })).not.toBeInTheDocument()
+    },
+  )
+
+  it('el Capataz tiene en su inicio los botones de lo que hace, sin títulos de más', () => {
+    iniciarSesionComo('Capataz')
     renderApp('/')
 
-    expect(linksDelMenu()).toEqual(esperados)
+    expect(screen.getByRole('link', { name: 'Nueva requisición' })).toHaveAttribute(
+      'href',
+      '/obra/requisicion/nueva',
+    )
+    expect(screen.getByRole('link', { name: 'Recibir mercadería' })).toHaveAttribute(
+      'href',
+      '/obra/recepcion',
+    )
+    expect(screen.getByRole('link', { name: 'Historial de requisiciones' })).toHaveAttribute(
+      'href',
+      '/obra/requisiciones',
+    )
+    expect(screen.queryByRole('heading', { name: 'Accesos rápidos' })).not.toBeInTheDocument()
   })
 
-  it('el Comprador no ve la barra de pestañas', () => {
-    iniciarSesionComo('Comprador')
+  it('el Proveedor ve las licitaciones abiertas directamente en su inicio', async () => {
+    iniciarSesionComo('Proveedor')
     renderApp('/')
 
-    expect(screen.queryByRole('navigation', { name: 'Menú principal' })).not.toBeInTheDocument()
+    expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Licitaciones abiertas' })).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'Cotizar' }).length).toBeGreaterThan(0)
+  })
+
+  it('el Admin llega desde su inicio a todo, incluidas las licitaciones abiertas', () => {
+    iniciarSesionComo('Admin')
+    renderApp('/')
+
+    expect(screen.getByRole('link', { name: 'Nueva requisición' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Nueva obra' })).toHaveAttribute(
+      'href',
+      '/compras/obras/nueva',
+    )
+    expect(screen.getByRole('link', { name: 'Ver obras' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Licitaciones abiertas' })).toHaveAttribute(
+      'href',
+      '/proveedores',
+    )
   })
 
   it('muestra los datos del usuario en el inicio', () => {
@@ -157,14 +190,14 @@ describe('App - menú según el rol', () => {
     expect(screen.getByText('usuario@obrasync.com')).toBeInTheDocument()
   })
 
-  it('un rol sin portales ve un aviso y solo el link de Inicio', () => {
+  it('un rol sin portales ve un aviso y ningún botón', () => {
     iniciarSesionComo('Desconocido')
     renderApp('/')
 
     expect(screen.getByRole('status')).toHaveTextContent(
       'Tu rol todavía no tiene portales asignados.',
     )
-    expect(linksDelMenu()).toEqual(['Inicio'])
+    expect(screen.queryByRole('list')).not.toBeInTheDocument()
   })
 })
 
@@ -247,10 +280,10 @@ describe('App - acceso a los portales', () => {
     ).toBeInTheDocument()
   })
 
-  it('el Capataz llega a "Recibir mercadería" desde su portal', async () => {
+  it('el Capataz llega a "Recibir mercadería" desde su inicio', async () => {
     const usuario = userEvent.setup()
     iniciarSesionComo('Capataz')
-    renderApp('/obra')
+    renderApp('/')
 
     await usuario.click(screen.getByRole('link', { name: 'Recibir mercadería' }))
 

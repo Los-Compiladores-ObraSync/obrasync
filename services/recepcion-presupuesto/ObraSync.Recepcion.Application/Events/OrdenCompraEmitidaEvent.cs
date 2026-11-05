@@ -20,7 +20,8 @@ public record OrdenCompraEmitidaEvent(
     Guid ObraId,
     Guid ProveedorId,
     decimal MontoTotal,
-    IReadOnlyList<OrdenCompraEmitidaItemEvent> Items
+    IReadOnlyList<OrdenCompraEmitidaItemEvent> Items,
+    string? Etapa = null
 );
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]

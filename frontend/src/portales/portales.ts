@@ -41,8 +41,3 @@ export function portalesParaRol(rol: string): Portal[] {
 export function puedeEntrar(rol: string, portalId: PortalId): boolean {
   return portalesParaRol(rol).some((portal) => portal.id === portalId)
 }
-
-/** Roles que no ven la barra de pestañas (Inicio | portal). Su pantalla de Inicio ya trae todo lo
- *  del portal (la tarjeta de aprobación y las opciones), así que la pestaña llevaría a lo mismo.
- *  Decisión de producto: confirmarla con el PO. */
-export const ROLES_SIN_PESTAÑAS: readonly string[] = ['Comprador']

@@ -15,6 +15,9 @@ public class PartidaPresupuestariaConfiguration : IEntityTypeConfiguration<Parti
         // ObraId es un GUID que apunta al servicio Usuarios y Obras.
         builder.HasIndex(p => p.ObraId);
 
+        builder.Property(p => p.Etapa)
+            .HasMaxLength(200);
+
         builder.Property(p => p.CodigoPartida)
             .IsRequired()
             .HasMaxLength(50);

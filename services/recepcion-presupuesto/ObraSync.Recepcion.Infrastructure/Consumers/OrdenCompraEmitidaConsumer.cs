@@ -98,7 +98,8 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
                     msg.ObraId,
                     msg.ProveedorId,
                     msg.MontoTotal,
-                    items);
+                    items,
+                    msg.Etapa);
             }
             catch (ArgumentException ex)
             {
@@ -167,6 +168,13 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
         if (existente.MontoTotal != evento.MontoTotal)
         {
             diferencias.Add($"MontoTotal difiere (existente: {existente.MontoTotal}, evento: {evento.MontoTotal})");
+        }
+
+        // La etapa opcional se compara normalizada igual que al crear la OC (vacío = sin etapa)
+        var etapaEvento = string.IsNullOrWhiteSpace(evento.Etapa) ? null : evento.Etapa.Trim();
+        if (!string.Equals(existente.Etapa, etapaEvento, StringComparison.Ordinal))
+        {
+            diferencias.Add($"Etapa difiere (existente: {existente.Etapa ?? "sin etapa"}, evento: {etapaEvento ?? "sin etapa"})");
         }
 
         if (existente.Items.Count != evento.Items.Count)

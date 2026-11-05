@@ -197,7 +197,7 @@ export function HistorialRequisicionesPage({
       {!cargando && !errorCarga && visibles.length > 0 && (
         <ul className={styles.lista}>
           {visibles.map((req) => (
-            <li key={req.requisicionId} className={styles.tarjeta}>
+            <li key={req.requisicionId} className={styles.tarjeta} data-estado={req.estado}>
               <div className={styles.encabezado}>
                 <h2 className={styles.numero}>
                   {/* Toda la tarjeta es clickeable (ver .enlaceFila::after). Los filtros viajan en "search". */}

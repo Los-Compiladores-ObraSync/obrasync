@@ -29,6 +29,139 @@ async function completarFormulario(
   await user.type(screen.getByLabelText('Etapa 1'), 'Cimientos')
 }
 
+describe('NuevaObraPage - crear capataz (#111)', () => {
+  async function abrirFormularioCapataz(user: ReturnType<typeof userEvent.setup>) {
+    await screen.findByRole('option', { name: 'Juan Pérez' })
+    await user.click(screen.getByRole('button', { name: '+ Crear capataz' }))
+  }
+
+  it('crea el capataz, refresca la lista y lo deja seleccionado', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+    await abrirFormularioCapataz(user)
+
+    await user.type(screen.getByLabelText('Nombre completo del capataz'), 'Ana López')
+    await user.type(screen.getByLabelText('Email del capataz'), 'ana@obrasync.com')
+    await user.type(screen.getByLabelText('Contraseña inicial'), 'secreta1')
+    await user.click(screen.getByRole('button', { name: 'Guardar capataz' }))
+
+    expect(await screen.findByText('Capataz Ana López creado y seleccionado.')).toBeInTheDocument()
+    const opcion = await screen.findByRole('option', { name: 'Ana López' })
+    expect(screen.getByLabelText('Capataz')).toHaveValue((opcion as HTMLOptionElement).value)
+    expect(screen.queryByLabelText('Contraseña inicial')).not.toBeInTheDocument()
+  })
+
+  it('manda el rol Capataz fijo y no la contraseña en otro lado', async () => {
+    let cuerpo: Record<string, string> | undefined
+    server.use(
+      http.post('http://localhost:5000/api/usuarios/registro', async ({ request }) => {
+        cuerpo = (await request.json()) as Record<string, string>
+        return HttpResponse.json(
+          { id: 'x1', nombreCompleto: 'Ana López', email: 'a@b.com', token: 't', roles: ['Capataz'] },
+          { status: 201 },
+        )
+      }),
+    )
+    const user = userEvent.setup()
+    renderPagina()
+    await abrirFormularioCapataz(user)
+
+    await user.type(screen.getByLabelText('Nombre completo del capataz'), '  Ana López ')
+    await user.type(screen.getByLabelText('Email del capataz'), 'a@b.com')
+    await user.type(screen.getByLabelText('Contraseña inicial'), 'secreta1')
+    await user.click(screen.getByRole('button', { name: 'Guardar capataz' }))
+
+    await screen.findByText('Capataz Ana López creado y seleccionado.')
+    expect(cuerpo).toEqual({
+      nombreCompleto: 'Ana López',
+      email: 'a@b.com',
+      password: 'secreta1',
+      rol: 'Capataz',
+    })
+  })
+
+  it('valida los campos antes de enviar', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+    await abrirFormularioCapataz(user)
+
+    await user.type(screen.getByLabelText('Email del capataz'), 'ana@')
+    await user.type(screen.getByLabelText('Contraseña inicial'), '123')
+    await user.click(screen.getByRole('button', { name: 'Guardar capataz' }))
+
+    expect(screen.getByText('El nombre completo es obligatorio.')).toBeInTheDocument()
+    expect(screen.getByText('Ingresá un email válido.')).toBeInTheDocument()
+    expect(screen.getByText(/al menos 6 caracteres/)).toBeInTheDocument()
+  })
+
+  it('avisa con claridad si el email ya existe', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+    await abrirFormularioCapataz(user)
+
+    await user.type(screen.getByLabelText('Nombre completo del capataz'), 'Otro Juan')
+    await user.type(screen.getByLabelText('Email del capataz'), 'capataz@obrasync.com')
+    await user.type(screen.getByLabelText('Contraseña inicial'), 'secreta1')
+    await user.click(screen.getByRole('button', { name: 'Guardar capataz' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ya existe un usuario registrado')
+  })
+
+  it('Enter en el formulario del capataz no envía la obra', async () => {
+    let obrasEnviadas = 0
+    server.use(
+      http.post(URL_OBRAS, () => {
+        obrasEnviadas++
+        return HttpResponse.text('id', { status: 200 })
+      }),
+    )
+    const user = userEvent.setup()
+    renderPagina()
+    await abrirFormularioCapataz(user)
+
+    await user.type(screen.getByLabelText('Nombre completo del capataz'), 'Ana López{Enter}')
+
+    expect(obrasEnviadas).toBe(0)
+  })
+
+  it('protege contra el doble clic: un solo pedido', async () => {
+    let pedidos = 0
+    server.use(
+      http.post('http://localhost:5000/api/usuarios/registro', async () => {
+        pedidos++
+        await delay(50)
+        return HttpResponse.json(
+          { id: 'x1', nombreCompleto: 'Ana López', email: 'a@b.com', token: 't', roles: ['Capataz'] },
+          { status: 201 },
+        )
+      }),
+    )
+    const user = userEvent.setup()
+    renderPagina()
+    await abrirFormularioCapataz(user)
+
+    await user.type(screen.getByLabelText('Nombre completo del capataz'), 'Ana López')
+    await user.type(screen.getByLabelText('Email del capataz'), 'a@b.com')
+    await user.type(screen.getByLabelText('Contraseña inicial'), 'secreta1')
+    const boton = screen.getByRole('button', { name: 'Guardar capataz' })
+    await user.dblClick(boton)
+
+    await screen.findByText('Capataz Ana López creado y seleccionado.')
+    expect(pedidos).toBe(1)
+  })
+
+  it('se puede cancelar y volver a abrir', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+    await abrirFormularioCapataz(user)
+
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.queryByLabelText('Contraseña inicial')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '+ Crear capataz' })).toBeInTheDocument()
+  })
+})
+
 describe('NuevaObraPage', () => {
   it('carga los capataces en un desplegable', async () => {
     renderPagina()
