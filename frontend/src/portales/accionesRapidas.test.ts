@@ -23,6 +23,7 @@ describe('accionesParaRol', () => {
       'Historial de requisiciones',
       'Nueva obra',
       'Ver obras',
+      'Licitaciones y cotizaciones',
     ])
   })
 
@@ -33,6 +34,7 @@ describe('accionesParaRol', () => {
       'Historial de requisiciones',
       'Nueva obra',
       'Ver obras',
+      'Licitaciones y cotizaciones',
       'Licitaciones abiertas',
     ])
   })

@@ -285,10 +285,41 @@ interface CotizacionMock {
   plazoEntregaDias?: number
   fechaCreacion: string
   items: Array<{ articuloId: string; precioUnitario: number }>
+  puntajeTotal: number
+  esGanadora: boolean
 }
 
 function crearCotizacionesMock(): CotizacionMock[] {
-  return []
+  return [
+    {
+      cotizacionId: 'c1111111-0000-0000-0000-000000000001',
+      licitacionId: 'b1b2c3d4-1111-0000-0000-000000000001',
+      proveedorId: 'f7a8b9c0-1111-2222-3333-444455556666',
+      flete: 15000,
+      plazoEntregaDias: 5,
+      fechaCreacion: '2026-10-22T10:00:00Z',
+      items: [
+        { articuloId: MOCK_CATALOGO[0].articuloId, precioUnitario: 8000 },
+        { articuloId: MOCK_CATALOGO[1].articuloId, precioUnitario: 14000 },
+      ],
+      puntajeTotal: 92.5,
+      esGanadora: true,
+    },
+    {
+      cotizacionId: 'c2222222-0000-0000-0000-000000000002',
+      licitacionId: 'b1b2c3d4-1111-0000-0000-000000000001',
+      proveedorId: 'e1a2b3c4-9999-8888-7777-666655554444',
+      flete: 25000,
+      plazoEntregaDias: 10,
+      fechaCreacion: '2026-10-23T14:00:00Z',
+      items: [
+        { articuloId: MOCK_CATALOGO[0].articuloId, precioUnitario: 8500 },
+        { articuloId: MOCK_CATALOGO[1].articuloId, precioUnitario: 16000 },
+      ],
+      puntajeTotal: 78.0,
+      esGanadora: false,
+    },
+  ]
 }
 
 let licitacionesMock = crearLicitacionesMock()
@@ -798,7 +829,7 @@ export const handlers: RequestHandler[] = [
       )
     }
 
-    const nuevaCotizacion = {
+    const nuevaCotizacion: CotizacionMock = {
       cotizacionId: `cot-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       licitacionId: lic.licitacionId,
       proveedorId: body.proveedorId ?? '',
@@ -806,9 +837,105 @@ export const handlers: RequestHandler[] = [
       plazoEntregaDias: body.plazoEntregaDias ?? 0,
       fechaCreacion: new Date().toISOString(),
       items: body.items,
+      puntajeTotal: 0,
+      esGanadora: false,
     }
 
     cotizacionesMock.push(nuevaCotizacion)
     return HttpResponse.json(nuevaCotizacion, { status: 201 })
+  }),
+
+  // Contrato: GET /api/cotizaciones?licitacionId={guid} → 200 CotizacionResponseDto[] | 400 ProblemDetails
+  http.get('*/api/cotizaciones', ({ request }) => {
+    const url = new URL(request.url)
+    const licitacionId = url.searchParams.get('licitacionId')
+    if (!licitacionId) {
+      return HttpResponse.json(
+        {
+          title: 'Datos inválidos',
+          status: 400,
+          detail: 'El identificador de la licitación es obligatorio.',
+        },
+        { status: 400 },
+      )
+    }
+
+    const filtradas = cotizacionesMock.filter((c) => c.licitacionId === licitacionId)
+    return HttpResponse.json(filtradas, { status: 200 })
+  }),
+
+  // Contrato: POST /api/licitaciones/{licitacionId}/adjudicar con body {"cotizacionId": "<guid>"}
+  // → 200 OrdenCompraResponseDto | 400 | 404 | 409 ProblemDetails
+  http.post('*/api/licitaciones/:licitacionId/adjudicar', async ({ params, request }) => {
+    const licitacionId = params.licitacionId as string
+    const lic = licitacionesMock.find((l) => l.licitacionId === licitacionId)
+    if (!lic) {
+      return HttpResponse.json(
+        {
+          title: 'Recurso no encontrado',
+          status: 404,
+          detail: `No se encontró la licitación con ID ${licitacionId}.`,
+        },
+        { status: 404 },
+      )
+    }
+
+    if (lic.estado !== 'Abierta') {
+      return HttpResponse.json(
+        {
+          title: 'Conflicto en la adjudicación',
+          status: 409,
+          detail: 'La licitación ya se encuentra adjudicada o cerrada.',
+        },
+        { status: 409 },
+      )
+    }
+
+    const body = (await request.json().catch(() => ({}))) as { cotizacionId?: string }
+    if (!body.cotizacionId) {
+      return HttpResponse.json(
+        {
+          title: 'Solicitud inválida',
+          status: 400,
+          detail: 'El identificador de la cotización es obligatorio.',
+        },
+        { status: 400 },
+      )
+    }
+
+    const cot = cotizacionesMock.find((c) => c.cotizacionId === body.cotizacionId)
+    if (!cot) {
+      return HttpResponse.json(
+        {
+          title: 'Recurso no encontrado',
+          status: 404,
+          detail: `No se encontró la cotización con ID ${body.cotizacionId}.`,
+        },
+        { status: 404 },
+      )
+    }
+
+    if (cot.licitacionId !== licitacionId) {
+      return HttpResponse.json(
+        {
+          title: 'Solicitud inválida',
+          status: 400,
+          detail: 'La cotización no pertenece a la licitación especificada.',
+        },
+        { status: 400 },
+      )
+    }
+
+    lic.estado = 'Adjudicada'
+
+    const ordenCompra = {
+      id: `oc-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      licitacionId: lic.licitacionId,
+      cotizacionId: cot.cotizacionId,
+      estado: 'Emitida',
+      fechaEmision: new Date().toISOString(),
+    }
+
+    return HttpResponse.json(ordenCompra, { status: 200 })
   }),
 ]

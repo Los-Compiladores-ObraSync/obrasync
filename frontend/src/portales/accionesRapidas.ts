@@ -40,21 +40,32 @@ const LICITACIONES_ABIERTAS: AccionRapida = {
   texto: 'Licitaciones abiertas',
   ruta: '/proveedores',
 }
+const LICITACIONES_Y_COTIZACIONES: AccionRapida = {
+  texto: 'Licitaciones y cotizaciones',
+  ruta: '/compras/licitaciones',
+}
 
 // Sin barra de pestañas: el Inicio de cada rol trae todo lo que ese rol hace.
 // Quien aprueba requisiciones (Comprador y Admin) ve primero la tarjeta "Tenés N requisiciones para
 // aprobar" (ResumenAprobacion), así que acá van solo las opciones secundarias.
 const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
   Capataz: [NUEVA_REQUISICION, RECIBIR_MERCADERIA, HISTORIAL_REQUISICIONES_OBRA],
-  Comprador: [HISTORIAL_REQUISICIONES_COMPRAS, NUEVA_OBRA, VER_OBRAS],
+  Comprador: [
+    HISTORIAL_REQUISICIONES_COMPRAS,
+    NUEVA_OBRA,
+    VER_OBRAS,
+    LICITACIONES_Y_COTIZACIONES,
+  ],
   Admin: [
     NUEVA_REQUISICION,
     RECIBIR_MERCADERIA,
     HISTORIAL_REQUISICIONES_COMPRAS,
     NUEVA_OBRA,
     VER_OBRAS,
+    LICITACIONES_Y_COTIZACIONES,
     LICITACIONES_ABIERTAS,
   ],
+
   // El Proveedor no tiene botones: su Inicio es directamente la lista de licitaciones abiertas.
   Proveedor: [],
 }

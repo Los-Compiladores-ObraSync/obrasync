@@ -37,4 +37,19 @@ export interface CotizacionResponseDto {
   plazoEntregaDias?: number
   fechaCreacion: string
   items: CrearCotizacionItemDto[]
+  puntajeTotal: number
+  esGanadora: boolean
 }
+
+export interface AdjudicarLicitacionRequestDto {
+  cotizacionId: string
+}
+
+export interface OrdenCompraAdjudicadaDto {
+  id: string
+  licitacionId: string
+  cotizacionId: string
+  estado: string
+  fechaEmision: string
+}
+

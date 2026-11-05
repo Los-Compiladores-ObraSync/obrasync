@@ -3,6 +3,7 @@ import type {
   CrearCotizacionRequestDto,
   CotizacionResponseDto,
   LicitacionResponseDto,
+  OrdenCompraAdjudicadaDto,
 } from './licitacionesTipos'
 
 /**
@@ -33,3 +34,31 @@ export function crearCotizacion(
     body: JSON.stringify(dto),
   })
 }
+
+/**
+ * Lista las cotizaciones cargadas para un pliego de licitación.
+ * Fuente: GET /api/cotizaciones?licitacionId={id} (Comprador, Admin)
+ */
+export function listarCotizaciones(licitacionId: string): Promise<CotizacionResponseDto[]> {
+  return apiFetch<CotizacionResponseDto[]>(
+    `/api/cotizaciones?licitacionId=${encodeURIComponent(licitacionId)}`,
+  )
+}
+
+/**
+ * Adjudica una licitación a una cotización específica y emite la Orden de Compra.
+ * Fuente: POST /api/licitaciones/{licitacionId}/adjudicar (Comprador, Admin)
+ */
+export function adjudicarLicitacion(
+  licitacionId: string,
+  cotizacionId: string,
+): Promise<OrdenCompraAdjudicadaDto> {
+  return apiFetch<OrdenCompraAdjudicadaDto>(
+    `/api/licitaciones/${encodeURIComponent(licitacionId)}/adjudicar`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ cotizacionId }),
+    },
+  )
+}
+
