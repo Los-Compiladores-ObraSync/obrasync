@@ -8,6 +8,7 @@ import { CotizarLicitacionPage } from './pages/CotizarLicitacionPage'
 import { DetalleRequisicionPage } from './pages/DetalleRequisicionPage'
 import { HistorialRequisicionesPage } from './pages/HistorialRequisicionesPage'
 import { InicioPage } from './pages/InicioPage'
+import { LicitacionesComprasPage } from './pages/LicitacionesComprasPage'
 import { LoginPage } from './pages/LoginPage'
 import { NuevaObraPage } from './pages/NuevaObraPage'
 import { NuevaRequisicionPage } from './pages/NuevaRequisicionPage'
@@ -64,6 +65,7 @@ function App() {
               <Route path="obras" element={<ObrasPage />} />
               <Route path="obras/nueva" element={<NuevaObraPage />} />
               <Route path="requisiciones" element={<AprobarRequisicionesPage />} />
+              <Route path="licitaciones" element={<LicitacionesComprasPage />} />
               <Route
                 path="requisiciones/historial"
                 element={

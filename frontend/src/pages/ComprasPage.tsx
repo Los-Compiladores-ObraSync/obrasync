@@ -21,6 +21,11 @@ export function ComprasPage() {
             Ver obras
           </Link>
         </li>
+        <li>
+          <Link to="/compras/licitaciones" className="accion-secundaria">
+            Licitaciones y cotizaciones
+          </Link>
+        </li>
       </ul>
     </section>
   )

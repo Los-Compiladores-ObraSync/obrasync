@@ -1,0 +1,278 @@
+/* ── LicitacionesComprasPage — mobile-first ────────────────────────────────
+   Usa las variables de index.css (--azul, --naranja, --borde, --texto-suave, etc.)
+─────────────────────────────────────────────────────────────────────────── */
+
+.contenedor {
+  width: 100%;
+}
+
+.volver {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--azul);
+  text-decoration: none;
+  margin-bottom: 0.5rem;
+}
+
+.volver:hover {
+  text-decoration: underline;
+}
+
+.subtitulo {
+  margin: 0 0 1rem;
+  font-size: 1.125rem;
+  color: var(--texto-suave);
+}
+
+.listaLicitaciones {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 900px) {
+  .listaLicitaciones {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+}
+
+.tarjetaLicitacion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 2px solid var(--borde);
+  border-left: 6px solid var(--naranja);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.licitacionSeleccionada {
+  border-color: var(--azul);
+  box-shadow: 0 0 0 3px var(--azul), 0 2px 12px rgba(15, 23, 42, 0.12);
+}
+
+.numeroRequisicion {
+  margin: 0;
+  font-size: 1.375rem;
+  color: var(--azul);
+}
+
+.dato {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--texto-suave);
+}
+
+.estadoBadge {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: var(--azul);
+}
+
+.estadoAdjudicada {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.botonSeleccionar {
+  margin-top: 0.5rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  font-size: 1rem;
+  background: var(--azul);
+}
+
+.seccionCotizaciones {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.encabezadoMatriz {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+@media (min-width: 600px) {
+  .encabezadoMatriz {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+.matrizContenedor {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+  border: 1px solid var(--borde);
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 1rem;
+  min-width: 680px;
+}
+
+.tabla th {
+  background: #f1f5f9;
+  color: var(--azul);
+  font-weight: 700;
+  padding: 0.875rem 1rem;
+  border-bottom: 2px solid var(--borde);
+  white-space: nowrap;
+}
+
+.tabla td {
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.filaDestacada {
+  background: #fffbeb;
+}
+
+.filaDestacada td {
+  border-top: 2px solid #f59e0b;
+  border-bottom: 2px solid #f59e0b;
+}
+
+.badgeGanadora {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+  font-size: 0.875rem;
+  font-weight: 700;
+  margin-top: 0.25rem;
+}
+
+.proveedorCelda {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.proveedorId {
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 1.0625rem;
+  color: var(--azul);
+}
+
+.precioTotal {
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--azul);
+}
+
+.puntaje {
+  font-weight: 700;
+  color: #0369a1;
+}
+
+.botonAdjudicar {
+  min-height: 44px;
+  padding: 0 1rem;
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+.contenedorConfirmacion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+.textoConfirmacion {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.accionesConfirmacion {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.botonConfirmar {
+  min-height: 40px;
+  padding: 0 0.875rem;
+  font-size: 0.9375rem;
+  background: #16a34a;
+}
+
+.botonCancelar {
+  min-height: 40px;
+  padding: 0 0.875rem;
+  font-size: 0.9375rem;
+  background: #ffffff;
+  color: var(--texto-suave);
+  border: 2px solid var(--borde);
+}
+
+.errorApi,
+.exito {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.errorApi {
+  background: #fef2f2;
+  border: 2px solid #fca5a5;
+  color: #991b1b;
+}
+
+.exito {
+  background: #f0fdf4;
+  border: 2px solid #86efac;
+  color: #166534;
+}
+
+.mensajeVacio {
+  margin: 1rem 0;
+  font-size: 1.0625rem;
+  color: var(--texto-suave);
+}
+
+.seccionError {
+  margin: 1rem 0;
+}
+
+.botonReintentar {
+  margin-top: 0.5rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  background: var(--azul);
+}
