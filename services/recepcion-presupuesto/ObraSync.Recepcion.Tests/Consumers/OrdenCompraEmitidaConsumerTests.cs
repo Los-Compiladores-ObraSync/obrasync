@@ -80,6 +80,118 @@ public class OrdenCompraEmitidaConsumerTests
     }
 
     [Fact]
+    public async Task CasoH_EventoConEtapa_OcNueva_GuardaLaEtapaSinEspaciosSobrantes()
+    {
+        // Arrange
+        using var db = CreateDbContext(Guid.NewGuid().ToString());
+        var repo = new OrdenCompraRepository(db);
+        var logger = Substitute.For<ILogger<OrdenCompraEmitidaConsumer>>();
+        var consumer = new OrdenCompraEmitidaConsumer(db, repo, logger);
+
+        var evento = new OrdenCompraEmitidaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: Guid.NewGuid(),
+            LicitacionId: Guid.NewGuid(),
+            RequisicionId: Guid.NewGuid(),
+            ObraId: Guid.NewGuid(),
+            ProveedorId: Guid.NewGuid(),
+            MontoTotal: 1000m,
+            Items: new List<OrdenCompraEmitidaItemEvent>
+            {
+                new(Guid.NewGuid(), 10m, "UN", 100m, "Ladrillo")
+            },
+            Etapa: "  Estructura ");
+
+        // Act
+        await consumer.Consume(CreateConsumeContext(evento));
+
+        // Assert
+        var oc = await db.OrdenesCompra.SingleAsync(o => o.Id == evento.OrdenCompraId);
+        Assert.Equal("Estructura", oc.Etapa);
+    }
+
+    [Fact]
+    public async Task CasoI_EventoSinEtapa_OcNueva_LaEtapaQuedaNula()
+    {
+        // Arrange
+        using var db = CreateDbContext(Guid.NewGuid().ToString());
+        var repo = new OrdenCompraRepository(db);
+        var logger = Substitute.For<ILogger<OrdenCompraEmitidaConsumer>>();
+        var consumer = new OrdenCompraEmitidaConsumer(db, repo, logger);
+
+        var evento = new OrdenCompraEmitidaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: Guid.NewGuid(),
+            LicitacionId: Guid.NewGuid(),
+            RequisicionId: Guid.NewGuid(),
+            ObraId: Guid.NewGuid(),
+            ProveedorId: Guid.NewGuid(),
+            MontoTotal: 1000m,
+            Items: new List<OrdenCompraEmitidaItemEvent>
+            {
+                new(Guid.NewGuid(), 10m, "UN", 100m, "Ladrillo")
+            });
+
+        // Act
+        await consumer.Consume(CreateConsumeContext(evento));
+
+        // Assert
+        var oc = await db.OrdenesCompra.SingleAsync(o => o.Id == evento.OrdenCompraId);
+        Assert.Null(oc.Etapa);
+    }
+
+    [Fact]
+    public async Task CasoJ_OcExistente_ConEtapaDistintaEnElEvento_NoModificaLaOcYEmiteLogWarning()
+    {
+        // Arrange
+        using var db = CreateDbContext(Guid.NewGuid().ToString());
+        var repo = new OrdenCompraRepository(db);
+        var logger = new TestLogger<OrdenCompraEmitidaConsumer>();
+        var consumer = new OrdenCompraEmitidaConsumer(db, repo, logger);
+
+        var ocId = Guid.NewGuid();
+        var obraId = Guid.NewGuid();
+        var proveedorId = Guid.NewGuid();
+        var articuloId = Guid.NewGuid();
+
+        var ocInicial = OrdenCompra.Crear(
+            ocId, obraId, proveedorId, 500m,
+            new[] { OrdenCompraItem.Crear(articuloId, 10m, "KG", 50m, "Cemento") },
+            etapa: "Estructura");
+        db.OrdenesCompra.Add(ocInicial);
+        await db.SaveChangesAsync();
+
+        var evento = new OrdenCompraEmitidaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: ocId,
+            LicitacionId: Guid.NewGuid(),
+            RequisicionId: Guid.NewGuid(),
+            ObraId: obraId,
+            ProveedorId: proveedorId,
+            MontoTotal: 500m,
+            Items: new List<OrdenCompraEmitidaItemEvent>
+            {
+                new(articuloId, 10m, "KG", 50m, "Cemento")
+            },
+            Etapa: "Terminaciones");
+
+        // Act
+        await consumer.Consume(CreateConsumeContext(evento));
+
+        // Assert: la OC es inmutable (la etapa original se conserva) y la diferencia queda en el log
+        var oc = await db.OrdenesCompra.AsNoTracking().SingleAsync(o => o.Id == ocId);
+        Assert.Equal("Estructura", oc.Etapa);
+        Assert.True(await db.EventosProcesados.AnyAsync(e => e.EventId == evento.EventId));
+        Assert.Contains(logger.Logs, l => l.LogLevel == LogLevel.Warning);
+    }
+
+    [Fact]
     public async Task CasoB_MismoEventIdDosVeces_SegundoLlamadoNoDuplicaNada()
     {
         // Arrange

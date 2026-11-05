@@ -166,6 +166,10 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
 
+                    b.Property<string>("Etapa")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("Moneda")
                         .IsRequired()
                         .HasMaxLength(10)

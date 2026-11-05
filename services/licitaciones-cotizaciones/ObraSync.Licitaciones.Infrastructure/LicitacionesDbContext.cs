@@ -31,6 +31,7 @@ public class LicitacionesDbContext : DbContext
         {
             e.HasKey(x => x.RequisicionId);
             e.Property(x => x.NumeroRequisicion).HasMaxLength(50);
+            e.Property(x => x.Etapa).HasMaxLength(200);
             e.HasMany(x => x.Items).WithOne().HasForeignKey(i => i.RequisicionId);
         });
 

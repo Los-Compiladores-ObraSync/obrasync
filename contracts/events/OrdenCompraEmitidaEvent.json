@@ -57,6 +57,13 @@
       "format": "uuid",
       "description": "Identificador del proveedor adjudicado."
     },
+    "etapa": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Etapa de obra de la requisición que originó la compra (mismo texto que viaja en RequisicionAprobadaEvent). Opcional: si falta, la OC se valida contra la partida de la obra sin etapa."
+    },
     "montoTotal": {
       "type": "number",
       "minimum": 0,

@@ -20,7 +20,7 @@ public class RequisicionAprobadaConsumerTests
         return new LicitacionesDbContext(options);
     }
 
-    private static RequisicionAprobadaEvent CrearEvento(Guid? eventId = null, bool conItems = true)
+    private static RequisicionAprobadaEvent CrearEvento(Guid? eventId = null, bool conItems = true, string? etapa = null)
     {
         var items = conItems
             ? new List<RequisicionAprobadaItemEvent>
@@ -38,7 +38,8 @@ public class RequisicionAprobadaConsumerTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             Guid.NewGuid(),
-            items);
+            items,
+            etapa);
     }
 
     private static ConsumeContext<RequisicionAprobadaEvent> CrearContexto(RequisicionAprobadaEvent msg)
@@ -81,6 +82,44 @@ public class RequisicionAprobadaConsumerTests
         Assert.Equal("Cemento", item.Descripcion);
         Assert.Equal(80m, item.Cantidad);
         Assert.Equal("bolsa", item.UnidadMedida);
+    }
+
+    [Fact]
+    public async Task Mensaje_con_etapa_guarda_la_etapa_de_la_requisicion()
+    {
+        await using var db = CrearDb();
+        var consumer = new RequisicionAprobadaConsumer(db, NullLogger<RequisicionAprobadaConsumer>.Instance);
+        var evento = CrearEvento(etapa: "  Estructura ");
+
+        await consumer.Consume(CrearContexto(evento));
+
+        var guardada = await db.RequisicionesAprobadas.SingleAsync(r => r.RequisicionId == evento.RequisicionId);
+        Assert.Equal("Estructura", guardada.Etapa); // se guarda sin espacios sobrantes
+    }
+
+    [Fact]
+    public async Task Mensaje_sin_etapa_se_procesa_y_la_etapa_queda_nula()
+    {
+        await using var db = CrearDb();
+        var consumer = new RequisicionAprobadaConsumer(db, NullLogger<RequisicionAprobadaConsumer>.Instance);
+        var evento = CrearEvento(etapa: null);
+
+        await consumer.Consume(CrearContexto(evento));
+
+        var guardada = await db.RequisicionesAprobadas.SingleAsync(r => r.RequisicionId == evento.RequisicionId);
+        Assert.Null(guardada.Etapa);
+    }
+
+    [Fact]
+    public async Task Mensaje_con_etapa_de_mas_de_200_caracteres_se_descarta()
+    {
+        await using var db = CrearDb();
+        var consumer = new RequisicionAprobadaConsumer(db, NullLogger<RequisicionAprobadaConsumer>.Instance);
+
+        await consumer.Consume(CrearContexto(CrearEvento(etapa: new string('A', 201))));
+
+        Assert.Equal(0, await db.EventosProcesados.CountAsync());
+        Assert.Equal(0, await db.RequisicionesAprobadas.CountAsync());
     }
 
     [Fact]

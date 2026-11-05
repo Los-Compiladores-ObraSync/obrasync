@@ -9,6 +9,8 @@ namespace ObraSync.Licitaciones.Infrastructure.Consumers;
 
 public class RequisicionAprobadaConsumer : IConsumer<RequisicionAprobadaEvent>
 {
+    private const int EtapaMaxLength = 200;
+
     private readonly LicitacionesDbContext _db;
     private readonly ILogger<RequisicionAprobadaConsumer> _logger;
 
@@ -23,7 +25,9 @@ public class RequisicionAprobadaConsumer : IConsumer<RequisicionAprobadaEvent>
         var msg = context.Message;
 
         // Datos inválidos: se descartan (reintentarlos no los arregla)
-        if (msg.EventId == Guid.Empty || msg.Items is null || msg.Items.Count == 0)
+        // La etapa es opcional, pero si viene no puede pasar de 200 caracteres (tamaño de la columna)
+        if (msg.EventId == Guid.Empty || msg.Items is null || msg.Items.Count == 0 ||
+            (msg.Etapa is not null && msg.Etapa.Trim().Length > EtapaMaxLength))
         {
             _logger.LogWarning(
                 "RequisicionAprobadaEvent inválido, se descarta. EventId {EventId}, Requisicion {RequisicionId}",
@@ -54,6 +58,7 @@ public class RequisicionAprobadaConsumer : IConsumer<RequisicionAprobadaEvent>
                 RequisicionId = msg.RequisicionId,
                 NumeroRequisicion = msg.NumeroRequisicion ?? "",
                 ObraId = msg.ObraId,
+                Etapa = string.IsNullOrWhiteSpace(msg.Etapa) ? null : msg.Etapa.Trim(),
                 RecibidaEnUtc = DateTime.UtcNow,
                 Items = msg.Items.Select(i => new RequisicionAprobadaItem
                 {
