@@ -9,4 +9,6 @@ public class CotizacionResponseDto
     public int PlazoEntregaDias { get; set; }
     public DateTime FechaCreacion { get; set; }
     public IReadOnlyList<CrearCotizacionItemDto> Items { get; set; } = Array.Empty<CrearCotizacionItemDto>();
+    public decimal PuntajeTotal { get; set; }
+    public bool EsGanadora { get; set; }
 }
