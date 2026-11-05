@@ -151,6 +151,10 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Etapa")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("NumeroRequisicion")
                         .IsRequired()
                         .HasMaxLength(50)
