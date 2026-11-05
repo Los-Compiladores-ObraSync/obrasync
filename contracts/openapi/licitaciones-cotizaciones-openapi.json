@@ -156,6 +156,55 @@
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       }
+    },
+    "/api/licitaciones/{licitacionId}/adjudicar": {
+      "post": {
+        "tags": ["Licitaciones"],
+        "summary": "Adjudicar una cotización y emitir la Orden de Compra",
+        "description": "Permite a un Comprador o Administrador adjudicar una cotización ganadora para una licitación.",
+        "parameters": [
+          {
+            "name": "licitacionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["cotizacionId"],
+                "properties": {
+                  "cotizacionId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Orden de Compra emitida exitosamente."
+          },
+          "400": {
+            "description": "Datos inválidos o la cotización no pertenece a la licitación."
+          },
+          "404": {
+            "description": "No se encontró la licitación o la cotización."
+          },
+          "409": {
+            "description": "La licitación ya se encuentra adjudicada o hay conflicto con el estado."
+          }
+        }
+      }
     }
   },
   "components": {
@@ -218,21 +267,21 @@
         "additionalProperties": false
       },
       "CrearLicitacionRequestDto": {
-  "type": "object",
-  "required": ["requisicionId", "fechaLimiteCotizacion"],
-  "properties": {
-    "requisicionId": {
-      "type": "string",
-      "format": "uuid",
-      "description": "Identificador de la requisición aprobada que origina el pliego."
-    },
-    "fechaLimiteCotizacion": {
-      "type": "string",
-      "format": "date-time",
-      "description": "Fecha y hora límite (UTC) hasta la cual los proveedores pueden cargar cotizaciones. Debe ser posterior al momento de publicación."
-      }
-  },
-      "additionalProperties": false
+        "type": "object",
+        "required": ["requisicionId", "fechaLimiteCotizacion"],
+        "properties": {
+          "requisicionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la requisición aprobada que origina el pliego."
+          },
+          "fechaLimiteCotizacion": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha y hora límite (UTC) hasta la cual los proveedores pueden cargar cotizaciones. Debe ser posterior al momento de publicación."
+          }
+        },
+        "additionalProperties": false
       },
       "LicitacionResponseDto": {
         "type": "object",

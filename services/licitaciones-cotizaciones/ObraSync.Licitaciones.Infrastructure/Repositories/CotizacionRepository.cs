@@ -47,4 +47,11 @@ public class CotizacionRepository : ICotizacionRepository
     {
         await _context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task<Cotizacion?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+    return await _context.Cotizaciones
+        .Include(c => c.Items)
+        .FirstOrDefaultAsync(c => c.CotizacionId == id, cancellationToken);
+    }
 }

@@ -13,6 +13,10 @@ public interface ICotizacionRepository
         Guid licitacionId,
         CancellationToken cancellationToken = default);
 
+    Task<Cotizacion?> GetByIdAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
+
     Task AddAsync(
         Cotizacion cotizacion,
         CancellationToken cancellationToken = default);

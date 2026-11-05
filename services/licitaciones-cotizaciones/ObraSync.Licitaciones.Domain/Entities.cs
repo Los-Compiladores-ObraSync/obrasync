@@ -67,3 +67,26 @@ public class CotizacionItem
     public Guid ArticuloId { get; set; }
     public decimal PrecioUnitario { get; set; }
 }
+
+public class OrdenCompra
+{
+    public Guid OrdenCompraId { get; set; }
+    public Guid LicitacionId { get; set; }
+    public Guid CotizacionId { get; set; }
+    public Guid ProveedorId { get; set; }
+    public string Estado { get; set; } = "Emitida";
+    public DateTime FechaEmision { get; set; } = DateTime.UtcNow;
+    public decimal TotalFlete { get; set; }
+    public List<OrdenCompraItem> Items { get; set; } = new();
+}
+
+public class OrdenCompraItem
+{
+    public Guid Id { get; set; }
+    public Guid OrdenCompraId { get; set; }
+    public Guid ArticuloId { get; set; }
+    public string Descripcion { get; set; } = "";
+    public decimal Cantidad { get; set; }
+    public string UnidadMedida { get; set; } = "";
+    public decimal PrecioUnitario { get; set; }
+}

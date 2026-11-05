@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.Services;
+using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Handlers;
 using ObraSync.Licitaciones.Infrastructure;
@@ -36,15 +37,21 @@ builder.Services.AddProblemDetails(options =>
 builder.Services.AddDbContext<LicitacionesDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DbLicit")));
 
+// Registro de MediatR para la capa de Aplicación
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(CrearCotizacionCommandHandler).Assembly));
+
 // Servicios, Repositorios y Handlers de Aplicación
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ILicitacionRepository, LicitacionRepository>();
 builder.Services.AddScoped<ILicitacionService, LicitacionService>();
 builder.Services.AddScoped<ICotizacionRepository, CotizacionRepository>();
+builder.Services.AddScoped<IOrdenCompraRepository, OrdenCompraRepository>();
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<GetLicitacionesQueryHandler>();
 builder.Services.AddScoped<GetLicitacionByIdQueryHandler>();
 builder.Services.AddScoped<CrearCotizacionCommandHandler>();
 builder.Services.AddScoped<GetCotizacionesByLicitacionIdQueryHandler>();
+builder.Services.AddScoped<AdjudicarCotizacionCommandHandler>();
 
 // RabbitMQ + MassTransit (misma convención que Requisiciones)
 var useInMemoryTransport = string.Equals(
