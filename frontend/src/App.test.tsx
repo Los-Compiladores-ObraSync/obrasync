@@ -168,6 +168,10 @@ describe('App - pantalla de inicio según el rol', () => {
     renderApp('/')
 
     expect(screen.getByRole('link', { name: 'Nueva requisición' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Nueva obra' })).toHaveAttribute(
+      'href',
+      '/compras/obras/nueva',
+    )
     expect(screen.getByRole('link', { name: 'Ver obras' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Licitaciones abiertas' })).toHaveAttribute(
       'href',
