@@ -516,6 +516,21 @@
           },
           "403": {
             "description": "Forbidden (Rol no autorizado)"
+          },
+          "409": {
+            "description": "Conflict (Ya existe una obra activa con el mismo nombre y ubicación)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       },
@@ -560,6 +575,160 @@
           },
           "403": {
             "description": "Forbidden (Rol no autorizado)"
+          }
+        }
+      }
+    },
+    "/api/Obras/{id}": {
+      "put": {
+        "tags": [
+          "Obras"
+        ],
+        "summary": "Editar los datos de una obra existente (Roles: Admin, Comprador)",
+        "description": "Permite modificar el nombre, la ubicación, la fecha de inicio y el capataz asignado de una obra activa. Si la obra no existe o está dada de baja, devuelve 404 Not Found. Si el capataz no existe, devuelve 400 Bad Request. Si ya existe otra obra activa con el mismo nombre y ubicación, devuelve 409 Conflict.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Identificador único de la obra a editar."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActualizarObraDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActualizarObraDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActualizarObraDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Obra actualizada exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObraResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObraResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (Datos inválidos o el Capataz especificado no existe)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden (Rol no autorizado. Solo Admin o Comprador)"
+          },
+          "404": {
+            "description": "Not Found (La obra no existe o se encuentra inactiva)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (Ya existe otra obra activa con el mismo nombre y ubicación)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Obras"
+        ],
+        "summary": "Dar de baja lógica una obra existente (Roles: Admin, Comprador)",
+        "description": "Realiza la baja lógica de una obra cambiando su estado a inactivo (Activa = false). No se realiza borrado físico para preservar la integridad referencial en requisiciones y órdenes de compra. Una vez dada de baja, la obra no figurará en el listado de obras activas. Si la obra no existe o ya está inactiva, devuelve 404 Not Found.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Identificador único de la obra a dar de baja."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Baja lógica realizada exitosamente (No Content)"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden (Rol no autorizado. Solo Admin o Comprador)"
+          },
+          "404": {
+            "description": "Not Found (La obra no existe o ya se encuentra inactiva)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -1051,8 +1220,39 @@
             },
             "nullable": true,
             "description": "Listado de etapas constructivas de la obra."
+          },
+          "activa": {
+            "type": "boolean",
+            "description": "Indica si la obra se encuentra activa o dada de baja lógica."
           }
         },
+        "additionalProperties": false
+      },
+      "ActualizarObraDto": {
+        "type": "object",
+        "properties": {
+          "nombre": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ubicacion": {
+            "type": "string",
+            "nullable": true
+          },
+          "fechaInicio": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "capatazId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "nombre",
+          "capatazId"
+        ],
         "additionalProperties": false
       }
     }
