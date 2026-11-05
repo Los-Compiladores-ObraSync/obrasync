@@ -90,6 +90,78 @@ public class OrdenCompraEmitidaEventTests
     }
 
     [Fact]
+    public void Deserializar_ConEtapa_DebeMapearLaEtapaYNoRechazarElEvento()
+    {
+        // La etapa (#107) es un campo opcional del contrato: antes de agregarla a la clase,
+        // este JSON se rechazaba por [JsonUnmappedMemberHandling(Disallow)].
+        var json = """
+        {
+          "eventId": "11111111-1111-1111-1111-111111111111",
+          "occurredAt": "2026-10-27T20:00:00Z",
+          "correlationId": "22222222-2222-2222-2222-222222222222",
+          "ordenCompraId": "33333333-3333-3333-3333-333333333333",
+          "licitacionId": "44444444-4444-4444-4444-444444444444",
+          "requisicionId": "55555555-5555-5555-5555-555555555555",
+          "obraId": "66666666-6666-6666-6666-666666666666",
+          "proveedorId": "77777777-7777-7777-7777-777777777777",
+          "etapa": "Estructura",
+          "montoTotal": 1250000.50,
+          "items": [
+            {
+              "articuloId": "88888888-8888-8888-8888-888888888888",
+              "cantidad": 10,
+              "unidadMedida": "UNIDAD",
+              "precioUnitario": 100
+            }
+          ]
+        }
+        """;
+
+        var optionsDefault = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var evento = JsonSerializer.Deserialize<OrdenCompraEmitidaEvent>(json, optionsDefault);
+
+        Assert.NotNull(evento);
+        Assert.Equal("Estructura", evento.Etapa);
+    }
+
+    [Fact]
+    public void Deserializar_SinEtapaOConEtapaNula_DebeDejarLaEtapaNula()
+    {
+        var plantilla = """
+        {
+          "eventId": "11111111-1111-1111-1111-111111111111",
+          "occurredAt": "2026-10-27T20:00:00Z",
+          "correlationId": "22222222-2222-2222-2222-222222222222",
+          "ordenCompraId": "33333333-3333-3333-3333-333333333333",
+          "licitacionId": "44444444-4444-4444-4444-444444444444",
+          "requisicionId": "55555555-5555-5555-5555-555555555555",
+          "obraId": "66666666-6666-6666-6666-666666666666",
+          "proveedorId": "77777777-7777-7777-7777-777777777777",
+          ETAPA
+          "montoTotal": 100,
+          "items": [
+            {
+              "articuloId": "88888888-8888-8888-8888-888888888888",
+              "cantidad": 1,
+              "unidadMedida": "UNIDAD",
+              "precioUnitario": 100
+            }
+          ]
+        }
+        """;
+
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+        var sinCampo = JsonSerializer.Deserialize<OrdenCompraEmitidaEvent>(plantilla.Replace("ETAPA", ""), options);
+        var conNulo = JsonSerializer.Deserialize<OrdenCompraEmitidaEvent>(plantilla.Replace("ETAPA", "\"etapa\": null,"), options);
+
+        Assert.NotNull(sinCampo);
+        Assert.Null(sinCampo.Etapa);
+        Assert.NotNull(conNulo);
+        Assert.Null(conNulo.Etapa);
+    }
+
+    [Fact]
     public void Deserializar_ConPropiedadExtraEnRaiz_DebeLanzarJsonException()
     {
         // Contrato exige additionalProperties: false en raíz
