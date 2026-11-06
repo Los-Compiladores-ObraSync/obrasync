@@ -42,6 +42,41 @@ const USUARIOS_MOCK = [
 ]
 const CANTIDAD_USUARIOS_INICIAL = USUARIOS_MOCK.length
 
+// Plantillas de ejemplo (las mismas que siembra el backend en #114).
+function plantillaMock(n: number, nombre: string, descripcion: string, etapas: string[]) {
+  return {
+    id: `c1c2c3c4-0000-0000-0000-00000000000${n}`,
+    nombre,
+    descripcion,
+    etapas: etapas.map((nombreEtapa, i) => ({
+      id: `d1d2d3d4-0000-0000-000${n}-00000000000${i + 1}`,
+      nombreEtapa,
+      orden: i + 1,
+    })),
+  }
+}
+
+const PLANTILLAS_MOCK = [
+  plantillaMock(
+    1,
+    'Edificio en Altura',
+    'Plantilla estándar para desarrollo inmobiliario de múltiples pisos.',
+    ['Cimientos y Subsuelo', 'Estructura de Hormigón', 'Mampostería', 'Instalaciones', 'Terminaciones'],
+  ),
+  plantillaMock(
+    2,
+    'Vivienda Unifamiliar',
+    'Plantilla básica para casas residenciales de una o dos plantas.',
+    ['Replanteo y Nivelación', 'Fundaciones', 'Muros y Cubierta', 'Instalaciones y Yesería', 'Terminaciones'],
+  ),
+  plantillaMock(
+    3,
+    'Nave Industrial',
+    'Plantilla para galpones, centros de distribución y depósitos logísticos.',
+    ['Movimiento de Suelos', 'Fundaciones y Bases', 'Estructura Metálica', 'Cerramientos y Cubierta', 'Pisos Industriales'],
+  ),
+]
+
 /** Solo para tests: quita los usuarios que se crearon por POST /api/usuarios/registro. */
 export function reiniciarUsuariosMock() {
   USUARIOS_MOCK.length = CANTIDAD_USUARIOS_INICIAL
@@ -477,6 +512,21 @@ export const handlers: RequestHandler[] = [
     }
     // El contrato dice "string" pero no aclara qué contiene: acá devolvemos un id de ejemplo.
     return HttpResponse.text('b1b2c3d4-0000-0000-0000-0000000000a1', { status: 200 })
+  }),
+
+  // Contrato: GET /api/plantillas-obra → 200 PlantillaObraResponseDto[] (Admin, Comprador, Capataz)
+  http.get('*/api/plantillas-obra', () => HttpResponse.json(PLANTILLAS_MOCK, { status: 200 })),
+
+  // Contrato: GET /api/plantillas-obra/{id} → 200 PlantillaObraResponseDto | 404
+  http.get('*/api/plantillas-obra/:id', ({ params }) => {
+    const plantilla = PLANTILLAS_MOCK.find((p) => p.id === params.id)
+    if (!plantilla) {
+      return HttpResponse.json(
+        { title: 'No encontrada', status: 404, detail: 'No existe la plantilla.' },
+        { status: 404 },
+      )
+    }
+    return HttpResponse.json(plantilla, { status: 200 })
   }),
 
   // Contrato: GET /api/usuarios/capataces → 200 [{ id, nombreCompleto }]
