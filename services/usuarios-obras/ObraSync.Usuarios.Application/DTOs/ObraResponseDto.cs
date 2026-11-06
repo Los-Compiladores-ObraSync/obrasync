@@ -11,6 +11,7 @@ namespace ObraSync.Usuarios.Application.DTOs
         public DateTime FechaInicio { get; set; }
         public Guid CapatazId { get; set; }
         public string? Capataz { get; set; }
+        public bool Activa { get; set; } = true;
         public List<EtapaObraResponseDto> Etapas { get; set; } = new();
     }
 }

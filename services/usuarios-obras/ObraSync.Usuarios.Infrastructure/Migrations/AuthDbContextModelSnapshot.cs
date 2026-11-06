@@ -290,6 +290,11 @@ namespace ObraSync.Usuarios.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("Activa")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<Guid>("CapatazId")
                         .HasColumnType("uniqueidentifier");
 

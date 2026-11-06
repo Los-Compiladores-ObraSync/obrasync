@@ -119,6 +119,7 @@ public class ObrasEndpointTests : IClassFixture<WebApplicationFactory<Program>>
             Assert.False(string.IsNullOrWhiteSpace(obra.Nombre));
             Assert.False(string.IsNullOrWhiteSpace(obra.Ubicacion));
             Assert.NotEqual(default, obra.FechaInicio);
+            Assert.True(obra.Activa);
 
             // Requisito #61: Debe incluir CapatazId y Capataz
             Assert.NotEqual(Guid.Empty, obra.CapatazId);
@@ -185,8 +186,267 @@ public class ObrasEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(nuevoNombre, obraCreada.Nombre);
         Assert.Equal(capatazId, obraCreada.CapatazId);
         Assert.Equal("Carlos Capataz", obraCreada.Capataz);
+        Assert.True(obraCreada.Activa);
         Assert.Equal(4, obraCreada.Etapas.Count);
         Assert.Equal(new[] { "Excavación", "Fundaciones", "Estructura", "Cubiertas" },
             obraCreada.Etapas.Select(e => e.NombreEtapa).ToArray());
+    }
+
+    [Fact]
+    public async Task PostObra_DuplicadaConObraActiva_DebeRetornar409Conflict()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Admin));
+
+        var getResp = await client.GetAsync("/api/Obras");
+        var obras = await getResp.Content.ReadFromJsonAsync<List<ObraResponseDto>>();
+        var obraExistente = obras!.First();
+
+        var crearDto = new CrearObraDto
+        {
+            Nombre = $"  {obraExistente.Nombre.ToUpper()}  ",
+            Ubicacion = $"  {obraExistente.Ubicacion.ToLower()}  ",
+            CapatazId = obraExistente.CapatazId,
+            FasesEtapas = new List<string> { "Etapa A" }
+        };
+
+        var postResp = await client.PostAsJsonAsync("/api/Obras", crearDto);
+        Assert.Equal(HttpStatusCode.Conflict, postResp.StatusCode);
+    }
+
+    [Fact]
+    public async Task PutObra_SinToken_DebeRetornar401Unauthorized()
+    {
+        var client = _factory.CreateClient();
+        var dto = new ActualizarObraDto { Nombre = "Cualquiera", CapatazId = Guid.NewGuid() };
+
+        var response = await client.PutAsJsonAsync($"/api/Obras/{Guid.NewGuid()}", dto);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(UserRoles.Proveedor)]
+    [InlineData(UserRoles.Capataz)]
+    public async Task PutObra_ConRolesNoAutorizados_DebeRetornar403Forbidden(string role)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(role));
+
+        var dto = new ActualizarObraDto { Nombre = "Cualquiera", CapatazId = Guid.NewGuid() };
+
+        var response = await client.PutAsJsonAsync($"/api/Obras/{Guid.NewGuid()}", dto);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(UserRoles.Admin)]
+    [InlineData(UserRoles.Comprador)]
+    public async Task PutObra_ObraInexistente_DebeRetornar404NotFound(string role)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(role));
+
+        var getResp = await client.GetAsync("/api/Obras");
+        var obras = await getResp.Content.ReadFromJsonAsync<List<ObraResponseDto>>();
+        var capatazId = obras!.First().CapatazId;
+
+        var dto = new ActualizarObraDto
+        {
+            Nombre = "Obra Fantasma",
+            Ubicacion = "En ninguna parte 123",
+            FechaInicio = DateTime.UtcNow,
+            CapatazId = capatazId
+        };
+
+        var response = await client.PutAsJsonAsync($"/api/Obras/{Guid.NewGuid()}", dto);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(UserRoles.Admin)]
+    [InlineData(UserRoles.Comprador)]
+    public async Task PutObra_CapatazInexistente_DebeRetornar400BadRequest(string role)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(role));
+
+        var getResp = await client.GetAsync("/api/Obras");
+        var obras = await getResp.Content.ReadFromJsonAsync<List<ObraResponseDto>>();
+        var obraExistente = obras!.First();
+
+        var dto = new ActualizarObraDto
+        {
+            Nombre = obraExistente.Nombre,
+            Ubicacion = obraExistente.Ubicacion,
+            FechaInicio = obraExistente.FechaInicio,
+            CapatazId = Guid.NewGuid() // Capataz inexistente
+        };
+
+        var response = await client.PutAsJsonAsync($"/api/Obras/{obraExistente.Id}", dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(UserRoles.Admin)]
+    [InlineData(UserRoles.Comprador)]
+    public async Task PutObra_DuplicadaConOtraObraActiva_DebeRetornar409Conflict(string role)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(role));
+
+        var getResp = await client.GetAsync("/api/Obras");
+        var obras = await getResp.Content.ReadFromJsonAsync<List<ObraResponseDto>>();
+        Assert.True(obras!.Count >= 2);
+
+        var obraDestino = obras[0];
+        var obraOtra = obras[1];
+
+        // Intentar actualizar obraDestino para que tenga el mismo nombre y ubicación de obraOtra
+        // (con variaciones de mayúsculas y espacios para validar regla insensible y trimmed)
+        var dto = new ActualizarObraDto
+        {
+            Nombre = $"  {obraOtra.Nombre.ToUpper()}  ",
+            Ubicacion = $"  {obraOtra.Ubicacion.ToLower()}  ",
+            FechaInicio = DateTime.UtcNow,
+            CapatazId = obraDestino.CapatazId
+        };
+
+        var response = await client.PutAsJsonAsync($"/api/Obras/{obraDestino.Id}", dto);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(UserRoles.Admin)]
+    [InlineData(UserRoles.Comprador)]
+    public async Task PutObra_ConAdminOComprador_Exitoso_DebeRetornar200ConDatosActualizados(string role)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(role));
+
+        var getResp = await client.GetAsync("/api/Obras");
+        var obras = await getResp.Content.ReadFromJsonAsync<List<ObraResponseDto>>();
+        var obraOriginal = obras!.First(o => o.Nombre == "Torre Alvear");
+
+        var nuevoNombre = $"Torre Alvear Renombrada {Guid.NewGuid():N}"[..25];
+        var nuevaUbicacion = "Av. Alvear 1900, Piso 5, CABA";
+        var nuevaFecha = new DateTime(2026, 12, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var dto = new ActualizarObraDto
+        {
+            Nombre = nuevoNombre,
+            Ubicacion = nuevaUbicacion,
+            FechaInicio = nuevaFecha,
+            CapatazId = obraOriginal.CapatazId
+        };
+
+        var putResp = await client.PutAsJsonAsync($"/api/Obras/{obraOriginal.Id}", dto);
+
+        Assert.Equal(HttpStatusCode.OK, putResp.StatusCode);
+        var obraActualizada = await putResp.Content.ReadFromJsonAsync<ObraResponseDto>();
+
+        Assert.NotNull(obraActualizada);
+        Assert.Equal(obraOriginal.Id, obraActualizada.Id);
+        Assert.Equal(nuevoNombre, obraActualizada.Nombre);
+        Assert.Equal(nuevaUbicacion, obraActualizada.Ubicacion);
+        Assert.Equal(nuevaFecha, obraActualizada.FechaInicio);
+        Assert.Equal(obraOriginal.CapatazId, obraActualizada.CapatazId);
+        Assert.True(obraActualizada.Activa);
+        Assert.NotEmpty(obraActualizada.Etapas);
+    }
+
+    [Fact]
+    public async Task DeleteObra_SinToken_DebeRetornar401Unauthorized()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.DeleteAsync($"/api/Obras/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(UserRoles.Proveedor)]
+    [InlineData(UserRoles.Capataz)]
+    public async Task DeleteObra_ConRolesNoAutorizados_DebeRetornar403Forbidden(string role)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(role));
+
+        var response = await client.DeleteAsync($"/api/Obras/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(UserRoles.Admin)]
+    [InlineData(UserRoles.Comprador)]
+    public async Task DeleteObra_ObraInexistente_DebeRetornar404NotFound(string role)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(role));
+
+        var response = await client.DeleteAsync($"/api/Obras/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(UserRoles.Admin)]
+    [InlineData(UserRoles.Comprador)]
+    public async Task DeleteObra_ConAdminOComprador_DebeRetornar204NoContent_YNoAparecerEnGetObras(string role)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(role));
+
+        // 1. Crear una obra para dar de baja
+        var getResp = await client.GetAsync("/api/Obras");
+        var obras = await getResp.Content.ReadFromJsonAsync<List<ObraResponseDto>>();
+        var capatazId = obras!.First().CapatazId;
+
+        var nombreObra = $"Obra Para Borrar {Guid.NewGuid():N}"[..22];
+        var postResp = await client.PostAsJsonAsync("/api/Obras", new CrearObraDto
+        {
+            Nombre = nombreObra,
+            Ubicacion = "Calle Falsa 123",
+            CapatazId = capatazId,
+            FasesEtapas = new List<string> { "Etapa 1" }
+        });
+        Assert.Equal(HttpStatusCode.Created, postResp.StatusCode);
+        var created = await postResp.Content.ReadFromJsonAsync<CrearObraResponseDto>();
+
+        // 2. Dar de baja lógica
+        var deleteResp = await client.DeleteAsync($"/api/Obras/{created!.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, deleteResp.StatusCode);
+
+        // 3. Verificar que ya no aparece en GET /api/Obras
+        var getRespDespues = await client.GetAsync("/api/Obras");
+        var obrasDespues = await getRespDespues.Content.ReadFromJsonAsync<List<ObraResponseDto>>();
+        Assert.DoesNotContain(obrasDespues!, o => o.Id == created.Id);
+
+        // 4. Intentar dar de baja nuevamente -> debe responder 404 Not Found porque ya está inactiva
+        var reDeleteResp = await client.DeleteAsync($"/api/Obras/{created.Id}");
+        Assert.Equal(HttpStatusCode.NotFound, reDeleteResp.StatusCode);
+
+        // 5. Intentar editar la obra inactiva -> debe responder 404 Not Found
+        var putInactivaResp = await client.PutAsJsonAsync($"/api/Obras/{created.Id}", new ActualizarObraDto
+        {
+            Nombre = "Intento Editar Inactiva",
+            CapatazId = capatazId
+        });
+        Assert.Equal(HttpStatusCode.NotFound, putInactivaResp.StatusCode);
     }
 }

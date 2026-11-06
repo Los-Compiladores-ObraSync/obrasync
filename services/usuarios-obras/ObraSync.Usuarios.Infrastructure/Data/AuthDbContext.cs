@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using ObraSync.Usuarios.Domain.Entities;
 
@@ -48,6 +48,10 @@ public class AuthDbContext : IdentityDbContext<AppUser, AppRole, Guid>
 
             entity.Property(o => o.Ubicacion)
                 .HasMaxLength(250);
+
+            entity.Property(o => o.Activa)
+                .IsRequired()
+                .HasDefaultValue(true);
 
             // Relación con el Capataz (AppUser)
             entity.HasOne(o => o.Capataz)

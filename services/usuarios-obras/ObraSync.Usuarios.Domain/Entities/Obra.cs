@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace ObraSync.Usuarios.Domain.Entities
@@ -9,6 +9,7 @@ namespace ObraSync.Usuarios.Domain.Entities
         public string Nombre { get; set; } = string.Empty;
         public string Ubicacion { get; set; } = string.Empty;
         public DateTime FechaInicio { get; set; } = DateTime.UtcNow;
+        public bool Activa { get; set; } = true;
 
         // Relación con el responsable (Capataz) usando Guid o string según el ID de AppUser
         public Guid CapatazId { get; set; }
