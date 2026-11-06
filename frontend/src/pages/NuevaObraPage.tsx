@@ -5,6 +5,7 @@ import { esFechaPasada, fechaEnPalabras } from '../obras/fechaEnPalabras'
 import { type Capataz, type UsuarioCreado, obtenerCapataces } from '../obras/capatacesService'
 import { CrearCapatazForm } from '../obras/CrearCapatazForm'
 import { crearObra } from '../obras/obrasService'
+import { type PlantillaObra, obtenerPlantillas } from '../obras/plantillasService'
 import {
   fechaAIso,
   hayErrores,
@@ -44,6 +45,13 @@ export function NuevaObraPage() {
   const [errorCapataces, setErrorCapataces] = useState(false)
   const [intentoCapataces, setIntentoCapataces] = useState(0)
   const [creandoCapataz, setCreandoCapataz] = useState(false)
+
+  // Plantillas de obra (#115): son opcionales y solo sirven para llenar las etapas.
+  const [plantillas, setPlantillas] = useState<PlantillaObra[]>([])
+  const [cargandoPlantillas, setCargandoPlantillas] = useState(true)
+  const [errorPlantillas, setErrorPlantillas] = useState(false)
+  const [intentoPlantillas, setIntentoPlantillas] = useState(0)
+  const [plantillaId, setPlantillaId] = useState('')
   const [capatazCreado, setCapatazCreado] = useState<string | null>(null)
 
   const siguienteId = useRef(2)
@@ -74,6 +82,47 @@ export function NuevaObraPage() {
       cancelado = true
     }
   }, [intentoCapataces])
+
+  // Igual que los capataces: cada cambio de `intentoPlantillas` vuelve a pedir la lista.
+  // Si falla, la obra se puede crear igual (las plantillas no son obligatorias).
+  useEffect(() => {
+    let cancelado = false
+    obtenerPlantillas()
+      .then((lista) => {
+        if (!cancelado) setPlantillas(lista)
+      })
+      .catch(() => {
+        if (!cancelado) setErrorPlantillas(true)
+      })
+      .finally(() => {
+        if (!cancelado) setCargandoPlantillas(false)
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [intentoPlantillas])
+
+  function reintentarPlantillas() {
+    setErrorPlantillas(false)
+    setCargandoPlantillas(true)
+    setIntentoPlantillas((n) => n + 1)
+  }
+
+  function elegirPlantilla(id: string) {
+    setPlantillaId(id)
+    // Cambiar de plantilla (o volver a "Sin plantilla") reemplaza las etapas: las etapas
+    // viejas se pierden, pero se pueden editar, agregar o quitar después de elegir.
+    setErrores((actuales) => ({ ...actuales, etapas: undefined, etapasItems: undefined }))
+    const plantilla = plantillas.find((p) => p.id === id)
+    if (!plantilla) {
+      siguienteId.current = 2
+      setEtapas([{ id: 1, nombre: '' }])
+      return
+    }
+    const ordenadas = [...plantilla.etapas].sort((a, b) => a.orden - b.orden)
+    siguienteId.current = ordenadas.length + 1
+    setEtapas(ordenadas.map((e, i) => ({ id: i + 1, nombre: e.nombreEtapa })))
+  }
 
   function reintentarCapataces() {
     setErrorCapataces(false)
@@ -106,6 +155,7 @@ export function NuevaObraPage() {
     setUbicacion('')
     setFechaInicio('')
     setCapatazId('')
+    setPlantillaId('')
     siguienteId.current = 2
     setEtapas([{ id: 1, nombre: '' }])
   }
@@ -284,6 +334,44 @@ export function NuevaObraPage() {
             >
               + Crear capataz
             </button>
+          )}
+        </div>
+
+        <div className={styles.grupo}>
+          <label htmlFor="obra-plantilla" className={styles.label}>
+            Empezar desde una plantilla (opcional)
+          </label>
+          <select
+            id="obra-plantilla"
+            className={styles.input}
+            value={plantillaId}
+            onChange={(e) => elegirPlantilla(e.target.value)}
+            disabled={cargandoPlantillas || errorPlantillas}
+          >
+            <option value="">
+              {cargandoPlantillas ? 'Cargando plantillas…' : 'Sin plantilla'}
+            </option>
+            {plantillas.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre}
+              </option>
+            ))}
+          </select>
+          {plantillas.find((p) => p.id === plantillaId)?.descripcion && (
+            <p className={styles.ayuda}>
+              {plantillas.find((p) => p.id === plantillaId)?.descripcion} Podés editar las etapas
+              antes de crear la obra.
+            </p>
+          )}
+          {errorPlantillas && (
+            <div>
+              <p className={styles.errorCampo} role="alert">
+                No se pudo cargar la lista de plantillas. Podés crear la obra igual.
+              </p>
+              <button type="button" className={styles.secundario} onClick={reintentarPlantillas}>
+                Reintentar plantillas
+              </button>
+            </div>
           )}
         </div>
 

@@ -9,6 +9,7 @@ import { NuevaObraPage } from './NuevaObraPage'
 const URL_OBRAS = 'http://localhost:5000/api/obras'
 const URL_CAPATACES = 'http://localhost:5000/api/usuarios/capataces'
 const CAPATAZ_ID = 'a1b2c3d4-0000-0000-0000-000000000001'
+const URL_PLANTILLAS = 'http://localhost:5000/api/plantillas-obra'
 
 function renderPagina() {
   return render(
@@ -28,6 +29,128 @@ async function completarFormulario(
   await user.selectOptions(await screen.findByLabelText('Capataz'), CAPATAZ_ID)
   await user.type(screen.getByLabelText('Etapa 1'), 'Cimientos')
 }
+
+describe('NuevaObraPage - plantillas de obra (#115)', () => {
+  const ETAPAS_VIVIENDA = [
+    'Replanteo y Nivelación',
+    'Fundaciones',
+    'Muros y Cubierta',
+    'Instalaciones y Yesería',
+    'Terminaciones',
+  ]
+
+  function valoresDeEtapas() {
+    return screen
+      .getAllByLabelText(/^Etapa \d+$/)
+      .map((campo) => (campo as HTMLInputElement).value)
+  }
+
+  it('lista las plantillas y arranca en "Sin plantilla"', async () => {
+    renderPagina()
+
+    expect(await screen.findByRole('option', { name: 'Vivienda Unifamiliar' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Sin plantilla' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Empezar desde una plantilla (opcional)')).toHaveValue('')
+    expect(valoresDeEtapas()).toEqual([''])
+  })
+
+  it('al elegir una plantilla completa las etapas en orden', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+
+    await screen.findByRole('option', { name: 'Vivienda Unifamiliar' })
+    await user.selectOptions(
+      screen.getByLabelText('Empezar desde una plantilla (opcional)'),
+      screen.getByRole('option', { name: 'Vivienda Unifamiliar' }),
+    )
+
+    expect(valoresDeEtapas()).toEqual(ETAPAS_VIVIENDA)
+    expect(screen.getByText(/casas residenciales/)).toBeInTheDocument()
+  })
+
+  it('las etapas de la plantilla se pueden editar, agregar y quitar', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+
+    await screen.findByRole('option', { name: 'Vivienda Unifamiliar' })
+    await user.selectOptions(
+      screen.getByLabelText('Empezar desde una plantilla (opcional)'),
+      screen.getByRole('option', { name: 'Vivienda Unifamiliar' }),
+    )
+    await user.clear(screen.getByLabelText('Etapa 2'))
+    await user.type(screen.getByLabelText('Etapa 2'), 'Cimientos')
+    await user.click(screen.getByRole('button', { name: 'Quitar etapa 1' }))
+    await user.click(screen.getByRole('button', { name: '+ Agregar etapa' }))
+
+    expect(valoresDeEtapas()).toEqual([
+      'Cimientos',
+      'Muros y Cubierta',
+      'Instalaciones y Yesería',
+      'Terminaciones',
+      '',
+    ])
+  })
+
+  it('"Sin plantilla" deja el formulario como al principio', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+
+    const selector = screen.getByLabelText('Empezar desde una plantilla (opcional)')
+    await screen.findByRole('option', { name: 'Nave Industrial' })
+    await user.selectOptions(selector, screen.getByRole('option', { name: 'Nave Industrial' }))
+    await user.selectOptions(selector, screen.getByRole('option', { name: 'Sin plantilla' }))
+
+    expect(valoresDeEtapas()).toEqual([''])
+  })
+
+  it('crea la obra mandando las etapas de la plantilla en fasesEtapas', async () => {
+    let cuerpo: { fasesEtapas?: string[] } | undefined
+    server.use(
+      http.post(URL_OBRAS, async ({ request }) => {
+        cuerpo = (await request.json()) as { fasesEtapas?: string[] }
+        return HttpResponse.text('id', { status: 200 })
+      }),
+    )
+    const user = userEvent.setup()
+    renderPagina()
+
+    await user.type(screen.getByLabelText('Nombre de la obra'), 'Casa Lomas')
+    await user.type(screen.getByLabelText('Ubicación'), 'Av. Siempre Viva 742')
+    await user.type(screen.getByLabelText('Fecha de inicio'), '2026-11-02')
+    await user.selectOptions(await screen.findByLabelText('Capataz'), CAPATAZ_ID)
+    await screen.findByRole('option', { name: 'Vivienda Unifamiliar' })
+    await user.selectOptions(
+      screen.getByLabelText('Empezar desde una plantilla (opcional)'),
+      screen.getByRole('option', { name: 'Vivienda Unifamiliar' }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Crear obra' }))
+
+    expect(await screen.findByText('Obra creada correctamente.')).toBeInTheDocument()
+    expect(cuerpo?.fasesEtapas).toEqual(ETAPAS_VIVIENDA)
+    // Después de crear, el formulario vuelve a "Sin plantilla" y a una etapa vacía.
+    expect(screen.getByLabelText('Empezar desde una plantilla (opcional)')).toHaveValue('')
+    expect(valoresDeEtapas()).toEqual([''])
+  })
+
+  it('si falla la carga avisa, deja reintentar y la obra se puede crear igual', async () => {
+    server.use(http.get(URL_PLANTILLAS, () => HttpResponse.error()))
+    const user = userEvent.setup()
+    renderPagina()
+
+    expect(
+      await screen.findByText('No se pudo cargar la lista de plantillas. Podés crear la obra igual.'),
+    ).toBeInTheDocument()
+    // Se puede escribir la etapa a mano como siempre.
+    await user.type(screen.getByLabelText('Nombre de la obra'), 'Torre Norte')
+    await user.type(screen.getByLabelText('Etapa 1'), 'Cimientos')
+    expect(screen.getByLabelText('Etapa 1')).toHaveValue('Cimientos')
+
+    server.resetHandlers()
+    await user.click(screen.getByRole('button', { name: 'Reintentar plantillas' }))
+
+    expect(await screen.findByRole('option', { name: 'Nave Industrial' })).toBeInTheDocument()
+  })
+})
 
 describe('NuevaObraPage - crear capataz (#111)', () => {
   async function abrirFormularioCapataz(user: ReturnType<typeof userEvent.setup>) {
