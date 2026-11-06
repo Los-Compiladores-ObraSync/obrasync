@@ -9,6 +9,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -193,7 +194,7 @@ public class ObrasEndpointTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
-    public async Task PostObra_DuplicadaConObraActiva_DebeRetornar409Conflict()
+    public async Task PostObra_DuplicadaConObraActiva_DebeRetornar409ConflictYProblemDetails()
     {
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization =
@@ -213,6 +214,98 @@ public class ObrasEndpointTests : IClassFixture<WebApplicationFactory<Program>>
 
         var postResp = await client.PostAsJsonAsync("/api/Obras", crearDto);
         Assert.Equal(HttpStatusCode.Conflict, postResp.StatusCode);
+
+        var problem = await postResp.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.NotNull(problem);
+        Assert.Equal(409, problem.Status);
+        Assert.Equal("Obra duplicada", problem.Title);
+        Assert.Contains("Ya existe una obra activa con el mismo nombre y ubicación.", problem.Detail);
+    }
+
+    [Fact]
+    public async Task PostObra_DiferenteNombreMismaUbicacion_DebeResponder201Created()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Admin));
+
+        var getResp = await client.GetAsync("/api/Obras");
+        var obras = await getResp.Content.ReadFromJsonAsync<List<ObraResponseDto>>();
+        var obraExistente = obras!.First();
+
+        var crearDto = new CrearObraDto
+        {
+            Nombre = $"Obra Distinta {Guid.NewGuid():N}"[..20],
+            Ubicacion = obraExistente.Ubicacion,
+            CapatazId = obraExistente.CapatazId,
+            FasesEtapas = new List<string> { "Etapa 1" }
+        };
+
+        var postResp = await client.PostAsJsonAsync("/api/Obras", crearDto);
+        Assert.Equal(HttpStatusCode.Created, postResp.StatusCode);
+    }
+
+    [Fact]
+    public async Task PostObra_MismoNombreDiferenteUbicacion_DebeResponder201Created()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Admin));
+
+        var getResp = await client.GetAsync("/api/Obras");
+        var obras = await getResp.Content.ReadFromJsonAsync<List<ObraResponseDto>>();
+        var obraExistente = obras!.First();
+
+        var crearDto = new CrearObraDto
+        {
+            Nombre = obraExistente.Nombre,
+            Ubicacion = $"Otra Direccion {Guid.NewGuid():N}"[..25],
+            CapatazId = obraExistente.CapatazId,
+            FasesEtapas = new List<string> { "Etapa 1" }
+        };
+
+        var postResp = await client.PostAsJsonAsync("/api/Obras", crearDto);
+        Assert.Equal(HttpStatusCode.Created, postResp.StatusCode);
+    }
+
+    [Fact]
+    public async Task PostObra_MismoNombreYUbicacionQueObraDadaDeBaja_DebeResponder201Created()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Admin));
+
+        var getResp = await client.GetAsync("/api/Obras");
+        var obras = await getResp.Content.ReadFromJsonAsync<List<ObraResponseDto>>();
+        var capatazId = obras!.First().CapatazId;
+
+        // 1. Crear una obra inicial
+        var nombreUnico = $"Obra Baja Test {Guid.NewGuid():N}"[..22];
+        var ubicacionUnica = "Av. Siempre Viva 742, Springfield";
+
+        var post1 = await client.PostAsJsonAsync("/api/Obras", new CrearObraDto
+        {
+            Nombre = nombreUnico,
+            Ubicacion = ubicacionUnica,
+            CapatazId = capatazId,
+            FasesEtapas = new List<string> { "Inicio" }
+        });
+        Assert.Equal(HttpStatusCode.Created, post1.StatusCode);
+        var created = await post1.Content.ReadFromJsonAsync<CrearObraResponseDto>();
+
+        // 2. Darla de baja lógica
+        var deleteResp = await client.DeleteAsync($"/api/Obras/{created!.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, deleteResp.StatusCode);
+
+        // 3. Crear una nueva obra con el mismo nombre y ubicación (debe permitirse porque la anterior está inactiva)
+        var post2 = await client.PostAsJsonAsync("/api/Obras", new CrearObraDto
+        {
+            Nombre = $"  {nombreUnico.ToUpper()}  ",
+            Ubicacion = $"  {ubicacionUnica.ToLower()}  ",
+            CapatazId = capatazId,
+            FasesEtapas = new List<string> { "Fase Nueva" }
+        });
+        Assert.Equal(HttpStatusCode.Created, post2.StatusCode);
     }
 
     [Fact]
