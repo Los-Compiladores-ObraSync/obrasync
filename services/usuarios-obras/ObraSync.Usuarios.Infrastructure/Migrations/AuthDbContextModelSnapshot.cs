@@ -315,6 +315,10 @@ namespace ObraSync.Usuarios.Infrastructure.Migrations
 
                     b.HasIndex("CapatazId");
 
+                    b.HasIndex("Nombre", "Ubicacion")
+                        .IsUnique()
+                        .HasFilter("[Activa] = 1");
+
                     b.ToTable("Obras", (string)null);
                 });
 

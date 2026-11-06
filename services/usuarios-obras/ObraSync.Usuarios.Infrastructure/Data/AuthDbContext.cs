@@ -53,6 +53,11 @@ public class AuthDbContext : IdentityDbContext<AppUser, AppRole, Guid>
                 .IsRequired()
                 .HasDefaultValue(true);
 
+            // Índice único para evitar obras duplicadas (#110)
+            entity.HasIndex(o => new { o.Nombre, o.Ubicacion })
+                .IsUnique()
+                .HasFilter("[Activa] = 1");
+
             // Relación con el Capataz (AppUser)
             entity.HasOne(o => o.Capataz)
                 .WithMany()

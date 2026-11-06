@@ -92,7 +92,17 @@ namespace ObraSync.Usuarios.Api.Controllers
             }
 
             _context.Obras.Add(obra);
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                return Problem(
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Obra duplicada",
+                    detail: "Ya existe una obra activa con el mismo nombre y ubicación.");
+            }
 
             var respuesta = new CrearObraResponseDto
             {
@@ -205,7 +215,17 @@ namespace ObraSync.Usuarios.Api.Controllers
             obra.CapatazId = dto.CapatazId;
             obra.Capataz = capataz;
 
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                return Problem(
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Obra duplicada",
+                    detail: "Ya existe una obra activa con el mismo nombre y ubicación.");
+            }
 
             var respuesta = new ObraResponseDto
             {
