@@ -22,6 +22,25 @@ public class CotizacionRepository : ICotizacionRepository
             .AnyAsync(c => c.LicitacionId == licitacionId && c.ProveedorId == proveedorId, cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<Guid>> GetLicitacionIdsCotizadasPorProveedorAsync(
+        Guid proveedorId,
+        IReadOnlyCollection<Guid> licitacionIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (licitacionIds.Count == 0)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        var ids = licitacionIds.ToList();
+        return await _context.Cotizaciones
+            .AsNoTracking()
+            .Where(c => c.ProveedorId == proveedorId && ids.Contains(c.LicitacionId))
+            .Select(c => c.LicitacionId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Cotizacion>> GetByLicitacionIdAsync(
         Guid licitacionId,
         CancellationToken cancellationToken = default)

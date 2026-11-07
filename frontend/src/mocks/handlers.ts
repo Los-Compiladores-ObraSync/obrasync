@@ -819,8 +819,18 @@ export const handlers: RequestHandler[] = [
 
   // Contrato: GET /api/licitaciones → 200 LicitacionResponseDto[]
   // Al Proveedor el backend ya le devuelve únicamente las abiertas.
+  // yaCotizada: el backend real solo lo completa para el Proveedor (con el 'sub' de su token). El mock
+  // no lee el token, así que lo calcula siempre para el proveedor de prueba.
   http.get('*/api/licitaciones', () => {
-    const abiertas = licitacionesMock.filter((l) => l.estado === 'Abierta')
+    const proveedorId = USUARIOS_MOCK.find((u) => u.rol === 'Proveedor')?.id
+    const abiertas = licitacionesMock
+      .filter((l) => l.estado === 'Abierta')
+      .map((l) => ({
+        ...l,
+        yaCotizada: cotizacionesMock.some(
+          (c) => c.licitacionId === l.licitacionId && c.proveedorId === proveedorId,
+        ),
+      }))
     return HttpResponse.json(abiertas, { status: 200 })
   }),
 

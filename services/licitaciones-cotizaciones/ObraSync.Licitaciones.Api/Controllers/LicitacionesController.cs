@@ -36,7 +36,8 @@ public class LicitacionesController : ControllerBase
 
     /// <summary>
     /// Listar pliegos con filtros opcionales (Roles: Comprador, Proveedor, Admin).
-    /// Un Proveedor solo visualiza pliegos en estado Abierta.
+    /// Un Proveedor solo visualiza pliegos en estado Abierta, y cada uno trae yaCotizada (true/false);
+    /// para Comprador y Admin ese campo viene en null.
     /// </summary>
     [HttpGet]
     [Authorize(Roles = "Comprador,Proveedor,Admin")]
@@ -52,7 +53,18 @@ public class LicitacionesController : ControllerBase
             ? "Proveedor"
             : User.FindFirstValue("role") ?? User.FindFirstValue(ClaimTypes.Role);
 
-        var query = new GetLicitacionesQuery(obraId, estado, rolUsuario);
+        // El 'sub' del token es el Id del proveedor: con él se marca qué pliegos ya cotizó.
+        Guid? proveedorId = null;
+        if (User.IsInRole("Proveedor"))
+        {
+            var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (Guid.TryParse(sub, out var idToken) && idToken != Guid.Empty)
+            {
+                proveedorId = idToken;
+            }
+        }
+
+        var query = new GetLicitacionesQuery(obraId, estado, rolUsuario, proveedorId);
         var licitaciones = await _getLicitacionesHandler.Handle(query, cancellationToken);
         return Ok(licitaciones);
     }

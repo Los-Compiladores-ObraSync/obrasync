@@ -85,18 +85,23 @@ export function ListaLicitaciones({ tituloTarjeta = 'h2' }: Props) {
                   Fecha límite: {fechaLimiteTexto || 'Sin fecha límite'}
                 </p>
                 <div className={styles.acciones}>
-                  <Link
-                    to={`/proveedores/licitaciones/${lic.licitacionId}`}
-                    className={styles.boton}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      textDecoration: 'none',
-                    }}
-                  >
-                    Cotizar
-                  </Link>
+                  {lic.yaCotizada === true ? (
+                    // Ya cotizó: no se le ofrece cotizar de nuevo (el servidor lo rechazaría con 409).
+                    <p className={styles.cotizada}>✓ Ya cotizada</p>
+                  ) : (
+                    <Link
+                      to={`/proveedores/licitaciones/${lic.licitacionId}`}
+                      className={styles.boton}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      Cotizar
+                    </Link>
+                  )}
                 </div>
               </li>
             )
