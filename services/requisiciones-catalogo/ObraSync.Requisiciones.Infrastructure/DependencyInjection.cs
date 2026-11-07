@@ -34,6 +34,7 @@ namespace ObraSync.Requisiciones.Infrastructure
                 {
                     x.UsingInMemory((context, cfg) =>
                     {
+                        cfg.UsarDecimalesComoNumero(); // decimales como número en los eventos (#128)
                         cfg.ConfigureEndpoints(context);
                     });
                 }
@@ -52,6 +53,7 @@ namespace ObraSync.Requisiciones.Infrastructure
                             h.Password(password);
                         });
 
+                        cfg.UsarDecimalesComoNumero(); // decimales como número en los eventos (#128)
                         cfg.ConfigureEndpoints(context);
                     });
                 }

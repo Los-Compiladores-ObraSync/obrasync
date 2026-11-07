@@ -12,6 +12,7 @@ using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Handlers;
 using ObraSync.Licitaciones.Infrastructure;
 using ObraSync.Licitaciones.Infrastructure.Consumers;
+using ObraSync.Licitaciones.Infrastructure.Messaging;
 using ObraSync.Licitaciones.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -65,7 +66,11 @@ builder.Services.AddMassTransit(x =>
 
     if (useInMemoryTransport)
     {
-        x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        x.UsingInMemory((context, cfg) =>
+        {
+            cfg.UsarDecimalesComoNumero(); // decimales como número en los eventos (#128)
+            cfg.ConfigureEndpoints(context);
+        });
     }
     else
     {
@@ -82,6 +87,7 @@ builder.Services.AddMassTransit(x =>
                 h.Password(password);
             });
 
+            cfg.UsarDecimalesComoNumero(); // decimales como número en los eventos (#128)
             cfg.ConfigureEndpoints(context);
         });
     }
