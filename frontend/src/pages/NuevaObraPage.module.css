@@ -69,6 +69,24 @@
   color: #92400e; /* ámbar oscuro: llama la atención sin ser un error */
 }
 
+/* Casilla "Es correcta, crear igual": cuando la dirección no se encontró en el mapa. */
+.confirmacion {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: var(--alto-toque); /* área de toque cómoda en celular */
+  margin-top: 0.5rem;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.confirmacion input {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+}
+
 .errorCampo {
   margin: 0;
   font-size: 1rem;

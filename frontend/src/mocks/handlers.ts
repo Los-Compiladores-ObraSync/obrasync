@@ -514,6 +514,17 @@ export const handlers: RequestHandler[] = [
     return HttpResponse.text('b1b2c3d4-0000-0000-0000-0000000000a1', { status: 200 })
   }),
 
+  // Nominatim (OpenStreetMap), servicio externo para validar la ubicación de una obra (#113).
+  // Para ver el aviso "no se encontró" en el navegador, escribir una dirección con "inexistente".
+  http.get('https://nominatim.openstreetmap.org/search', ({ request }) => {
+    const q = new URL(request.url).searchParams.get('q') ?? ''
+    if (q.toLowerCase().includes('inexistente')) return HttpResponse.json([], { status: 200 })
+    return HttpResponse.json(
+      [{ place_id: 1, lat: '-34.6037', lon: '-58.3816', display_name: q }],
+      { status: 200 },
+    )
+  }),
+
   // Contrato: GET /api/plantillas-obra → 200 PlantillaObraResponseDto[] (Admin, Comprador, Capataz)
   http.get('*/api/plantillas-obra', () => HttpResponse.json(PLANTILLAS_MOCK, { status: 200 })),
 
