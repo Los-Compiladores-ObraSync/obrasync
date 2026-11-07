@@ -12,6 +12,31 @@ export interface CrearObraDto {
   fasesEtapas: string[]
 }
 
+/** Cuerpo de PUT /api/Obras/{id}. Es el ActualizarObraDto del contrato (#118). No incluye las etapas. */
+export interface ActualizarObraDto {
+  nombre: string
+  ubicacion: string
+  /** Fecha y hora en formato ISO 8601 (date-time). */
+  fechaInicio: string
+  capatazId: string
+}
+
+/** Edita una obra (Admin y Comprador). Responde 400, 403, 404 (no existe) o 409 (nombre repetido). */
+export function actualizarObra(id: string, dto: ActualizarObraDto): Promise<unknown> {
+  return apiFetch<unknown>(`/api/obras/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(dto),
+  })
+}
+
+/**
+ * Da de baja una obra (Admin y Comprador). Es una baja LÓGICA: la obra deja de aparecer en el
+ * listado, pero no se borra (otros servicios guardan su id). Responde 204 sin cuerpo, o 403 / 404.
+ */
+export function darDeBajaObra(id: string): Promise<void> {
+  return apiFetch<void>(`/api/obras/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
 /**
  * Crea una obra. Solo pueden hacerlo los roles Admin y Comprador (si no, el backend responde 403).
  * El contrato dice que responde 200 con un string; todavía no está definido qué contiene

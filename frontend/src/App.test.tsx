@@ -540,3 +540,24 @@ describe('App - pendientes de aprobación del Comprador', () => {
     ).not.toBeInTheDocument()
   })
 })
+
+describe('App - editar obra (#119)', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setToken(null)
+  })
+
+  it('el Comprador entra a /compras/obras/:id/editar', async () => {
+    iniciarSesionComo('Comprador')
+    renderApp('/compras/obras/b1b2c3d4-0000-0000-0000-0000000000a1/editar')
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Editar obra' })).toBeInTheDocument()
+  })
+
+  it('el Capataz no puede editar obras', () => {
+    iniciarSesionComo('Capataz')
+    renderApp('/compras/obras/b1b2c3d4-0000-0000-0000-0000000000a1/editar')
+
+    expect(screen.queryByRole('heading', { level: 1, name: 'Editar obra' })).not.toBeInTheDocument()
+  })
+})

@@ -54,3 +54,15 @@ describe('fechaAIso', () => {
     expect(fechaAIso('2026-11-02')).toBe('2026-11-02T00:00:00.000Z')
   })
 })
+
+describe('validarObra al editar (exigirEtapas: false)', () => {
+  it('no pide etapas', () => {
+    const e = validarObra({ ...valido, etapas: [] }, { exigirEtapas: false })
+    expect(hayErrores(e)).toBe(false)
+  })
+
+  it('sigue validando el resto de los campos', () => {
+    const e = validarObra({ ...valido, etapas: [], nombre: '' }, { exigirEtapas: false })
+    expect(e.nombre).toBeDefined()
+  })
+})

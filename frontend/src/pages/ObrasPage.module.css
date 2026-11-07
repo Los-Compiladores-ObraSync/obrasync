@@ -95,3 +95,56 @@
   border: 2px solid #fca5a5;
   color: #991b1b;
 }
+.exito {
+  color: #166534;
+  font-weight: 700;
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.pregunta {
+  flex-basis: 100%;
+  margin: 0;
+  font-weight: 700;
+}
+
+/* Botones de la tarjeta: de borde y sin relleno, para no competir con el naranja de la marca. */
+.accion,
+.accionPeligro,
+.confirmar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--alto-toque);
+  padding: 0 1.25rem;
+  border-radius: 10px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  text-decoration: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.accion {
+  color: var(--azul);
+  border: 2px solid var(--azul);
+}
+
+.accionPeligro {
+  color: #b91c1c;
+  border: 2px solid #b91c1c;
+}
+
+.confirmar {
+  color: #ffffff;
+  background: #b91c1c;
+  border: 2px solid #b91c1c;
+}

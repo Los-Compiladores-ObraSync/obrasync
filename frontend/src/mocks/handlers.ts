@@ -112,12 +112,24 @@ const MOCK_CATALOGO = [
   },
 ]
 
-const MOCK_OBRAS = [
+interface ObraMock {
+  id: string
+  nombre: string
+  ubicacion: string
+  fechaInicio: string
+  capatazId?: string
+  capataz?: string
+  etapas: { id: string; nombreEtapa: string; estado: string }[]
+}
+
+function crearObrasMock(): ObraMock[] {
+  return [
   {
     id: 'b1b2c3d4-0000-0000-0000-0000000000a1',
     nombre: 'Torre Alvear',
     ubicacion: 'Av. Libertador 1200',
     fechaInicio: '2026-10-01T08:00:00Z',
+    capatazId: 'a1b2c3d4-0000-0000-0000-000000000001',
     capataz: 'Juan Pérez',
     etapas: [
       { id: 'c1000000-0000-0000-0000-000000000001', nombreEtapa: 'Fundaciones', estado: 'Completada' },
@@ -125,7 +137,16 @@ const MOCK_OBRAS = [
       { id: 'c1000000-0000-0000-0000-000000000003', nombreEtapa: 'Albañilería', estado: 'Pendiente' },
     ],
   },
-]
+  ]
+}
+
+// Las obras viven en memoria: crear, editar o dar de baja se refleja en el listado hasta recargar
+// la página (#119). Las pruebas la reinician en setup.ts.
+let obrasMock = crearObrasMock()
+
+export function reiniciarObrasMock() {
+  obrasMock = crearObrasMock()
+}
 
 // Requisiciones simuladas para la pantalla de aprobación (Compras).
 // Se mantienen en memoria: aprobar una cambia su estado hasta recargar la página.
@@ -510,8 +531,76 @@ export const handlers: RequestHandler[] = [
         { status: 409 },
       )
     }
-    // El contrato dice "string" pero no aclara qué contiene: acá devolvemos un id de ejemplo.
-    return HttpResponse.text('b1b2c3d4-0000-0000-0000-0000000000a1', { status: 200 })
+    const completo = body as {
+      nombre: string
+      ubicacion?: string
+      fechaInicio?: string
+      capatazId?: string
+      fasesEtapas: string[]
+    }
+    const id = crypto.randomUUID()
+    obrasMock.push({
+      id,
+      nombre: completo.nombre,
+      ubicacion: completo.ubicacion ?? '',
+      fechaInicio: completo.fechaInicio ?? new Date().toISOString(),
+      capatazId: completo.capatazId,
+      etapas: completo.fasesEtapas.map((nombreEtapa) => ({
+        id: crypto.randomUUID(),
+        nombreEtapa,
+        estado: 'Pendiente',
+      })),
+    })
+    // El contrato dice "string" pero no aclara qué contiene: devolvemos el id de la obra creada.
+    return HttpResponse.text(id, { status: 200 })
+  }),
+
+  // Contrato: PUT /api/Obras/{id} → 200 | 400 | 403 | 404 | 409 (#118). No toca las etapas.
+  // Para ver el 409 en pantalla, guardar una obra con el nombre "Obra Duplicada".
+  http.put('*/api/obras/:id', async ({ request, params }) => {
+    const obra = obrasMock.find((o) => o.id === params.id)
+    if (!obra) {
+      return HttpResponse.json(
+        { title: 'No encontrada', status: 404, detail: 'La obra no existe.' },
+        { status: 404 },
+      )
+    }
+    const body = (await request.json()) as {
+      nombre?: string
+      ubicacion?: string
+      fechaInicio?: string
+      capatazId?: string
+    }
+    if (!body.nombre || !body.ubicacion || !body.fechaInicio || !body.capatazId) {
+      return HttpResponse.json(
+        { title: 'Datos inválidos', status: 400, detail: 'Faltan datos de la obra.' },
+        { status: 400 },
+      )
+    }
+    if (body.nombre === 'Obra Duplicada') {
+      return HttpResponse.json(
+        { title: 'Conflicto', status: 409, detail: 'Ya existe una obra con ese nombre.' },
+        { status: 409 },
+      )
+    }
+    obra.nombre = body.nombre
+    obra.ubicacion = body.ubicacion
+    obra.fechaInicio = body.fechaInicio
+    obra.capatazId = body.capatazId
+    return HttpResponse.json(obra, { status: 200 })
+  }),
+
+  // Contrato: DELETE /api/Obras/{id} → 204 | 403 | 404 (#118). Baja lógica: sale del listado.
+  http.delete('*/api/obras/:id', ({ params }) => {
+    const indice = obrasMock.findIndex((o) => o.id === params.id)
+    if (indice === -1) {
+      return HttpResponse.json(
+        { title: 'No encontrada', status: 404, detail: 'La obra no existe.' },
+        { status: 404 },
+      )
+    }
+    obrasMock.splice(indice, 1)
+    return new HttpResponse(null, { status: 204 })
   }),
 
   // Nominatim (OpenStreetMap), servicio externo para validar la ubicación de una obra (#113).
@@ -611,7 +700,7 @@ export const handlers: RequestHandler[] = [
 
   // Contrato: GET /api/obras → 200 Obra[] (Admin, Comprador, Capataz)
   http.get('*/api/obras', () => {
-    return HttpResponse.json(MOCK_OBRAS, { status: 200 })
+    return HttpResponse.json(obrasMock, { status: 200 })
   }),
 
   // Contrato: POST /api/requisiciones → 201 RequisicionResponseDto | 400 ProblemDetails

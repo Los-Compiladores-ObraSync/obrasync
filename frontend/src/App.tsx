@@ -10,6 +10,7 @@ import { HistorialRequisicionesPage } from './pages/HistorialRequisicionesPage'
 import { InicioPage } from './pages/InicioPage'
 import { LicitacionesComprasPage } from './pages/LicitacionesComprasPage'
 import { LoginPage } from './pages/LoginPage'
+import { EditarObraPage } from './pages/EditarObraPage'
 import { NuevaObraPage } from './pages/NuevaObraPage'
 import { NuevaRequisicionPage } from './pages/NuevaRequisicionPage'
 import { ObraPage } from './pages/ObraPage'
@@ -64,6 +65,7 @@ function App() {
               <Route index element={<ComprasPage />} />
               <Route path="obras" element={<ObrasPage />} />
               <Route path="obras/nueva" element={<NuevaObraPage />} />
+              <Route path="obras/:id/editar" element={<EditarObraPage />} />
               <Route path="requisiciones" element={<AprobarRequisicionesPage />} />
               <Route path="licitaciones" element={<LicitacionesComprasPage />} />
               <Route
