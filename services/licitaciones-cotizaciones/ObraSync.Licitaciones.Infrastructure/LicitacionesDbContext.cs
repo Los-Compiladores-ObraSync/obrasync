@@ -15,6 +15,8 @@ public class LicitacionesDbContext : DbContext
     public DbSet<LicitacionItem> LicitacionItems => Set<LicitacionItem>();
     public DbSet<Cotizacion> Cotizaciones => Set<Cotizacion>();
     public DbSet<CotizacionItem> CotizacionItems => Set<CotizacionItem>();
+    public DbSet<OrdenCompra> OrdenesCompra => Set<OrdenCompra>();
+    public DbSet<OrdenCompraItem> OrdenCompraItems => Set<OrdenCompraItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -85,6 +87,31 @@ public class LicitacionesDbContext : DbContext
             e.ToTable("CotizacionItems");
             e.HasKey(x => x.Id);
             e.Property(x => x.PrecioUnitario).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<OrdenCompra>(e =>
+        {
+            e.ToTable("OrdenesCompra");
+            e.HasKey(x => x.OrdenCompraId);
+            e.HasIndex(x => x.LicitacionId);
+            e.Property(x => x.Estado).HasMaxLength(20);
+            e.Property(x => x.TotalFlete).HasPrecision(18, 2);
+            e.Property(x => x.FechaEmision).HasConversion(utcDateTimeConverter);
+
+            e.HasMany(x => x.Items)
+                .WithOne()
+                .HasForeignKey(i => i.OrdenCompraId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<OrdenCompraItem>(e =>
+        {
+            e.ToTable("OrdenCompraItems");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Cantidad).HasPrecision(18, 3);
+            e.Property(x => x.PrecioUnitario).HasPrecision(18, 2);
+            e.Property(x => x.Descripcion).HasMaxLength(300);
+            e.Property(x => x.UnidadMedida).HasMaxLength(20);
         });
     }
 }

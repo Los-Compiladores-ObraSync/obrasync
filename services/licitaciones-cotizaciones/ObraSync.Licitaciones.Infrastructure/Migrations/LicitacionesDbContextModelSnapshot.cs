@@ -145,6 +145,77 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                     b.ToTable("LicitacionItems");
                 });
 
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.OrdenCompra", b =>
+                {
+                    b.Property<Guid>("OrdenCompraId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CotizacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("FechaEmision")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("LicitacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProveedorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("TotalFlete")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("OrdenCompraId");
+
+                    b.HasIndex("LicitacionId");
+
+                    b.ToTable("OrdenesCompra", (string)null);
+                });
+
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.OrdenCompraItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ArticuloId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid>("OrdenCompraId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("PrecioUnitario")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("UnidadMedida")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrdenCompraId");
+
+                    b.ToTable("OrdenCompraItems", (string)null);
+                });
+
             modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.RequisicionAprobada", b =>
                 {
                     b.Property<Guid>("RequisicionId")
@@ -257,6 +328,15 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.OrdenCompraItem", b =>
+                {
+                    b.HasOne("ObraSync.Licitaciones.Domain.Entities.OrdenCompra", null)
+                        .WithMany("Items")
+                        .HasForeignKey("OrdenCompraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.RequisicionAprobadaItem", b =>
                 {
                     b.HasOne("ObraSync.Licitaciones.Domain.Entities.RequisicionAprobada", null)
@@ -272,6 +352,11 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.Licitacion", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.OrdenCompra", b =>
                 {
                     b.Navigation("Items");
                 });
