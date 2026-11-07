@@ -40,6 +40,16 @@ namespace ObraSync.Requisiciones.Infrastructure
                 }
                 else
                 {
+                    // Outbox transaccional (#134): el evento se guarda en DB_Req junto con el cambio de
+                    // estado y un servicio en segundo plano lo entrega a RabbitMQ. Si RabbitMQ esta
+                    // caido, el pedido no se cuelga ni se pierde el evento: se entrega al volver.
+                    // Solo con el transporte real; con el transporte en memoria (tests) se publica directo.
+                    x.AddEntityFrameworkOutbox<RequisicionesDbContext>(outbox =>
+                    {
+                        outbox.UseSqlServer();
+                        outbox.UseBusOutbox();
+                    });
+
                     x.UsingRabbitMq((context, cfg) =>
                     {
                         var host = configuration["RabbitMQ:Host"] ?? "localhost";

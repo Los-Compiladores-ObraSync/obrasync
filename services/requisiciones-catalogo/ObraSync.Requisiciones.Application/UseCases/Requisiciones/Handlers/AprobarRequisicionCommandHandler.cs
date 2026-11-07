@@ -37,8 +37,6 @@ namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers
             var fechaAprobacion = DateTime.UtcNow;
             requisicion.Aprobar(command.AprobadorId, fechaAprobacion);
 
-            await _repository.SaveChangesAsync(cancellationToken);
-
             var correlationId = command.CorrelationId == Guid.Empty
                 ? Guid.NewGuid()
                 : command.CorrelationId;
@@ -60,6 +58,11 @@ namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers
                 Etapa: requisicion.Etapa);
 
             await _eventPublisher.PublishRequisicionAprobadaAsync(evento, cancellationToken);
+
+            // El evento se publica ANTES de guardar a proposito (#134): con el outbox de MassTransit,
+            // este unico SaveChanges guarda en la misma transaccion el cambio de estado y el evento.
+            // Asi nunca queda una requisicion aprobada sin su evento, ni un evento sin su aprobacion.
+            await _repository.SaveChangesAsync(cancellationToken);
 
             return requisicion.ToDto();
         }

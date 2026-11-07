@@ -45,6 +45,18 @@ namespace ObraSync.Requisiciones.Tests.Integration
                         services.Remove(descriptor);
                     }
 
+                    // EF Core 9 guarda aparte la configuracion de AddDbContext (UseSqlServer). Si no se
+                    // quita tambien, quedan registrados SqlServer e InMemory a la vez y el host no arranca.
+                    var configuraciones = services.Where(d =>
+                            d.ServiceType.IsGenericType &&
+                            d.ServiceType.Name.StartsWith("IDbContextOptionsConfiguration") &&
+                            d.ServiceType.GenericTypeArguments[0] == typeof(RequisicionesDbContext))
+                        .ToList();
+                    foreach (var configuracion in configuraciones)
+                    {
+                        services.Remove(configuracion);
+                    }
+
                     services.AddDbContext<RequisicionesDbContext>(options =>
                     {
                         options.UseInMemoryDatabase(dbName);
