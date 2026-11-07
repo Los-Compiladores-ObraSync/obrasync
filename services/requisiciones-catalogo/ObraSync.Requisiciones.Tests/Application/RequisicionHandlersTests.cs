@@ -279,6 +279,59 @@ namespace ObraSync.Requisiciones.Tests.Application
         }
 
         [Fact]
+        public async Task AprobarRequisicion_DebePublicarElEventoAntesDeGuardar_ParaQueElOutboxLoGuardeEnLaMismaTransaccion()
+        {
+            var requisicionRepo = Substitute.For<IRequisicionRepository>();
+            var eventPublisher = Substitute.For<IRequisicionEventPublisher>();
+            var llamadas = new List<string>();
+
+            var requisicionId = Guid.NewGuid();
+            var cementoId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+
+            var requisicion = new Requisicion(
+                requisicionId,
+                "REQ-2026-0011",
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                new[]
+                {
+                    new RequisicionItem(
+                        Guid.NewGuid(),
+                        requisicionId,
+                        cementoId,
+                        "Cemento Portland Normal (bolsa 50 kg)",
+                        10m,
+                        UnidadesMedida.Bolsa)
+                },
+                etapa: "Estructura");
+
+            requisicionRepo.GetByIdAsync(requisicionId, Arg.Any<CancellationToken>())
+                .Returns(requisicion);
+            eventPublisher
+                .PublishRequisicionAprobadaAsync(Arg.Any<RequisicionAprobadaEvent>(), Arg.Any<CancellationToken>())
+                .Returns(_ =>
+                {
+                    llamadas.Add("publicar");
+                    return Task.CompletedTask;
+                });
+            requisicionRepo
+                .SaveChangesAsync(Arg.Any<CancellationToken>())
+                .Returns(_ =>
+                {
+                    llamadas.Add("guardar");
+                    return Task.CompletedTask;
+                });
+
+            var handler = new AprobarRequisicionCommandHandler(requisicionRepo, eventPublisher);
+
+            await handler.Handle(
+                new AprobarRequisicionCommand(requisicionId, Guid.NewGuid(), Guid.NewGuid()),
+                CancellationToken.None);
+
+            Assert.Equal(new[] { "publicar", "guardar" }, llamadas);
+        }
+
+        [Fact]
         public async Task RechazarRequisicion_ConRequisicionPendiente_DebeActualizarRequisicionSinPublicarEventos()
         {
             var requisicionRepo = Substitute.For<IRequisicionRepository>();

@@ -1,4 +1,5 @@
 using System.Reflection;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ObraSync.Requisiciones.Domain.Entities;
 
@@ -18,6 +19,12 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence
         {
             base.OnModelCreating(modelBuilder);
             modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+            // Tablas del outbox de MassTransit: guardan los eventos junto con el cambio de estado
+            // (misma transaccion) y un proceso aparte los entrega a RabbitMQ (#134).
+            modelBuilder.AddInboxStateEntity();
+            modelBuilder.AddOutboxMessageEntity();
+            modelBuilder.AddOutboxStateEntity();
         }
     }
 }
