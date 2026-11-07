@@ -6,6 +6,7 @@ import { type Capataz, type UsuarioCreado, obtenerCapataces } from '../obras/cap
 import { CrearCapatazForm } from '../obras/CrearCapatazForm'
 import { crearObra } from '../obras/obrasService'
 import { type PlantillaObra, obtenerPlantillas } from '../obras/plantillasService'
+import { type ResultadoUbicacion, validarUbicacion } from '../obras/ubicacionService'
 import {
   fechaAIso,
   hayErrores,
@@ -52,6 +53,16 @@ export function NuevaObraPage() {
   const [errorPlantillas, setErrorPlantillas] = useState(false)
   const [intentoPlantillas, setIntentoPlantillas] = useState(0)
   const [plantillaId, setPlantillaId] = useState('')
+
+  // Validación de la ubicación con OpenStreetMap (#113). Nunca bloquea del todo: si la dirección
+  // no se encuentra hace falta una confirmación explícita, y si el servicio falla se crea igual.
+  const [estadoUbicacion, setEstadoUbicacion] = useState<ResultadoUbicacion | 'comprobando' | null>(
+    null,
+  )
+  const [ubicacionConfirmada, setUbicacionConfirmada] = useState(false)
+  // Texto que se está comprobando: si el usuario lo cambia antes de que llegue la respuesta,
+  // esa respuesta ya no corresponde y se descarta.
+  const ubicacionVigente = useRef('')
   const [capatazCreado, setCapatazCreado] = useState<string | null>(null)
 
   const siguienteId = useRef(2)
@@ -101,6 +112,23 @@ export function NuevaObraPage() {
       cancelado = true
     }
   }, [intentoPlantillas])
+
+  async function comprobarUbicacion(texto: string): Promise<ResultadoUbicacion | null> {
+    const direccion = texto.trim()
+    if (!direccion) return null
+    setEstadoUbicacion('comprobando')
+    const resultado = await validarUbicacion(direccion)
+    if (ubicacionVigente.current.trim() !== direccion) return null
+    setEstadoUbicacion(resultado)
+    return resultado
+  }
+
+  function cambiarUbicacion(valor: string) {
+    ubicacionVigente.current = valor
+    setUbicacion(valor)
+    setEstadoUbicacion(null)
+    setUbicacionConfirmada(false)
+  }
 
   function reintentarPlantillas() {
     setErrorPlantillas(false)
@@ -156,6 +184,9 @@ export function NuevaObraPage() {
     setFechaInicio('')
     setCapatazId('')
     setPlantillaId('')
+    ubicacionVigente.current = ''
+    setEstadoUbicacion(null)
+    setUbicacionConfirmada(false)
     siguienteId.current = 2
     setEtapas([{ id: 1, nombre: '' }])
   }
@@ -173,10 +204,17 @@ export function NuevaObraPage() {
       return
     }
     setErrores({})
+    // El guard se activa ANTES de consultar el mapa: esa consulta es asíncrona y, si no, un doble
+    // clic podría colar dos envíos mientras se espera la respuesta.
     enviandoRef.current = true
     setEnviando(true)
 
     try {
+      // Un resultado ya conocido sale de la caché: no se repite el pedido que hizo el "blur".
+      const ubicacionOk = await comprobarUbicacion(ubicacion)
+      if (ubicacionOk === 'no-encontrada' && !ubicacionConfirmada) {
+        return // queda el aviso con la casilla de confirmación; no se crea nada todavía
+      }
       await crearObra({
         nombre: nombre.trim(),
         ubicacion: ubicacion.trim(),
@@ -238,10 +276,37 @@ export function NuevaObraPage() {
             id="obra-ubicacion"
             className={claseInput(!!errores.ubicacion)}
             value={ubicacion}
-            onChange={(e) => setUbicacion(e.target.value)}
+            onChange={(e) => cambiarUbicacion(e.target.value)}
+            onBlur={() => void comprobarUbicacion(ubicacion)}
             aria-invalid={!!errores.ubicacion}
             aria-describedby={errores.ubicacion ? 'obra-ubicacion-error' : undefined}
           />
+          {estadoUbicacion === 'comprobando' && (
+            <p className={styles.ayuda} role="status">Comprobando la dirección…</p>
+          )}
+          {estadoUbicacion === 'encontrada' && (
+            <p className={styles.ayuda} role="status">
+              Dirección encontrada (datos de © OpenStreetMap).
+            </p>
+          )}
+          {estadoUbicacion === 'no-encontrada' && (
+            <div className={styles.aviso} role="status">
+              <p>No encontramos esa dirección en el mapa. Revisá que esté bien escrita.</p>
+              <label className={styles.confirmacion}>
+                <input
+                  type="checkbox"
+                  checked={ubicacionConfirmada}
+                  onChange={(e) => setUbicacionConfirmada(e.target.checked)}
+                />
+                Es correcta, quiero crear la obra con esta ubicación
+              </label>
+            </div>
+          )}
+          {estadoUbicacion === 'no-disponible' && (
+            <p className={styles.aviso} role="status">
+              No se pudo comprobar la dirección en este momento. Si seguís, la obra se crea igual.
+            </p>
+          )}
           {errores.ubicacion && (
             <p id="obra-ubicacion-error" className={styles.errorCampo}>{errores.ubicacion}</p>
           )}
