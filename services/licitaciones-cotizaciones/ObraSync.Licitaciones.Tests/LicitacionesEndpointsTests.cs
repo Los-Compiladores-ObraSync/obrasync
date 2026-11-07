@@ -204,6 +204,123 @@ public class LicitacionesEndpointsTests : IClassFixture<WebApplicationFactory<Pr
         Assert.All(listaForzada, l => Assert.Equal("Abierta", l.Estado));
     }
 
+    private static Licitacion NuevaLicitacionAbierta(Guid licitacionId, Guid obraId, string numero)
+    {
+        return new Licitacion
+        {
+            LicitacionId = licitacionId,
+            RequisicionId = Guid.NewGuid(),
+            NumeroRequisicion = numero,
+            ObraId = obraId,
+            Estado = EstadoLicitacion.Abierta,
+            FechaCreacion = new DateTime(2026, 11, 1, 10, 0, 0, DateTimeKind.Utc),
+            FechaLimiteCotizacion = new DateTime(2026, 11, 10, 18, 0, 0, DateTimeKind.Utc),
+            Items = new List<LicitacionItem>
+            {
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    ArticuloId = Guid.NewGuid(),
+                    Descripcion = "Cemento",
+                    Cantidad = 10m,
+                    UnidadMedida = "BOLSA"
+                }
+            }
+        };
+    }
+
+    private async Task SembrarCotizacionAsync(Guid licitacionId, Guid proveedorId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LicitacionesDbContext>();
+        var cotizacionId = Guid.NewGuid();
+        db.Cotizaciones.Add(new Cotizacion
+        {
+            CotizacionId = cotizacionId,
+            LicitacionId = licitacionId,
+            ProveedorId = proveedorId,
+            Flete = 100m,
+            PlazoEntregaDias = 5,
+            FechaCreacion = new DateTime(2026, 11, 2, 9, 0, 0, DateTimeKind.Utc),
+            Items = new List<CotizacionItem>
+            {
+                new() { Id = Guid.NewGuid(), CotizacionId = cotizacionId, ArticuloId = Guid.NewGuid(), PrecioUnitario = 50m }
+            }
+        });
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task ListarLicitaciones_ConRolProveedor_MarcaYaCotizadaSoloLasQueCotizoEseProveedor()
+    {
+        var obraId = Guid.NewGuid();
+        var proveedorQueCotizo = Guid.NewGuid();
+        var otroProveedor = Guid.NewGuid();
+        var cotizadaId = Guid.NewGuid();
+        var sinCotizarId = Guid.NewGuid();
+
+        await SembrarLicitacionesAsync(
+            NuevaLicitacionAbierta(cotizadaId, obraId, "REQ-2026-0101"),
+            NuevaLicitacionAbierta(sinCotizarId, obraId, "REQ-2026-0102"));
+        // La del otro proveedor sobre la licitación "sinCotizar" NO debe contar para el primero.
+        await SembrarCotizacionAsync(cotizadaId, proveedorQueCotizo);
+        await SembrarCotizacionAsync(sinCotizarId, otroProveedor);
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorQueCotizo));
+
+        var response = await client.GetAsync($"/api/licitaciones?obraId={obraId}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var lista = await response.Content.ReadFromJsonAsync<List<LicitacionResponseDto>>();
+
+        Assert.NotNull(lista);
+        Assert.Equal(2, lista.Count);
+        Assert.True(lista.Single(l => l.LicitacionId == cotizadaId).YaCotizada);
+        Assert.False(lista.Single(l => l.LicitacionId == sinCotizarId).YaCotizada);
+    }
+
+    [Fact]
+    public async Task ListarLicitaciones_ConRolProveedorQueNoCotizoNada_MarcaTodasComoNoCotizadas()
+    {
+        var obraId = Guid.NewGuid();
+        await SembrarLicitacionesAsync(
+            NuevaLicitacionAbierta(Guid.NewGuid(), obraId, "REQ-2026-0111"),
+            NuevaLicitacionAbierta(Guid.NewGuid(), obraId, "REQ-2026-0112"));
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor"));
+
+        var lista = await client.GetFromJsonAsync<List<LicitacionResponseDto>>($"/api/licitaciones?obraId={obraId}");
+
+        Assert.NotNull(lista);
+        Assert.Equal(2, lista.Count);
+        Assert.All(lista, l => Assert.False(l.YaCotizada));
+    }
+
+    [Theory]
+    [InlineData("Comprador")]
+    [InlineData("Admin")]
+    public async Task ListarLicitaciones_ConRolCompradorOAdmin_YaCotizadaVieneNull(string rol)
+    {
+        var obraId = Guid.NewGuid();
+        var licitacionId = Guid.NewGuid();
+        await SembrarLicitacionesAsync(NuevaLicitacionAbierta(licitacionId, obraId, "REQ-2026-0121"));
+        var proveedorId = Guid.NewGuid();
+        await SembrarCotizacionAsync(licitacionId, proveedorId);
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt(rol, proveedorId));
+
+        var lista = await client.GetFromJsonAsync<List<LicitacionResponseDto>>($"/api/licitaciones?obraId={obraId}");
+
+        Assert.NotNull(lista);
+        Assert.Single(lista);
+        Assert.Null(lista[0].YaCotizada);
+    }
+
     [Theory]
     [InlineData("Comprador")]
     [InlineData("Admin")]

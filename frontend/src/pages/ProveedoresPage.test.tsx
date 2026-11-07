@@ -40,6 +40,80 @@ describe('ProveedoresPage', () => {
     )
   })
 
+  it('si el proveedor ya cotizó una licitación, muestra "Ya cotizada" en vez del botón Cotizar', async () => {
+    server.use(
+      http.get('*/api/licitaciones', () =>
+        HttpResponse.json(
+          [
+            {
+              licitacionId: 'l-1',
+              requisicionId: 'r-1',
+              numeroRequisicion: 'REQ-2026-0011',
+              obraId: 'o-1',
+              estado: 'Abierta',
+              fechaCreacion: '2026-10-20T10:00:00Z',
+              fechaLimiteCotizacion: '2026-11-20T18:00:00Z',
+              items: [],
+              yaCotizada: true,
+            },
+            {
+              licitacionId: 'l-2',
+              requisicionId: 'r-2',
+              numeroRequisicion: 'REQ-2026-0012',
+              obraId: 'o-1',
+              estado: 'Abierta',
+              fechaCreacion: '2026-10-21T10:00:00Z',
+              fechaLimiteCotizacion: '2026-11-25T18:00:00Z',
+              items: [],
+              yaCotizada: false,
+            },
+            {
+              licitacionId: 'l-3',
+              requisicionId: 'r-3',
+              numeroRequisicion: 'REQ-2026-0013',
+              obraId: 'o-1',
+              estado: 'Abierta',
+              fechaCreacion: '2026-10-22T10:00:00Z',
+              fechaLimiteCotizacion: '2026-11-26T18:00:00Z',
+              items: [],
+              yaCotizada: null, // Comprador/Admin: el dato no aplica
+            },
+          ],
+          { status: 200 },
+        ),
+      ),
+    )
+    renderPagina()
+
+    expect(await screen.findByText('✓ Ya cotizada')).toBeInTheDocument()
+    // Solo las otras dos (false y null) conservan el botón.
+    const enlaces = screen.getAllByRole('link', { name: 'Cotizar' })
+    expect(enlaces).toHaveLength(2)
+    expect(enlaces[0]).toHaveAttribute('href', '/proveedores/licitaciones/l-2')
+    expect(enlaces[1]).toHaveAttribute('href', '/proveedores/licitaciones/l-3')
+  })
+
+  it('después de cotizar, la lista muestra "Ya cotizada" solo en esa licitación (mock)', async () => {
+    // Se cotiza contra el mock con el proveedor de prueba (el mismo que usa la sesión de prueba).
+    const respuesta = await fetch('http://localhost:5000/api/cotizaciones', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        licitacionId: 'b1b2c3d4-1111-0000-0000-000000000001',
+        proveedorId: 'a1b2c3d4-0000-0000-0000-000000000003',
+        flete: 100,
+        plazoEntregaDias: 5,
+        items: [{ articuloId: 'c1c2c3c4-0000-0000-0000-000000000001', precioUnitario: 10 }],
+      }),
+    })
+    expect(respuesta.status).toBe(201)
+
+    renderPagina()
+
+    expect(await screen.findByText('✓ Ya cotizada')).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'Cotizar' })).toHaveLength(1)
+  })
+
   it('tiene un enlace para volver al inicio', async () => {
     renderPagina()
 

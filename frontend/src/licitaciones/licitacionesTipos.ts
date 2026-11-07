@@ -14,6 +14,8 @@ export interface LicitacionResponseDto {
   fechaCreacion: string
   fechaLimiteCotizacion: string
   items: PliegoItemDto[]
+  /** Solo para el Proveedor: true si ya cotizó este pliego. Para Comprador y Admin viene en null. */
+  yaCotizada?: boolean | null
 }
 
 export interface CrearCotizacionItemDto {

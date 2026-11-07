@@ -325,6 +325,11 @@
             "minItems": 1,
             "items": { "$ref": "#/components/schemas/PliegoItemDto" },
             "description": "Materiales a cotizar."
+          },
+          "yaCotizada": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Solo se completa cuando quien consulta es un Proveedor: true si ya cotizó este pliego, false si todavía no. Para Comprador y Admin viene en null (no aplica). Campo opcional, compatible hacia atrás."
           }
         },
         "additionalProperties": false
