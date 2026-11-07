@@ -64,6 +64,8 @@ export interface ObraResumen {
   nombre: string
   ubicacion: string
   fechaInicio: string
+  /** Id del capataz a cargo (contrato ObraResponseDto). */
+  capatazId?: string | null
   capataz?: string | null
   etapas: EtapaObraResumen[]
 }

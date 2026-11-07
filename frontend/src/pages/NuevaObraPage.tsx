@@ -4,7 +4,7 @@ import { ApiError } from '../api/ApiError'
 import { esFechaPasada, fechaEnPalabras } from '../obras/fechaEnPalabras'
 import { type Capataz, type UsuarioCreado, obtenerCapataces } from '../obras/capatacesService'
 import { CrearCapatazForm } from '../obras/CrearCapatazForm'
-import { crearObra } from '../obras/obrasService'
+import { actualizarObra, crearObra } from '../obras/obrasService'
 import { type PlantillaObra, obtenerPlantillas } from '../obras/plantillasService'
 import { type ResultadoUbicacion, validarUbicacion } from '../obras/ubicacionService'
 import {
@@ -21,13 +21,16 @@ interface EtapaForm {
   nombre: string
 }
 
-function mensajeDeError(err: unknown): string {
+function mensajeDeError(err: unknown, editando: boolean): string {
   if (err instanceof ApiError) {
     if (err.status === 400) {
       return err.detail ?? 'Hay datos inválidos. Revisá el formulario.'
     }
     if (err.status === 403) {
-      return 'No tenés permiso para crear obras.'
+      return `No tenés permiso para ${editando ? 'editar' : 'crear'} obras.`
+    }
+    if (err.status === 404 && editando) {
+      return 'Esta obra ya no existe (puede que alguien la haya dado de baja). Volvé al listado.'
     }
     if (err.status === 409) {
       return err.detail ?? 'Ya existe una obra con esos datos.'
@@ -36,11 +39,31 @@ function mensajeDeError(err: unknown): string {
   return 'No se pudo conectar. Intentá de nuevo más tarde.'
 }
 
-export function NuevaObraPage() {
-  const [nombre, setNombre] = useState('')
-  const [ubicacion, setUbicacion] = useState('')
-  const [fechaInicio, setFechaInicio] = useState('')
-  const [capatazId, setCapatazId] = useState('')
+/** Datos de una obra que ya existe, para editarla (#119). Sin esto la pantalla es "Nueva obra". */
+export interface ObraEditable {
+  id: string
+  nombre: string
+  ubicacion: string
+  /** Fecha y hora como las devuelve el servidor (ISO 8601). */
+  fechaInicio: string
+  capatazId?: string | null
+}
+
+interface Props {
+  obra?: ObraEditable
+}
+
+/**
+ * Formulario de obra. Se usa para CREAR (/compras/obras/nueva) y, con la prop `obra`, para EDITAR
+ * (/compras/obras/:id/editar): en ese caso no muestra plantillas ni etapas (el contrato de PUT
+ * solo edita nombre, ubicación, fecha de inicio y capataz) y guarda con PUT en vez de POST.
+ */
+export function NuevaObraPage({ obra }: Props = {}) {
+  const editando = obra !== undefined
+  const [nombre, setNombre] = useState(obra?.nombre ?? '')
+  const [ubicacion, setUbicacion] = useState(obra?.ubicacion ?? '')
+  const [fechaInicio, setFechaInicio] = useState(obra ? obra.fechaInicio.slice(0, 10) : '')
+  const [capatazId, setCapatazId] = useState(obra?.capatazId ?? '')
   const [capataces, setCapataces] = useState<Capataz[]>([])
   const [cargandoCapataces, setCargandoCapataces] = useState(true)
   const [errorCapataces, setErrorCapataces] = useState(false)
@@ -62,7 +85,7 @@ export function NuevaObraPage() {
   const [ubicacionConfirmada, setUbicacionConfirmada] = useState(false)
   // Texto que se está comprobando: si el usuario lo cambia antes de que llegue la respuesta,
   // esa respuesta ya no corresponde y se descarta.
-  const ubicacionVigente = useRef('')
+  const ubicacionVigente = useRef(obra?.ubicacion ?? '')
   const [capatazCreado, setCapatazCreado] = useState<string | null>(null)
 
   const siguienteId = useRef(2)
@@ -97,6 +120,7 @@ export function NuevaObraPage() {
   // Igual que los capataces: cada cambio de `intentoPlantillas` vuelve a pedir la lista.
   // Si falla, la obra se puede crear igual (las plantillas no son obligatorias).
   useEffect(() => {
+    if (editando) return undefined // al editar no se usan las plantillas
     let cancelado = false
     obtenerPlantillas()
       .then((lista) => {
@@ -111,11 +135,13 @@ export function NuevaObraPage() {
     return () => {
       cancelado = true
     }
-  }, [intentoPlantillas])
+  }, [intentoPlantillas, editando])
 
   async function comprobarUbicacion(texto: string): Promise<ResultadoUbicacion | null> {
     const direccion = texto.trim()
     if (!direccion) return null
+    // Al editar, si la ubicación sigue igual a la guardada no se vuelve a consultar el mapa.
+    if (obra && direccion === obra.ubicacion.trim()) return null
     setEstadoUbicacion('comprobando')
     const resultado = await validarUbicacion(direccion)
     if (ubicacionVigente.current.trim() !== direccion) return null
@@ -198,7 +224,10 @@ export function NuevaObraPage() {
     setApiError(null)
 
     const nombresEtapas = etapas.map((et) => et.nombre)
-    const erroresForm = validarObra({ nombre, ubicacion, fechaInicio, capatazId, etapas: nombresEtapas })
+    const erroresForm = validarObra(
+      { nombre, ubicacion, fechaInicio, capatazId, etapas: nombresEtapas },
+      { exigirEtapas: !editando },
+    )
     if (hayErrores(erroresForm)) {
       setErrores(erroresForm)
       return
@@ -215,17 +244,29 @@ export function NuevaObraPage() {
       if (ubicacionOk === 'no-encontrada' && !ubicacionConfirmada) {
         return // queda el aviso con la casilla de confirmación; no se crea nada todavía
       }
-      await crearObra({
-        nombre: nombre.trim(),
-        ubicacion: ubicacion.trim(),
-        fechaInicio: fechaAIso(fechaInicio),
-        capatazId: capatazId.trim(),
-        fasesEtapas: nombresEtapas.map((n) => n.trim()),
-      })
-      setCreada(true)
-      limpiarFormulario()
+      if (obra) {
+        await actualizarObra(obra.id, {
+          nombre: nombre.trim(),
+          ubicacion: ubicacion.trim(),
+          // Si la fecha no cambió se manda la original tal cual (con su hora); si no, se
+          // reescribiría a medianoche UTC sin que nadie lo pidiera.
+          fechaInicio: fechaInicio === obra.fechaInicio.slice(0, 10) ? obra.fechaInicio : fechaAIso(fechaInicio),
+          capatazId: capatazId.trim(),
+        })
+        setCreada(true)
+      } else {
+        await crearObra({
+          nombre: nombre.trim(),
+          ubicacion: ubicacion.trim(),
+          fechaInicio: fechaAIso(fechaInicio),
+          capatazId: capatazId.trim(),
+          fasesEtapas: nombresEtapas.map((n) => n.trim()),
+        })
+        setCreada(true)
+        limpiarFormulario()
+      }
     } catch (err) {
-      setApiError(mensajeDeError(err))
+      setApiError(mensajeDeError(err, editando))
     } finally {
       enviandoRef.current = false
       setEnviando(false)
@@ -238,15 +279,15 @@ export function NuevaObraPage() {
 
   return (
     <section className={styles.contenedor}>
-      <Link to="/" className={styles.volver}>
-        ← Volver al inicio
+      <Link to={editando ? '/compras/obras' : '/'} className={styles.volver}>
+        {editando ? '← Volver a obras' : '← Volver al inicio'}
       </Link>
-      <h1>Nueva obra</h1>
+      <h1>{editando ? 'Editar obra' : 'Nueva obra'}</h1>
 
       <form className={styles.formulario} onSubmit={handleSubmit} noValidate>
         {creada && (
           <p className={styles.exito} role="status">
-            Obra creada correctamente.
+            {editando ? 'Obra actualizada correctamente.' : 'Obra creada correctamente.'}
           </p>
         )}
         {apiError && (
@@ -402,6 +443,7 @@ export function NuevaObraPage() {
           )}
         </div>
 
+        {!editando && (
         <div className={styles.grupo}>
           <label htmlFor="obra-plantilla" className={styles.label}>
             Empezar desde una plantilla (opcional)
@@ -439,7 +481,11 @@ export function NuevaObraPage() {
             </div>
           )}
         </div>
+        )}
 
+        {editando ? (
+          <p className={styles.ayuda}>Las etapas de la obra no se editan desde esta pantalla.</p>
+        ) : (
         <fieldset className={styles.etapas}>
           <legend className={styles.label}>Etapas de la obra</legend>
 
@@ -475,9 +521,12 @@ export function NuevaObraPage() {
             + Agregar etapa
           </button>
         </fieldset>
+        )}
 
         <button type="submit" className={styles.boton} disabled={enviando}>
-          {enviando ? 'Creando…' : 'Crear obra'}
+          {editando
+            ? enviando ? 'Guardando…' : 'Guardar cambios'
+            : enviando ? 'Creando…' : 'Crear obra'}
         </button>
       </form>
     </section>

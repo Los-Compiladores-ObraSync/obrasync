@@ -26,7 +26,15 @@ export interface ErroresObra {
 const RE_GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const RE_FECHA = /^\d{4}-\d{2}-\d{2}$/
 
-export function validarObra(datos: DatosObraForm): ErroresObra {
+export interface OpcionesValidacionObra {
+  /** false al EDITAR una obra: las etapas no se editan desde ese formulario. Por defecto, true. */
+  exigirEtapas?: boolean
+}
+
+export function validarObra(
+  datos: DatosObraForm,
+  { exigirEtapas = true }: OpcionesValidacionObra = {},
+): ErroresObra {
   const errores: ErroresObra = {}
 
   if (!datos.nombre.trim()) {
@@ -49,7 +57,9 @@ export function validarObra(datos: DatosObraForm): ErroresObra {
     errores.capatazId = 'El identificador del capataz debe ser un GUID válido.'
   }
 
-  if (datos.etapas.length === 0) {
+  if (!exigirEtapas) {
+    // Al editar no se mira la lista de etapas.
+  } else if (datos.etapas.length === 0) {
     errores.etapas = 'Agregá al menos una etapa.'
   } else {
     const items: Record<number, string> = {}

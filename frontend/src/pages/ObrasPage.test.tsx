@@ -92,3 +92,70 @@ describe('ObrasPage', () => {
     )
   })
 })
+
+describe('ObrasPage - editar y dar de baja (#119)', () => {
+  it('cada obra tiene un enlace para editarla', async () => {
+    renderPagina()
+
+    const enlace = await screen.findByRole('link', { name: 'Editar Torre Alvear' })
+    expect(enlace).toHaveAttribute(
+      'href',
+      '/compras/obras/b1b2c3d4-0000-0000-0000-0000000000a1/editar',
+    )
+  })
+
+  it('pide confirmación y, al confirmar, saca la obra del listado', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+
+    await user.click(await screen.findByRole('button', { name: 'Dar de baja Torre Alvear' }))
+    expect(screen.getByText(/¿Dar de baja "Torre Alvear"\?/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Sí, dar de baja' }))
+
+    expect(await screen.findByText('La obra "Torre Alvear" se dio de baja.')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 2, name: 'Torre Alvear' })).not.toBeInTheDocument()
+  })
+
+  it('cancelar no da de baja nada', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+
+    await user.click(await screen.findByRole('button', { name: 'Dar de baja Torre Alvear' }))
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Torre Alvear' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sí, dar de baja' })).not.toBeInTheDocument()
+  })
+
+  it('si la obra ya no existe (404) avisa y la saca de la lista', async () => {
+    server.use(
+      http.delete('*/api/obras/:id', () =>
+        HttpResponse.json({ title: 'No encontrada', status: 404 }, { status: 404 }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPagina()
+
+    await user.click(await screen.findByRole('button', { name: 'Dar de baja Torre Alvear' }))
+    await user.click(screen.getByRole('button', { name: 'Sí, dar de baja' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Esa obra ya no existe.')
+    expect(screen.queryByRole('heading', { level: 2, name: 'Torre Alvear' })).not.toBeInTheDocument()
+  })
+
+  it('si no tiene permiso (403) lo avisa y deja la obra', async () => {
+    server.use(
+      http.delete('*/api/obras/:id', () =>
+        HttpResponse.json({ title: 'Prohibido', status: 403 }, { status: 403 }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPagina()
+
+    await user.click(await screen.findByRole('button', { name: 'Dar de baja Torre Alvear' }))
+    await user.click(screen.getByRole('button', { name: 'Sí, dar de baja' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No tenés permiso para dar de baja obras.')
+    expect(screen.getByRole('heading', { level: 2, name: 'Torre Alvear' })).toBeInTheDocument()
+  })
+})
