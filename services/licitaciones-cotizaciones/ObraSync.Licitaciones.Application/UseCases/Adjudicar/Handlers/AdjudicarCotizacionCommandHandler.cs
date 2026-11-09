@@ -88,31 +88,33 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
 
         await _ordenCompraRepository.AddAsync(ordenCompra, cancellationToken);
         await _licitacionRepository.UpdateAsync(licitacion, cancellationToken);
-        
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // 5. Publicar el evento de integración con MassTransit
         var evento = new OrdenCompraEmitidaEvent(
-        EventId: Guid.NewGuid(),
-        OccurredAt: DateTime.UtcNow,
-        CorrelationId: Guid.NewGuid(),
-        OrdenCompraId: ordenCompra.OrdenCompraId,
-        LicitacionId: licitacion.LicitacionId,
-        RequisicionId: licitacion.RequisicionId,
-        ObraId: licitacion.ObraId,
-        ProveedorId: cotizacion.ProveedorId,
-        Etapa: "Adjudicacion",
-        MontoTotal: montoTotal,
-        Items: ordenCompra.Items.Select(i => new OrdenCompraItemDto(
-            i.ArticuloId,
-            i.Descripcion,
-            i.Cantidad,
-            i.UnidadMedida,
-            i.PrecioUnitario
-        )).ToList()
-    );
+            EventId: Guid.NewGuid(),
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: ordenCompra.OrdenCompraId,
+            LicitacionId: licitacion.LicitacionId,
+            RequisicionId: licitacion.RequisicionId,
+            ObraId: licitacion.ObraId,
+            ProveedorId: cotizacion.ProveedorId,
+            Etapa: "Adjudicacion",
+            MontoTotal: montoTotal,
+            Items: ordenCompra.Items.Select(i => new OrdenCompraItemDto(
+                i.ArticuloId,
+                i.Descripcion,
+                i.Cantidad,
+                i.UnidadMedida,
+                i.PrecioUnitario
+            )).ToList()
+        );
 
         await _publishEndpoint.Publish<OrdenCompraEmitidaEvent>(evento, cancellationToken);
+
+        // El evento se publica ANTES de guardar a propósito (#135): con el outbox, este único
+        // SaveChanges guarda en la misma transacción la adjudicación, la OC y el evento.
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new OrdenCompraResponseDto(
             ordenCompra.OrdenCompraId,

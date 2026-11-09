@@ -74,6 +74,14 @@ builder.Services.AddMassTransit(x =>
     }
     else
     {
+        // Outbox transaccional (#135): el evento se guarda en DB_Licit junto con la adjudicación
+        // y un servicio en segundo plano lo entrega a RabbitMQ. Solo con el transporte real.
+        x.AddEntityFrameworkOutbox<LicitacionesDbContext>(outbox =>
+        {
+            outbox.UseSqlServer();
+            outbox.UseBusOutbox();
+        });
+        
         x.UsingRabbitMq((context, cfg) =>
         {
             var host = builder.Configuration["RabbitMQ:Host"] ?? "localhost";

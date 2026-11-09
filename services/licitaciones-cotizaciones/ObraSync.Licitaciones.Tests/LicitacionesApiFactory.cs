@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
 using ObraSync.Licitaciones.Infrastructure;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace ObraSync.Licitaciones.Tests;
 
@@ -29,6 +30,7 @@ public class LicitacionesApiFactory : WebApplicationFactory<Program>
         {
             // Base en memoria en lugar de SQL Server
             services.RemoveAll<DbContextOptions<LicitacionesDbContext>>();
+            services.RemoveAll<IDbContextOptionsConfiguration<LicitacionesDbContext>>();
             services.AddDbContext<LicitacionesDbContext>(o => o.UseInMemoryDatabase(_dbName));
         });
     }

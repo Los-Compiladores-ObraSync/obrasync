@@ -15,6 +15,7 @@ using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Domain.Entities;
 using ObraSync.Licitaciones.Infrastructure;
 using Xunit;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace ObraSync.Licitaciones.Tests;
 
@@ -44,6 +45,8 @@ public class LicitacionesEndpointsTests : IClassFixture<WebApplicationFactory<Pr
                 {
                     services.Remove(descriptor);
                 }
+
+                services.RemoveAll<IDbContextOptionsConfiguration<LicitacionesDbContext>>();
 
                 services.AddDbContext<LicitacionesDbContext>(options =>
                 {

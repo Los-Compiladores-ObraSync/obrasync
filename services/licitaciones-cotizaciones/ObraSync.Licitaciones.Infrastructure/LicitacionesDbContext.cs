@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ObraSync.Licitaciones.Domain.Entities;
+using MassTransit;
 
 namespace ObraSync.Licitaciones.Infrastructure;
 
@@ -113,5 +114,10 @@ public class LicitacionesDbContext : DbContext
             e.Property(x => x.Descripcion).HasMaxLength(300);
             e.Property(x => x.UnidadMedida).HasMaxLength(20);
         });
+
+        // Tablas del outbox de MassTransit (#135)
+        modelBuilder.AddInboxStateEntity();
+        modelBuilder.AddOutboxMessageEntity();
+        modelBuilder.AddOutboxStateEntity();
     }
 }
