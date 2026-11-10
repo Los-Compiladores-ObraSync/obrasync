@@ -34,13 +34,13 @@ public class JwtProvider : IJwtProvider
             claims.Add(new Claim("role", role));
         }
 
-        // 3. Firma sin Issuer/Audience ni Jti para no sobrecargar el payload
+        // 3. Emisor y audiencia: los servicios los validan (#136). Sin Jti, para no sobrecargar el payload
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
-            issuer: null,
-            audience: null,
+            issuer: _jwtSettings.Issuer,
+            audience: _jwtSettings.Audience,
             claims: claims,
             expires: DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationMinutes),
             signingCredentials: creds

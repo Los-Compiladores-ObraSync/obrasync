@@ -72,6 +72,10 @@ if (string.IsNullOrWhiteSpace(jwtSecret))
     throw new InvalidOperationException("La variable de entorno 'Jwt__Secret' no está configurada.");
 }
 
+// Emisor y audiencia: los mismos que usa JwtProvider al emitir el token (#136)
+var jwtIssuer = jwtSettings?.Issuer ?? "obrasync-usuarios";
+var jwtAudience = jwtSettings?.Audience ?? "obrasync-services";
+
 // 2. Registro del servicio de autenticación JWT Bearer
 builder.Services.AddAuthentication(options =>
 {
@@ -85,8 +89,10 @@ builder.Services.AddAuthentication(options =>
     options.MapInboundClaims = false; // Desactiva la conversión automática de claims a URIs de Microsoft
     options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuer = false,
-        ValidateAudience = false,
+        ValidateIssuer = true,
+        ValidIssuer = jwtIssuer,
+        ValidateAudience = true,
+        ValidAudience = jwtAudience,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),

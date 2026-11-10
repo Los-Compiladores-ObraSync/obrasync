@@ -54,6 +54,8 @@ public class RecepcionApiFactory : WebApplicationFactory<Program>
         };
 
         var token = new JwtSecurityToken(
+            issuer: "obrasync-usuarios",
+            audience: "obrasync-services",
             claims: claims,
             expires: expired ? DateTime.UtcNow.AddMinutes(-10) : DateTime.UtcNow.AddMinutes(30),
             signingCredentials: creds);
