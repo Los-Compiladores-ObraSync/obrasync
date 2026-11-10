@@ -50,11 +50,29 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
             throw new ArgumentException("La cotización no pertenece a la licitación especificada.");
         }
 
-        // 3. Calcular Monto Total cruzando con los ítems de la licitación para la cantidad
-        decimal subtotalItems = cotizacion.Items.Sum(ci => {
-            var licItem = licitacion.Items.First(li => li.ArticuloId == ci.ArticuloId);
-            return ci.PrecioUnitario * licItem.Cantidad;
-        });
+        // 3. Cruzar cada ítem cotizado con el ítem pedido en la licitación (para la cantidad).
+        // Antes se usaba .First(), que explotaba con "Sequence contains no matching element" (un 500)
+        // si la cotización traía un artículo que la licitación no pidió. Ahora es un 400 claro (#136).
+        var itemsPorArticulo = new Dictionary<Guid, LicitacionItem>();
+        foreach (var li in licitacion.Items)
+        {
+            itemsPorArticulo.TryAdd(li.ArticuloId, li);
+        }
+
+        foreach (var ci in cotizacion.Items)
+        {
+            if (!itemsPorArticulo.ContainsKey(ci.ArticuloId))
+            {
+                throw new ArgumentException(
+                    $"La cotización incluye el artículo {ci.ArticuloId}, que no pertenece a la licitación.");
+            }
+        }
+
+        // La etapa real viene de la requisición que originó la licitación (#136): Recepción la usa
+        // para validar la OC contra la partida de esa etapa. Es opcional (puede ser null).
+        var requisicion = await _licitacionRepository.ObtenerRequisicionAsync(licitacion.RequisicionId, cancellationToken);
+
+        decimal subtotalItems = cotizacion.Items.Sum(ci => ci.PrecioUnitario * itemsPorArticulo[ci.ArticuloId].Cantidad);
         decimal montoTotal = subtotalItems + cotizacion.Flete;
 
         // 4. Crear la entidad Orden de Compra
@@ -69,7 +87,7 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
             FechaEmision = DateTime.UtcNow,
             TotalFlete = cotizacion.Flete,
             Items = cotizacion.Items.Select(ci => {
-                var licItem = licitacion.Items.First(li => li.ArticuloId == ci.ArticuloId);
+                var licItem = itemsPorArticulo[ci.ArticuloId];
                 return new OrdenCompraItem
                 {
                     Id = Guid.NewGuid(),
@@ -99,7 +117,7 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
             RequisicionId: licitacion.RequisicionId,
             ObraId: licitacion.ObraId,
             ProveedorId: cotizacion.ProveedorId,
-            Etapa: "Adjudicacion",
+            Etapa: requisicion?.Etapa,
             MontoTotal: montoTotal,
             Items: ordenCompra.Items.Select(i => new OrdenCompraItemDto(
                 i.ArticuloId,

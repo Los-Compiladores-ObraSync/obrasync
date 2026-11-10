@@ -344,7 +344,8 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
 
                     b.HasKey("OrdenCompraId");
 
-                    b.HasIndex("LicitacionId");
+                    b.HasIndex("LicitacionId")
+                        .IsUnique();
 
                     b.ToTable("OrdenesCompra", (string)null);
                 });
