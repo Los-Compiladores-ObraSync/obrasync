@@ -96,7 +96,7 @@ public class AuthServiceTests
         var request = new RegisterRequestDto("Juan Perez", "juan@test.com", "Password123!", "RolInexistente");
 
         // Act
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.RegistrarAsync(request));
+        var ex = await Assert.ThrowsAsync<ValidacionException>(() => _authService.RegistrarAsync(request));
 
         // Assert
         Assert.Contains("no es válido", ex.Message);
@@ -127,7 +127,7 @@ public class AuthServiceTests
             .Returns(Task.FromResult<AppUser?>(new AppUser { Email = request.Email }));
 
         // Act
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _authService.RegistrarAsync(request));
+        var ex = await Assert.ThrowsAsync<ConflictoException>(() => _authService.RegistrarAsync(request));
 
         // Assert
         Assert.Contains("Ya existe un usuario", ex.Message);
@@ -422,7 +422,7 @@ public class AuthServiceTests
             .Returns(Task.FromResult(IdentityResult.Failed(errorToken)));
 
         // Act
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.RestablecerPasswordAsync(request));
+        var ex = await Assert.ThrowsAsync<ValidacionException>(() => _authService.RestablecerPasswordAsync(request));
 
         // Assert
         Assert.Equal(MensajeEnlaceInvalidoOExpirado, ex.Message);
@@ -436,7 +436,7 @@ public class AuthServiceTests
         _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(null));
 
         // Act
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.RestablecerPasswordAsync(request));
+        var ex = await Assert.ThrowsAsync<ValidacionException>(() => _authService.RestablecerPasswordAsync(request));
 
         // Assert: mismo mensaje amigable que con token inválido, sin invocar ResetPasswordAsync
         Assert.Equal(MensajeEnlaceInvalidoOExpirado, ex.Message);
@@ -452,7 +452,7 @@ public class AuthServiceTests
         _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(usuario));
 
         // Act
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.RestablecerPasswordAsync(request));
+        var ex = await Assert.ThrowsAsync<ValidacionException>(() => _authService.RestablecerPasswordAsync(request));
 
         // Assert: mismo mensaje amigable que con token inválido, sin invocar ResetPasswordAsync
         Assert.Equal(MensajeEnlaceInvalidoOExpirado, ex.Message);
@@ -472,7 +472,7 @@ public class AuthServiceTests
             .Returns(Task.FromResult(IdentityResult.Failed(errorPassword)));
 
         // Act
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.RestablecerPasswordAsync(request));
+        var ex = await Assert.ThrowsAsync<ValidacionException>(() => _authService.RestablecerPasswordAsync(request));
 
         // Assert
         Assert.Equal(MensajePasswordCorta, ex.Message);
@@ -513,7 +513,7 @@ public class AuthServiceTests
         _userManager.FindByIdAsync(userId.ToString()).Returns(Task.FromResult<AppUser?>(usuario));
 
         // Act
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.CambiarPasswordAsync(request, ejecutor));
+        var ex = await Assert.ThrowsAsync<ValidacionException>(() => _authService.CambiarPasswordAsync(request, ejecutor));
 
         // Assert
         Assert.Equal("La nueva contraseña y su confirmación no coinciden.", ex.Message);
@@ -532,7 +532,7 @@ public class AuthServiceTests
         _userManager.FindByIdAsync(userId.ToString()).Returns(Task.FromResult<AppUser?>(usuario));
 
         // Act
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.CambiarPasswordAsync(request, ejecutor));
+        var ex = await Assert.ThrowsAsync<ValidacionException>(() => _authService.CambiarPasswordAsync(request, ejecutor));
 
         // Assert
         Assert.Equal("La nueva contraseña no puede ser igual a la contraseña actual.", ex.Message);
@@ -554,7 +554,7 @@ public class AuthServiceTests
             .Returns(Task.FromResult(IdentityResult.Failed(errorMismatch)));
 
         // Act
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.CambiarPasswordAsync(request, ejecutor));
+        var ex = await Assert.ThrowsAsync<ValidacionException>(() => _authService.CambiarPasswordAsync(request, ejecutor));
 
         // Assert
         Assert.Equal("La contraseña actual es incorrecta.", ex.Message);
@@ -575,7 +575,7 @@ public class AuthServiceTests
             .Returns(Task.FromResult(IdentityResult.Failed(errorCorta)));
 
         // Act
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() => _authService.CambiarPasswordAsync(request, ejecutor));
+        var ex = await Assert.ThrowsAsync<ValidacionException>(() => _authService.CambiarPasswordAsync(request, ejecutor));
 
         // Assert
         Assert.Equal(MensajePasswordCorta, ex.Message);
