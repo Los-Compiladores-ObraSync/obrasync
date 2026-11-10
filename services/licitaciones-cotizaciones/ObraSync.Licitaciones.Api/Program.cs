@@ -81,7 +81,7 @@ builder.Services.AddMassTransit(x =>
             outbox.UseSqlServer();
             outbox.UseBusOutbox();
         });
-        
+
         x.UsingRabbitMq((context, cfg) =>
         {
             var host = builder.Configuration["RabbitMQ:Host"] ?? "localhost";
