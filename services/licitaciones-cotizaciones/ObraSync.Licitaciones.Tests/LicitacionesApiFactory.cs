@@ -39,6 +39,8 @@ public class LicitacionesApiFactory : WebApplicationFactory<Program>
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Secret));
         var token = new JwtSecurityToken(
+            issuer: "obrasync-usuarios",
+            audience: "obrasync-services",
             claims: new[]
             {
                 new Claim("sub", Guid.NewGuid().ToString()),

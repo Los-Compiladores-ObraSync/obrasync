@@ -84,6 +84,8 @@ namespace ObraSync.Requisiciones.Tests.Integration
             };
 
             var token = new JwtSecurityToken(
+                issuer: "obrasync-usuarios",
+                audience: "obrasync-services",
                 claims: claims,
                 expires: DateTime.UtcNow.AddMinutes(30),
                 signingCredentials: creds);

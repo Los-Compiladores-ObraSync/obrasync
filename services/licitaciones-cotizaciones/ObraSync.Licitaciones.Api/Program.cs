@@ -105,6 +105,11 @@ builder.Services.AddMassTransit(x =>
 var secret = builder.Configuration["Jwt:Secret"]
     ?? throw new InvalidOperationException("Falta la variable de entorno Jwt__Secret");
 
+// Emisor y audiencia esperados en el token (#136). Los emite Usuarios (JwtProvider); los 4 servicios los validan.
+// Se pueden cambiar con las variables Jwt__Issuer y Jwt__Audience (tienen que ser iguales en todos los servicios).
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "obrasync-usuarios";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "obrasync-services";
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -113,8 +118,10 @@ builder.Services
         options.TokenValidationParameters = new TokenValidationParameters
         {
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
-            ValidateIssuer = false,   // provisorio: ajustar cuando el contrato #16 lo defina
-            ValidateAudience = false,
+            ValidateIssuer = true,
+            ValidIssuer = jwtIssuer,
+            ValidateAudience = true,
+            ValidAudience = jwtAudience,
             ValidateLifetime = true,
             NameClaimType = "name",
             RoleClaimType = "role"

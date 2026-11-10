@@ -71,9 +71,9 @@ public class JwtProviderTests
         Assert.Equal(usuario.NombreCompleto, Claim(JwtRegisteredClaimNames.Name));
         Assert.Equal(UserRoles.Capataz, Claim("role"));
 
-        // El token es liviano, como pide el contrato: sin Issuer, Audience ni Jti
-        Assert.True(string.IsNullOrEmpty(jwtToken.Issuer));
-        Assert.Empty(jwtToken.Audiences);
+        // Emisor y audiencia del contrato (#136), y sin Jti para que el token siga siendo liviano
+        Assert.Equal(_jwtSettings.Issuer, jwtToken.Issuer);
+        Assert.Contains(_jwtSettings.Audience, jwtToken.Audiences);
         Assert.DoesNotContain(jwtToken.Claims, c => c.Type == JwtRegisteredClaimNames.Jti);
 
         // Vence a los 60 minutos (con un minuto de margen)
