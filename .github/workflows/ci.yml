@@ -1,0 +1,53 @@
+# CI de ObraSync (tarjeta #136).
+# Corre en cada Pull Request y en cada push a main: compila y ejecuta las pruebas de cada servicio,
+# del Gateway y del frontend. Así un cambio que rompe el build (como pasó con #132) se detecta antes de mergear.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Pruebas ${{ matrix.nombre }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false   # si falla un servicio, igual se corren los demás para ver todo junto
+      matrix:
+        include:
+          - nombre: Usuarios y Obras
+            proyecto: services/usuarios-obras/ObraSync.Usuarios.Tests/ObraSync.Usuarios.Tests.csproj
+          - nombre: Requisiciones y Catálogo
+            proyecto: services/requisiciones-catalogo/ObraSync.Requisiciones.Tests/ObraSync.Requisiciones.Tests.csproj
+          - nombre: Licitaciones y Cotizaciones
+            proyecto: services/licitaciones-cotizaciones/ObraSync.Licitaciones.Tests/ObraSync.Licitaciones.Tests.csproj
+          - nombre: Recepción y Presupuesto
+            proyecto: services/recepcion-presupuesto/ObraSync.Recepcion.Tests/ObraSync.Recepcion.Tests.csproj
+          - nombre: API Gateway
+            proyecto: gateway/src/ObraSync.Gateway.Tests/ObraSync.Gateway.Tests.csproj
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      # "dotnet test" restaura paquetes y compila el proyecto de pruebas y todo lo que usa.
+      - name: Compilar y correr las pruebas
+        run: dotnet test "${{ matrix.proyecto }}" --configuration Release --verbosity minimal
+
+  frontend:
+    name: Pruebas y build del frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build

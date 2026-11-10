@@ -177,4 +177,28 @@ public class DatabaseSeedingTests
             Assert.All(etapas, e => Assert.Equal("Pendiente", e.GetProperty("estado").GetString()));
         }
     }
+
+    [Fact]
+    public async Task SeedDatabaseAsync_SinDatosDemo_DebeCrearSoloLosRolesYNingunUsuarioNiObra()
+    {
+        // Arrange
+        var sp = CreateTestServiceProvider($"DB_Seed_SinDemo_{Guid.NewGuid()}");
+        using var scope = sp.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<AppRole>>();
+
+        // Act: así corre en Production
+        await DatabaseMigrationExtensions.SeedDatabaseAsync(scope.ServiceProvider, incluirDatosDemo: false);
+
+        // Assert: los roles existen, pero no hay usuarios de prueba, obras ni plantillas
+        Assert.True(await roleManager.RoleExistsAsync(UserRoles.Admin));
+        Assert.True(await roleManager.RoleExistsAsync(UserRoles.Capataz));
+        Assert.True(await roleManager.RoleExistsAsync(UserRoles.Comprador));
+        Assert.True(await roleManager.RoleExistsAsync(UserRoles.Proveedor));
+        Assert.Null(await userManager.FindByEmailAsync("admin@obrasync.com"));
+        Assert.False(await userManager.Users.AnyAsync());
+        Assert.False(await context.Obras.AnyAsync());
+        Assert.False(await context.PlantillasObra.AnyAsync());
+    }
 }

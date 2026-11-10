@@ -1,10 +1,14 @@
 ﻿using MassTransit;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ObraSync.Contracts.Events;
 
 namespace ObraSync.Recepcion.Api.Controllers;
 
+// Endpoint solo para pruebas internas (publica un evento de OC inventado). Antes estaba abierto a cualquiera;
+// ahora exige un JWT con rol Admin. Tarjeta #136.
 [ApiController]
+[Authorize(Roles = "Admin")]
 [Route("api/[controller]")]
 public class TestController : ControllerBase
 {
@@ -64,7 +68,7 @@ public class TestController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al publicar evento OrdenCompraEmitida. EventId: {EventId}", eventId);
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new { error = "No se pudo publicar el evento. Revisá los logs del servicio." });
         }
     }
 }
