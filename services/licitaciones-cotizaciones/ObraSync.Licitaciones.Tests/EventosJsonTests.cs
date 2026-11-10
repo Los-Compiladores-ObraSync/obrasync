@@ -54,7 +54,7 @@ public class EventosJsonTests
                 new(Guid.NewGuid(), "Cemento", 10.5m, "BOLSA", 117.6m)
             }));
 
-        Assert.True(await harness.Consumed.Any<OrdenCompraEmitidaEvent>());
+        Assert.True(await captura.EsperarMensajeAsync(), "El consumidor no recibió el evento a tiempo.");
         Assert.True(captura.Cuerpos.TryDequeue(out var json), "El consumidor no capturó el cuerpo.");
 
         using var doc = JsonDocument.Parse(json);
@@ -102,7 +102,7 @@ public class EventosJsonTests
                 new(Guid.NewGuid(), "Cemento", 10.5m, "BOLSA", 117.6m)
             }));
 
-        Assert.True(await harness.Consumed.Any<OrdenCompraEmitidaEvent>());
+        Assert.True(await captura.EsperarMensajeAsync(), "El consumidor no recibió el evento a tiempo.");
         Assert.True(captura.Mensajes.TryDequeue(out var recibido));
         Assert.Equal(1234.56m, recibido!.MontoTotal);
         Assert.Equal(10.5m, recibido.Items.First().Cantidad);
@@ -113,6 +113,21 @@ public class EventosJsonTests
 public class CapturaEventosJson
 {
     public ConcurrentQueue<string> Cuerpos { get; } = new();
+
+    /// <summary>
+    /// Espera (hasta 15 s) a que el consumidor reciba el mensaje. Se usa en lugar de harness.Consumed.Any,
+    /// que se rinde tras ~1,2 s sin actividad y falla en la CI cuando el runner arranca lento.
+    /// </summary>
+    public async Task<bool> EsperarMensajeAsync()
+    {
+        var limite = DateTime.UtcNow.AddSeconds(15);
+        while (DateTime.UtcNow < limite)
+        {
+            if (!Cuerpos.IsEmpty && !Mensajes.IsEmpty) return true;
+            await Task.Delay(50);
+        }
+        return !Cuerpos.IsEmpty && !Mensajes.IsEmpty;
+    }
     public ConcurrentQueue<OrdenCompraEmitidaEvent> Mensajes { get; } = new();
 }
 
