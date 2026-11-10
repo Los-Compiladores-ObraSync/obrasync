@@ -31,7 +31,10 @@ public class ExceptionMiddleware
         // Resuelve StatusCode, Title, Detail y Type (URI RFC 7807) en una tupla limpia
         var (statusCode, title, detail, type) = exception switch
         {
-            ArgumentException ex => (
+            // Solo se muestran al cliente los mensajes de nuestras propias excepciones de negocio.
+            // Un ArgumentException o InvalidOperationException "pelado" suele venir del framework o de
+            // una librería y puede revelar detalles internos: cae en el 500 genérico y se registra (#136).
+            ValidacionException ex => (
                 StatusCodes.Status400BadRequest,
                 "Petición inválida",
                 ex.Message,
@@ -55,7 +58,7 @@ public class ExceptionMiddleware
                 ex.Message,
                 "https://tools.ietf.org/html/rfc9110#section-15.5.5"
             ),
-            InvalidOperationException ex => (
+            ConflictoException ex => (
                 StatusCodes.Status409Conflict,
                 "Conflicto en la operación",
                 ex.Message,

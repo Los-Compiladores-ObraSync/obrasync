@@ -55,7 +55,7 @@ public class AuthService : IAuthService
         var rolesValidos = new[] { UserRoles.Capataz, UserRoles.Comprador, UserRoles.Proveedor, UserRoles.Admin };
         if (!rolesValidos.Contains(request.Rol))
         {
-            throw new ArgumentException($"El rol '{request.Rol}' no es válido. Roles permitidos: {string.Join(", ", rolesValidos)}.");
+            throw new ValidacionException($"El rol '{request.Rol}' no es válido. Roles permitidos: {string.Join(", ", rolesValidos)}.");
         }
 
         // 1b. Matriz de permisos para el alta de usuarios (tarjeta #117):
@@ -97,7 +97,7 @@ public class AuthService : IAuthService
         var existeUsuario = await _userManager.FindByEmailAsync(request.Email);
         if (existeUsuario != null)
         {
-            throw new InvalidOperationException("Ya existe un usuario registrado con este correo electrónico.");
+            throw new ConflictoException("Ya existe un usuario registrado con este correo electrónico.");
         }
 
         // 3. Crear entidad AppUser utilizando Guid como PK
@@ -116,7 +116,7 @@ public class AuthService : IAuthService
         if (!result.Succeeded)
         {
             var errores = string.Join(", ", result.Errors.Select(e => e.Description));
-            throw new InvalidOperationException($"Error al crear el usuario: {errores}");
+            throw new ConflictoException($"Error al crear el usuario: {errores}");
         }
 
         // 5. Asignar rol (con manejo de error y rollback si falla la asignación)
@@ -125,7 +125,7 @@ public class AuthService : IAuthService
         {
             await _userManager.DeleteAsync(user);
             var erroresRol = string.Join(", ", roleResult.Errors.Select(e => e.Description));
-            throw new InvalidOperationException($"Error al asignar el rol '{request.Rol}': {erroresRol}");
+            throw new ConflictoException($"Error al asignar el rol '{request.Rol}': {erroresRol}");
         }
 
         // 6. Generar JWT y retornar AuthResponseDto
@@ -219,7 +219,7 @@ public class AuthService : IAuthService
         var usuario = await _userManager.FindByEmailAsync(request.Email);
         if (usuario is null || !usuario.Activo)
         {
-            throw new ArgumentException(MensajeEnlaceInvalidoOExpirado);
+            throw new ValidacionException(MensajeEnlaceInvalidoOExpirado);
         }
 
         // 2. Aplicar la nueva contraseña verificando el token de un solo uso con Identity.
@@ -229,16 +229,16 @@ public class AuthService : IAuthService
         {
             if (result.Errors.Any(e => string.Equals(e.Code, "InvalidToken", StringComparison.OrdinalIgnoreCase)))
             {
-                throw new ArgumentException(MensajeEnlaceInvalidoOExpirado);
+                throw new ValidacionException(MensajeEnlaceInvalidoOExpirado);
             }
 
             if (result.Errors.Any(e => e.Code.Contains("PasswordTooShort", StringComparison.OrdinalIgnoreCase)))
             {
-                throw new ArgumentException(MensajePasswordCorta);
+                throw new ValidacionException(MensajePasswordCorta);
             }
 
             var errores = string.Join(" ", result.Errors.Select(e => e.Description));
-            throw new ArgumentException(
+            throw new ValidacionException(
                 string.IsNullOrWhiteSpace(errores) ? MensajePasswordCorta : errores);
         }
 
@@ -266,12 +266,12 @@ public class AuthService : IAuthService
         // 3. Validar coincidencia con la confirmación y que la nueva clave sea distinta de la actual
         if (!string.Equals(request.NuevaPassword, request.ConfirmarPassword, StringComparison.Ordinal))
         {
-            throw new ArgumentException(MensajeConfirmacionNoCoincide);
+            throw new ValidacionException(MensajeConfirmacionNoCoincide);
         }
 
         if (string.Equals(request.PasswordActual, request.NuevaPassword, StringComparison.Ordinal))
         {
-            throw new ArgumentException(MensajePasswordIgualAActual);
+            throw new ValidacionException(MensajePasswordIgualAActual);
         }
 
         // 4. Cambiar contraseña mediante Identity (verifica PasswordActual y las reglas de longitud/complejidad)
@@ -280,16 +280,16 @@ public class AuthService : IAuthService
         {
             if (result.Errors.Any(e => string.Equals(e.Code, "PasswordMismatch", StringComparison.OrdinalIgnoreCase)))
             {
-                throw new ArgumentException(MensajePasswordActualIncorrecta);
+                throw new ValidacionException(MensajePasswordActualIncorrecta);
             }
 
             if (result.Errors.Any(e => e.Code.Contains("PasswordTooShort", StringComparison.OrdinalIgnoreCase)))
             {
-                throw new ArgumentException(MensajePasswordCorta);
+                throw new ValidacionException(MensajePasswordCorta);
             }
 
             var errores = string.Join(" ", result.Errors.Select(e => e.Description));
-            throw new ArgumentException(
+            throw new ValidacionException(
                 string.IsNullOrWhiteSpace(errores) ? MensajePasswordCorta : errores);
         }
 

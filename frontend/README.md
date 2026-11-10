@@ -73,3 +73,14 @@ export default defineConfig([
 ])
 
 ```
+
+## Decisión: dónde se guarda el token JWT (#136)
+
+**Propuesta: se mantiene en `localStorage`** (clave `obrasync_session`), con estas razones y límites:
+
+- Es una PWA mobile-first: la sesión tiene que sobrevivir a recargas y al cierre de la app. `sessionStorage` la perdería.
+- Pasar a cookie `HttpOnly` obliga a cambiar Usuarios (emitir la cookie), el Gateway (CORS con credenciales) y agregar protección CSRF. Es una decisión de arquitectura que hay que acordar entre squads, y no entra en el plazo.
+- El riesgo real de `localStorage` es XSS (un script inyectado puede leer el token). Se mitiga así: el token vence en poco tiempo (referencia de 60 minutos, fijado en el contrato), el código no usa `dangerouslySetInnerHTML` ni `innerHTML`, y React escapa el contenido por defecto.
+- Si se revisa a futuro, el cambio queda concentrado en `src/auth/` (`sessionContext.ts` y `AuthContext.tsx`).
+
+Falta confirmar esta decisión con el equipo.
