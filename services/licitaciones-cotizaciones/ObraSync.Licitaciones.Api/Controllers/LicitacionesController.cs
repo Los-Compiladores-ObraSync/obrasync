@@ -70,7 +70,8 @@ public class LicitacionesController : ControllerBase
     }
 
     /// <summary>
-    /// Obtener un pliego por Id (Roles: Comprador, Proveedor, Admin)
+    /// Obtener un pliego por Id (Roles: Comprador, Proveedor, Admin).
+    /// Un Proveedor solo puede ver pliegos en estado Abierta; en otro estado recibe 404.
     /// </summary>
     [HttpGet("{id:guid}")]
     [Authorize(Roles = "Comprador,Proveedor,Admin")]
@@ -84,7 +85,11 @@ public class LicitacionesController : ControllerBase
     {
         try
         {
-            var query = new GetLicitacionByIdQuery(id);
+            var rolUsuario = User.IsInRole("Proveedor")
+                ? "Proveedor"
+                : User.FindFirstValue("role") ?? User.FindFirstValue(ClaimTypes.Role);
+
+            var query = new GetLicitacionByIdQuery(id, rolUsuario);
             var licitacion = await _getByIdHandler.Handle(query, cancellationToken);
             return Ok(licitacion);
         }

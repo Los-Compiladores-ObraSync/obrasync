@@ -94,7 +94,9 @@ public class LicitacionesDbContext : DbContext
         {
             e.ToTable("OrdenesCompra");
             e.HasKey(x => x.OrdenCompraId);
-            e.HasIndex(x => x.LicitacionId);
+            // Una licitación genera a lo sumo UNA orden de compra: si dos compradores adjudican a la vez,
+            // la base rechaza la segunda (#136).
+            e.HasIndex(x => x.LicitacionId).IsUnique();
             e.Property(x => x.Estado).HasMaxLength(20);
             e.Property(x => x.TotalFlete).HasPrecision(18, 2);
             e.Property(x => x.FechaEmision).HasConversion(utcDateTimeConverter);
