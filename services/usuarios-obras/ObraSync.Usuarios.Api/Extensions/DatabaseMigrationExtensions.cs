@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ObraSync.Usuarios.Domain.Entities;
 using ObraSync.Usuarios.Infrastructure.Data;
@@ -13,10 +14,14 @@ public static class DatabaseMigrationExtensions
     public static async Task SeedDatabaseAsync(this IApplicationBuilder app)
     {
         using var scope = app.ApplicationServices.CreateScope();
-        await SeedDatabaseAsync(scope.ServiceProvider);
+
+        // Los usuarios y las obras de prueba (con contraseña conocida) solo se crean fuera de Production.
+        // Los roles del sistema se crean siempre. Tarjeta #136.
+        var entorno = app.ApplicationServices.GetRequiredService<IHostEnvironment>();
+        await SeedDatabaseAsync(scope.ServiceProvider, incluirDatosDemo: !entorno.IsProduction());
     }
 
-    public static async Task SeedDatabaseAsync(IServiceProvider services)
+    public static async Task SeedDatabaseAsync(IServiceProvider services, bool incluirDatosDemo = true)
     {
         var logger = services.GetRequiredService<ILogger<AuthDbContext>>();
         var context = services.GetRequiredService<AuthDbContext>();
@@ -44,6 +49,12 @@ public static class DatabaseMigrationExtensions
                 await roleManager.CreateAsync(new AppRole(roleName));
                 logger.LogInformation("Rol de sistema creado: {RoleName}", roleName);
             }
+        }
+
+        if (!incluirDatosDemo)
+        {
+            logger.LogInformation("Entorno Production: se crearon los roles pero no los usuarios, obras ni plantillas de prueba.");
+            return;
         }
 
         // 3. Sembrado de Usuarios de Prueba para la Demo (Tarjeta #30)
