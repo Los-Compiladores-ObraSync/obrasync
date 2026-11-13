@@ -18,6 +18,13 @@ export interface LicitacionResponseDto {
   yaCotizada?: boolean | null
 }
 
+/** Cuerpo de POST /api/licitaciones: publica el pliego de una requisición aprobada. */
+export interface CrearLicitacionRequestDto {
+  requisicionId: string
+  /** Fecha y hora límite en UTC (ISO 8601). Tiene que ser posterior al momento de publicar. */
+  fechaLimiteCotizacion: string
+}
+
 export interface CrearCotizacionItemDto {
   articuloId: string
   precioUnitario: number

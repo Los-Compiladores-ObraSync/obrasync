@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { AuthContext, type SesionUsuario } from '../auth/sessionContext'
-import { reiniciarRequisicionesMock } from '../mocks/handlers'
+import { reiniciarLicitacionesMock, reiniciarRequisicionesMock } from '../mocks/handlers'
 import { server } from '../mocks/server'
 import { DetalleRequisicionPage } from './DetalleRequisicionPage'
 
@@ -43,6 +43,7 @@ function renderPagina(usuario: SesionUsuario, id: string, search = '') {
 describe('DetalleRequisicionPage', () => {
   beforeEach(() => {
     reiniciarRequisicionesMock()
+    reiniciarLicitacionesMock()
   })
 
   it('muestra una requisición aprobada con obra, etapa, materiales y fechas', async () => {
@@ -126,5 +127,84 @@ describe('DetalleRequisicionPage', () => {
     renderPagina(comprador, ID_APROBADA)
 
     expect(await screen.findByText(/^Obra: b1b2c3d4-/)).toBeInTheDocument()
+  })
+  describe('publicar licitación', () => {
+    it('el Comprador ve el botón en una requisición aprobada y la publica', async () => {
+      const user = userEvent.setup()
+      renderPagina(comprador, ID_APROBADA)
+
+      await user.click(await screen.findByRole('button', { name: 'Publicar licitación' }))
+
+      expect(await screen.findByRole('status')).toHaveTextContent('Licitación publicada.')
+      expect(screen.queryByRole('button', { name: 'Publicar licitación' })).not.toBeInTheDocument()
+    })
+
+    it('manda la requisición y una fecha límite futura en UTC', async () => {
+      let cuerpo: { requisicionId?: string; fechaLimiteCotizacion?: string } = {}
+      server.use(
+        http.post('*/api/licitaciones', async ({ request }) => {
+          cuerpo = (await request.json()) as typeof cuerpo
+          return HttpResponse.json(
+            { licitacionId: 'x', fechaLimiteCotizacion: cuerpo.fechaLimiteCotizacion },
+            { status: 201 },
+          )
+        }),
+      )
+      const user = userEvent.setup()
+      renderPagina(comprador, ID_APROBADA)
+
+      await user.click(await screen.findByRole('button', { name: 'Publicar licitación' }))
+      await screen.findByRole('status')
+
+      expect(cuerpo.requisicionId).toBe(ID_APROBADA)
+      expect(new Date(cuerpo.fechaLimiteCotizacion ?? '').getTime()).toBeGreaterThan(Date.now())
+    })
+
+    it('no ofrece publicar si la requisición no está aprobada', async () => {
+      renderPagina(comprador, ID_PENDIENTE)
+
+      await screen.findByRole('heading', { level: 1, name: 'REQ-2026-0011' })
+      expect(screen.queryByRole('button', { name: 'Publicar licitación' })).not.toBeInTheDocument()
+    })
+
+    it('el Capataz no ve el botón', async () => {
+      renderPagina(capataz, ID_PENDIENTE)
+
+      await screen.findByRole('heading', { level: 1, name: 'REQ-2026-0011' })
+      expect(screen.queryByRole('button', { name: 'Publicar licitación' })).not.toBeInTheDocument()
+    })
+
+    it('si ya hay una licitación abierta lo dice claro y deja reintentar', async () => {
+      server.use(
+        http.post('*/api/licitaciones', () =>
+          HttpResponse.json({ title: 'Conflicto', status: 409 }, { status: 409 }),
+        ),
+      )
+      const user = userEvent.setup()
+      renderPagina(comprador, ID_APROBADA)
+
+      await user.click(await screen.findByRole('button', { name: 'Publicar licitación' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Ya hay una licitación abierta para esta requisición.',
+      )
+      expect(screen.getByRole('button', { name: 'Publicar licitación' })).toBeEnabled()
+    })
+
+    it('si falla el servidor muestra un mensaje general', async () => {
+      server.use(
+        http.post('*/api/licitaciones', () =>
+          HttpResponse.json({ title: 'Error', status: 500 }, { status: 500 }),
+        ),
+      )
+      const user = userEvent.setup()
+      renderPagina(comprador, ID_APROBADA)
+
+      await user.click(await screen.findByRole('button', { name: 'Publicar licitación' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'No se pudo publicar la licitación. Intentá nuevamente.',
+      )
+    })
   })
 })

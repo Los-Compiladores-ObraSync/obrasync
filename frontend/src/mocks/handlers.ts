@@ -923,6 +923,51 @@ export const handlers: RequestHandler[] = [
     return HttpResponse.json(abiertas, { status: 200 })
   }),
 
+  // Contrato: POST /api/licitaciones → 201 LicitacionResponseDto | 400 | 404 | 409 ProblemDetails
+  http.post('*/api/licitaciones', async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as {
+      requisicionId?: string
+      fechaLimiteCotizacion?: string
+    }
+    const req = requisicionesMock.find((r) => r.requisicionId === body.requisicionId)
+    if (!req || req.estado !== 'Aprobada') {
+      return HttpResponse.json(
+        { title: 'Recurso no encontrado', status: 404, detail: 'La requisición no existe o no está aprobada.' },
+        { status: 404 },
+      )
+    }
+    const limite = new Date(body.fechaLimiteCotizacion ?? '')
+    if (Number.isNaN(limite.getTime()) || limite.getTime() <= Date.now()) {
+      return HttpResponse.json(
+        { title: 'Solicitud inválida', status: 400, detail: 'La fecha límite tiene que ser futura.' },
+        { status: 400 },
+      )
+    }
+    if (licitacionesMock.some((l) => l.requisicionId === req.requisicionId && l.estado === 'Abierta')) {
+      return HttpResponse.json(
+        { title: 'Conflicto', status: 409, detail: 'Ya hay una licitación abierta para esa requisición.' },
+        { status: 409 },
+      )
+    }
+    const nueva = {
+      licitacionId: crypto.randomUUID(),
+      requisicionId: req.requisicionId,
+      numeroRequisicion: req.numeroRequisicion,
+      obraId: req.obraId,
+      estado: 'Abierta',
+      fechaCreacion: new Date().toISOString(),
+      fechaLimiteCotizacion: limite.toISOString(),
+      items: req.items.map((i) => ({
+        articuloId: i.articuloId,
+        descripcion: i.descripcion,
+        cantidad: i.cantidad,
+        unidadMedida: i.unidadMedida,
+      })),
+    }
+    licitacionesMock.push(nueva)
+    return HttpResponse.json(nueva, { status: 201 })
+  }),
+
   // Contrato: GET /api/licitaciones/{id} → 200 LicitacionResponseDto | 404 ProblemDetails
   http.get('*/api/licitaciones/:id', ({ params }) => {
     const lic = licitacionesMock.find((l) => l.licitacionId === params.id)
