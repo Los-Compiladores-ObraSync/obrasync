@@ -1,6 +1,7 @@
 import { apiFetch } from '../api/client'
 import type {
   CrearCotizacionRequestDto,
+  CrearLicitacionRequestDto,
   CotizacionResponseDto,
   LicitacionResponseDto,
   OrdenCompraAdjudicadaDto,
@@ -20,6 +21,20 @@ export function listarLicitaciones(): Promise<LicitacionResponseDto[]> {
  */
 export function obtenerLicitacion(id: string): Promise<LicitacionResponseDto> {
   return apiFetch<LicitacionResponseDto>(`/api/licitaciones/${encodeURIComponent(id)}`)
+}
+
+/**
+ * Publica el pliego de una requisición aprobada, con el plazo para cotizar.
+ * Fuente: POST /api/licitaciones (Comprador, Admin). 404 si la requisición no existe o no está
+ * aprobada, 400 si la fecha límite no es futura, 409 si ya hay una licitación abierta para ella.
+ */
+export function publicarLicitacion(
+  dto: CrearLicitacionRequestDto,
+): Promise<LicitacionResponseDto> {
+  return apiFetch<LicitacionResponseDto>('/api/licitaciones', {
+    method: 'POST',
+    body: JSON.stringify(dto),
+  })
 }
 
 /**

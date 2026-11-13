@@ -102,3 +102,51 @@
   border: 2px solid #fca5a5;
   color: #991b1b;
 }
+
+/* ── Publicar licitación (Comprador/Admin, requisición aprobada) ─────────── */
+
+.publicar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--borde);
+}
+
+.etiqueta {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.campoFecha {
+  min-height: 48px;
+  padding: 0 0.75rem;
+  font-size: 1.125rem;
+  border: 2px solid var(--borde);
+  border-radius: 10px;
+}
+
+.botonPublicar {
+  min-height: 56px; /* acción principal de la pantalla */
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.botonPublicar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.exito {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 2px solid #86efac;
+  border-radius: 10px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
