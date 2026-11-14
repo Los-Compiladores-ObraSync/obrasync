@@ -1,7 +1,7 @@
 # docker-compose de ObraSync (tarjeta #29: versión mínima para la demo).
 #
-# Levanta: SQL Server (una base por servicio), RabbitMQ, los 4 microservicios y el API Gateway.
-# NO incluye el frontend: en la demo se corre aparte con `npm run dev` (apunta al Gateway, puerto 5000).
+# Levanta: SQL Server (una base por servicio), RabbitMQ, los 4 microservicios, el API Gateway y el frontend.
+# Incluye el frontend (nginx, puerto 5173 provisorio). Para desarrollar con recarga rápida sigue valiendo `npm run dev`.
 #
 # Antes de levantar: copiar .env.example a .env y completar los valores (ver README).
 # Los secretos y las cadenas de conexión llegan por variables de entorno; nunca van escritos acá.
@@ -136,6 +136,19 @@ services:
       - requisiciones-catalogo-api
       - licitaciones-cotizaciones-api
       - recepcion-presupuesto-api
+
+  # ── Frontend (React PWA servida por nginx) ─────────────────────────────────
+  # nginx sirve la app y reenvía /api al Gateway, así que todo sale por la misma dirección.
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      # 127.0.0.1: solo desde esta computadora, igual que los servicios (#136).
+      # El puerto 5173 es provisorio: acordarlo con el equipo.
+      - "127.0.0.1:5173:8080"
+    depends_on:
+      - gateway
 
 volumes:
   sql_data:
