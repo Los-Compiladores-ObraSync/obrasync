@@ -1,6 +1,7 @@
 # CI de ObraSync (tarjeta #136).
 # Corre en cada Pull Request y en cada push a main: compila y ejecuta las pruebas de cada servicio,
 # del Gateway y del frontend. Así un cambio que rompe el build (como pasó con #132) se detecta antes de mergear.
+# Tarjeta #173: además corre el lint del frontend y construye la imagen Docker de cada servicio.
 name: CI
 
 on:
@@ -49,5 +50,10 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - run: npm run lint
       - run: npm test
       - run: npm run build
+
+  docker:
+    name: Imagen Docker de ${{ matrix.contexto }}
+    runs-on: ubuntu-latest

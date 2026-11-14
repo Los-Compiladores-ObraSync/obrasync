@@ -92,3 +92,24 @@ export default defineConfig([
 - Si se revisa a futuro, el cambio queda concentrado en `src/auth/` (`sessionContext.ts` y `AuthContext.tsx`).
 
 Falta confirmar esta decisión con el equipo.
+
+## Correr en Docker
+
+El frontend también se levanta con Docker, junto con el resto del sistema. Desde la **raíz del repositorio** (no desde `frontend`):
+
+```powershell
+docker compose up --build
+```
+
+Después abrí `http://localhost:5173`.
+
+Cómo funciona:
+
+- El `Dockerfile` compila la app con Node y la sirve con nginx (imagen `nginx-unprivileged`, escucha en el 8080 dentro del contenedor).
+- nginx redirige las llamadas a `/api/` al API Gateway (`gateway:8080`), igual que el proxy de Vite en desarrollo, así que el navegador siempre habla con el mismo origen.
+- nginx no cachea `index.html` ni `sw.js` (para que la PWA se actualice) y sí cachea los archivos de `/assets/`.
+- Hace falta un archivo `.env` en la raíz, copiado de `.env.example`, con tus propios valores. El `.env` no se sube al repositorio.
+
+Pendiente de acuerdo del equipo: el uso de nginx y el puerto 5173 son provisionales (el puerto del frontend todavía no está definido).
+
+Para desarrollar con recarga en caliente sigue valiendo `npm run dev` (ver "Datos reales o simulados").
