@@ -14,7 +14,7 @@ describe('authService.loginApi', () => {
   it('devuelve el usuario y el token con el rol primario (roles[0]) en caso exitoso', async () => {
     const respuesta = await loginApi({
       email: 'capataz@obrasync.com',
-      password: 'Test1234!',
+      password: 'Password123!',
     })
 
     expect(respuesta.token).toBeTruthy()
@@ -46,7 +46,7 @@ describe('authService.loginApi', () => {
     await expect(
       loginApi({
         email: 'capataz@obrasync.com',
-        password: 'Test1234!',
+        password: 'Password123!',
       }),
     ).rejects.toThrow()
   })
