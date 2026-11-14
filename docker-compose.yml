@@ -21,7 +21,7 @@ services:
     volumes:
       - sql_data:/var/opt/mssql
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" || exit 1"]
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -b -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SET NOCOUNT ON; IF EXISTS (SELECT 1 FROM sys.databases WHERE state <> 0) RAISERROR('hay bases que todavia no estan en linea', 16, 1);\" || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 12
