@@ -1,3 +1,11 @@
+## Datos reales o simulados
+
+- Por defecto el frontend usa el backend real (`VITE_USE_MOCKS=false` en `.env.development`).
+- Para trabajar sin backend, creá `frontend/.env.development.local` con la línea `VITE_USE_MOCKS=true`.
+  Ese archivo no se sube a git y manda por encima de `.env.development`.
+- En modo simulado se ve una franja "MODO SIMULADO" arriba de todo.
+- Usuarios simulados: `capataz@obrasync.com`, `comprador@obrasync.com`, `proveedor@obrasync.com` y `admin@obrasync.com`, con la contraseña `Password123!` (la misma que el seed del backend).
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

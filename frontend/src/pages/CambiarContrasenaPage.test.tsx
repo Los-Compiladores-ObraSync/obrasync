@@ -8,7 +8,7 @@ import { server } from '../mocks/server'
 import { CambiarContrasenaPage } from './CambiarContrasenaPage'
 
 // Contraseña actual que el mock del backend acepta para todos los usuarios simulados.
-const ACTUAL_OK = 'Test1234!'
+const ACTUAL_OK = 'Password123!'
 const RUTA = '*/api/usuarios/cambiar-password'
 
 function renderPagina() {

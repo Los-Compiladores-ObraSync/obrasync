@@ -10,7 +10,7 @@ const MOCK_TOKEN =
   '.MOCK_FIRMA_NO_VALIDA'
 
 // Una contraseña de prueba para todos los usuarios simulados.
-const MOCK_PASSWORD = 'Test1234!'
+const MOCK_PASSWORD = 'Password123!'
 
 // Un usuario simulado por rol, SOLO para desarrollar y probar con mocks.
 // No son los datos de prueba oficiales de la demo (eso es la tarjeta #30).

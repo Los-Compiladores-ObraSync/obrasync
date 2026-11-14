@@ -106,7 +106,7 @@ describe('App - sin sesión', () => {
     renderApp('/obra')
 
     await usuario.type(screen.getByLabelText('Email'), 'comprador@obrasync.com')
-    await usuario.type(screen.getByLabelText('Contraseña'), 'Test1234!')
+    await usuario.type(screen.getByLabelText('Contraseña'), 'Password123!')
     await usuario.click(screen.getByRole('button', { name: 'Ingresar' }))
 
     expect(
@@ -236,7 +236,7 @@ describe('App - cambiar contraseña', () => {
     const usuario = userEvent.setup()
     renderApp('/cambiar-contrasena')
 
-    await usuario.type(screen.getByLabelText('Contraseña actual'), 'Test1234!')
+    await usuario.type(screen.getByLabelText('Contraseña actual'), 'Password123!')
     await usuario.type(screen.getByLabelText('Nueva contraseña'), 'Nueva123!')
     await usuario.type(screen.getByLabelText('Repetí la nueva contraseña'), 'Nueva123!')
     await usuario.click(screen.getByRole('button', { name: 'Cambiar contraseña' }))

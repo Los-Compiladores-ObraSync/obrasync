@@ -118,7 +118,7 @@ describe('LoginPage', () => {
     )
 
     await user.type(screen.getByLabelText('Email'), 'email-sin-formato')
-    await user.type(screen.getByLabelText('Contraseña'), 'Test1234!')
+    await user.type(screen.getByLabelText('Contraseña'), 'Password123!')
     await user.click(screen.getByRole('button', { name: 'Ingresar' }))
 
     expect(screen.getByText('Ingresá un email válido.')).toBeInTheDocument()
@@ -148,7 +148,7 @@ describe('LoginPage', () => {
     )
 
     await user.type(screen.getByLabelText('Email'), 'capataz@obrasync.com')
-    await user.type(screen.getByLabelText('Contraseña'), 'Test1234!')
+    await user.type(screen.getByLabelText('Contraseña'), 'Password123!')
 
     const boton = screen.getByRole('button', { name: 'Ingresar' })
     await user.click(boton)
@@ -193,7 +193,7 @@ describe('LoginPage', () => {
     )
 
     await user.type(screen.getByLabelText('Email'), 'capataz@obrasync.com')
-    await user.type(screen.getByLabelText('Contraseña'), 'Test1234!')
+    await user.type(screen.getByLabelText('Contraseña'), 'Password123!')
     await user.click(screen.getByRole('button', { name: 'Ingresar' }))
 
     const alert = await screen.findByRole('alert')
@@ -210,7 +210,7 @@ describe('LoginPage', () => {
     )
 
     await user.type(screen.getByLabelText('Email'), 'capataz@obrasync.com')
-    await user.type(screen.getByLabelText('Contraseña'), 'Test1234!')
+    await user.type(screen.getByLabelText('Contraseña'), 'Password123!')
     await user.click(screen.getByRole('button', { name: 'Ingresar' }))
 
     await waitFor(() => {
@@ -254,18 +254,18 @@ describe('LoginPage', () => {
       )
 
       const campo = screen.getByLabelText('Contraseña')
-      await user.type(campo, 'Test1234!')
+      await user.type(campo, 'Password123!')
 
       await user.click(screen.getByRole('button', { name: 'Mostrar contraseña' }))
       expect(campo).toHaveAttribute('type', 'text')
-      expect(campo).toHaveValue('Test1234!')
+      expect(campo).toHaveValue('Password123!')
       expect(
         screen.getByRole('button', { name: 'Mostrar contraseña', pressed: true }),
       ).toBeInTheDocument()
 
       await user.click(screen.getByRole('button', { name: 'Mostrar contraseña' }))
       expect(campo).toHaveAttribute('type', 'password')
-      expect(campo).toHaveValue('Test1234!')
+      expect(campo).toHaveValue('Password123!')
     })
 
     it('se puede usar con el teclado', async () => {
