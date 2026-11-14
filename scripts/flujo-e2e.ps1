@@ -51,14 +51,16 @@ $null = Api Post "/api/requisiciones/$($req.requisicionId)/aprobar" $comprador
 Write-Host "4. Requisicion aprobada"
 Start-Sleep -Seconds 3
 
+# El consumidor de RequisicionAprobadaEvent en Licitaciones solo GUARDA la requisicion: no publica la licitacion.
+# La licitacion la publica el Comprador a mano (tarjeta #69), por eso este paso la crea por la API.
 $lic = (Api Get '/api/licitaciones' $comprador) | Where-Object { $_.requisicionId -eq $req.requisicionId } | Select-Object -First 1
 if (-not $lic) {
   $lic = Api Post '/api/licitaciones' $comprador @{
     requisicionId = $req.requisicionId
     fechaLimiteCotizacion = (Get-Date).ToUniversalTime().AddDays(2).ToString('o')
   }
-  Write-Host "5. Licitacion creada por API: $($lic.licitacionId)"
-} else { Write-Host "5. Licitacion creada por el evento: $($lic.licitacionId)" }
+  Write-Host "5. Licitacion publicada por el Comprador (POST /api/licitaciones): $($lic.licitacionId)"
+} else { Write-Host "5. Ya habia una licitacion abierta para esta requisicion: $($lic.licitacionId)" }
 
 $cot = Api Post '/api/cotizaciones' $proveedor @{
   licitacionId = $lic.licitacionId; proveedorId = $proveedor.Id; flete = 1500.75; plazoEntregaDias = 5
