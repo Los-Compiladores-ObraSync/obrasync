@@ -8,12 +8,14 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using ObraSync.Requisiciones.Application.DTOs;
+using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Domain.Constants;
 using ObraSync.Requisiciones.Infrastructure.Persistence;
 using Xunit;
@@ -918,6 +920,101 @@ namespace ObraSync.Requisiciones.Tests.Integration
 
             var getReq2AdminResp = await client.GetAsync($"/api/requisiciones/{req2.RequisicionId}");
             Assert.Equal(HttpStatusCode.OK, getReq2AdminResp.StatusCode);
+        }
+
+        [Fact]
+        public async Task PostRequisicion_CapatazSoloEnObraAsignada_BloqueaObraAjenaCon403YPermiteAdmin()
+        {
+            var obraAsignadaACapatazA = Guid.NewGuid();
+            var obraAsignadaACapatazB = Guid.NewGuid();
+            var capatazAId = Guid.NewGuid();
+            var adminId = Guid.NewGuid();
+            var cementoSeedId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+
+            var factoryConValidador = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureServices(services =>
+                {
+                    var descriptor = services.SingleOrDefault(
+                        d => d.ServiceType == typeof(IObraAsignacionValidator));
+                    if (descriptor != null)
+                    {
+                        services.Remove(descriptor);
+                    }
+
+                    services.AddScoped<IObraAsignacionValidator>(_ =>
+                        new StubObraAsignacionValidator(obraAsignadaACapatazA));
+                });
+            });
+
+            var client = factoryConValidador.CreateClient();
+
+            // 1. Capataz A intenta crear una requisición en la obra de Capataz B -> 403 Forbidden
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", capatazAId));
+
+            var postAjenaResp = await client.PostAsJsonAsync("/api/requisiciones", new CrearRequisicionRequestDto
+            {
+                ObraId = obraAsignadaACapatazB,
+                Etapa = "Fundaciones",
+                Items = new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = cementoSeedId, Cantidad = 10m }
+                }
+            });
+
+            Assert.Equal(HttpStatusCode.Forbidden, postAjenaResp.StatusCode);
+            Assert.Equal("application/problem+json", postAjenaResp.Content.Headers.ContentType?.MediaType);
+            using (var jsonDoc = JsonDocument.Parse(await postAjenaResp.Content.ReadAsStringAsync()))
+            {
+                Assert.Equal(403, jsonDoc.RootElement.GetProperty("status").GetInt32());
+                Assert.Equal("Obra no asignada", jsonDoc.RootElement.GetProperty("title").GetString());
+            }
+
+            // 2. Capataz A crea una requisición en su propia obra asignada -> 201 Created
+            var postPropiaResp = await client.PostAsJsonAsync("/api/requisiciones", new CrearRequisicionRequestDto
+            {
+                ObraId = obraAsignadaACapatazA,
+                Etapa = "Fundaciones",
+                Items = new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = cementoSeedId, Cantidad = 10m }
+                }
+            });
+
+            Assert.Equal(HttpStatusCode.Created, postPropiaResp.StatusCode);
+
+            // 3. Admin puede crear una requisición en cualquier obra -> 201 Created
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Admin", adminId));
+
+            var postAdminResp = await client.PostAsJsonAsync("/api/requisiciones", new CrearRequisicionRequestDto
+            {
+                ObraId = obraAsignadaACapatazB,
+                Etapa = "Estructura",
+                Items = new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = cementoSeedId, Cantidad = 15m }
+                }
+            });
+
+            Assert.Equal(HttpStatusCode.Created, postAdminResp.StatusCode);
+        }
+
+        private sealed class StubObraAsignacionValidator : IObraAsignacionValidator
+        {
+            private readonly Guid _obraAsignada;
+
+            public StubObraAsignacionValidator(Guid obraAsignada)
+            {
+                _obraAsignada = obraAsignada;
+            }
+
+            public Task<bool> EstaAsignadaACapatazAsync(
+                Guid obraId,
+                string? authorizationHeader,
+                CancellationToken cancellationToken = default)
+                => Task.FromResult(obraId == _obraAsignada);
         }
     }
 }
