@@ -60,6 +60,7 @@ builder.Services
 // 4. Inyección de dependencias de servicios
 builder.Services.AddScoped<IJwtProvider, JwtProvider>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IObraService, ObraService>();
 
 // 1. Obtención y validación de la clave secreta JWT
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>();

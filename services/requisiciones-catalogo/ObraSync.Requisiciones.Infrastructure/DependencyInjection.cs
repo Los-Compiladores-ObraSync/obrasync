@@ -7,6 +7,7 @@ using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Infrastructure.Messaging;
 using ObraSync.Requisiciones.Infrastructure.Persistence;
 using ObraSync.Requisiciones.Infrastructure.Persistence.Repositories;
+using ObraSync.Requisiciones.Infrastructure.Services;
 
 namespace ObraSync.Requisiciones.Infrastructure
 {
@@ -22,6 +23,7 @@ namespace ObraSync.Requisiciones.Infrastructure
 
             services.AddScoped<IInsumoRepository, InsumoRepository>();
             services.AddScoped<IRequisicionRepository, RequisicionRepository>();
+            services.AddScoped<IObraAsignacionValidator, HttpObraAsignacionValidator>();
 
             var useInMemoryTransport = string.Equals(
                 configuration["RabbitMQ:UseInMemory"],

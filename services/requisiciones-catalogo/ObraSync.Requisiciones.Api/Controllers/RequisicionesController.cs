@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ObraSync.Requisiciones.Application.DTOs;
 using ObraSync.Requisiciones.Application.Exceptions;
+using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Commands;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Queries;
@@ -24,19 +25,22 @@ namespace ObraSync.Requisiciones.Api.Controllers
         private readonly GetRequisicionByIdQueryHandler _getByIdHandler;
         private readonly AprobarRequisicionCommandHandler _aprobarHandler;
         private readonly RechazarRequisicionCommandHandler _rechazarHandler;
+        private readonly IObraAsignacionValidator? _obraAsignacionValidator;
 
         public RequisicionesController(
             CreateRequisicionCommandHandler createHandler,
             GetRequisicionesQueryHandler getRequisicionesHandler,
             GetRequisicionByIdQueryHandler getByIdHandler,
             AprobarRequisicionCommandHandler aprobarHandler,
-            RechazarRequisicionCommandHandler rechazarHandler)
+            RechazarRequisicionCommandHandler rechazarHandler,
+            IObraAsignacionValidator? obraAsignacionValidator = null)
         {
             _createHandler = createHandler;
             _getRequisicionesHandler = getRequisicionesHandler;
             _getByIdHandler = getByIdHandler;
             _aprobarHandler = aprobarHandler;
             _rechazarHandler = rechazarHandler;
+            _obraAsignacionValidator = obraAsignacionValidator;
         }
 
         /// <summary>
@@ -133,6 +137,24 @@ namespace ObraSync.Requisiciones.Api.Controllers
                     detail: "El token JWT no contiene un claim 'sub' válido con formato GUID.",
                     statusCode: StatusCodes.Status401Unauthorized,
                     title: "Usuario no identificado");
+            }
+
+            // #155: el Capataz solo puede crear requisiciones para obras que tiene asignadas
+            if (EsCapatazSinPrivilegiosSuperiores() && _obraAsignacionValidator != null)
+            {
+                var authHeader = Request?.Headers["Authorization"].ToString();
+                var asignada = await _obraAsignacionValidator.EstaAsignadaACapatazAsync(
+                    request.ObraId,
+                    authHeader,
+                    cancellationToken);
+
+                if (!asignada)
+                {
+                    return Problem(
+                        detail: "El capataz autenticado no tiene asignada la obra indicada para crear requisiciones.",
+                        statusCode: StatusCodes.Status403Forbidden,
+                        title: "Obra no asignada");
+                }
             }
 
             var keyEfectiva = !string.IsNullOrWhiteSpace(idempotencyKey)

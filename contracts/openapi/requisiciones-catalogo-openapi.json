@@ -346,6 +346,7 @@
           "Requisiciones"
         ],
         "summary": "Crear una nueva requisición de materiales para una obra (Roles: Capataz, Admin)",
+        "description": "Crea una nueva requisición tomando el 'solicitanteId' del claim 'sub' del token JWT. Si el usuario autenticado tiene el rol 'Capataz', solo puede crear requisiciones para obras que tenga asignadas (de lo contrario recibe 403 Forbidden con ProblemDetails); el rol 'Admin' puede crear requisiciones para cualquier obra activa.",
         "parameters": [
           {
             "name": "Idempotency-Key",
