@@ -1,0 +1,17 @@
+# Todos los archivos de texto se guardan con LF en el repositorio,
+# sin importar el sistema operativo de quien los edite.
+* text=auto eol=lf
+
+# Scripts y Dockerfiles: siempre LF para que no fallen en Linux/Docker.
+*.sh text eol=lf
+*.ps1 text eol=lf
+Dockerfile text eol=lf
+
+# Binarios: Git no los toca.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
