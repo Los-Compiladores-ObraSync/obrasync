@@ -53,6 +53,18 @@ public class CotizacionRepository : ICotizacionRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Cotizacion>> GetByProveedorIdAsync(
+        Guid proveedorId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Cotizaciones
+            .AsNoTracking()
+            .Include(c => c.Items)
+            .Where(c => c.ProveedorId == proveedorId)
+            .OrderByDescending(c => c.FechaCreacion)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task AddAsync(
         Cotizacion cotizacion,
         CancellationToken cancellationToken = default)

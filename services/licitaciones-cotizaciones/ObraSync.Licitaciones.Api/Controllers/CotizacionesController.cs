@@ -16,13 +16,51 @@ public class CotizacionesController : ControllerBase
 {
     private readonly CrearCotizacionCommandHandler _crearCotizacionHandler;
     private readonly GetCotizacionesByLicitacionIdQueryHandler _getCotizacionesHandler;
+    private readonly GetMisCotizacionesQueryHandler _getMisCotizacionesHandler;
 
     public CotizacionesController(
         CrearCotizacionCommandHandler crearCotizacionHandler,
-        GetCotizacionesByLicitacionIdQueryHandler getCotizacionesHandler)
+        GetCotizacionesByLicitacionIdQueryHandler getCotizacionesHandler,
+        GetMisCotizacionesQueryHandler getMisCotizacionesHandler)
     {
         _crearCotizacionHandler = crearCotizacionHandler;
         _getCotizacionesHandler = getCotizacionesHandler;
+        _getMisCotizacionesHandler = getMisCotizacionesHandler;
+    }
+
+    /// <summary>
+    /// Listar las cotizaciones propias del proveedor autenticado y su resultado de adjudicación (Roles: Proveedor, Admin).
+    /// </summary>
+    [HttpGet("mias")]
+    [Authorize(Roles = "Proveedor,Admin")]
+    [ProducesResponseType(typeof(IEnumerable<MiCotizacionResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetMisCotizaciones(
+        [FromQuery] Guid? proveedorId = null,
+        CancellationToken cancellationToken = default)
+    {
+        Guid proveedorIdConsulta;
+
+        if (User.IsInRole("Admin") && proveedorId.HasValue && proveedorId.Value != Guid.Empty)
+        {
+            proveedorIdConsulta = proveedorId.Value;
+        }
+        else if (TryGetUserId(out var usuarioIdToken))
+        {
+            proveedorIdConsulta = usuarioIdToken;
+        }
+        else
+        {
+            return Problem(
+                detail: "El token JWT no contiene un claim 'sub' válido con formato GUID para identificar al proveedor.",
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Proveedor no identificado");
+        }
+
+        var query = new GetMisCotizacionesQuery(proveedorIdConsulta);
+        var cotizaciones = await _getMisCotizacionesHandler.Handle(query, cancellationToken);
+        return Ok(cotizaciones);
     }
 
     /// <summary>

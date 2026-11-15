@@ -157,6 +157,37 @@
         }
       }
     },
+    "/api/cotizaciones/mias": {
+      "get": {
+        "tags": ["Cotizaciones"],
+        "summary": "Listar las cotizaciones propias del proveedor autenticado y su resultado de adjudicación (Roles: Proveedor, Admin)",
+        "description": "Permite a un Proveedor consultar únicamente sus propias cotizaciones (tomando su identificador del claim 'sub' del token JWT) y conocer si su oferta fue adjudicada, sin exponer cotizaciones ni precios de otros proveedores. Un Admin puede indicar opcionalmente proveedorId por query string.",
+        "parameters": [
+          {
+            "name": "proveedorId",
+            "in": "query",
+            "description": "Identificador del proveedor a consultar (solo aplicable para el rol Admin; para Proveedor se utiliza siempre el claim 'sub' del JWT).",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/MiCotizacionResponseDto" }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
     "/api/licitaciones/{licitacionId}/adjudicar": {
       "post": {
         "tags": ["Licitaciones"],
@@ -448,6 +479,102 @@
           "esGanadora": {
             "type": "boolean",
             "description": "Indica si la cotización obtuvo el mayor puntaje y fue marcada como ganadora."
+          }
+        },
+        "additionalProperties": false
+      },
+      "MiCotizacionResponseDto": {
+        "type": "object",
+        "required": [
+          "cotizacionId",
+          "licitacionId",
+          "proveedorId",
+          "numeroRequisicion",
+          "obraId",
+          "fechaLimiteCotizacion",
+          "estadoLicitacion",
+          "subtotalItems",
+          "flete",
+          "costoTotal",
+          "plazoEntregaDias",
+          "fechaCreacion",
+          "items",
+          "esGanadora",
+          "estadoResultado"
+        ],
+        "properties": {
+          "cotizacionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la cotización."
+          },
+          "licitacionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del pliego cotizado."
+          },
+          "proveedorId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del proveedor titular de la cotización."
+          },
+          "numeroRequisicion": {
+            "type": "string",
+            "description": "Número legible de la requisición que originó la licitación (ej: REQ-2026-0001)."
+          },
+          "obraId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la obra asociada a la licitación."
+          },
+          "fechaLimiteCotizacion": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha y hora límite (UTC) de cotización del pliego."
+          },
+          "estadoLicitacion": {
+            "type": "string",
+            "enum": ["Abierta", "Cerrada", "Adjudicada"],
+            "description": "Estado actual de la licitación asociada."
+          },
+          "subtotalItems": {
+            "type": "number",
+            "format": "double",
+            "description": "Subtotal de los ítems cotizados (suma de cantidad del pliego por precioUnitario)."
+          },
+          "flete": {
+            "type": "number",
+            "format": "double",
+            "description": "Costo de flete ofertado por el proveedor."
+          },
+          "costoTotal": {
+            "type": "number",
+            "format": "double",
+            "description": "Costo total de la oferta (subtotalItems + flete)."
+          },
+          "plazoEntregaDias": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Plazo de entrega ofertado, en días."
+          },
+          "fechaCreacion": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha y hora de carga de la cotización (en UTC)."
+          },
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CrearCotizacionItemDto" },
+            "description": "Ítems y precios unitarios ofertados por el proveedor."
+          },
+          "esGanadora": {
+            "type": "boolean",
+            "description": "Indica si esta cotización resultó adjudicada (ganadora) en la licitación."
+          },
+          "estadoResultado": {
+            "type": "string",
+            "enum": ["Enviada", "Gano", "NoGano", "LicitacionCerrada"],
+            "description": "Estado de resultado para el portal de proveedores: 'Enviada' si la licitación sigue Abierta, 'Gano' si fue Adjudicada a esta cotización, 'NoGano' si fue Adjudicada a otra oferta, o 'LicitacionCerrada' si cerró sin adjudicarse."
           }
         },
         "additionalProperties": false

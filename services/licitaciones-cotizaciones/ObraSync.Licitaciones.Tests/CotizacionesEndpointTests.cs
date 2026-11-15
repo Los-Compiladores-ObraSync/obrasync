@@ -876,4 +876,267 @@ public class CotizacionesEndpointTests : IClassFixture<WebApplicationFactory<Pro
         Assert.Equal(1250m, unica.CostoTotal);
         Assert.True(unica.EsMasBarata);
     }
+
+    // ---- Tarjeta #162: GET /api/cotizaciones/mias (El Proveedor ve sus cotizaciones y si ganó) ----
+
+    [Fact]
+    public async Task GetMisCotizaciones_AislamientoEntreProveedores_ProveedorSoloRecibeLasSuyasYSinDatosDeTerceros()
+    {
+        var articulo = Guid.NewGuid();
+        var licitacion1 = await SembrarLicitacionConCantidadesAsync((articulo, 10m));
+        var licitacion2 = await SembrarLicitacionConCantidadesAsync((articulo, 25m));
+
+        var proveedorA = Guid.NewGuid();
+        var proveedorB = Guid.NewGuid();
+        var client = _factory.CreateClient();
+
+        // Proveedor A cotiza en licitación 1 y licitación 2
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorA));
+        var postA1 = await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacion1.LicitacionId,
+            ProveedorId = proveedorA,
+            Flete = 300m,
+            PlazoEntregaDias = 4,
+            Items = new List<CrearCotizacionItemDto> { new() { ArticuloId = articulo, PrecioUnitario = 100m } }
+        });
+        Assert.Equal(HttpStatusCode.Created, postA1.StatusCode);
+
+        await Task.Delay(20);
+
+        var postA2 = await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacion2.LicitacionId,
+            ProveedorId = proveedorA,
+            Flete = 500m,
+            PlazoEntregaDias = 5,
+            Items = new List<CrearCotizacionItemDto> { new() { ArticuloId = articulo, PrecioUnitario = 90m } }
+        });
+        Assert.Equal(HttpStatusCode.Created, postA2.StatusCode);
+
+        // Proveedor B cotiza en licitación 1 con precios distintos
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorB));
+        var postB1 = await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacion1.LicitacionId,
+            ProveedorId = proveedorB,
+            Flete = 50m,
+            PlazoEntregaDias = 2,
+            Items = new List<CrearCotizacionItemDto> { new() { ArticuloId = articulo, PrecioUnitario = 75m } }
+        });
+        Assert.Equal(HttpStatusCode.Created, postB1.StatusCode);
+
+        // Proveedor A consulta /api/cotizaciones/mias (incluso intentando pasar proveedorId de B en query string)
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorA));
+        var respA = await client.GetAsync($"/api/cotizaciones/mias?proveedorId={proveedorB}");
+        Assert.Equal(HttpStatusCode.OK, respA.StatusCode);
+
+        var rawJsonA = await respA.Content.ReadAsStringAsync();
+        using var docA = JsonDocument.Parse(rawJsonA);
+        Assert.Equal(2, docA.RootElement.GetArrayLength());
+        foreach (var elem in docA.RootElement.EnumerateArray())
+        {
+            Assert.EndsWith("Z", elem.GetProperty("fechaCreacion").GetString());
+            Assert.EndsWith("Z", elem.GetProperty("fechaLimiteCotizacion").GetString());
+            // Confidencialidad: no expone puntajeTotal ni esMasBarata de comparativa
+            Assert.False(elem.TryGetProperty("puntajeTotal", out _));
+            Assert.False(elem.TryGetProperty("esMasBarata", out _));
+        }
+
+        var misCotizacionesA = docA.RootElement.Deserialize<List<MiCotizacionResponseDto>>(
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.NotNull(misCotizacionesA);
+        Assert.Equal(2, misCotizacionesA.Count);
+        Assert.All(misCotizacionesA, c => Assert.Equal(proveedorA, c.ProveedorId));
+        Assert.DoesNotContain(misCotizacionesA, c => c.ProveedorId == proveedorB);
+
+        // Ordenadas por fecha de creación descendente (la de licitación 2 primero)
+        Assert.Equal(licitacion2.LicitacionId, misCotizacionesA[0].LicitacionId);
+        Assert.Equal(2250m, misCotizacionesA[0].SubtotalItems); // 25 * 90
+        Assert.Equal(500m, misCotizacionesA[0].Flete);
+        Assert.Equal(2750m, misCotizacionesA[0].CostoTotal);
+
+        Assert.Equal(licitacion1.LicitacionId, misCotizacionesA[1].LicitacionId);
+        Assert.Equal(1000m, misCotizacionesA[1].SubtotalItems); // 10 * 100
+        Assert.Equal(300m, misCotizacionesA[1].Flete);
+        Assert.Equal(1300m, misCotizacionesA[1].CostoTotal);
+    }
+
+    [Fact]
+    public async Task GetMisCotizaciones_EstadosYResultadoAdjudicacion_Enviada_Gano_NoGano_YLicitacionCerrada()
+    {
+        var articulo = Guid.NewGuid();
+        var licitacion = await SembrarLicitacionConCantidadesAsync((articulo, 10m));
+
+        var proveedorA = Guid.NewGuid();
+        var proveedorB = Guid.NewGuid();
+        var client = _factory.CreateClient();
+
+        // 1. Ambos proveedores cargan su cotización mientras la licitación está Abierta
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorA));
+        var postA = await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacion.LicitacionId,
+            ProveedorId = proveedorA,
+            Flete = 200m,
+            PlazoEntregaDias = 3,
+            Items = new List<CrearCotizacionItemDto> { new() { ArticuloId = articulo, PrecioUnitario = 100m } }
+        });
+        Assert.Equal(HttpStatusCode.Created, postA.StatusCode);
+        var cotizacionA = await postA.Content.ReadFromJsonAsync<CotizacionResponseDto>();
+        Assert.NotNull(cotizacionA);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorB));
+        var postB = await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacion.LicitacionId,
+            ProveedorId = proveedorB,
+            Flete = 400m,
+            PlazoEntregaDias = 5,
+            Items = new List<CrearCotizacionItemDto> { new() { ArticuloId = articulo, PrecioUnitario = 120m } }
+        });
+        Assert.Equal(HttpStatusCode.Created, postB.StatusCode);
+
+        // 2. Mientras la licitación está Abierta -> ambos ven estadoLicitacion="Abierta", esGanadora=false, estadoResultado="Enviada"
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorA));
+        var miasAbiertaA = await client.GetFromJsonAsync<List<MiCotizacionResponseDto>>("/api/cotizaciones/mias");
+        Assert.NotNull(miasAbiertaA);
+        var itemAbiertaA = Assert.Single(miasAbiertaA);
+        Assert.Equal("Abierta", itemAbiertaA.EstadoLicitacion);
+        Assert.False(itemAbiertaA.EsGanadora);
+        Assert.Equal("Enviada", itemAbiertaA.EstadoResultado);
+        Assert.Equal(licitacion.NumeroRequisicion, itemAbiertaA.NumeroRequisicion);
+        Assert.Equal(licitacion.ObraId, itemAbiertaA.ObraId);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorB));
+        var miasAbiertaB = await client.GetFromJsonAsync<List<MiCotizacionResponseDto>>("/api/cotizaciones/mias");
+        Assert.NotNull(miasAbiertaB);
+        var itemAbiertaB = Assert.Single(miasAbiertaB);
+        Assert.Equal("Abierta", itemAbiertaB.EstadoLicitacion);
+        Assert.False(itemAbiertaB.EsGanadora);
+        Assert.Equal("Enviada", itemAbiertaB.EstadoResultado);
+
+        // 3. El Comprador adjudica la licitación a favor del Proveedor A
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
+        var adjudicarResp = await client.PostAsJsonAsync(
+            $"/api/licitaciones/{licitacion.LicitacionId}/adjudicar",
+            new { cotizacionId = cotizacionA.CotizacionId });
+        Assert.Equal(HttpStatusCode.OK, adjudicarResp.StatusCode);
+
+        // 4. El Proveedor A consulta /api/cotizaciones/mias y ve estadoLicitacion="Adjudicada", esGanadora=true, estadoResultado="Gano"
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorA));
+        var miasAdjudicadaA = await client.GetFromJsonAsync<List<MiCotizacionResponseDto>>("/api/cotizaciones/mias");
+        Assert.NotNull(miasAdjudicadaA);
+        var itemGanadorA = Assert.Single(miasAdjudicadaA);
+        Assert.Equal("Adjudicada", itemGanadorA.EstadoLicitacion);
+        Assert.True(itemGanadorA.EsGanadora);
+        Assert.Equal("Gano", itemGanadorA.EstadoResultado);
+
+        // 5. El Proveedor B consulta /api/cotizaciones/mias y ve estadoLicitacion="Adjudicada", esGanadora=false, estadoResultado="NoGano"
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorB));
+        var miasAdjudicadaB = await client.GetFromJsonAsync<List<MiCotizacionResponseDto>>("/api/cotizaciones/mias");
+        Assert.NotNull(miasAdjudicadaB);
+        var itemPerdedorB = Assert.Single(miasAdjudicadaB);
+        Assert.Equal("Adjudicada", itemPerdedorB.EstadoLicitacion);
+        Assert.False(itemPerdedorB.EsGanadora);
+        Assert.Equal("NoGano", itemPerdedorB.EstadoResultado);
+        Assert.Equal(proveedorB, itemPerdedorB.ProveedorId);
+        Assert.Equal(1200m, itemPerdedorB.SubtotalItems);
+        Assert.Equal(400m, itemPerdedorB.Flete);
+        Assert.Equal(1600m, itemPerdedorB.CostoTotal);
+
+        // 6. Caso licitación Cerrada sin adjudicar -> estadoResultado="LicitacionCerrada"
+        var licitacionCerrada = await SembrarLicitacionConCantidadesAsync((articulo, 5m));
+        var proveedorC = Guid.NewGuid();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorC));
+        var postC = await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacionCerrada.LicitacionId,
+            ProveedorId = proveedorC,
+            Flete = 100m,
+            PlazoEntregaDias = 2,
+            Items = new List<CrearCotizacionItemDto> { new() { ArticuloId = articulo, PrecioUnitario = 80m } }
+        });
+        Assert.Equal(HttpStatusCode.Created, postC.StatusCode);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<LicitacionesDbContext>();
+            var licDb = await db.Licitaciones.FirstAsync(l => l.LicitacionId == licitacionCerrada.LicitacionId);
+            licDb.Estado = EstadoLicitacion.Cerrada;
+            await db.SaveChangesAsync();
+        }
+
+        var miasCerradaC = await client.GetFromJsonAsync<List<MiCotizacionResponseDto>>("/api/cotizaciones/mias");
+        Assert.NotNull(miasCerradaC);
+        var itemCerradaC = Assert.Single(miasCerradaC);
+        Assert.Equal("Cerrada", itemCerradaC.EstadoLicitacion);
+        Assert.False(itemCerradaC.EsGanadora);
+        Assert.Equal("LicitacionCerrada", itemCerradaC.EstadoResultado);
+    }
+
+    [Fact]
+    public async Task GetMisCotizaciones_SeguridadRBAC_SinToken401_CompradorYCapataz403_AdminPuedeConsultarPorProveedorId()
+    {
+        var articulo = Guid.NewGuid();
+        var licitacion = await SembrarLicitacionConCantidadesAsync((articulo, 10m));
+        var proveedorId = Guid.NewGuid();
+        var correlationId = Guid.NewGuid().ToString();
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
+
+        // El proveedor carga una cotización
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorId));
+        var postResp = await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacion.LicitacionId,
+            ProveedorId = proveedorId,
+            Flete = 150m,
+            PlazoEntregaDias = 4,
+            Items = new List<CrearCotizacionItemDto> { new() { ArticuloId = articulo, PrecioUnitario = 95m } }
+        });
+        Assert.Equal(HttpStatusCode.Created, postResp.StatusCode);
+
+        // 1. Sin token -> 401 Unauthorized con ProblemDetails + correlationId
+        client.DefaultRequestHeaders.Authorization = null;
+        var unauthResp = await client.GetAsync("/api/cotizaciones/mias");
+        await AssertProblemDetailsWithCorrelationIdAsync(unauthResp, HttpStatusCode.Unauthorized, correlationId);
+
+        // 2. Comprador -> 403 Forbidden con ProblemDetails + correlationId
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
+        var compradorResp = await client.GetAsync("/api/cotizaciones/mias");
+        await AssertProblemDetailsWithCorrelationIdAsync(compradorResp, HttpStatusCode.Forbidden, correlationId);
+
+        // 3. Capataz -> 403 Forbidden con ProblemDetails + correlationId
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Capataz"));
+        var capatazResp = await client.GetAsync("/api/cotizaciones/mias");
+        await AssertProblemDetailsWithCorrelationIdAsync(capatazResp, HttpStatusCode.Forbidden, correlationId);
+
+        // 4. Admin consultando las cotizaciones de un proveedor específico con ?proveedorId=... -> 200 OK
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Admin"));
+        var adminResp = await client.GetAsync($"/api/cotizaciones/mias?proveedorId={proveedorId}");
+        Assert.Equal(HttpStatusCode.OK, adminResp.StatusCode);
+
+        var cotizacionesProveedor = await adminResp.Content.ReadFromJsonAsync<List<MiCotizacionResponseDto>>();
+        Assert.NotNull(cotizacionesProveedor);
+        var unica = Assert.Single(cotizacionesProveedor);
+        Assert.Equal(proveedorId, unica.ProveedorId);
+        Assert.Equal(1100m, unica.CostoTotal); // (10 * 95) + 150
+    }
 }

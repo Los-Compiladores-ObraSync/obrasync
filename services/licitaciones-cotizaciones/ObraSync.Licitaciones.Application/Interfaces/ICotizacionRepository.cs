@@ -22,6 +22,10 @@ public interface ICotizacionRepository
         Guid licitacionId,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<Cotizacion>> GetByProveedorIdAsync(
+        Guid proveedorId,
+        CancellationToken cancellationToken = default);
+
     Task<Cotizacion?> GetByIdAsync(
         Guid id,
         CancellationToken cancellationToken = default);
