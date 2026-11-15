@@ -42,6 +42,13 @@ namespace ObraSync.Requisiciones.Infrastructure
                 }
                 else
                 {
+                    var username = configuration["RabbitMQ:Username"];
+                    var password = configuration["RabbitMQ:Password"];
+                    if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+                    {
+                        throw new InvalidOperationException("RabbitMQ Username y Password deben estar configurados cuando no se utiliza el transporte en memoria (#169). Configure 'RabbitMQ:Username' y 'RabbitMQ:Password'.");
+                    }
+
                     // Outbox transaccional (#134): el evento se guarda en DB_Req junto con el cambio de
                     // estado y un servicio en segundo plano lo entrega a RabbitMQ. Si RabbitMQ esta
                     // caido, el pedido no se cuelga ni se pierde el evento: se entrega al volver.
@@ -56,8 +63,6 @@ namespace ObraSync.Requisiciones.Infrastructure
                     {
                         var host = configuration["RabbitMQ:Host"] ?? "localhost";
                         var virtualHost = configuration["RabbitMQ:VirtualHost"] ?? "/";
-                        var username = configuration["RabbitMQ:Username"] ?? "guest";
-                        var password = configuration["RabbitMQ:Password"] ?? "guest";
 
                         cfg.Host(host, virtualHost, h =>
                         {

@@ -74,6 +74,13 @@ builder.Services.AddMassTransit(x =>
     }
     else
     {
+        var username = builder.Configuration["RabbitMQ:Username"];
+        var password = builder.Configuration["RabbitMQ:Password"];
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        {
+            throw new InvalidOperationException("RabbitMQ Username y Password deben estar configurados cuando no se utiliza el transporte en memoria (#169). Configure 'RabbitMQ:Username' y 'RabbitMQ:Password'.");
+        }
+
         // Outbox transaccional (#135): el evento se guarda en DB_Licit junto con la adjudicación
         // y un servicio en segundo plano lo entrega a RabbitMQ. Solo con el transporte real.
         x.AddEntityFrameworkOutbox<LicitacionesDbContext>(outbox =>
@@ -86,8 +93,6 @@ builder.Services.AddMassTransit(x =>
         {
             var host = builder.Configuration["RabbitMQ:Host"] ?? "localhost";
             var virtualHost = builder.Configuration["RabbitMQ:VirtualHost"] ?? "/";
-            var username = builder.Configuration["RabbitMQ:Username"] ?? "guest";
-            var password = builder.Configuration["RabbitMQ:Password"] ?? "guest";
 
             cfg.Host(host, virtualHost, h =>
             {
