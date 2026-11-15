@@ -448,6 +448,7 @@ credenciales/
 .env
 .env.*
 !.env.example
+!frontend/.env.development
 .env.local
 .env.*.local
 *.local.env
