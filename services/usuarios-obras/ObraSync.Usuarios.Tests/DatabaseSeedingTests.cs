@@ -11,6 +11,7 @@ using ObraSync.Usuarios.Api.Controllers;
 using ObraSync.Usuarios.Api.Extensions;
 using ObraSync.Usuarios.Domain.Entities;
 using ObraSync.Usuarios.Infrastructure.Data;
+using ObraSync.Usuarios.Infrastructure.Services;
 using Xunit;
 
 namespace ObraSync.Usuarios.Tests;
@@ -157,7 +158,7 @@ public class DatabaseSeedingTests
 
         await DatabaseMigrationExtensions.SeedDatabaseAsync(scope.ServiceProvider);
 
-        var controller = new ObrasController(context);
+        var controller = new ObrasController(new ObraService(context));
 
         // Act
         var result = await controller.ListarObras();

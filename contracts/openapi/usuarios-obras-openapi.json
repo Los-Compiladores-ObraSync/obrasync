@@ -541,7 +541,7 @@
           "Obras"
         ],
         "summary": "Listar obras disponibles con sus etapas constructivas (Roles: Admin, Comprador, Capataz)",
-        "description": "Devuelve el listado de todas las obras registradas junto con su capataz asignado (capatazId y nombre) y sus respectivas etapas constructivas.",
+        "description": "Devuelve el listado de obras activas junto con su capataz asignado (capatazId y nombre) y sus respectivas etapas constructivas. Si el usuario autenticado tiene el rol 'Capataz', el listado devuelve únicamente las obras que tiene asignadas (CapatazId igual al claim 'sub' del token JWT); los roles 'Comprador' y 'Admin' ven todas las obras activas.",
         "responses": {
           "200": {
             "description": "Success",

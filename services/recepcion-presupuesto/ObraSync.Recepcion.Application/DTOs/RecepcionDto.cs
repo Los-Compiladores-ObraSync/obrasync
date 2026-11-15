@@ -1,7 +1,6 @@
-using ObraSync.Recepcion.Domain.Entities;
 using ObraSync.Recepcion.Domain.Enums;
 
-namespace ObraSync.Recepcion.Api.DTOs;
+namespace ObraSync.Recepcion.Application.DTOs;
 
 public class RecepcionDto
 {

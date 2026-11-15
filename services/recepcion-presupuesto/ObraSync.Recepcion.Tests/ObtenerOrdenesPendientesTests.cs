@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using ObraSync.Recepcion.Api.Controllers;
-using ObraSync.Recepcion.Api.DTOs;
+using ObraSync.Recepcion.Application.DTOs;
 using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Domain.Entities;
 using ObraSync.Recepcion.Domain.Enums;

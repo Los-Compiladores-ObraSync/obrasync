@@ -1,4 +1,4 @@
-﻿using ObraSync.Recepcion.Api.DTOs;
+﻿using ObraSync.Recepcion.Application.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
