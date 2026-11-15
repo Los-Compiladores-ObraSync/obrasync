@@ -20,7 +20,7 @@ namespace ObraSync.Asistente.Tests;
 /// </summary>
 public class AsistenteEndpointTests : IClassFixture<WebApplicationFactory<Program>>
 {
-    private const string Secreto = "ClaveDePruebaExclusivaParaIntegracionConLongitudMinima32Bytes!";
+    internal const string Secreto = "ClaveDePruebaExclusivaParaIntegracionConLongitudMinima32Bytes!";
     private const string Ruta = "/api/asistente/chat";
 
     private readonly WebApplicationFactory<Program> _fabrica;
@@ -44,7 +44,7 @@ public class AsistenteEndpointTests : IClassFixture<WebApplicationFactory<Progra
         return cliente;
     }
 
-    private static string CrearToken(string rol, string emisor = "obrasync-usuarios", string audiencia = "obrasync-services")
+    internal static string CrearToken(string rol, string emisor = "obrasync-usuarios", string audiencia = "obrasync-services")
     {
         var clave = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Secreto));
         var credenciales = new SigningCredentials(clave, SecurityAlgorithms.HmacSha256);
