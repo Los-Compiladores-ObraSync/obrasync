@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using ObraSync.Recepcion.Api.Conventions;
 using ObraSync.Recepcion.Infrastructure;
 using ObraSync.Recepcion.Infrastructure.Consumers;
+using ObraSync.Recepcion.Infrastructure.Messaging;
 using ObraSync.Recepcion.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -77,6 +78,7 @@ builder.Services.AddMassTransit(x =>
                 options.NumberHandling = JsonNumberHandling.AllowReadingFromString;
                 return options;
             });
+            cfg.UsarReintentosExponenciales(); // errores pasajeros: reintentar antes de mandar a _error (#179)
             cfg.ConfigureEndpoints(context);
         });
     }

@@ -101,6 +101,7 @@ builder.Services.AddMassTransit(x =>
             });
 
             cfg.UsarDecimalesComoNumero(); // decimales como número en los eventos (#128)
+            cfg.UsarReintentosExponenciales(); // errores pasajeros: reintentar antes de mandar a _error (#179)
             cfg.ConfigureEndpoints(context);
         });
     }
