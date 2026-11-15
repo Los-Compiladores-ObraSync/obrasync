@@ -172,6 +172,56 @@ describe('AsistenteChatPage', () => {
     expect(claves[0]).toBe(claves[1])
   })
 
+  it('con un borrador como el que arma el servicio real (obra sin etapa, varios ítems) lo muestra y confirma el mismo cuerpo', async () => {
+    const user = userEvent.setup()
+    const requisicion = {
+      obraId: 'aaaaaaaa-0000-0000-0000-000000000002',
+      etapa: null,
+      observaciones: null,
+      items: [
+        { articuloId: '11111111-1111-1111-1111-111111110003', cantidad: 5 },
+        { articuloId: '11111111-1111-1111-1111-111111110004', cantidad: 2.5 },
+      ],
+    }
+    server.use(
+      http.post(RUTA_CHAT, () =>
+        HttpResponse.json({
+          respuesta: 'Armé el borrador. Revisalo y tocá Confirmar.',
+          borrador: {
+            accion: 'crearRequisicion',
+            titulo: 'Nueva requisición',
+            resumen: {
+              obra: 'Galpón Norte',
+              etapa: null,
+              items: [
+                { descripcion: 'Cal Hidratada en Polvo (bolsa 25 kg)', cantidad: 5, unidadMedida: 'BOLSA' },
+                { descripcion: 'Arena Gruesa Lavada de Río', cantidad: 2.5, unidadMedida: 'M3' },
+              ],
+            },
+            requisicion,
+          },
+          tokensUsados: 1315,
+        }),
+      ),
+    )
+    const creacion = espiarCreacion()
+    renderPagina()
+
+    await escribirYEnviar(user, 'cal y arena para el galpón')
+
+    expect(await screen.findByText(/Galpón Norte/)).toBeInTheDocument()
+    expect(screen.queryByText(/Etapa:/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Cal Hidratada en Polvo/)).toBeInTheDocument()
+    expect(screen.getByText(/Arena Gruesa Lavada de Río/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+    await screen.findByText(/creé la requisición REQ-2026-0099/)
+    expect(creacion.llamadas).toBe(1)
+    // Lo que se crea es EXACTAMENTE lo que armó el servicio, sin que el frontend le cambie nada.
+    expect(creacion.cuerpo).toEqual(requisicion)
+  })
+
   it('reenvía el historial de la conversación en el siguiente mensaje', async () => {
     const user = userEvent.setup()
     const cuerpos: Array<{ mensaje: string; historial: Array<{ rol: string; texto: string }> }> = []
