@@ -9,6 +9,10 @@
     {
       "name": "Recepciones",
       "description": "Consulta y registro de recepciones de materiales."
+    },
+    {
+      "name": "Presupuestos",
+      "description": "Carga y consulta de partidas presupuestarias por obra y etapa (#93, #154)."
     }
   ],
   "paths": {
@@ -226,6 +230,176 @@
           },
           "403": {
             "description": "El usuario no tiene el rol Capataz o Admin."
+          }
+        }
+      }
+    },
+    "/api/presupuestos/partidas": {
+      "get": {
+        "tags": [
+          "Presupuestos"
+        ],
+        "summary": "Consultar partidas presupuestarias",
+        "description": "Obtiene las partidas presupuestarias registradas con sus montos (asignado, comprometido, ejecutado y disponible). Permite filtrar por obra y por etapa. Roles: Admin, Comprador, Capataz.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "obraId",
+            "in": "query",
+            "description": "Filtro opcional por identificador de obra.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "etapa",
+            "in": "query",
+            "description": "Filtro opcional por nombre de la etapa.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de partidas presupuestarias.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PartidaPresupuestariaDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No se proporcionó un token válido."
+          },
+          "403": {
+            "description": "El rol del usuario no tiene permisos de lectura."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Presupuestos"
+        ],
+        "summary": "Dar de alta una partida presupuestaria",
+        "description": "Registra una nueva partida presupuestaria para una obra y etapa. Roles: Admin, Comprador.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearPartidaPresupuestariaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Partida presupuestaria creada exitosamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartidaPresupuestariaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos de solicitud inválidos o incompletos.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No se proporcionó un token válido."
+          },
+          "403": {
+            "description": "El rol del usuario no tiene permisos de escritura."
+          },
+          "409": {
+            "description": "Conflicto: ya existe una partida con ese código para la obra.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/presupuestos/partidas/{id}": {
+      "get": {
+        "tags": [
+          "Presupuestos"
+        ],
+        "summary": "Consultar partida presupuestaria por ID",
+        "description": "Obtiene el detalle de una partida presupuestaria específica. Roles: Admin, Comprador, Capataz.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identificador único de la partida presupuestaria.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalle de la partida presupuestaria.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartidaPresupuestariaDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No se proporcionó un token válido."
+          },
+          "403": {
+            "description": "El usuario no tiene permisos para consultar la partida."
+          },
+          "404": {
+            "description": "Partida no encontrada.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -604,6 +778,84 @@
           },
           "unidadMedida": {
             "type": "string"
+          }
+        }
+      },
+      "CrearPartidaPresupuestariaRequest": {
+        "type": "object",
+        "required": [
+          "obraId",
+          "codigoPartida",
+          "descripcion",
+          "montoAsignado"
+        ],
+        "properties": {
+          "obraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "etapa": {
+            "type": "string",
+            "nullable": true
+          },
+          "codigoPartida": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "descripcion": {
+            "type": "string",
+            "maxLength": 250
+          },
+          "montoAsignado": {
+            "type": "number",
+            "minimum": 0
+          },
+          "moneda": {
+            "type": "string",
+            "default": "ARS",
+            "maxLength": 10
+          }
+        }
+      },
+      "PartidaPresupuestariaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "obraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "etapa": {
+            "type": "string",
+            "nullable": true
+          },
+          "codigoPartida": {
+            "type": "string"
+          },
+          "descripcion": {
+            "type": "string"
+          },
+          "montoAsignado": {
+            "type": "number"
+          },
+          "montoComprometido": {
+            "type": "number"
+          },
+          "montoEjecutado": {
+            "type": "number"
+          },
+          "montoDisponible": {
+            "type": "number"
+          },
+          "moneda": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }
