@@ -14,6 +14,7 @@
 # Squad transversal: Frontend, API Gateway y Servidor MCP
 /frontend/                          @Los-Compiladores-ObraSync/frontend-gateway-mcp
 /gateway/                           @Los-Compiladores-ObraSync/frontend-gateway-mcp
+/asistente/                         @Los-Compiladores-ObraSync/frontend-gateway-mcp
 
 # Contratos compartidos (OpenAPI y eventos): los toca todo el mundo, por eso los revisa el Scrum Master
 /contracts/                         @acosta-agustin
