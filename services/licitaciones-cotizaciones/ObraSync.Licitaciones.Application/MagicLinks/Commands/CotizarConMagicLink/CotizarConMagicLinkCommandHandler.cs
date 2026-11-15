@@ -1,5 +1,4 @@
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Domain.Entities;
 
@@ -7,18 +6,21 @@ namespace ObraSync.Licitaciones.Application.MagicLinks.Commands.CotizarConMagicL
 
 public class CotizarConMagicLinkCommandHandler : IRequestHandler<CotizarConMagicLinkCommand, Unit>
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IMagicLinkRepository _magicLinkRepository;
+    private readonly ICotizacionRepository _cotizacionRepository;
 
-    public CotizarConMagicLinkCommandHandler(IApplicationDbContext context)
+    public CotizarConMagicLinkCommandHandler(
+        IMagicLinkRepository magicLinkRepository,
+        ICotizacionRepository cotizacionRepository)
     {
-        _context = context;
+        _magicLinkRepository = magicLinkRepository;
+        _cotizacionRepository = cotizacionRepository;
     }
 
     public async Task<Unit> Handle(CotizarConMagicLinkCommand request, CancellationToken cancellationToken)
     {
-        // 1. Buscar el Magic Link por su hash
-        var magicLink = await _context.MagicLinks
-            .FirstOrDefaultAsync(m => m.Hash == request.Hash, cancellationToken);
+        // 1. Buscar el Magic Link por su hash usando el repositorio
+        var magicLink = await _magicLinkRepository.GetByHashAsync(request.Hash, cancellationToken);
 
         // 2. Validar existencia, vencimiento y uso previo
         if (magicLink == null || magicLink.FechaDeVencimiento < DateTime.UtcNow || magicLink.FechaDeUso != null)
@@ -26,10 +28,11 @@ public class CotizarConMagicLinkCommandHandler : IRequestHandler<CotizarConMagic
             throw new InvalidOperationException("El enlace de cotización es inválido, ya expiró o ya fue utilizado.");
         }
 
-        // 3. Marcar el enlace como usado en la misma transacción
+        // 3. Marcar el enlace como usado y actualizarlo
         magicLink.FechaDeUso = DateTime.UtcNow;
+        await _magicLinkRepository.UpdateAsync(magicLink, cancellationToken);
 
-        // 4. Crear la cotización extrayendo el ProveedorId del Magic Link
+        // 4. Crear la cotización extrayendo el ProveedorId del Magic Link (Requerimiento #87)
         var cotizacion = new Cotizacion
         {
             Id = Guid.NewGuid(),
@@ -40,10 +43,8 @@ public class CotizarConMagicLinkCommandHandler : IRequestHandler<CotizarConMagic
             PlazoEntregaDias = request.PlazoEntregaDias
         };
 
-        _context.Cotizaciones.Add(cotizacion);
-
-        // 5. Persistir cambios
-        await _context.SaveChangesAsync(cancellationToken);
+        // 5. Guardar la cotización mediante su repositorio
+        await _cotizacionRepository.AddAsync(cotizacion, cancellationToken);
 
         return Unit.Value;
     }
