@@ -121,6 +121,8 @@
         "tags": [
           "Auth"
         ],
+        "summary": "Iniciar sesión y obtener token JWT",
+        "description": "Autentica al usuario por email y contraseña. Protección anti-enumeración y bloqueo por intentos fallidos (tarjeta #168): (1) Si el correo no existe, la cuenta está inactiva o la contraseña es incorrecta, responde 401 Unauthorized con el mismo mensaje genérico ('Credenciales inválidas.'). (2) Al alcanzar 5 intentos fallidos consecutivos (MaxFailedAccessAttempts = 5), la cuenta se bloquea temporalmente durante 5 minutos (DefaultLockoutTimeSpan) y responde 401 Unauthorized indicando el bloqueo temporal incluso si se ingresa la contraseña correcta mientras dure el bloqueo. (3) Un inicio de sesión exitoso reinicia el contador de intentos fallidos a cero.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -309,7 +311,7 @@
           "Auth"
         ],
         "summary": "Restablecer contraseña mediante token",
-        "description": "Endpoint público (sin JWT). Aplica una nueva contraseña verificando el token de recuperación de un solo uso (UserManager.ResetPasswordAsync, vigencia de 1 hora). La nueva contraseña cumple las mismas reglas que el registro (mínimo 6 caracteres). Si el token es inválido, venció o ya fue usado, si el usuario no existe o está inactivo, o si la contraseña no cumple los requisitos, responde 400 Bad Request con ProblemDetails y correlationId.",
+        "description": "Endpoint público (sin JWT). Aplica una nueva contraseña verificando el token de recuperación de un solo uso (UserManager.ResetPasswordAsync, vigencia de 1 hora). La nueva contraseña cumple las mismas reglas que el registro (mínimo 8 caracteres y al menos un número, tarjeta #168). Si el token es inválido, venció o ya fue usado, si el usuario no existe o está inactivo, o si la contraseña no cumple los requisitos, responde 400 Bad Request con ProblemDetails y correlationId.",
         "requestBody": {
           "required": true,
           "content": {
@@ -370,7 +372,7 @@
           "Auth"
         ],
         "summary": "Cambiar la contraseña del usuario con la sesión iniciada",
-        "description": "Endpoint protegido con JWT ([Authorize], cualquier rol con sesión activa). Recibe la contraseña actual, la nueva contraseña y su confirmación, y aplica el cambio con UserManager.ChangePasswordAsync. Responde 400 Bad Request con ProblemDetails y correlationId si la contraseña actual es incorrecta, si la nueva contraseña es igual a la actual, si la confirmación no coincide o si la nueva contraseña no cumple la política (mínimo 6 caracteres). Responde 401 Unauthorized con ProblemDetails si falta el token o es inválido/vencido.",
+        "description": "Endpoint protegido con JWT ([Authorize], cualquier rol con sesión activa). Recibe la contraseña actual, la nueva contraseña y su confirmación, y aplica el cambio con UserManager.ChangePasswordAsync. Responde 400 Bad Request con ProblemDetails y correlationId si la contraseña actual es incorrecta, si la nueva contraseña es igual a la actual, si la confirmación no coincide o si la nueva contraseña no cumple la política (mínimo 8 caracteres y al menos un número, tarjeta #168). Responde 401 Unauthorized con ProblemDetails si falta el token o es inválido/vencido.",
         "security": [
           {
             "bearerAuth": []
@@ -1061,6 +1063,9 @@
           },
           "password": {
             "type": "string",
+            "format": "password",
+            "minLength": 8,
+            "description": "Contraseña del usuario (mínimo 8 caracteres y al menos un número)",
             "nullable": true
           },
           "rol": {
@@ -1105,7 +1110,8 @@
           "nuevaPassword": {
             "type": "string",
             "format": "password",
-            "minLength": 6,
+            "minLength": 8,
+            "description": "Nueva contraseña (mínimo 8 caracteres y al menos un número)",
             "example": "Password123!"
           }
         },
@@ -1128,8 +1134,8 @@
           "nuevaPassword": {
             "type": "string",
             "format": "password",
-            "minLength": 6,
-            "description": "Nueva contraseña (mínimo 6 caracteres, distinta de la actual)",
+            "minLength": 8,
+            "description": "Nueva contraseña (mínimo 8 caracteres y al menos un número, distinta de la actual)",
             "example": "NuevaClave456!"
           },
           "confirmarPassword": {

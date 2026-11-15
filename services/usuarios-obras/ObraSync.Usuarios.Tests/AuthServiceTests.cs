@@ -16,6 +16,12 @@ namespace ObraSync.Usuarios.Tests;
 
 public class AuthServiceTests
 {
+    private const string MensajeCredencialesInvalidas =
+        "Credenciales inválidas.";
+
+    private const string MensajeCuentaBloqueada =
+        "La cuenta está bloqueada temporalmente por múltiples intentos fallidos. Intentá nuevamente más tarde.";
+
     private const string MensajeRecuperacionGenerico =
         "Si el correo está registrado, se enviaron las instrucciones para restablecer la contraseña.";
 
@@ -23,7 +29,10 @@ public class AuthServiceTests
         "El enlace de recuperación es inválido o ha expirado. Por favor, solicitá uno nuevo.";
 
     private const string MensajePasswordCorta =
-        "La contraseña debe tener al menos 6 caracteres.";
+        "La contraseña debe tener al menos 8 caracteres.";
+
+    private const string MensajePasswordSinDigito =
+        "La contraseña debe incluir al menos un número.";
 
     private const string MensajePasswordRestablecida =
         "Contraseña restablecida con éxito.";
@@ -278,15 +287,23 @@ public class AuthServiceTests
     [Fact]
     public async Task LoginAsync_DeberiaLanzarUnauthorizedAccessException_CuandoUsuarioNoExisteOEstaInactivo()
     {
-        // Arrange
+        // Arrange: usuario inexistente
         var request = new LoginRequestDto("invalido@test.com", "Password123!");
         _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(null));
 
         // Act
-        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _authService.LoginAsync(request));
+        var exNoExiste = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _authService.LoginAsync(request));
 
-        // Assert
-        Assert.Contains("Credenciales inválidas", ex.Message);
+        // Arrange: usuario inactivo
+        _userManager.FindByEmailAsync(request.Email)
+            .Returns(Task.FromResult<AppUser?>(new AppUser { Email = request.Email, Activo = false }));
+
+        // Act
+        var exInactivo = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _authService.LoginAsync(request));
+
+        // Assert: mensaje anti-enumeración exacto e idéntico (#168)
+        Assert.Equal(MensajeCredencialesInvalidas, exNoExiste.Message);
+        Assert.Equal(MensajeCredencialesInvalidas, exInactivo.Message);
     }
 
     [Fact]
@@ -296,13 +313,52 @@ public class AuthServiceTests
         var request = new LoginRequestDto("usuario@test.com", "WrongPassword");
         var user = new AppUser { Email = request.Email, Activo = true };
         _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(user));
+        _userManager.IsLockedOutAsync(user).Returns(Task.FromResult(false));
         _userManager.CheckPasswordAsync(user, request.Password).Returns(Task.FromResult(false));
+        _userManager.AccessFailedAsync(user).Returns(Task.FromResult(IdentityResult.Success));
+
+        // Act
+        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _authService.LoginAsync(request));
+
+        // Assert: mismo mensaje que cuando el usuario no existe y registra el intento fallido (#168)
+        Assert.Equal(MensajeCredencialesInvalidas, ex.Message);
+        await _userManager.Received(1).AccessFailedAsync(user);
+    }
+
+    [Fact]
+    public async Task LoginAsync_DeberiaLanzarUnauthorizedAccessException_CuandoCuentaYaEstaBloqueada()
+    {
+        // Arrange: cuenta bloqueada; incluso con la contraseña correcta debe fallar sin verificarla (#168)
+        var request = new LoginRequestDto("usuario@test.com", "Password123!");
+        var user = new AppUser { Email = request.Email, Activo = true };
+        _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(user));
+        _userManager.IsLockedOutAsync(user).Returns(Task.FromResult(true));
 
         // Act
         var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _authService.LoginAsync(request));
 
         // Assert
-        Assert.Contains("Credenciales inválidas", ex.Message);
+        Assert.Equal(MensajeCuentaBloqueada, ex.Message);
+        await _userManager.DidNotReceive().CheckPasswordAsync(Arg.Any<AppUser>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task LoginAsync_DeberiaLanzarMensajeDeBloqueo_CuandoIntentoFallidoAlcanzaLimiteDeLockout()
+    {
+        // Arrange: antes del intento no está bloqueada (false), pero tras AccessFailedAsync pasa a bloqueada (true)
+        var request = new LoginRequestDto("usuario@test.com", "WrongPassword");
+        var user = new AppUser { Email = request.Email, Activo = true };
+        _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(user));
+        _userManager.IsLockedOutAsync(user).Returns(Task.FromResult(false), Task.FromResult(true));
+        _userManager.CheckPasswordAsync(user, request.Password).Returns(Task.FromResult(false));
+        _userManager.AccessFailedAsync(user).Returns(Task.FromResult(IdentityResult.Success));
+
+        // Act
+        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _authService.LoginAsync(request));
+
+        // Assert
+        Assert.Equal(MensajeCuentaBloqueada, ex.Message);
+        await _userManager.Received(1).AccessFailedAsync(user);
     }
 
     [Fact]
@@ -313,7 +369,9 @@ public class AuthServiceTests
         var user = new AppUser { Id = Guid.NewGuid(), Email = request.Email, NombreCompleto = "Juan Usuario", Activo = true };
 
         _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(user));
+        _userManager.IsLockedOutAsync(user).Returns(Task.FromResult(false));
         _userManager.CheckPasswordAsync(user, request.Password).Returns(Task.FromResult(true));
+        _userManager.ResetAccessFailedCountAsync(user).Returns(Task.FromResult(IdentityResult.Success));
         _userManager.GetRolesAsync(user).Returns(Task.FromResult<IList<string>>(new List<string> { UserRoles.Admin }));
         _jwtProvider.GenerarToken(user, Arg.Any<IEnumerable<string>>()).Returns("fake-jwt-token");
 
@@ -325,6 +383,7 @@ public class AuthServiceTests
         Assert.Equal(request.Email, result.Email);
         Assert.Equal("fake-jwt-token", result.Token);
         Assert.Contains(UserRoles.Admin, result.Roles);
+        await _userManager.Received(1).ResetAccessFailedCountAsync(user);
     }
 
     // ── Tarjeta #53: RecuperarPasswordAsync ───────────────────────────────────
@@ -600,6 +659,68 @@ public class AuthServiceTests
 
         // Act & Assert (usuario inactivo)
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _authService.CambiarPasswordAsync(request, ejecutor));
+    }
+
+    // ── Tarjeta #168: Política de contraseñas (8 caracteres y dígito) ─────────
+
+    [Theory]
+    [InlineData("PasswordTooShort", MensajePasswordCorta)]
+    [InlineData("PasswordRequiresDigit", MensajePasswordSinDigito)]
+    public async Task RegistrarAsync_DebeLanzarValidacionException_CuandoPasswordIncumplePolitica(string codigoError, string mensajeEsperado)
+    {
+        // Arrange
+        var request = new RegisterRequestDto("Proveedor S.A.", "proveedor@test.com", "ClaveInvalida", UserRoles.Proveedor);
+        var errorPassword = new IdentityError { Code = codigoError, Description = "Password policy error." };
+
+        _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(null));
+        _userManager.CreateAsync(Arg.Any<AppUser>(), request.Password)
+            .Returns(Task.FromResult(IdentityResult.Failed(errorPassword)));
+
+        // Act
+        var ex = await Assert.ThrowsAsync<ValidacionException>(() => _authService.RegistrarAsync(request));
+
+        // Assert
+        Assert.Equal(mensajeEsperado, ex.Message);
+    }
+
+    [Fact]
+    public async Task RestablecerPasswordAsync_DebeLanzarValidacionException_CuandoPasswordNoTieneDigito()
+    {
+        // Arrange
+        var request = new RestablecerPasswordRequestDto("capataz@obrasync.com", "token-valido", "ClaveSinDigito");
+        var usuario = new AppUser { Id = Guid.NewGuid(), Email = request.Email, NombreCompleto = "Carlos Capataz", Activo = true };
+        var errorPassword = new IdentityError { Code = "PasswordRequiresDigit", Description = "Passwords must have at least one digit ('0'-'9')." };
+
+        _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(usuario));
+        _userManager.ResetPasswordAsync(usuario, request.Token, request.NuevaPassword)
+            .Returns(Task.FromResult(IdentityResult.Failed(errorPassword)));
+
+        // Act
+        var ex = await Assert.ThrowsAsync<ValidacionException>(() => _authService.RestablecerPasswordAsync(request));
+
+        // Assert
+        Assert.Equal(MensajePasswordSinDigito, ex.Message);
+    }
+
+    [Fact]
+    public async Task CambiarPasswordAsync_DebeLanzarValidacionException_CuandoNuevaPasswordNoTieneDigito()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var usuario = new AppUser { Id = userId, Email = "capataz@obrasync.com", Activo = true };
+        var ejecutor = CrearEjecutorConRol(UserRoles.Capataz, userId);
+        var request = new CambiarPasswordRequestDto("Password123!", "ClaveSinDigito", "ClaveSinDigito");
+        var errorSinDigito = new IdentityError { Code = "PasswordRequiresDigit", Description = "Passwords must have at least one digit ('0'-'9')." };
+
+        _userManager.FindByIdAsync(userId.ToString()).Returns(Task.FromResult<AppUser?>(usuario));
+        _userManager.ChangePasswordAsync(usuario, request.PasswordActual, request.NuevaPassword)
+            .Returns(Task.FromResult(IdentityResult.Failed(errorSinDigito)));
+
+        // Act
+        var ex = await Assert.ThrowsAsync<ValidacionException>(() => _authService.CambiarPasswordAsync(request, ejecutor));
+
+        // Assert
+        Assert.Equal(MensajePasswordSinDigito, ex.Message);
     }
 
     // LogInformation(...) es un método de extensión: por dentro llama a ILogger.Log<TState> con un tipo
