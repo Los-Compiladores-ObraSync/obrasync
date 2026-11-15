@@ -77,18 +77,41 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             ? ordenadasConDesempate.First().Cotizacion.CotizacionId 
             : null;
 
-        // 4. Mapeamos al DTO incluyendo los nuevos campos del contrato OpenAPI
-        return cotizaciones.Select(c => 
+        // 4. Cálculo de costos totales (precio de ítems + flete) y resaltado de la oferta más barata (CU-07, Tarjeta #89)
+        var cantidadesPorArticulo = licitacion.Items
+            .GroupBy(i => i.ArticuloId)
+            .ToDictionary(g => g.Key, g => g.First().Cantidad);
+
+        var dtos = cotizaciones.Select(c => 
         {
             var scoringItem = resultadosScoring.FirstOrDefault(s => s.CotizacionId == c.CotizacionId);
             decimal puntaje = scoringItem?.Puntaje ?? 0m;
             bool esGanadora = idGanadora.HasValue && c.CotizacionId == idGanadora.Value;
 
+            decimal subtotalItems = c.Items.Sum(i =>
+                cantidadesPorArticulo.TryGetValue(i.ArticuloId, out var cantidad)
+                    ? cantidad * i.PrecioUnitario
+                    : 0m);
+            decimal costoTotal = subtotalItems + c.Flete;
+
             var dto = c.ToDto();
+            dto.SubtotalItems = subtotalItems;
+            dto.CostoTotal = costoTotal;
             dto.PuntajeTotal = Math.Round(puntaje * 100m, 2);
             dto.EsGanadora = esGanadora;
 
             return dto;
         }).ToList();
+
+        if (dtos.Count > 0)
+        {
+            decimal minCostoTotal = dtos.Min(d => d.CostoTotal);
+            foreach (var dto in dtos)
+            {
+                dto.EsMasBarata = dto.CostoTotal == minCostoTotal;
+            }
+        }
+
+        return dtos;
     }
 }

@@ -607,4 +607,273 @@ public class CotizacionesEndpointTests : IClassFixture<WebApplicationFactory<Pro
         var forbiddenCapatazResp = await client.GetAsync($"/api/cotizaciones?licitacionId={licitacion.LicitacionId}");
         await AssertProblemDetailsWithCorrelationIdAsync(forbiddenCapatazResp, HttpStatusCode.Forbidden, correlationId);
     }
+
+    private async Task<Licitacion> SembrarLicitacionConCantidadesAsync(
+        params (Guid ArticuloId, decimal Cantidad)[] articulosConCantidad)
+    {
+        var licitacion = new Licitacion
+        {
+            LicitacionId = Guid.NewGuid(),
+            RequisicionId = Guid.NewGuid(),
+            NumeroRequisicion = "REQ-2026-0200",
+            ObraId = Guid.NewGuid(),
+            Estado = EstadoLicitacion.Abierta,
+            FechaCreacion = DateTime.UtcNow.AddHours(-2),
+            FechaLimiteCotizacion = DateTime.UtcNow.AddDays(5),
+            Items = articulosConCantidad.Select(item => new LicitacionItem
+            {
+                Id = Guid.NewGuid(),
+                ArticuloId = item.ArticuloId,
+                Descripcion = $"Artículo {item.ArticuloId:N}",
+                Cantidad = item.Cantidad,
+                UnidadMedida = "UNIDAD"
+            }).ToList()
+        };
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LicitacionesDbContext>();
+        db.Licitaciones.Add(licitacion);
+        await db.SaveChangesAsync();
+
+        return licitacion;
+    }
+
+    [Fact]
+    public async Task GetCotizaciones_CU07_CalculaExactamenteSubtotalItemsYCostoTotalEnMultiplesOfertas()
+    {
+        var articulo1 = Guid.NewGuid();
+        var articulo2 = Guid.NewGuid();
+        // Pliego: 10 unidades de articulo1 y 5 unidades de articulo2
+        var licitacion = await SembrarLicitacionConCantidadesAsync(
+            (articulo1, 10m),
+            (articulo2, 5m));
+
+        var proveedor1Id = Guid.NewGuid();
+        var proveedor2Id = Guid.NewGuid();
+        var client = _factory.CreateClient();
+
+        // Oferta 1: (10 * 100) + (5 * 200) = 1000 + 1000 = 2000 subtotal + 350.50 flete = 2350.50 costoTotal
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedor1Id));
+        var post1 = await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacion.LicitacionId,
+            ProveedorId = proveedor1Id,
+            Flete = 350.50m,
+            PlazoEntregaDias = 4,
+            Items = new List<CrearCotizacionItemDto>
+            {
+                new() { ArticuloId = articulo1, PrecioUnitario = 100m },
+                new() { ArticuloId = articulo2, PrecioUnitario = 200m }
+            }
+        });
+        Assert.Equal(HttpStatusCode.Created, post1.StatusCode);
+
+        // Oferta 2: (10 * 120) + (5 * 180) = 1200 + 900 = 2100 subtotal + 400 flete = 2500 costoTotal
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedor2Id));
+        var post2 = await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacion.LicitacionId,
+            ProveedorId = proveedor2Id,
+            Flete = 400m,
+            PlazoEntregaDias = 6,
+            Items = new List<CrearCotizacionItemDto>
+            {
+                new() { ArticuloId = articulo1, PrecioUnitario = 120m },
+                new() { ArticuloId = articulo2, PrecioUnitario = 180m }
+            }
+        });
+        Assert.Equal(HttpStatusCode.Created, post2.StatusCode);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
+        var getResp = await client.GetAsync($"/api/cotizaciones?licitacionId={licitacion.LicitacionId}");
+        Assert.Equal(HttpStatusCode.OK, getResp.StatusCode);
+
+        var cotizaciones = await getResp.Content.ReadFromJsonAsync<List<CotizacionResponseDto>>();
+        Assert.NotNull(cotizaciones);
+        Assert.Equal(2, cotizaciones.Count);
+
+        var dto1 = Assert.Single(cotizaciones, c => c.ProveedorId == proveedor1Id);
+        Assert.Equal(2000m, dto1.SubtotalItems);
+        Assert.Equal(350.50m, dto1.Flete);
+        Assert.Equal(2350.50m, dto1.CostoTotal);
+        Assert.True(dto1.EsMasBarata);
+
+        var dto2 = Assert.Single(cotizaciones, c => c.ProveedorId == proveedor2Id);
+        Assert.Equal(2100m, dto2.SubtotalItems);
+        Assert.Equal(400m, dto2.Flete);
+        Assert.Equal(2500m, dto2.CostoTotal);
+        Assert.False(dto2.EsMasBarata);
+    }
+
+    [Fact]
+    public async Task GetCotizaciones_CU07_CuandoElFleteInvierteAlGanador_ResaltaLaDeMenorCostoTotal()
+    {
+        var articulo = Guid.NewGuid();
+        // Pliego: 10 unidades
+        var licitacion = await SembrarLicitacionConCantidadesAsync((articulo, 10m));
+
+        var proveedorA = Guid.NewGuid();
+        var proveedorB = Guid.NewGuid();
+        var client = _factory.CreateClient();
+
+        // Oferta A: menor precio de ítems (10 * 100 = $1000) + $500 flete = $1500 costoTotal
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorA));
+        var postA = await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacion.LicitacionId,
+            ProveedorId = proveedorA,
+            Flete = 500m,
+            PlazoEntregaDias = 3,
+            Items = new List<CrearCotizacionItemDto>
+            {
+                new() { ArticuloId = articulo, PrecioUnitario = 100m }
+            }
+        });
+        Assert.Equal(HttpStatusCode.Created, postA.StatusCode);
+
+        // Oferta B: mayor precio de ítems (10 * 110 = $1100) + $100 flete = $1200 costoTotal
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorB));
+        var postB = await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacion.LicitacionId,
+            ProveedorId = proveedorB,
+            Flete = 100m,
+            PlazoEntregaDias = 5,
+            Items = new List<CrearCotizacionItemDto>
+            {
+                new() { ArticuloId = articulo, PrecioUnitario = 110m }
+            }
+        });
+        Assert.Equal(HttpStatusCode.Created, postB.StatusCode);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
+        var getResp = await client.GetAsync($"/api/cotizaciones?licitacionId={licitacion.LicitacionId}");
+        Assert.Equal(HttpStatusCode.OK, getResp.StatusCode);
+
+        var cotizaciones = await getResp.Content.ReadFromJsonAsync<List<CotizacionResponseDto>>();
+        Assert.NotNull(cotizaciones);
+
+        var ofertaA = Assert.Single(cotizaciones, c => c.ProveedorId == proveedorA);
+        var ofertaB = Assert.Single(cotizaciones, c => c.ProveedorId == proveedorB);
+
+        Assert.Equal(1000m, ofertaA.SubtotalItems);
+        Assert.Equal(500m, ofertaA.Flete);
+        Assert.Equal(1500m, ofertaA.CostoTotal);
+        Assert.False(ofertaA.EsMasBarata);
+
+        Assert.Equal(1100m, ofertaB.SubtotalItems);
+        Assert.Equal(100m, ofertaB.Flete);
+        Assert.Equal(1200m, ofertaB.CostoTotal);
+        Assert.True(ofertaB.EsMasBarata);
+    }
+
+    [Fact]
+    public async Task GetCotizaciones_CU07_EmpateEnMenorCostoTotal_MarcaAmbasEmpatadasComoEsMasBarata()
+    {
+        var articulo = Guid.NewGuid();
+        var licitacion = await SembrarLicitacionConCantidadesAsync((articulo, 10m));
+
+        var proveedor1 = Guid.NewGuid();
+        var proveedor2 = Guid.NewGuid();
+        var proveedor3 = Guid.NewGuid();
+        var client = _factory.CreateClient();
+
+        // Proveedor 1: $1000 ítems + $200 flete = $1200
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedor1));
+        await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacion.LicitacionId,
+            ProveedorId = proveedor1,
+            Flete = 200m,
+            PlazoEntregaDias = 4,
+            Items = new List<CrearCotizacionItemDto> { new() { ArticuloId = articulo, PrecioUnitario = 100m } }
+        });
+
+        // Proveedor 2: $1100 ítems + $100 flete = $1200 (empata en menor costo total)
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedor2));
+        await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacion.LicitacionId,
+            ProveedorId = proveedor2,
+            Flete = 100m,
+            PlazoEntregaDias = 5,
+            Items = new List<CrearCotizacionItemDto> { new() { ArticuloId = articulo, PrecioUnitario = 110m } }
+        });
+
+        // Proveedor 3: $1200 ítems + $150 flete = $1350 (más cara)
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedor3));
+        await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacion.LicitacionId,
+            ProveedorId = proveedor3,
+            Flete = 150m,
+            PlazoEntregaDias = 3,
+            Items = new List<CrearCotizacionItemDto> { new() { ArticuloId = articulo, PrecioUnitario = 120m } }
+        });
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Admin"));
+        var getResp = await client.GetAsync($"/api/cotizaciones?licitacionId={licitacion.LicitacionId}");
+        Assert.Equal(HttpStatusCode.OK, getResp.StatusCode);
+
+        var cotizaciones = await getResp.Content.ReadFromJsonAsync<List<CotizacionResponseDto>>();
+        Assert.NotNull(cotizaciones);
+        Assert.Equal(3, cotizaciones.Count);
+
+        var dto1 = Assert.Single(cotizaciones, c => c.ProveedorId == proveedor1);
+        var dto2 = Assert.Single(cotizaciones, c => c.ProveedorId == proveedor2);
+        var dto3 = Assert.Single(cotizaciones, c => c.ProveedorId == proveedor3);
+
+        Assert.Equal(1200m, dto1.CostoTotal);
+        Assert.True(dto1.EsMasBarata);
+
+        Assert.Equal(1200m, dto2.CostoTotal);
+        Assert.True(dto2.EsMasBarata);
+
+        Assert.Equal(1350m, dto3.CostoTotal);
+        Assert.False(dto3.EsMasBarata);
+    }
+
+    [Fact]
+    public async Task GetCotizaciones_CU07_UnaSolaOferta_SeMarcaComoEsMasBarataTrue()
+    {
+        var articulo = Guid.NewGuid();
+        var licitacion = await SembrarLicitacionConCantidadesAsync((articulo, 20m));
+        var proveedorId = Guid.NewGuid();
+        var client = _factory.CreateClient();
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorId));
+        var postResp = await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licitacion.LicitacionId,
+            ProveedorId = proveedorId,
+            Flete = 250m,
+            PlazoEntregaDias = 3,
+            Items = new List<CrearCotizacionItemDto> { new() { ArticuloId = articulo, PrecioUnitario = 50m } }
+        });
+        Assert.Equal(HttpStatusCode.Created, postResp.StatusCode);
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
+        var getResp = await client.GetAsync($"/api/cotizaciones?licitacionId={licitacion.LicitacionId}");
+        Assert.Equal(HttpStatusCode.OK, getResp.StatusCode);
+
+        var cotizaciones = await getResp.Content.ReadFromJsonAsync<List<CotizacionResponseDto>>();
+        Assert.NotNull(cotizaciones);
+        var unica = Assert.Single(cotizaciones);
+        Assert.Equal(1000m, unica.SubtotalItems);
+        Assert.Equal(250m, unica.Flete);
+        Assert.Equal(1250m, unica.CostoTotal);
+        Assert.True(unica.EsMasBarata);
+    }
 }

@@ -389,7 +389,7 @@
       },
       "CotizacionResponseDto": {
         "type": "object",
-        "required": ["cotizacionId", "licitacionId", "proveedorId", "fechaCreacion", "items", "puntajeTotal", "esGanadora"],
+        "required": ["cotizacionId", "licitacionId", "proveedorId", "subtotalItems", "flete", "costoTotal", "esMasBarata", "fechaCreacion", "items", "puntajeTotal", "esGanadora"],
         "properties": {
           "cotizacionId": {
             "type": "string",
@@ -406,10 +406,24 @@
             "format": "uuid",
             "description": "Identificador del proveedor que cotizó."
           },
+          "subtotalItems": {
+            "type": "number",
+            "format": "double",
+            "description": "Subtotal de los ítems cotizados (suma de cantidad del pliego por precioUnitario de cada artículo, CU-07)."
+          },
           "flete": {
             "type": "number",
             "format": "double",
-            "description": "Costo de flete ofertado."
+            "description": "Costo de flete ofertado (CU-07)."
+          },
+          "costoTotal": {
+            "type": "number",
+            "format": "double",
+            "description": "Costo total de la oferta (subtotalItems + flete) para la comparativa de cotizaciones (CU-07)."
+          },
+          "esMasBarata": {
+            "type": "boolean",
+            "description": "Indica si la oferta tiene el menor costoTotal (precio de ítems + flete) entre todas las cotizaciones de la licitación (CU-07)."
           },
           "plazoEntregaDias": {
             "type": "integer",
