@@ -19,6 +19,7 @@ RUN dotnet publish "ObraSync.Usuarios.Api/ObraSync.Usuarios.Api.csproj" -c Relea
 
 # --- ETAPA 2: Servidor de ejecución ---
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
+USER $APP_UID
 WORKDIR /app
 COPY --from=build /app/publish .
 

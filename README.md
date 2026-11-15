@@ -12,7 +12,7 @@ Requisitos: Docker Desktop abierto y funcionando.
    copy .env.example .env
    ```
 
-   Abrirlo y completar `SQL_SA_PASSWORD` y `JWT_SECRET`. El `JWT_SECRET` tiene que ser **el mismo para todo el equipo** (pedirlo por el grupo del equipo). El archivo `.env` no se sube al repositorio.
+   Abrirlo y completar `SQL_SA_PASSWORD`, `JWT_SECRET`, `RABBITMQ_USER` y `RABBITMQ_PASS`. El `JWT_SECRET` tiene que ser **el mismo para todo el equipo** (pedirlo por el grupo del equipo). Por seguridad (#169), ya no se usan credenciales por defecto (`guest/guest`) y los servicios exigen credenciales explícitas al usar RabbitMQ. El archivo `.env` no se sube al repositorio.
 
 2. **Levantar:**
 
@@ -32,21 +32,23 @@ Requisitos: Docker Desktop abierto y funcionando.
 
 > Si cambiás `SQL_SA_PASSWORD` después de haber levantado SQL Server una vez, hay que correr `docker compose down -v`: el volumen guarda la contraseña anterior.
 
-## Puertos
+## Puertos y Red (#169)
 
-| Qué | Puerto en tu computadora |
+Por seguridad, todos los puertos expuestos al host están explícitamente restringidos a `127.0.0.1` (localhost) en `docker-compose.yml`, evitando la publicación no deseada hacia la red local (LAN) o interfaces externas.
+
+| Qué | Puerto en tu computadora (localhost) |
 | --- | --- |
-| Frontend (provisional, pendiente de acuerdo del equipo) | 5173 |
-| API Gateway (la puerta de entrada) | 5000 |
-| Usuarios y Obras | 5001 |
-| Requisiciones y Catálogo | 5002 |
-| Licitaciones y Cotizaciones | 5003 |
-| Recepción y Presupuesto | 5004 |
-| SQL Server | 1433 |
-| RabbitMQ (servicios) | 5672 |
-| RabbitMQ (panel web, usuario y contraseña `guest`) | 15672 |
+| Frontend (provisional, pendiente de acuerdo del equipo) | 127.0.0.1:5173 |
+| API Gateway (la puerta de entrada) | 127.0.0.1:5000 |
+| Usuarios y Obras | 127.0.0.1:5001 |
+| Requisiciones y Catálogo | 127.0.0.1:5002 |
+| Licitaciones y Cotizaciones | 127.0.0.1:5003 |
+| Recepción y Presupuesto | 127.0.0.1:5004 |
+| SQL Server | 127.0.0.1:1433 |
+| RabbitMQ (servicios AMQP) | 127.0.0.1:5672 |
+| RabbitMQ (panel web, credenciales `RABBITMQ_USER` / `RABBITMQ_PASS`) | 127.0.0.1:15672 |
 
-Dentro de Docker cada servicio escucha en el 8080; los puertos de la tabla son los de afuera.
+Dentro de Docker cada servicio escucha en el 8080 (corriendo bajo usuario no-root `USER $APP_UID`); los puertos de la tabla son los mapeados a `127.0.0.1`.
 
 ## Probar que está andando
 
@@ -124,3 +126,6 @@ Para correr el recorrido completo contra Docker:
 3. **Seguridad y firma de JWT:**
    - Los tokens JWT emitidos tienen un tiempo de vida acotado y vencen solos (vida útil de 60 minutos).
    - El secreto de firma `JWT_SECRET` debe poseer una longitud mínima de 32 caracteres y configurarse exclusivamente por variables de entorno compartidas por canal seguro entre los integrantes del equipo.
+4. **Entorno de ejecución (`ASPNETCORE_ENVIRONMENT`) (#169):**
+   - En `docker-compose.yml`, la variable `ASPNETCORE_ENVIRONMENT` está parametrizada con valor por defecto `Development` (`${ASPNETCORE_ENVIRONMENT:-Development}`) para facilitar el desarrollo local y el acceso a Swagger.
+   - Para ejecutar o probar en entornos productivos o de staging, definir `ASPNETCORE_ENVIRONMENT=Production` o `Staging` en `.env`.

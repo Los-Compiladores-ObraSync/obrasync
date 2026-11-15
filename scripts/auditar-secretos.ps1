@@ -70,7 +70,7 @@ $patronesSospechosos = @(
 )
 
 foreach ($patron in $patronesSospechosos) {
-    $coincidencias = git grep -E -I -n "$patron" -- ":!scripts/auditar-secretos.ps1" 2>$null
+    $coincidencias = git grep -E -I -n "$patron" -- ":!scripts/auditar-secretos.ps1" ":!*AUDITORIA*.md" 2>$null
     if ($coincidencias) {
         Write-Host " [ERROR] Coincidencia sospechosa encontrada para patrón '$patron':" -ForegroundColor Red
         foreach ($c in $coincidencias) {

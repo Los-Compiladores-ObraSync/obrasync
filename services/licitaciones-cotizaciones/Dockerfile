@@ -4,6 +4,7 @@ COPY . .
 RUN dotnet publish ObraSync.Licitaciones.Api -c Release -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
+USER $APP_UID
 WORKDIR /app
 COPY --from=build /app .
 EXPOSE 8080

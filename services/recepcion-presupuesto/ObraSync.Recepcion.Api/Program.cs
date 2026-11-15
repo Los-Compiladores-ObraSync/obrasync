@@ -38,6 +38,13 @@ builder.Services.AddMassTransit(x =>
     }
     else
     {
+        var username = builder.Configuration["RabbitMQ:Username"];
+        var password = builder.Configuration["RabbitMQ:Password"];
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        {
+            throw new InvalidOperationException("RabbitMQ Username y Password deben estar configurados cuando no se utiliza el transporte en memoria (#169). Configure 'RabbitMQ:Username' y 'RabbitMQ:Password'.");
+        }
+
         // Outbox transaccional (#171): el evento se guarda en DB_Recepcion junto con la recepción
         // y un servicio en segundo plano lo entrega a RabbitMQ. Si RabbitMQ está caído,
         // no se cuelga ni se pierde el evento: se entrega al restablecer la conexión.
@@ -51,8 +58,6 @@ builder.Services.AddMassTransit(x =>
         {
             var host = builder.Configuration["RabbitMQ:Host"] ?? "localhost";
             var virtualHost = builder.Configuration["RabbitMQ:VirtualHost"] ?? "/";
-            var username = builder.Configuration["RabbitMQ:Username"] ?? "guest";
-            var password = builder.Configuration["RabbitMQ:Password"] ?? "guest";
 
             cfg.Host(host, virtualHost, h =>
             {
