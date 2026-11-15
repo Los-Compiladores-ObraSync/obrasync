@@ -1,3 +1,4 @@
+using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Domain.Entities;
 
 namespace ObraSync.Licitaciones.Application.Interfaces;
@@ -22,8 +23,9 @@ public interface ICotizacionRepository
         Guid licitacionId,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<Cotizacion>> GetByProveedorIdAsync(
+    Task<PaginaDe<Cotizacion>> GetByProveedorIdAsync(
         Guid proveedorId,
+        ParametrosPagina? paginacion = null,
         CancellationToken cancellationToken = default);
 
     Task<Cotizacion?> GetByIdAsync(

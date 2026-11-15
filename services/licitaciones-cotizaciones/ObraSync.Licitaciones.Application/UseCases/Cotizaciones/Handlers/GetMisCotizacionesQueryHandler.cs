@@ -21,7 +21,7 @@ public class GetMisCotizacionesQueryHandler
         _ordenCompraRepository = ordenCompraRepository ?? throw new ArgumentNullException(nameof(ordenCompraRepository));
     }
 
-    public async Task<IReadOnlyList<MiCotizacionResponseDto>> Handle(
+    public async Task<PaginaDe<MiCotizacionResponseDto>> Handle(
         GetMisCotizacionesQuery query,
         CancellationToken cancellationToken = default)
     {
@@ -30,10 +30,15 @@ public class GetMisCotizacionesQueryHandler
             throw new ArgumentException("El identificador del proveedor es obligatorio.");
         }
 
-        var cotizaciones = await _cotizacionRepository.GetByProveedorIdAsync(query.ProveedorId, cancellationToken);
+        var paginaCotizaciones = await _cotizacionRepository.GetByProveedorIdAsync(
+            query.ProveedorId,
+            query.Paginacion,
+            cancellationToken);
+
+        var cotizaciones = paginaCotizaciones.Items;
         if (cotizaciones == null || cotizaciones.Count == 0)
         {
-            return Array.Empty<MiCotizacionResponseDto>();
+            return new PaginaDe<MiCotizacionResponseDto>(Array.Empty<MiCotizacionResponseDto>(), paginaCotizaciones.Total);
         }
 
         var licitacionIds = cotizaciones
@@ -115,6 +120,6 @@ public class GetMisCotizacionesQueryHandler
             });
         }
 
-        return resultado;
+        return new PaginaDe<MiCotizacionResponseDto>(resultado, paginaCotizaciones.Total);
     }
 }

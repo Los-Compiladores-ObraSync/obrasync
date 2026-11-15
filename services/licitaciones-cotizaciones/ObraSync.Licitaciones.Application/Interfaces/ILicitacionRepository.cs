@@ -1,3 +1,4 @@
+using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Domain.Entities;
 
 namespace ObraSync.Licitaciones.Application.Interfaces;
@@ -24,9 +25,10 @@ public interface ILicitacionRepository
         Licitacion licitacion,
         CancellationToken ct = default);
 
-    Task<IReadOnlyList<Licitacion>> GetFilteredAsync(
+    Task<PaginaDe<Licitacion>> GetFilteredAsync(
         Guid? obraId = null,
         string? estado = null,
         string? rolUsuario = null,
+        ParametrosPagina? paginacion = null,
         CancellationToken ct = default);
 }

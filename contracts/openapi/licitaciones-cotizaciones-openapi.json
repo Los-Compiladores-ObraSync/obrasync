@@ -25,11 +25,39 @@
             "description": "Filtrar pliegos por estado.",
             "required": false,
             "schema": { "type": "string", "nullable": true }
+          },
+          {
+            "name": "pagina",
+            "in": "query",
+            "description": "Número de página (1 en adelante).",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+          },
+          {
+            "name": "tamano",
+            "in": "query",
+            "description": "Cantidad de elementos por página (entre 1 y 50).",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 50 }
           }
         ],
         "responses": {
           "200": {
             "description": "Success",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total de elementos que coinciden con el filtro",
+                "schema": { "type": "integer" }
+              },
+              "X-Page": {
+                "description": "Página actual",
+                "schema": { "type": "integer" }
+              },
+              "X-Page-Size": {
+                "description": "Tamaño de página aplicado",
+                "schema": { "type": "integer" }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -39,6 +67,7 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" }
         }
@@ -110,11 +139,39 @@
             "description": "Identificador del pliego del que se listan las cotizaciones.",
             "required": true,
             "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "pagina",
+            "in": "query",
+            "description": "Número de página (1 en adelante).",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+          },
+          {
+            "name": "tamano",
+            "in": "query",
+            "description": "Cantidad de elementos por página (entre 1 y 50).",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 50 }
           }
         ],
         "responses": {
           "200": {
             "description": "Success",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total de elementos que coinciden con el filtro",
+                "schema": { "type": "integer" }
+              },
+              "X-Page": {
+                "description": "Página actual",
+                "schema": { "type": "integer" }
+              },
+              "X-Page-Size": {
+                "description": "Tamaño de página aplicado",
+                "schema": { "type": "integer" }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -169,11 +226,39 @@
             "description": "Identificador del proveedor a consultar (solo aplicable para el rol Admin; para Proveedor se utiliza siempre el claim 'sub' del JWT).",
             "required": false,
             "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "pagina",
+            "in": "query",
+            "description": "Número de página (1 en adelante).",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+          },
+          {
+            "name": "tamano",
+            "in": "query",
+            "description": "Cantidad de elementos por página (entre 1 y 50).",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 50 }
           }
         ],
         "responses": {
           "200": {
             "description": "Success",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total de elementos que coinciden con el filtro",
+                "schema": { "type": "integer" }
+              },
+              "X-Page": {
+                "description": "Página actual",
+                "schema": { "type": "integer" }
+              },
+              "X-Page-Size": {
+                "description": "Tamaño de página aplicado",
+                "schema": { "type": "integer" }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -183,6 +268,7 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" }
         }

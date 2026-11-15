@@ -1,3 +1,5 @@
+using ObraSync.Licitaciones.Application.DTOs;
+
 namespace ObraSync.Licitaciones.Application.UseCases.Licitaciones.Queries;
 
 public record GetLicitacionesQuery(
@@ -5,4 +7,5 @@ public record GetLicitacionesQuery(
     string? Estado = null,
     string? RolUsuario = null,
     // Id del usuario (claim 'sub') cuando es Proveedor: sirve para marcar qué pliegos ya cotizó.
-    Guid? ProveedorId = null);
+    Guid? ProveedorId = null,
+    ParametrosPagina? Paginacion = null);
