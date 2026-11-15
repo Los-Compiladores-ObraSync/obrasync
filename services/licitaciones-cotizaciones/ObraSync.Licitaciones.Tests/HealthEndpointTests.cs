@@ -19,6 +19,9 @@ public class HealthEndpointTests : IClassFixture<WebApplicationFactory<Program>>
 
         _factory = factory.WithWebHostBuilder(builder =>
         {
+            builder.UseSetting("Jwt:Secret", "clave-de-pruebas-de-al-menos-32-caracteres");
+            builder.UseSetting("RabbitMQ:UseInMemory", "true");
+
             builder.ConfigureServices(services =>
             {
                 // El /health no necesita RabbitMQ: sacamos los servicios de fondo (MassTransit)
