@@ -4,6 +4,7 @@ using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.DTOs;
+using ObraSync.Recepcion.Application.Mappings;
 using ObraSync.Recepcion.Application.UseCases.Partidas.Queries;
 
 namespace ObraSync.Recepcion.Application.UseCases.Partidas.Handlers;
@@ -38,19 +39,6 @@ public class ObtenerPartidasQueryHandler
             .OrderBy(p => p.CodigoPartida)
             .ToListAsync(cancellationToken);
 
-        return partidas.Select(p => new PartidaPresupuestariaDto
-        {
-            Id = p.Id,
-            ObraId = p.ObraId,
-            Etapa = p.Etapa,
-            CodigoPartida = p.CodigoPartida,
-            Descripcion = p.Descripcion,
-            MontoAsignado = p.MontoAsignado,
-            MontoComprometido = p.MontoComprometido,
-            MontoEjecutado = p.MontoEjecutado,
-            MontoDisponible = p.MontoDisponible,
-            Moneda = p.Moneda,
-            CreatedAt = p.CreatedAt
-        }).ToList();
+        return partidas.Select(p => p.ToDto()).ToList();
     }
 }

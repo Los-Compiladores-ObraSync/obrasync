@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.DTOs;
 using ObraSync.Recepcion.Application.Exceptions;
+using ObraSync.Recepcion.Application.Mappings;
 using ObraSync.Recepcion.Application.UseCases.Partidas.Commands;
 using ObraSync.Recepcion.Domain.Entities;
 
@@ -67,19 +68,6 @@ public class CrearPartidaPresupuestariaCommandHandler
         await _context.PartidasPresupuestarias.AddAsync(partida, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
 
-        return new PartidaPresupuestariaDto
-        {
-            Id = partida.Id,
-            ObraId = partida.ObraId,
-            Etapa = partida.Etapa,
-            CodigoPartida = partida.CodigoPartida,
-            Descripcion = partida.Descripcion,
-            MontoAsignado = partida.MontoAsignado,
-            MontoComprometido = partida.MontoComprometido,
-            MontoEjecutado = partida.MontoEjecutado,
-            MontoDisponible = partida.MontoDisponible,
-            Moneda = partida.Moneda,
-            CreatedAt = partida.CreatedAt
-        };
+        return partida.ToDto();
     }
 }

@@ -4,6 +4,7 @@ using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.DTOs;
 using ObraSync.Recepcion.Application.Exceptions;
 using ObraSync.Recepcion.Application.Interfaces;
+using ObraSync.Recepcion.Application.Mappings;
 using ObraSync.Recepcion.Application.UseCases.Recepciones.Commands;
 using ObraSync.Recepcion.Domain.Enums;
 using DetalleRecepcionEntity = ObraSync.Recepcion.Domain.Entities.DetalleRecepcion;
@@ -206,7 +207,7 @@ public class CrearRecepcionCommandHandler
             throw new RecepcionConflictoException("La orden de compra ya fue recibida o el número de remito está repetido.");
         }
 
-        return RecepcionDto.DesdeEntidad(recepcion);
+        return recepcion.ToDto();
     }
 
     private static bool EsViolacionDeIndiceUnico(DbUpdateException ex)

@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using ObraSync.Recepcion.Application.Mappings;
 using ObraSync.Recepcion.Domain.Enums;
 
 namespace ObraSync.Recepcion.Application.DTOs;
@@ -16,31 +19,12 @@ public class RecepcionDto
     public DateTime? UpdatedAt { get; set; }
     public List<DetalleRecepcionDto> Detalles { get; set; } = new();
 
+    /// <summary>
+    /// Mapea desde la entidad de dominio delegando al método de extensión ToDto() en Application.Mappings.
+    /// Mantenido por compatibilidad hacia atrás con tests y código existente.
+    /// </summary>
     public static RecepcionDto DesdeEntidad(ObraSync.Recepcion.Domain.Entities.Recepcion entidad)
     {
-        return new RecepcionDto
-        {
-            Id = entidad.Id,
-            ObraId = entidad.ObraId,
-            OrdenCompraId = entidad.OrdenCompraId,
-            RecepcionadoPorUsuarioId = entidad.RecepcionadoPorUsuarioId,
-            NumeroRemito = entidad.NumeroRemito,
-            FechaRecepcion = ToUtc(entidad.FechaRecepcion),
-            Estado = entidad.Estado,
-            Observaciones = entidad.Observaciones,
-            CreatedAt = ToUtc(entidad.CreatedAt),
-            UpdatedAt = entidad.UpdatedAt.HasValue ? ToUtc(entidad.UpdatedAt.Value) : null,
-            Detalles = entidad.Detalles.Select(DetalleRecepcionDto.DesdeEntidad).ToList()
-        };
-    }
-
-    private static DateTime ToUtc(DateTime valor)
-    {
-        return valor.Kind switch
-        {
-            DateTimeKind.Unspecified => DateTime.SpecifyKind(valor, DateTimeKind.Utc),
-            DateTimeKind.Local => valor.ToUniversalTime(),
-            _ => valor
-        };
+        return entidad.ToDto();
     }
 }
