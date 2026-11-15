@@ -1,8 +1,10 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using ObraSync.Asistente.Api.Mcp;
 using ObraSync.Asistente.Api.Servicios;
 using ObraSync.Asistente.Application;
 using ObraSync.Asistente.Infrastructure;
@@ -50,6 +52,14 @@ builder.Services.AddScoped<Agente>();
 
 // Infrastructure: cliente del gateway de IA y buscador del catálogo (vía API Gateway).
 builder.Services.AddAsistenteInfrastructure(builder.Configuration);
+
+// Servidor MCP (#98): expone las MISMAS herramientas (solo lectura) a asistentes de IA externos, por HTTP.
+// Stateless: cada pedido es independiente y no se guardan sesiones (las herramientas no necesitan que el servidor
+// le pregunte nada al cliente). El JWT del cliente viaja en cada pedido y se usa para consultar al Gateway.
+builder.Services
+    .AddMcpServer()
+    .WithHttpTransport(options => options.Stateless = true)
+    .WithTools<HerramientasMcp>();
 
 // Errores en formato RFC 7807 (ProblemDetails) con el correlationId que propaga el Gateway
 builder.Services.AddProblemDetails(options =>
@@ -139,6 +149,9 @@ app.MapGet("/health", (ObraSync.Asistente.Infrastructure.ConfiguracionIA ia) => 
 }));
 
 app.MapControllers();
+
+// Misma regla que el chat: solo Capataz y Admin (el resto recibe 403). Va por el Gateway en /api/mcp.
+app.MapMcp("/api/mcp").RequireAuthorization(new AuthorizeAttribute { Roles = "Capataz,Admin" });
 
 app.Run();
 

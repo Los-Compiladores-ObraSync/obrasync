@@ -16,6 +16,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.33" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <!-- SDK oficial de MCP (#98). Versión fija (sin rangos flotantes): última estable al 15/11/2026, compatible con .NET 8. -->
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.4.0" />
   </ItemGroup>
 
 </Project>
