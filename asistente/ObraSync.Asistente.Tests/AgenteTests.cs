@@ -6,8 +6,8 @@ namespace ObraSync.Asistente.Tests;
 
 public class AgenteTests
 {
-    private static Agente Armar(ModeloFalso modelo, IBuscadorInsumos? buscador = null) =>
-        new(modelo, new HerramientasCatalogo(buscador ?? new BuscadorFalso()));
+    private static Agente Armar(ModeloFalso modelo, IBuscadorInsumos? buscador = null, IBuscadorObras? obras = null) =>
+        new(modelo, new HerramientasCatalogo(buscador ?? new BuscadorFalso(), obras ?? new ObrasFalsas()));
 
     [Fact]
     public async Task Flujo_feliz_el_modelo_pide_la_herramienta_y_responde_con_el_resultado()

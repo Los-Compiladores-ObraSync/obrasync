@@ -30,7 +30,7 @@ public class AsistenteEndpointTests : IClassFixture<WebApplicationFactory<Progra
         _fabrica = fabrica.WithWebHostBuilder(b => b.UseSetting("Jwt:Secret", Secreto));
     }
 
-    private HttpClient Cliente(IModeloChat modelo, IBuscadorInsumos? buscador = null)
+    private HttpClient Cliente(IModeloChat modelo, IBuscadorInsumos? buscador = null, IBuscadorObras? obras = null)
     {
         var cliente = _fabrica.WithWebHostBuilder(b => b.ConfigureServices(s =>
         {
@@ -38,6 +38,8 @@ public class AsistenteEndpointTests : IClassFixture<WebApplicationFactory<Progra
             s.AddScoped(_ => modelo);
             s.RemoveAll<IBuscadorInsumos>();
             s.AddScoped(_ => buscador ?? new BuscadorFalso());
+            s.RemoveAll<IBuscadorObras>();
+            s.AddScoped(_ => obras ?? new ObrasFalsas());
         })).CreateClient();
         return cliente;
     }
@@ -110,8 +112,36 @@ public class AsistenteEndpointTests : IClassFixture<WebApplicationFactory<Progra
         var json = JsonDocument.Parse(await r.Content.ReadAsStringAsync()).RootElement;
         Assert.Equal("Hola, ¿en qué te ayudo?", json.GetProperty("respuesta").GetString());
         Assert.Equal(42, json.GetProperty("tokensUsados").GetInt32());
-        // Regla de oro: el asistente no arma ni crea nada todavía.
+        // Un saludo no arma ningún borrador (y el asistente nunca crea nada por su cuenta).
         Assert.Equal(JsonValueKind.Null, json.GetProperty("borrador").ValueKind);
+    }
+
+    [Fact]
+    public async Task Pedido_de_materiales_devuelve_un_borrador_con_la_forma_del_contrato()
+    {
+        var args = "{\"obra\":\"Torre Central\",\"etapa\":\"Estructura\",\"items\":[{\"insumo\":\"cemento\",\"cantidad\":10}]}";
+        var modelo = new ModeloFalso(
+            _ => Respuestas.PideHerramienta(args, nombre: "armar_borrador_requisicion"),
+            _ => Respuestas.Final("Armé el borrador. Revisalo y tocá Confirmar."));
+        var cliente = Cliente(modelo);
+
+        var r = await cliente.SendAsync(Pedido(CrearToken("Capataz"), new { mensaje = "Necesito 10 bolsas de cemento" }));
+
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        var json = JsonDocument.Parse(await r.Content.ReadAsStringAsync()).RootElement;
+        var borrador = json.GetProperty("borrador");
+        Assert.Equal("crearRequisicion", borrador.GetProperty("accion").GetString());
+        Assert.Equal("Nueva requisición", borrador.GetProperty("titulo").GetString());
+        Assert.Equal("Torre Central", borrador.GetProperty("resumen").GetProperty("obra").GetString());
+        Assert.Equal("Cemento Portland 50 kg",
+            borrador.GetProperty("resumen").GetProperty("items")[0].GetProperty("descripcion").GetString());
+
+        var requisicion = borrador.GetProperty("requisicion");
+        Assert.Equal(ObrasFalsas.IdTorre.ToString(), requisicion.GetProperty("obraId").GetString());
+        Assert.Equal("Estructura", requisicion.GetProperty("etapa").GetString());
+        var item = requisicion.GetProperty("items")[0];
+        Assert.Equal("00000000-0000-0000-0000-000000000001", item.GetProperty("articuloId").GetString());
+        Assert.Equal(10, item.GetProperty("cantidad").GetDouble());
     }
 
     [Fact]

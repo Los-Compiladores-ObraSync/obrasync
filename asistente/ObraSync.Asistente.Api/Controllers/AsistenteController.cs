@@ -44,7 +44,7 @@ public sealed class AsistenteController : ControllerBase
         var r = await _agente.ResponderAsync(pedido.Mensaje!.Trim(), historial, ct);
 
         if (r.Ok)
-            return Ok(new ChatResponseDto(r.Texto, null, r.Tokens));
+            return Ok(new ChatResponseDto(r.Texto, r.Borrador, r.Tokens));
 
         // Se anota el código estable (nunca la clave ni el texto crudo del proveedor).
         _log.LogWarning("Asistente sin respuesta: {Codigo} (iteraciones={It}, herramientas={Herr}, tokens={Tok}) correlationId={CorrelationId}",

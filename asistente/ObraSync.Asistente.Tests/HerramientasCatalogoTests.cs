@@ -8,7 +8,7 @@ public class HerramientasCatalogoTests
     [Fact]
     public async Task Herramienta_desconocida_devuelve_error_estable()
     {
-        var herramientas = new HerramientasCatalogo(new BuscadorFalso());
+        var herramientas = new HerramientasCatalogo(new BuscadorFalso(), new ObrasFalsas());
 
         var r = await herramientas.EjecutarAsync("borrar_todo", "{}", default);
 
@@ -20,7 +20,7 @@ public class HerramientasCatalogoTests
     public async Task Texto_demasiado_largo_se_rechaza_sin_llamar_a_la_API()
     {
         var buscador = Substitute.For<IBuscadorInsumos>();
-        var herramientas = new HerramientasCatalogo(buscador);
+        var herramientas = new HerramientasCatalogo(buscador, new ObrasFalsas());
 
         var r = await herramientas.EjecutarAsync(
             "buscar_insumos", "{\"texto\":\"" + new string('a', HerramientasCatalogo.MaxTextoBusqueda + 1) + "\"}", default);
@@ -37,7 +37,7 @@ public class HerramientasCatalogoTests
     public async Task Argumentos_invalidos_se_rechazan_sin_llamar_a_la_API(string argumentos)
     {
         var buscador = Substitute.For<IBuscadorInsumos>();
-        var herramientas = new HerramientasCatalogo(buscador);
+        var herramientas = new HerramientasCatalogo(buscador, new ObrasFalsas());
 
         var r = await herramientas.EjecutarAsync("buscar_insumos", argumentos, default);
 
@@ -49,7 +49,7 @@ public class HerramientasCatalogoTests
     [Fact]
     public async Task Busqueda_valida_devuelve_los_insumos_con_los_campos_que_el_modelo_necesita()
     {
-        var herramientas = new HerramientasCatalogo(new BuscadorFalso());
+        var herramientas = new HerramientasCatalogo(new BuscadorFalso(), new ObrasFalsas());
 
         var r = await herramientas.EjecutarAsync("buscar_insumos", "{\"texto\":\"cemento\"}", default);
 
