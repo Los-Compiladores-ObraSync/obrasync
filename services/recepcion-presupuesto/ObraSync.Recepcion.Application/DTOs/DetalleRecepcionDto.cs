@@ -1,6 +1,4 @@
-using ObraSync.Recepcion.Domain.Entities;
-
-namespace ObraSync.Recepcion.Api.DTOs;
+namespace ObraSync.Recepcion.Application.DTOs;
 
 public class DetalleRecepcionDto
 {

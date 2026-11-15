@@ -1,4 +1,4 @@
-using ObraSync.Recepcion.Api.DTOs;
+using ObraSync.Recepcion.Application.DTOs;
 using RecepcionEntity = ObraSync.Recepcion.Domain.Entities.Recepcion;
 
 namespace ObraSync.Recepcion.Tests;

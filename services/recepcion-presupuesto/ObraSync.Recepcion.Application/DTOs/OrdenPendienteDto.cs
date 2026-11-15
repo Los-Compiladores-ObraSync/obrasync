@@ -1,4 +1,4 @@
-namespace ObraSync.Recepcion.Api.DTOs;
+namespace ObraSync.Recepcion.Application.DTOs;
 
 public class OrdenPendienteDto
 {
@@ -6,4 +6,3 @@ public class OrdenPendienteDto
     public Guid ObraId { get; set; }
     public List<ItemOrdenPendienteDto> Items { get; set; } = new();
 }
-
