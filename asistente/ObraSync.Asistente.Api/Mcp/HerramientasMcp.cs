@@ -44,8 +44,8 @@ public sealed class HerramientasMcp
         [Description("Materiales pedidos (máximo 10): cada uno con el nombre o código del insumo y la cantidad (mayor a cero).")]
         ItemPedidoMcp[] items,
         [Description("Nombre de la etapa de la obra, por ejemplo: Estructura. Obligatoria si la obra tiene etapas.")]
-        string? etapa = null,
-        [Description("Nota opcional de la persona.")] string? observaciones = null,
+        string etapa = "",
+        [Description("Nota opcional de la persona.")] string observaciones = "",
         CancellationToken cancellationToken = default)
     {
         var lista = new JsonArray();
@@ -55,8 +55,10 @@ public sealed class HerramientasMcp
         var argumentos = new JsonObject
         {
             ["obra"] = obra,
-            ["etapa"] = etapa,
-            ["observaciones"] = observaciones,
+            // En el esquema MCP son "string" comunes (no "string o null", que algunos clientes de IA no soportan):
+            // un texto vacío significa "no se indicó".
+            ["etapa"] = string.IsNullOrWhiteSpace(etapa) ? null : etapa,
+            ["observaciones"] = string.IsNullOrWhiteSpace(observaciones) ? null : observaciones,
             ["items"] = lista
         };
         var resultado = await _herramientas.EjecutarAsync(HerramientasCatalogo.ArmarBorrador, argumentos.ToJsonString(), cancellationToken);
