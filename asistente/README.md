@@ -23,7 +23,8 @@ El borrador no se guarda en ninguna base.
     inventa ids. Si falta o es ambiguo un dato, devuelve un error con opciones (`obra_requerida`, `obra_ambigua`,
     `etapa_requerida`, `insumo_ambiguo`, `insumo_no_encontrado`, `cantidad_invalida`, `items_invalidos`…) y no
     arma nada a medias. Máximo 10 ítems por borrador.
-- Puerto: 5005 en tu computadora (propuesto; todavía hay que acordarlo con el equipo). Dentro del contenedor, 8080.
+- Puerto: 5005 en tu computadora (acordado el 15/11). Dentro del contenedor, 8080.
+- Diseño y decisiones: `asistente/diseno-agente.md` (tarjeta #140).
 
 ## Servidor MCP (#98)
 - Dirección: `POST http://localhost:5000/api/mcp` (por el Gateway; internamente `/api/mcp` en este servicio).
