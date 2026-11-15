@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.DTOs;
+using ObraSync.Recepcion.Application.Mappings;
 using ObraSync.Recepcion.Application.UseCases.Recepciones.Queries;
 
 namespace ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
@@ -33,6 +34,6 @@ public class ObtenerRecepcionesQueryHandler
         }
 
         var recepciones = await dbQuery.ToListAsync(cancellationToken);
-        return recepciones.Select(RecepcionDto.DesdeEntidad).ToList();
+        return recepciones.Select(r => r.ToDto()).ToList();
     }
 }
