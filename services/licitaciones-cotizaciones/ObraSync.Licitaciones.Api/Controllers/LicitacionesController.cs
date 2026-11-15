@@ -166,7 +166,14 @@ public class LicitacionesController : ControllerBase
     {
         try
         {
-            var command = new AdjudicarCotizacionCommand(licitacionId, request.CotizacionId);
+            var correlationHeader = HttpContext?.Request.Headers["X-Correlation-ID"].FirstOrDefault()
+                ?? HttpContext?.Items["CorrelationId"]?.ToString();
+
+            var correlationId = Guid.TryParse(correlationHeader, out var parsedCorrelationId) && parsedCorrelationId != Guid.Empty
+                ? parsedCorrelationId
+                : Guid.NewGuid();
+
+            var command = new AdjudicarCotizacionCommand(licitacionId, request.CotizacionId, correlationId);
             var resultado = await _mediator.Send(command, cancellationToken);
             return Ok(resultado);
         }

@@ -23,6 +23,14 @@ public class RequisicionAprobadaConsumer : IConsumer<RequisicionAprobadaEvent>
     public async Task Consume(ConsumeContext<RequisicionAprobadaEvent> context)
     {
         var msg = context.Message;
+        var correlationId = msg.CorrelationId != Guid.Empty
+            ? msg.CorrelationId
+            : (context.CorrelationId ?? Guid.Empty);
+
+        using var logScope = _logger.BeginScope(new Dictionary<string, object>
+        {
+            ["CorrelationId"] = correlationId
+        });
 
         // Datos inválidos: se descartan (reintentarlos no los arregla)
         // La etapa es opcional, pero si viene no puede pasar de 200 caracteres (tamaño de la columna)
@@ -30,15 +38,17 @@ public class RequisicionAprobadaConsumer : IConsumer<RequisicionAprobadaEvent>
             (msg.Etapa is not null && msg.Etapa.Trim().Length > EtapaMaxLength))
         {
             _logger.LogWarning(
-                "RequisicionAprobadaEvent inválido, se descarta. EventId {EventId}, Requisicion {RequisicionId}",
-                msg.EventId, msg.RequisicionId);
+                "RequisicionAprobadaEvent inválido, se descarta. EventId {EventId}, Requisicion {RequisicionId}, CorrelationId {CorrelationId}",
+                msg.EventId, msg.RequisicionId, correlationId);
             return;
         }
 
         // Idempotencia: si ya lo procesamos, lo descartamos
         if (await _db.EventosProcesados.AnyAsync(e => e.EventId == msg.EventId))
         {
-            _logger.LogInformation("Evento {EventId} duplicado, se descarta", msg.EventId);
+            _logger.LogInformation(
+                "Evento {EventId} duplicado, se descarta. CorrelationId {CorrelationId}",
+                msg.EventId, correlationId);
             return;
         }
 

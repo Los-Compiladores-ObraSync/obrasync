@@ -238,6 +238,33 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DbLici
     }
 }
 
+app.Use(async (context, next) =>
+{
+    const string headerName = "X-Correlation-ID";
+    var correlationId = context.Request.Headers[headerName].FirstOrDefault();
+
+    if (string.IsNullOrWhiteSpace(correlationId))
+    {
+        correlationId = Guid.NewGuid().ToString();
+        context.Request.Headers[headerName] = correlationId;
+    }
+
+    context.Items["CorrelationId"] = correlationId;
+    context.Response.Headers[headerName] = correlationId;
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers[headerName] = correlationId;
+        return Task.CompletedTask;
+    });
+
+    var loggerFactory = context.RequestServices.GetService<ILoggerFactory>();
+    var logger = loggerFactory?.CreateLogger("ObraSync.Licitaciones.CorrelationId");
+    using (logger?.BeginScope(new Dictionary<string, object> { ["CorrelationId"] = correlationId }))
+    {
+        await next();
+    }
+});
+
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseAuthentication();
