@@ -252,6 +252,11 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("Estado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
                     b.Property<string>("Etapa")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -259,6 +264,10 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
                     b.Property<decimal>("MontoTotal")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("MotivoBloqueo")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<Guid>("ObraId")
                         .HasColumnType("uniqueidentifier");

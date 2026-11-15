@@ -1,4 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using ObraSync.Recepcion.Domain.Common;
+using ObraSync.Recepcion.Domain.Enums;
 
 namespace ObraSync.Recepcion.Domain.Entities;
 
@@ -9,6 +13,12 @@ public class OrdenCompra : BaseEntity
     public Guid ProveedorId { get; set; }
     public decimal MontoTotal { get; set; }
     public string? Etapa { get; set; }
+
+    // Control de estado de la orden de compra (#94, #95, #96, #154)
+    public EstadoOrdenCompra Estado { get; set; } = EstadoOrdenCompra.Activa;
+    public string? MotivoBloqueo { get; set; }
+
+    public bool EstaBloqueada => Estado == EstadoOrdenCompra.Bloqueada;
 
     private readonly List<OrdenCompraItem> _items = new();
     public IReadOnlyCollection<OrdenCompraItem> Items => _items.AsReadOnly();
@@ -22,7 +32,9 @@ public class OrdenCompra : BaseEntity
         Guid proveedorId,
         decimal montoTotal,
         IEnumerable<OrdenCompraItem> items,
-        string? etapa = null)
+        string? etapa = null,
+        EstadoOrdenCompra estado = EstadoOrdenCompra.Activa,
+        string? motivoBloqueo = null)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("El identificador de la orden de compra no puede estar vacío.", nameof(id));
@@ -63,6 +75,8 @@ public class OrdenCompra : BaseEntity
             ProveedorId = proveedorId,
             MontoTotal = montoTotal,
             Etapa = string.IsNullOrWhiteSpace(etapa) ? null : etapa.Trim(),
+            Estado = estado,
+            MotivoBloqueo = string.IsNullOrWhiteSpace(motivoBloqueo) ? null : motivoBloqueo.Trim(),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -73,5 +87,25 @@ public class OrdenCompra : BaseEntity
         }
 
         return oc;
+    }
+
+    /// <summary>
+    /// Bloquea preventivamente la orden de compra al superar la partida presupuestaria de la etapa (#94, #95).
+    /// </summary>
+    public void BloquearPorDesvioPresupuestario(string? motivo = null)
+    {
+        Estado = EstadoOrdenCompra.Bloqueada;
+        MotivoBloqueo = string.IsNullOrWhiteSpace(motivo) ? null : motivo.Trim();
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Libera la orden de compra bloqueada por autorización de un Administrador (#96).
+    /// </summary>
+    public void Liberar()
+    {
+        Estado = EstadoOrdenCompra.Activa;
+        MotivoBloqueo = null;
+        UpdatedAt = DateTime.UtcNow;
     }
 }

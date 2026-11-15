@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ObraSync.Recepcion.Domain.Entities;
+using ObraSync.Recepcion.Domain.Enums;
 using Xunit;
 
 namespace ObraSync.Recepcion.Tests.Domain;
@@ -182,5 +183,48 @@ public class OrdenCompraTests
         Assert.Contains("\"ArticuloId\"", json);
         Assert.Contains("\"Cantidad\"", json);
         Assert.Contains("\"UnidadMedida\"", json);
+    }
+
+    [Fact]
+    public void Crear_PorDefecto_DebeTenerEstadoActivaYNoEstarBloqueada()
+    {
+        var item = OrdenCompraItem.Crear(Guid.NewGuid(), 5m, "UNIDAD", 100m);
+        var oc = OrdenCompra.Crear(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 500m, new[] { item });
+
+        Assert.Equal(EstadoOrdenCompra.Activa, oc.Estado);
+        Assert.False(oc.EstaBloqueada);
+        Assert.Null(oc.MotivoBloqueo);
+    }
+
+    [Fact]
+    public void BloquearPorDesvioPresupuestario_CambiaEstadoABloqueadaYAsignaMotivo()
+    {
+        var item = OrdenCompraItem.Crear(Guid.NewGuid(), 5m, "UNIDAD", 100m);
+        var oc = OrdenCompra.Crear(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 500m, new[] { item });
+
+        oc.BloquearPorDesvioPresupuestario("Supera presupuesto de etapa Estructura (#94, #95)");
+
+        Assert.Equal(EstadoOrdenCompra.Bloqueada, oc.Estado);
+        Assert.True(oc.EstaBloqueada);
+        Assert.Equal("Supera presupuesto de etapa Estructura (#94, #95)", oc.MotivoBloqueo);
+        Assert.NotNull(oc.UpdatedAt);
+    }
+
+    [Fact]
+    public void Liberar_CambiaEstadoAActivaYBorraMotivo()
+    {
+        var item = OrdenCompraItem.Crear(Guid.NewGuid(), 5m, "UNIDAD", 100m);
+        var oc = OrdenCompra.Crear(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 500m, new[] { item },
+            estado: EstadoOrdenCompra.Bloqueada, motivoBloqueo: "Bloqueada previamente");
+
+        Assert.True(oc.EstaBloqueada);
+
+        oc.Liberar();
+
+        Assert.Equal(EstadoOrdenCompra.Activa, oc.Estado);
+        Assert.False(oc.EstaBloqueada);
+        Assert.Null(oc.MotivoBloqueo);
+        Assert.NotNull(oc.UpdatedAt);
     }
 }

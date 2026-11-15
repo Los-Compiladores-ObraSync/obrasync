@@ -22,9 +22,10 @@ public class ObtenerOrdenesPendientesQueryHandler
         var dbQuery = _context.OrdenesCompra
             .Include(o => o.Items)
             .AsNoTracking()
-            .Where(o => !_context.Recepciones.Any(
-                r => r.OrdenCompraId == o.Id &&
-                     r.Estado == EstadoRecepcion.Completa));
+            .Where(o => o.Estado == EstadoOrdenCompra.Activa &&
+                        !_context.Recepciones.Any(
+                            r => r.OrdenCompraId == o.Id &&
+                                 r.Estado == EstadoRecepcion.Completa));
 
         if (query.ObraId.HasValue)
         {

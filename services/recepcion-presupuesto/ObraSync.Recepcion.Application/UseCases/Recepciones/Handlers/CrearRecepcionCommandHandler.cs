@@ -89,6 +89,11 @@ public class CrearRecepcionCommandHandler
             throw new ArgumentException("La orden de compra no pertenece a la obra indicada.");
         }
 
+        if (ordenCompra.Estado == EstadoOrdenCompra.Bloqueada)
+        {
+            throw new RecepcionConflictoException("La orden de compra se encuentra bloqueada por desvío presupuestario y no permite recepciones.");
+        }
+
         bool yaRecibida = await _context.Recepciones
             .AnyAsync(
                 r => r.OrdenCompraId == command.OrdenCompraId &&

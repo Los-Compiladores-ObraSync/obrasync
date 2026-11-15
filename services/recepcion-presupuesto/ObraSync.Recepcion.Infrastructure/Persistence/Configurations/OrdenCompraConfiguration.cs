@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ObraSync.Recepcion.Domain.Entities;
+using ObraSync.Recepcion.Domain.Enums;
 
 namespace ObraSync.Recepcion.Infrastructure.Persistence.Configurations;
 
@@ -22,6 +23,14 @@ public class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCompra>
 
         builder.Property(o => o.Etapa)
             .HasMaxLength(200);
+
+        builder.Property(o => o.Estado)
+            .IsRequired()
+            .HasConversion<int>()
+            .HasDefaultValue(EstadoOrdenCompra.Activa);
+
+        builder.Property(o => o.MotivoBloqueo)
+            .HasMaxLength(500);
 
         // Índice no único para optimizar búsquedas por Obra
         builder.HasIndex(o => o.ObraId);
