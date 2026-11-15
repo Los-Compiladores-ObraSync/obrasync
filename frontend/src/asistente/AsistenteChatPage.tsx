@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { crearRequisicion, generarIdempotencyKey } from '../requisiciones/requisicionesService'
@@ -126,6 +126,14 @@ export function AsistenteChatPage() {
   function enviar(evento: FormEvent) {
     evento.preventDefault()
     void enviarTexto(texto)
+  }
+
+  /** Enter envía el mensaje; Shift+Enter baja de renglón. No se envía mientras un teclado compone un carácter (acentos, IME). */
+  function alApretarTecla(evento: KeyboardEvent<HTMLTextAreaElement>) {
+    if (evento.key === 'Enter' && !evento.shiftKey && !evento.nativeEvent.isComposing) {
+      evento.preventDefault()
+      void enviarTexto(texto)
+    }
   }
 
   async function enviarTexto(textoAEnviar: string) {
@@ -320,6 +328,7 @@ export function AsistenteChatPage() {
             placeholder="Escribí lo que necesitás…"
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
+            onKeyDown={alApretarTecla}
             disabled={pensando}
           />
           <button type="submit" className={styles.enviar} aria-label="Enviar" disabled={vacio || pensando}>

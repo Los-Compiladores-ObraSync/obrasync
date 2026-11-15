@@ -297,6 +297,45 @@ describe('AsistenteChatPage', () => {
     expect(screen.queryByRole('link', { name: 'Ver mis requisiciones' })).not.toBeInTheDocument()
   })
 
+  it('Enter envía el mensaje y Shift+Enter baja de renglón sin enviar', async () => {
+    const user = userEvent.setup()
+    const mensajes: string[] = []
+    server.use(
+      http.post(RUTA_CHAT, async ({ request }) => {
+        mensajes.push(((await request.json()) as { mensaje: string }).mensaje)
+        return HttpResponse.json({ respuesta: 'Contame más.', borrador: null })
+      }),
+    )
+    renderPagina()
+    const caja = screen.getByLabelText('Escribí tu mensaje')
+
+    await user.type(caja, 'hola{Shift>}{Enter}{/Shift}chau')
+    expect(mensajes).toHaveLength(0)
+    expect(caja).toHaveValue('hola\nchau')
+
+    await user.keyboard('{Enter}')
+
+    expect(await screen.findByText('Contame más.')).toBeInTheDocument()
+    expect(mensajes).toEqual(['hola\nchau'])
+    expect(caja).toHaveValue('')
+  })
+
+  it('Enter con la caja vacía no envía nada', async () => {
+    const user = userEvent.setup()
+    const mensajes: string[] = []
+    server.use(
+      http.post(RUTA_CHAT, async ({ request }) => {
+        mensajes.push(((await request.json()) as { mensaje: string }).mensaje)
+        return HttpResponse.json({ respuesta: 'ok', borrador: null })
+      }),
+    )
+    renderPagina()
+
+    await user.type(screen.getByLabelText('Escribí tu mensaje'), '{Enter}')
+
+    expect(mensajes).toHaveLength(0)
+  })
+
   it('reenvía el historial de la conversación en el siguiente mensaje', async () => {
     const user = userEvent.setup()
     const cuerpos: Array<{ mensaje: string; historial: Array<{ rol: string; texto: string }> }> = []
