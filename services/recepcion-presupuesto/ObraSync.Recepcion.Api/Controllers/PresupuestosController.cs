@@ -80,35 +80,15 @@ public class PresupuestosController : ControllerBase
     {
         if (request == null)
         {
-            return Problem(
-                statusCode: 400,
-                title: "Bad Request",
-                detail: "El cuerpo de la solicitud no puede estar vacío.");
+            throw new ArgumentNullException(nameof(request), "El cuerpo de la solicitud no puede estar vacío.");
         }
 
-        try
-        {
-            var command = new CrearPartidaPresupuestariaCommand(request);
-            var result = await _crearHandler.Handle(command, cancellationToken);
+        var command = new CrearPartidaPresupuestariaCommand(request);
+        var result = await _crearHandler.Handle(command, cancellationToken);
 
-            return CreatedAtAction(
-                nameof(ObtenerPartidaPorId),
-                new { id = result.Id },
-                result);
-        }
-        catch (RecepcionConflictoException ex)
-        {
-            return Problem(
-                statusCode: 409,
-                title: "Conflict",
-                detail: ex.Message);
-        }
-        catch (ArgumentException ex)
-        {
-            return Problem(
-                statusCode: 400,
-                title: "Bad Request",
-                detail: ex.Message);
-        }
+        return CreatedAtAction(
+            nameof(ObtenerPartidaPorId),
+            new { id = result.Id },
+            result);
     }
 }

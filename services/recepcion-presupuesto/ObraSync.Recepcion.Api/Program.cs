@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ObraSync.Recepcion.Api.Conventions;
+using ObraSync.Recepcion.Api.Middlewares;
 using ObraSync.Recepcion.Infrastructure;
 using ObraSync.Recepcion.Infrastructure.Consumers;
 using ObraSync.Recepcion.Infrastructure.Messaging;
@@ -139,8 +140,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.UseMiddleware<ExceptionMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();

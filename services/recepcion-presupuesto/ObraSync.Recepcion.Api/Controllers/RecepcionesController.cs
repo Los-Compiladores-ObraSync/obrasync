@@ -140,15 +140,11 @@ public class RecepcionesController : ControllerBase
         }
         catch (RecepcionConflictoException ex)
         {
-            return Problem(
-                statusCode: 409,
-                detail: ex.Message);
+            return Problem(statusCode: 409, detail: ex.Message);
         }
         catch (ArgumentException ex)
         {
-            return Problem(
-                statusCode: 400,
-                detail: ex.Message);
+            return Problem(statusCode: 400, detail: ex.Message);
         }
     }
 
