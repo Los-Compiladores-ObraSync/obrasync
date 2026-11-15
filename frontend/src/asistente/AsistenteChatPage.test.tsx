@@ -222,6 +222,81 @@ describe('AsistenteChatPage', () => {
     expect(creacion.cuerpo).toEqual(requisicion)
   })
 
+  it('después de confirmar ofrece seguir: pedir otros materiales, ver las requisiciones o ir al inicio', async () => {
+    const user = userEvent.setup()
+    espiarCreacion()
+    renderPagina()
+
+    await escribirYEnviar(user, 'necesito 20 bolsas de cemento')
+    await user.click(await screen.findByRole('button', { name: 'Confirmar' }))
+    await screen.findByText(/creé la requisición REQ-2026-0099/)
+
+    expect(screen.getByRole('button', { name: 'Pedir otros materiales' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ver mis requisiciones' })).toHaveAttribute(
+      'href',
+      '/obra/requisiciones',
+    )
+    expect(screen.getByRole('link', { name: 'Ir al inicio' })).toHaveAttribute('href', '/')
+  })
+
+  it('"Pedir otros materiales" arranca un pedido nuevo y las opciones desaparecen', async () => {
+    const user = userEvent.setup()
+    const mensajes: string[] = []
+    server.use(
+      http.post(RUTA_CHAT, async ({ request }) => {
+        const cuerpo = (await request.json()) as { mensaje: string }
+        mensajes.push(cuerpo.mensaje)
+        return HttpResponse.json({ respuesta: 'Dale. ¿Qué material necesitás?', borrador: null })
+      }),
+    )
+    espiarCreacion()
+    server.use(
+      http.post(RUTA_CHAT, () =>
+        HttpResponse.json({
+          respuesta: 'Armé el borrador.',
+          borrador: {
+            accion: 'crearRequisicion',
+            titulo: 'Nueva requisición',
+            resumen: {
+              obra: 'Torre Alvear',
+              etapa: 'Estructura',
+              items: [{ descripcion: 'Cemento', cantidad: 1, unidadMedida: 'BOLSA' }],
+            },
+            requisicion: {
+              obraId: 'aaaaaaaa-0000-0000-0000-000000000001',
+              etapa: 'Estructura',
+              observaciones: null,
+              items: [{ articuloId: '11111111-1111-1111-1111-111111110001', cantidad: 1 }],
+            },
+          },
+        }),
+        { once: true },
+      ),
+    )
+    renderPagina()
+
+    await escribirYEnviar(user, 'necesito cemento')
+    await user.click(await screen.findByRole('button', { name: 'Confirmar' }))
+    await user.click(await screen.findByRole('button', { name: 'Pedir otros materiales' }))
+
+    expect(await screen.findByText('Dale. ¿Qué material necesitás?')).toBeInTheDocument()
+    expect(mensajes).toEqual(['Quiero pedir materiales'])
+    expect(screen.queryByRole('button', { name: 'Pedir otros materiales' })).not.toBeInTheDocument()
+  })
+
+  it('después de cancelar ofrece armar otro pedido, pero no "Ver mis requisiciones" (no se creó nada)', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+
+    await escribirYEnviar(user, 'necesito 20 bolsas de cemento')
+    await user.click(await screen.findByRole('button', { name: 'Cancelar' }))
+    await screen.findByText(/descarté el borrador/)
+
+    expect(screen.getByRole('button', { name: 'Armar otro pedido' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ir al inicio' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Ver mis requisiciones' })).not.toBeInTheDocument()
+  })
+
   it('reenvía el historial de la conversación en el siguiente mensaje', async () => {
     const user = userEvent.setup()
     const cuerpos: Array<{ mensaje: string; historial: Array<{ rol: string; texto: string }> }> = []
