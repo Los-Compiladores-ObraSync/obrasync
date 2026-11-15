@@ -1,4 +1,5 @@
-import { apiFetch } from '../api/client'
+import { apiFetchPagina } from '../api/client'
+import { conPaginacion, traerTodas } from '../api/paginacion'
 
 /** Una etapa de una plantilla. Es el EtapaPlantillaDto del contrato. */
 export interface EtapaPlantilla {
@@ -21,5 +22,7 @@ export interface PlantillaObra {
  * Fuente: GET /api/plantillas-obra (contracts/openapi/usuarios-obras-openapi.json)
  */
 export function obtenerPlantillas(): Promise<PlantillaObra[]> {
-  return apiFetch<PlantillaObra[]>('/api/plantillas-obra')
+  return traerTodas((pagina) =>
+    apiFetchPagina<PlantillaObra>(conPaginacion('/api/plantillas-obra', pagina)),
+  )
 }

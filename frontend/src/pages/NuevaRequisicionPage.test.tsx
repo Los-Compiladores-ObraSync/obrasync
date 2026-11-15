@@ -748,3 +748,110 @@ describe('NuevaRequisicionPage - idempotencia y protección contra doble envío 
     expect(keysRecibidas[1]).toBe(keysRecibidas[0])
   })
 })
+
+describe('NuevaRequisicionPage - paginación de insumos (#172)', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setToken(null)
+  })
+
+  function insumoDePrueba(n: number) {
+    return {
+      articuloId: `c1c2c3c4-0000-0000-0000-00000000010${n}`,
+      codigo: `MAT-PRU-00${n}`,
+      descripcion: `Insumo de prueba ${n}`,
+      unidadMedida: 'BOLSA',
+      moneda: 'ARS',
+      activo: true,
+    }
+  }
+
+  /** Simula un servicio con 3 insumos que entrega de a 2. Anota los pedidos. */
+  function tresInsumosDeADos(pedidos: { search: string | null; pagina: string }[] = []) {
+    server.use(
+      http.get('*/api/catalogo/insumos', ({ request }) => {
+        const url = new URL(request.url)
+        const pagina = url.searchParams.get('pagina') ?? '1'
+        pedidos.push({ search: url.searchParams.get('search'), pagina })
+        const todos = [1, 2, 3].map(insumoDePrueba)
+        const filas = pagina === '1' ? todos.slice(0, 2) : todos.slice(2)
+        return HttpResponse.json(filas, { headers: { 'X-Total-Count': '3' } })
+      }),
+    )
+  }
+
+  async function abrirPagina() {
+    iniciarSesionCapataz()
+    const user = userEvent.setup()
+    renderPagina()
+    await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' })
+    return user
+  }
+
+  it('el catálogo muestra la primera página y "Ver más" trae el resto', async () => {
+    tresInsumosDeADos()
+    const user = await abrirPagina()
+
+    expect(screen.getByText('Mostrando 2 de 3 insumos.')).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Insumo de prueba 3/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Ver más' }))
+
+    expect(await screen.findByRole('option', { name: /Insumo de prueba 3/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ver más' })).not.toBeInTheDocument()
+  })
+
+  it('la búsqueda también pagina: "Ver más" pide la página siguiente con el mismo texto', async () => {
+    const pedidos: { search: string | null; pagina: string }[] = []
+    tresInsumosDeADos(pedidos)
+    const user = await abrirPagina()
+
+    await user.type(screen.getByLabelText('Buscar insumo'), 'prueba')
+    await screen.findByText('2 insumos encontrados. Tocá uno para agregarlo.')
+
+    const botones = screen.getAllByRole('button', { name: 'Ver más' })
+    await user.click(botones[botones.length - 1])
+
+    await screen.findByText('3 insumos encontrados. Tocá uno para agregarlo.')
+    expect(pedidos.at(-1)).toEqual({ search: 'prueba', pagina: '2' })
+  })
+
+  it('un insumo elegido desde la búsqueda queda bien aunque no esté en la primera página del catálogo', async () => {
+    tresInsumosDeADos()
+    const user = await abrirPagina()
+    await user.type(screen.getByLabelText('Buscar insumo'), 'prueba')
+    await screen.findByText('2 insumos encontrados. Tocá uno para agregarlo.')
+    const botones = screen.getAllByRole('button', { name: 'Ver más' })
+    await user.click(botones[botones.length - 1])
+    await screen.findByText('3 insumos encontrados. Tocá uno para agregarlo.')
+
+    await user.click(screen.getByRole('button', { name: /Insumo de prueba 3/ }))
+
+    expect(screen.getByLabelText('Insumo #1')).toHaveValue(insumoDePrueba(3).articuloId)
+    expect(screen.getByText('Bolsas')).toBeInTheDocument()
+  })
+
+  it('si falla "Ver más" del catálogo avisa y deja reintentar', async () => {
+    let fallar = true
+    server.use(
+      http.get('*/api/catalogo/insumos', ({ request }) => {
+        const pagina = new URL(request.url).searchParams.get('pagina') ?? '1'
+        if (pagina === '1') {
+          return HttpResponse.json([insumoDePrueba(1), insumoDePrueba(2)], {
+            headers: { 'X-Total-Count': '3' },
+          })
+        }
+        if (fallar) return HttpResponse.json({ title: 'Error' }, { status: 500 })
+        return HttpResponse.json([insumoDePrueba(3)], { headers: { 'X-Total-Count': '3' } })
+      }),
+    )
+    const user = await abrirPagina()
+
+    await user.click(screen.getByRole('button', { name: 'Ver más' }))
+    expect(await screen.findByText('No se pudieron cargar más. Intentá nuevamente.')).toBeInTheDocument()
+
+    fallar = false
+    await user.click(screen.getByRole('button', { name: 'Ver más' }))
+    expect(await screen.findByRole('option', { name: /Insumo de prueba 3/ })).toBeInTheDocument()
+  })
+})

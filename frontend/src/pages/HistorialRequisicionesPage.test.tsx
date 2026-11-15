@@ -181,7 +181,11 @@ describe('HistorialRequisicionesPage - filtros', () => {
     await user.selectOptions(screen.getByLabelText('Obra'), OBRA_ID)
     await screen.findByText('No hay requisiciones con esos filtros.')
 
-    expect(pedidos).toEqual(['', '?estado=Aprobada', `?estado=Aprobada&obraId=${OBRA_ID}`])
+    expect(pedidos).toEqual([
+      '?pagina=1&tamano=50',
+      '?estado=Aprobada&pagina=1&tamano=50',
+      `?estado=Aprobada&obraId=${OBRA_ID}&pagina=1&tamano=50`,
+    ])
   })
 
   it('"Quitar filtros" está apagado sin filtros y los limpia al tocarlo', async () => {
@@ -342,5 +346,131 @@ describe('enlaces al detalle y filtros en la URL', () => {
 
     expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
     expect(screen.getByTestId('ubicacion')).toHaveTextContent(/^\/compras\/requisiciones\/historial$/)
+  })
+})
+
+describe('HistorialRequisicionesPage - paginación (#172)', () => {
+  beforeEach(() => {
+    reiniciarRequisicionesMock()
+  })
+
+  function requisicion(n: number) {
+    return {
+      requisicionId: `d1d2d3d4-0000-0000-0000-0000000001${n}`,
+      numeroRequisicion: `REQ-2026-01${n}`,
+      obraId: OBRA_ID,
+      etapa: 'Estructura',
+      solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000002',
+      estado: 'Pendiente',
+      observaciones: null,
+      fechaCreacion: '2026-10-19T12:00:00Z',
+      items: [],
+    }
+  }
+
+  /** Simula un servicio que entrega de a 2 filas y tiene 3 en total. */
+  function tresRequisicionesDeADos(pedidos: string[] = []) {
+    server.use(
+      http.get('*/api/requisiciones', ({ request }) => {
+        const pagina = Number(new URL(request.url).searchParams.get('pagina') ?? '1')
+        pedidos.push(String(pagina))
+        const filas = pagina === 1 ? [requisicion(11), requisicion(12)] : [requisicion(13)]
+        return HttpResponse.json(filas, { headers: { 'X-Total-Count': '3' } })
+      }),
+    )
+  }
+
+  it('muestra "Ver más" cuando hay más requisiciones que las cargadas', async () => {
+    tresRequisicionesDeADos()
+    renderPagina(comprador)
+
+    expect(await screen.findByText('REQ-2026-0111')).toBeInTheDocument()
+    expect(screen.getByText('REQ-2026-0112')).toBeInTheDocument()
+    expect(screen.queryByText('REQ-2026-0113')).not.toBeInTheDocument()
+    expect(screen.getByText('Mostrando 2 de 3.')).toBeInTheDocument()
+  })
+
+  it('al tocar "Ver más" suma la página siguiente y el botón desaparece al llegar al total', async () => {
+    const pedidos: string[] = []
+    tresRequisicionesDeADos(pedidos)
+    const user = userEvent.setup()
+    renderPagina(comprador)
+    await screen.findByText('REQ-2026-0111')
+
+    await user.click(screen.getByRole('button', { name: 'Ver más' }))
+
+    expect(await screen.findByText('REQ-2026-0113')).toBeInTheDocument()
+    expect(screen.getByText('REQ-2026-0111')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ver más' })).not.toBeInTheDocument()
+    expect(pedidos).toEqual(['1', '2'])
+  })
+
+  it('no repite una requisición si la página siguiente trae una que ya estaba', async () => {
+    server.use(
+      http.get('*/api/requisiciones', ({ request }) => {
+        const pagina = Number(new URL(request.url).searchParams.get('pagina') ?? '1')
+        const filas = pagina === 1 ? [requisicion(11), requisicion(12)] : [requisicion(12), requisicion(13)]
+        return HttpResponse.json(filas, { headers: { 'X-Total-Count': '3' } })
+      }),
+    )
+    const user = userEvent.setup()
+    renderPagina(comprador)
+    await screen.findByText('REQ-2026-0111')
+
+    await user.click(screen.getByRole('button', { name: 'Ver más' }))
+
+    await screen.findByText('REQ-2026-0113')
+    expect(screen.getAllByText('REQ-2026-0112')).toHaveLength(1)
+  })
+
+  it('si falla "Ver más" avisa, conserva lo cargado y deja reintentar', async () => {
+    let fallar = true
+    server.use(
+      http.get('*/api/requisiciones', ({ request }) => {
+        const pagina = Number(new URL(request.url).searchParams.get('pagina') ?? '1')
+        if (pagina === 1) {
+          return HttpResponse.json([requisicion(11), requisicion(12)], {
+            headers: { 'X-Total-Count': '3' },
+          })
+        }
+        if (fallar) return HttpResponse.json({ title: 'Error' }, { status: 500 })
+        return HttpResponse.json([requisicion(13)], { headers: { 'X-Total-Count': '3' } })
+      }),
+    )
+    const user = userEvent.setup()
+    renderPagina(comprador)
+    await screen.findByText('REQ-2026-0111')
+
+    await user.click(screen.getByRole('button', { name: 'Ver más' }))
+
+    expect(await screen.findByText('No se pudieron cargar más. Intentá nuevamente.')).toBeInTheDocument()
+    expect(screen.getByText('REQ-2026-0111')).toBeInTheDocument()
+
+    fallar = false
+    await user.click(screen.getByRole('button', { name: 'Ver más' }))
+    expect(await screen.findByText('REQ-2026-0113')).toBeInTheDocument()
+  })
+
+  it('al cambiar un filtro vuelve a la primera página', async () => {
+    const pedidos: string[] = []
+    server.use(
+      http.get('*/api/requisiciones', ({ request }) => {
+        const url = new URL(request.url)
+        pedidos.push(url.search)
+        return HttpResponse.json([requisicion(11), requisicion(12)], {
+          headers: { 'X-Total-Count': '3' },
+        })
+      }),
+    )
+    const user = userEvent.setup()
+    renderPagina(comprador)
+    await screen.findByText('REQ-2026-0111')
+    await user.click(screen.getByRole('button', { name: 'Ver más' }))
+    await screen.findByText('Mostrando 2 de 3.')
+
+    await user.selectOptions(screen.getByLabelText('Estado'), 'Aprobada')
+
+    await screen.findByText('Mostrando 2 de 3.')
+    expect(pedidos.at(-1)).toBe('?estado=Aprobada&pagina=1&tamano=50')
   })
 })

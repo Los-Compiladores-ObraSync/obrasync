@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
+import { BotonVerMas } from '../componentes/BotonVerMas'
 import { ESPERA_BUSQUEDA_MS } from '../requisiciones/configuracionBusqueda'
 import {
   crearRequisicion,
@@ -33,6 +34,27 @@ interface ResultadoBusqueda {
   termino: string
   lista: InsumoCatalogo[]
   fallo: boolean
+  /** Total que informa el servicio para esa búsqueda (#172). Sin definir si no lo envía. */
+  total?: number
+  /** Última página traída (1 = la primera). */
+  pagina: number
+}
+
+/** Suma insumos a los ya vistos (sin repetir): ver el estado "vistos" en la pantalla. */
+function sumarVistos(
+  actuales: Record<string, InsumoCatalogo>,
+  lista: InsumoCatalogo[],
+): Record<string, InsumoCatalogo> {
+  return {
+    ...actuales,
+    ...Object.fromEntries(lista.map((ins) => [ins.articuloId, ins])),
+  }
+}
+
+/** Agrega una página nueva a lo ya mostrado, sin repetir insumos. */
+function sumarInsumos(actuales: InsumoCatalogo[], nuevos: InsumoCatalogo[]): InsumoCatalogo[] {
+  const ids = new Set(actuales.map((ins) => ins.articuloId))
+  return [...actuales, ...nuevos.filter((ins) => !ids.has(ins.articuloId))]
 }
 
 function mensajeDeErrorApi(err: unknown): string {
@@ -55,7 +77,17 @@ function mensajeDeErrorApi(err: unknown): string {
 
 export function NuevaRequisicionPage() {
   const [obras, setObras] = useState<ObraResumen[]>([])
+  // Catálogo sin búsqueda: llega de a una página (#172) y "Ver más" pide la siguiente.
   const [catalogo, setCatalogo] = useState<InsumoCatalogo[]>([])
+  const [totalCatalogo, setTotalCatalogo] = useState<number | undefined>(undefined)
+  const [paginaCatalogo, setPaginaCatalogo] = useState(1)
+  const [cargandoMasCatalogo, setCargandoMasCatalogo] = useState(false)
+  const [errorMasCatalogo, setErrorMasCatalogo] = useState(false)
+  const [cargandoMasResultados, setCargandoMasResultados] = useState(false)
+  const [errorMasResultados, setErrorMasResultados] = useState(false)
+  // Todos los insumos que se vieron alguna vez (catálogo y búsquedas): así un insumo elegido en
+  // una búsqueda no se "pierde" aunque no esté en la primera página del catálogo.
+  const [vistos, setVistos] = useState<Record<string, InsumoCatalogo>>({})
   const [cargandoInicial, setCargandoInicial] = useState(true)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
 
@@ -84,9 +116,12 @@ export function NuevaRequisicionPage() {
     setCargandoInicial(true)
     setErrorCarga(null)
     void Promise.all([obtenerObras(), obtenerInsumosCatalogo()])
-      .then(([listaObras, listaInsumos]) => {
+      .then(([listaObras, paginaInsumos]) => {
         setObras(listaObras)
-        setCatalogo(listaInsumos)
+        setCatalogo(paginaInsumos.items)
+        setTotalCatalogo(paginaInsumos.total)
+        setPaginaCatalogo(1)
+        setVistos((actuales) => sumarVistos(actuales, paginaInsumos.items))
         setCargandoInicial(false)
       })
       .catch(() => {
@@ -99,10 +134,13 @@ export function NuevaRequisicionPage() {
     let cancelado = false
 
     Promise.all([obtenerObras(), obtenerInsumosCatalogo()])
-      .then(([listaObras, listaInsumos]) => {
+      .then(([listaObras, paginaInsumos]) => {
         if (!cancelado) {
           setObras(listaObras)
-          setCatalogo(listaInsumos)
+          setCatalogo(paginaInsumos.items)
+          setTotalCatalogo(paginaInsumos.total)
+          setPaginaCatalogo(1)
+          setVistos((actuales) => sumarVistos(actuales, paginaInsumos.items))
           setCargandoInicial(false)
         }
       })
@@ -141,14 +179,21 @@ export function NuevaRequisicionPage() {
     let cancelado = false
 
     obtenerInsumosCatalogo(terminoConEspera)
-      .then((lista) => {
+      .then((pagina) => {
         if (!cancelado) {
-          setResultadoBusqueda({ termino: terminoConEspera, lista, fallo: false })
+          setResultadoBusqueda({
+            termino: terminoConEspera,
+            lista: pagina.items,
+            total: pagina.total,
+            pagina: 1,
+            fallo: false,
+          })
+          setVistos((actuales) => sumarVistos(actuales, pagina.items))
         }
       })
       .catch(() => {
         if (!cancelado) {
-          setResultadoBusqueda({ termino: terminoConEspera, lista: [], fallo: true })
+          setResultadoBusqueda({ termino: terminoConEspera, lista: [], pagina: 1, fallo: true })
         }
       })
 
@@ -176,6 +221,51 @@ export function NuevaRequisicionPage() {
 
   const obraSeleccionada = obras.find((o) => o.id === obraId)
   const etapasDisponibles = obraSeleccionada ? obraSeleccionada.etapas : []
+
+  /** "Ver más" del catálogo sin búsqueda (#172): pide la página siguiente. */
+  async function verMasCatalogo() {
+    if (cargandoMasCatalogo) return
+    setCargandoMasCatalogo(true)
+    setErrorMasCatalogo(false)
+    try {
+      const pagina = await obtenerInsumosCatalogo(undefined, true, paginaCatalogo + 1)
+      setCatalogo((actuales) => sumarInsumos(actuales, pagina.items))
+      setTotalCatalogo(pagina.total)
+      setPaginaCatalogo((n) => n + 1)
+      setVistos((actuales) => sumarVistos(actuales, pagina.items))
+    } catch {
+      setErrorMasCatalogo(true)
+    } finally {
+      setCargandoMasCatalogo(false)
+    }
+  }
+
+  /** "Ver más" de los resultados de la búsqueda actual (#172). */
+  async function verMasResultados() {
+    const vigente = resultadoBusqueda
+    if (cargandoMasResultados || !vigente || vigente.termino !== termino) return
+    setCargandoMasResultados(true)
+    setErrorMasResultados(false)
+    try {
+      const pagina = await obtenerInsumosCatalogo(vigente.termino, true, vigente.pagina + 1)
+      // Si mientras tanto se buscó otra cosa, esta respuesta ya no corresponde.
+      setResultadoBusqueda((actual) =>
+        actual && actual.termino === vigente.termino
+          ? {
+              ...actual,
+              lista: sumarInsumos(actual.lista, pagina.items),
+              total: pagina.total,
+              pagina: actual.pagina + 1,
+            }
+          : actual,
+      )
+      setVistos((actuales) => sumarVistos(actuales, pagina.items))
+    } catch {
+      setErrorMasResultados(true)
+    } finally {
+      setCargandoMasResultados(false)
+    }
+  }
 
   function handleCambioObra(nuevaObraId: string) {
     setObraId(nuevaObraId)
@@ -546,6 +636,26 @@ export function NuevaRequisicionPage() {
                 </ul>
               </>
             )}
+            {termino === '' && (
+              <BotonVerMas
+                cargadas={catalogo.length}
+                total={totalCatalogo}
+                nombre="insumos"
+                cargando={cargandoMasCatalogo}
+                error={errorMasCatalogo}
+                onVerMas={() => void verMasCatalogo()}
+              />
+            )}
+            {resultadoVigente !== null && !resultadoVigente.fallo && (
+              <BotonVerMas
+                cargadas={resultadoVigente.lista.length}
+                total={resultadoVigente.total}
+                nombre="insumos"
+                cargando={cargandoMasResultados}
+                error={errorMasResultados}
+                onVerMas={() => void verMasResultados()}
+              />
+            )}
           </div>
 
           {errores.itemsGeneral && (
@@ -556,9 +666,7 @@ export function NuevaRequisicionPage() {
 
           {items.map((item, index) => {
             const errorItem = errores.items?.[index]
-            const insumoSeleccionado = catalogo.find(
-              (ins) => ins.articuloId === item.articuloId,
-            )
+            const insumoSeleccionado = vistos[item.articuloId]
             const unidadMedida = insumoSeleccionado
               ? etiquetaUnidad(insumoSeleccionado.unidadMedida)
               : '—'
