@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using ObraSync.Recepcion.Application;
 using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Infrastructure.Persistence;
@@ -22,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<IRecepcionDbContext>(provider => provider.GetRequiredService<RecepcionDbContext>());
         services.AddScoped<IOrdenCompraRepository, OrdenCompraRepository>();
         services.AddScoped<IRecepcionEventPublisher, Messaging.MassTransitRecepcionEventPublisher>();
+        services.AddApplicationServices();
 
         return services;
     }

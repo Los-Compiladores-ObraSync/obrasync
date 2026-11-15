@@ -1,12 +1,10 @@
-﻿namespace ObraSync.Recepcion.Api.DTOs;
+namespace ObraSync.Recepcion.Application.DTOs;
 
-public class CrearDetalleRecepcionRequest
+public class ItemOrdenPendienteDto
 {
     public Guid ArticuloId { get; set; }
     public string DescripcionArticulo { get; set; } = string.Empty;
     public decimal CantidadEsperada { get; set; }
     public decimal CantidadRecibida { get; set; }
     public string UnidadMedida { get; set; } = string.Empty;
-    public bool Conforme { get; set; }
-    public string? Observacion { get; set; }
 }

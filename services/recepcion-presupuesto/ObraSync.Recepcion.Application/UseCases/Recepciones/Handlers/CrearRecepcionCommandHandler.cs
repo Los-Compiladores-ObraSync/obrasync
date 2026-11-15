@@ -1,0 +1,234 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using ObraSync.Recepcion.Application.Common.Interfaces;
+using ObraSync.Recepcion.Application.DTOs;
+using ObraSync.Recepcion.Application.Exceptions;
+using ObraSync.Recepcion.Application.Interfaces;
+using ObraSync.Recepcion.Application.UseCases.Recepciones.Commands;
+using ObraSync.Recepcion.Domain.Enums;
+using DetalleRecepcionEntity = ObraSync.Recepcion.Domain.Entities.DetalleRecepcion;
+using RecepcionEntity = ObraSync.Recepcion.Domain.Entities.Recepcion;
+
+namespace ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
+
+public class CrearRecepcionCommandHandler
+{
+    private readonly IRecepcionDbContext _context;
+    private readonly IRecepcionEventPublisher _eventPublisher;
+    private readonly ILogger<CrearRecepcionCommandHandler> _logger;
+
+    public CrearRecepcionCommandHandler(
+        IRecepcionDbContext context,
+        IRecepcionEventPublisher eventPublisher,
+        ILogger<CrearRecepcionCommandHandler> logger)
+    {
+        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _eventPublisher = eventPublisher ?? throw new ArgumentNullException(nameof(eventPublisher));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    public async Task<RecepcionDto> Handle(
+        CrearRecepcionCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        if (command.UsuarioId == Guid.Empty)
+        {
+            throw new ArgumentException("El usuario que registra la recepción es obligatorio.");
+        }
+
+        if (command.ObraId == Guid.Empty ||
+            command.OrdenCompraId == Guid.Empty)
+        {
+            throw new ArgumentException("La obra y la orden de compra son obligatorias.");
+        }
+
+        if (string.IsNullOrWhiteSpace(command.NumeroRemito) ||
+            command.NumeroRemito.Length > 50)
+        {
+            throw new ArgumentException("El número de remito es obligatorio y no puede superar los 50 caracteres.");
+        }
+
+        if (command.FechaRecepcion == default)
+        {
+            throw new ArgumentException("La fecha de recepción es obligatoria.");
+        }
+
+        // Se permite un día de tolerancia por la diferencia horaria con UTC.
+        DateTime fechaMaximaPermitida = DateTime.UtcNow.Date.AddDays(1);
+
+        if (command.FechaRecepcion.Date > fechaMaximaPermitida)
+        {
+            throw new ArgumentException("La fecha de recepcion no puede ser futura.");
+        }
+
+        if (command.Observaciones?.Length > 500)
+        {
+            throw new ArgumentException("Las observaciones no pueden superar los 500 caracteres.");
+        }
+
+        if (command.Detalles == null || command.Detalles.Count == 0)
+        {
+            throw new ArgumentException("La recepción debe incluir al menos un material.");
+        }
+
+        var ordenCompra = await _context.OrdenesCompra
+            .Include(o => o.Items)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                o => o.Id == command.OrdenCompraId,
+                cancellationToken);
+
+        if (ordenCompra == null)
+        {
+            throw new ArgumentException("La orden de compra no existe.");
+        }
+
+        if (ordenCompra.ObraId != command.ObraId)
+        {
+            throw new ArgumentException("La orden de compra no pertenece a la obra indicada.");
+        }
+
+        bool yaRecibida = await _context.Recepciones
+            .AnyAsync(
+                r => r.OrdenCompraId == command.OrdenCompraId &&
+                     r.Estado == EstadoRecepcion.Completa,
+                cancellationToken);
+
+        if (yaRecibida)
+        {
+            throw new RecepcionConflictoException("La orden de compra ya fue recibida por completo.");
+        }
+
+        string numeroRemito = command.NumeroRemito.Trim();
+
+        bool remitoRepetido = await _context.Recepciones
+            .AnyAsync(
+                r => r.OrdenCompraId == command.OrdenCompraId &&
+                     r.NumeroRemito == numeroRemito,
+                cancellationToken);
+
+        if (remitoRepetido)
+        {
+            throw new RecepcionConflictoException("Ya existe una recepción con ese número de remito para esta orden de compra.");
+        }
+
+        if (command.Detalles.Count != ordenCompra.Items.Count)
+        {
+            throw new ArgumentException("La recepción debe incluir todos los materiales de la orden de compra.");
+        }
+
+        bool articulosRepetidos = command.Detalles
+            .GroupBy(d => d.ArticuloId)
+            .Any(grupo => grupo.Count() > 1);
+
+        if (articulosRepetidos)
+        {
+            throw new ArgumentException("No se puede incluir un mismo artículo más de una vez.");
+        }
+
+        var recepcion = new RecepcionEntity
+        {
+            Id = Guid.NewGuid(),
+            ObraId = command.ObraId,
+            OrdenCompraId = command.OrdenCompraId,
+            RecepcionadoPorUsuarioId = command.UsuarioId,
+            NumeroRemito = numeroRemito,
+            FechaRecepcion = command.FechaRecepcion,
+            Observaciones = command.Observaciones,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        foreach (var detalleRequest in command.Detalles)
+        {
+            var articuloComprado = ordenCompra.Items
+                .FirstOrDefault(i => i.ArticuloId == detalleRequest.ArticuloId);
+
+            if (articuloComprado == null)
+            {
+                throw new ArgumentException("Uno de los artículos no pertenece a la orden de compra.");
+            }
+
+            if (detalleRequest.CantidadEsperada != articuloComprado.Cantidad)
+            {
+                throw new ArgumentException("La cantidad esperada no coincide con la orden de compra.");
+            }
+
+            if (detalleRequest.CantidadRecibida != articuloComprado.Cantidad)
+            {
+                throw new ArgumentException("En este sprint solo se permiten recepciones totales. Las recepciones parciales se implementarán en la tarjeta #90.");
+            }
+
+            if (string.IsNullOrWhiteSpace(detalleRequest.DescripcionArticulo) ||
+                detalleRequest.DescripcionArticulo.Length > 250 ||
+                string.IsNullOrWhiteSpace(detalleRequest.UnidadMedida) ||
+                detalleRequest.UnidadMedida.Length > 20 ||
+                detalleRequest.Observacion?.Length > 500)
+            {
+                throw new ArgumentException("Los datos de uno de los materiales no son válidos.");
+            }
+
+            var detalle = new DetalleRecepcionEntity
+            {
+                Id = Guid.NewGuid(),
+                ArticuloId = detalleRequest.ArticuloId,
+                DescripcionArticulo = detalleRequest.DescripcionArticulo,
+                CantidadEsperada = articuloComprado.Cantidad,
+                CantidadRecibida = detalleRequest.CantidadRecibida,
+                UnidadMedida = detalleRequest.UnidadMedida,
+                Conforme = detalleRequest.Conforme,
+                Observacion = detalleRequest.Observacion,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            recepcion.Detalles.Add(detalle);
+        }
+
+        EstadoRecepcion estado = recepcion.CalcularEstadoSegunCantidades();
+        recepcion.CambiarEstado(estado);
+
+        _context.Recepciones.Add(recepcion);
+
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (EsViolacionDeIndiceUnico(ex))
+        {
+            throw new RecepcionConflictoException("La orden de compra ya fue recibida o el número de remito está repetido.");
+        }
+
+        var correlationId = command.CorrelationId != Guid.Empty
+            ? command.CorrelationId
+            : Guid.NewGuid();
+
+        try
+        {
+            await _eventPublisher.PublishRecepcionConfirmadaAsync(recepcion, correlationId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "No se pudo publicar RecepcionConfirmadaEvent. RecepcionId: {RecepcionId}, CorrelationId: {CorrelationId}. La recepción quedó guardada.",
+                recepcion.Id, correlationId);
+        }
+
+        return RecepcionDto.DesdeEntidad(recepcion);
+    }
+
+    private static bool EsViolacionDeIndiceUnico(DbUpdateException ex)
+    {
+        var inner = ex.InnerException;
+        if (inner == null)
+        {
+            return false;
+        }
+
+        if (inner.GetType().Name == "SqlException" &&
+            inner.GetType().GetProperty("Number")?.GetValue(inner) is int sqlNumber)
+        {
+            return sqlNumber == 2601 || sqlNumber == 2627;
+        }
+
+        return false;
+    }
+}
