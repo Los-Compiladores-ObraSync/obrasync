@@ -60,11 +60,13 @@ public class HerramientasCatalogoTests
     }
 
     [Fact]
-    public void La_unica_herramienta_expuesta_al_modelo_es_de_solo_lectura()
+    public void Las_herramientas_expuestas_al_modelo_son_solo_de_lectura_y_borrador()
     {
-        var definiciones = HerramientasCatalogo.Definiciones();
+        var nombres = HerramientasCatalogo.Definiciones()
+            .Select(d => d!["function"]!["name"]!.GetValue<string>())
+            .ToArray();
 
-        Assert.Single(definiciones);
-        Assert.Equal("buscar_insumos", definiciones[0]!["function"]!["name"]!.GetValue<string>());
+        // Ninguna escribe datos: armar_borrador_requisicion solo devuelve un borrador (ver #100).
+        Assert.Equal(new[] { "buscar_insumos", "armar_borrador_requisicion" }, nombres);
     }
 }
