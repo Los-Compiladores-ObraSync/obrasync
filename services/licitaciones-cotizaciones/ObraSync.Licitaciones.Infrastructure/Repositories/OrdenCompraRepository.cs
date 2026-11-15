@@ -17,4 +17,20 @@ public class OrdenCompraRepository : IOrdenCompraRepository
     {
         await _context.Set<OrdenCompra>().AddAsync(ordenCompra, cancellationToken);
     }
+
+    public async Task<IReadOnlyList<OrdenCompra>> GetByLicitacionIdsAsync(
+        IReadOnlyCollection<Guid> licitacionIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (licitacionIds.Count == 0)
+        {
+            return Array.Empty<OrdenCompra>();
+        }
+
+        var ids = licitacionIds.ToList();
+        return await _context.OrdenesCompra
+            .AsNoTracking()
+            .Where(oc => ids.Contains(oc.LicitacionId))
+            .ToListAsync(cancellationToken);
+    }
 }

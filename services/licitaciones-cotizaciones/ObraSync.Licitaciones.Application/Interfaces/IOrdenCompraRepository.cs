@@ -5,4 +5,8 @@ namespace ObraSync.Licitaciones.Application.Interfaces;
 public interface IOrdenCompraRepository
 {
     Task AddAsync(OrdenCompra ordenCompra, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<OrdenCompra>> GetByLicitacionIdsAsync(
+        IReadOnlyCollection<Guid> licitacionIds,
+        CancellationToken cancellationToken = default);
 }

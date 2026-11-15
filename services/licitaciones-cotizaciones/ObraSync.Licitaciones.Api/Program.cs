@@ -52,6 +52,7 @@ builder.Services.AddScoped<GetLicitacionesQueryHandler>();
 builder.Services.AddScoped<GetLicitacionByIdQueryHandler>();
 builder.Services.AddScoped<CrearCotizacionCommandHandler>();
 builder.Services.AddScoped<GetCotizacionesByLicitacionIdQueryHandler>();
+builder.Services.AddScoped<GetMisCotizacionesQueryHandler>();
 builder.Services.AddScoped<AdjudicarCotizacionCommandHandler>();
 
 // RabbitMQ + MassTransit (misma convención que Requisiciones)
