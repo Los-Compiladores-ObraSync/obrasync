@@ -19,8 +19,16 @@ public class GenerarMagicLinkCommandHandler : IRequestHandler<GenerarMagicLinkCo
         var hash = Convert.ToBase64String(Guid.NewGuid().ToByteArray())
             .Replace("/", "_").Replace("+", "-").TrimEnd('=');
 
-        // Crear la entidad con vencimiento a 1 hora (según requerimiento #86)
-        var magicLink = new MagicLink(hash, request.LicitacionId, request.ProveedorId, TimeSpan.FromHours(1));
+        // Crear la entidad usando inicializador de objetos
+        var magicLink = new MagicLink
+        {
+            Id = Guid.NewGuid(),
+            Hash = hash,
+            LicitacionId = request.LicitacionId,
+            ProveedorId = request.ProveedorId,
+            ExpiresAt = DateTime.UtcNow.AddHours(1),
+            IsUsed = false
+        };
 
         await _magicLinkRepository.AddAsync(magicLink, cancellationToken);
 
