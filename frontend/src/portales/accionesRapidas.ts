@@ -8,8 +8,18 @@ export interface AccionRapida {
   texto: string
   /** Ruta de la pantalla a la que lleva. */
   ruta: string
+  /** Se muestra como tarjeta grande y destacada arriba de los demás botones (hoy: el asistente de IA). */
+  destacada?: boolean
+  /** Frase corta opcional que acompaña a una acción destacada. */
+  descripcion?: string
 }
 
+// Chat con el asistente de IA (#138): arma la requisición por texto y el usuario la confirma.
+const ASISTENTE: AccionRapida = {
+  texto: 'Asistente',
+  ruta: '/obra/asistente',
+  destacada: true,
+}
 const NUEVA_REQUISICION: AccionRapida = {
   texto: 'Nueva requisición',
   ruta: '/obra/requisicion/nueva',
@@ -49,7 +59,7 @@ const LICITACIONES_Y_COTIZACIONES: AccionRapida = {
 // Quien aprueba requisiciones (Comprador y Admin) ve primero la tarjeta "Tenés N requisiciones para
 // aprobar" (ResumenAprobacion), así que acá van solo las opciones secundarias.
 const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
-  Capataz: [NUEVA_REQUISICION, RECIBIR_MERCADERIA, HISTORIAL_REQUISICIONES_OBRA],
+  Capataz: [ASISTENTE, NUEVA_REQUISICION, RECIBIR_MERCADERIA, HISTORIAL_REQUISICIONES_OBRA],
   Comprador: [
     HISTORIAL_REQUISICIONES_COMPRAS,
     NUEVA_OBRA,
@@ -57,6 +67,7 @@ const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
     LICITACIONES_Y_COTIZACIONES,
   ],
   Admin: [
+    ASISTENTE,
     NUEVA_REQUISICION,
     RECIBIR_MERCADERIA,
     HISTORIAL_REQUISICIONES_COMPRAS,

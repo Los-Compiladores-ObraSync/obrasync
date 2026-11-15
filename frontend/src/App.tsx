@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router'
+import { AsistenteChatPage } from './asistente/AsistenteChatPage'
 import { AuthProvider } from './auth/AuthContext'
 import { LayoutApp } from './layout/LayoutApp'
 import { AprobarRequisicionesPage } from './pages/AprobarRequisicionesPage'
@@ -53,6 +54,7 @@ function App() {
                 <Route index element={<ObraPage />} />
                 <Route path="requisicion/nueva" element={<NuevaRequisicionPage />} />
                 <Route path="recepcion" element={<RecepcionPage />} />
+                <Route path="asistente" element={<AsistenteChatPage />} />
                 <Route
                   path="requisiciones"
                   element={

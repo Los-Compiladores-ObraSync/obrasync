@@ -12,7 +12,10 @@ export function InicioPage() {
   const { usuario } = useAuth()
   const portales = usuario ? portalesParaRol(usuario.rol) : []
 
-  const acciones = usuario ? accionesParaRol(usuario.rol) : []
+  const todasLasAcciones = usuario ? accionesParaRol(usuario.rol) : []
+  // Las acciones destacadas (el asistente de IA) van en una tarjeta grande arriba de todo.
+  const destacadas = todasLasAcciones.filter((accion) => accion.destacada)
+  const acciones = todasLasAcciones.filter((accion) => !accion.destacada)
   // Quien aprueba requisiciones (Comprador, Admin) ve primero cuántas esperan; el resto de las
   // opciones pasan a ser botones secundarios.
   const apruebaRequisiciones = usuario ? ROLES_QUE_VEN_PENDIENTES.includes(usuario.rol) : false
@@ -28,6 +31,38 @@ export function InicioPage() {
           Tu rol todavía no tiene portales asignados. Consultá con un administrador.
         </p>
       )}
+      {destacadas.map((accion) => (
+        <Link
+          key={accion.ruta}
+          to={accion.ruta}
+          className={styles.destacada}
+          aria-label={accion.texto}
+          aria-describedby={accion.descripcion ? 'descripcion-accion-destacada' : undefined}
+        >
+          <span className={styles.destacadaIcono} aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor" focusable="false">
+              <path d="M9 3l1.8 4.7L15.5 9.5l-4.7 1.8L9 16l-1.8-4.7L2.5 9.5l4.7-1.8L9 3z" />
+              <path d="M18 12l1.1 2.9 2.9 1.1-2.9 1.1L18 20l-1.1-2.9-2.9-1.1 2.9-1.1L18 12z" />
+            </svg>
+          </span>
+          <span className={styles.destacadaTextos}>
+            <span className={styles.destacadaTitulo}>
+              {accion.texto}
+              <span className={styles.destacadaEtiqueta} aria-hidden="true">
+                IA
+              </span>
+            </span>
+            {accion.descripcion && (
+              <span id="descripcion-accion-destacada" className={styles.destacadaDescripcion}>
+                {accion.descripcion}
+              </span>
+            )}
+          </span>
+          <span className={styles.destacadaFlecha} aria-hidden="true">
+            ›
+          </span>
+        </Link>
+      ))}
       {apruebaRequisiciones && <ResumenAprobacion />}
       {cotiza && (
         <>

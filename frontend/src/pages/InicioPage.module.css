@@ -74,3 +74,76 @@
   margin: 0;
   font-size: 1.25rem;
 }
+
+/* Tarjeta destacada del asistente de IA: la función clave de la app, no se puede perder entre los demás botones.
+   Fondo azul de la marca, borde naranja y texto grande (se lee con sol y se toca con guantes). */
+.destacada {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 88px;
+  margin: 0.5rem 0 1rem;
+  padding: 1rem 1.25rem;
+  border: 3px solid var(--naranja);
+  border-radius: 16px;
+  background: var(--azul);
+  color: #ffffff;
+  text-decoration: none;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.35);
+}
+
+.destacada:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 3px;
+}
+
+.destacadaIcono {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: var(--naranja);
+  color: #ffffff;
+}
+
+.destacadaTextos {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.destacadaTitulo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.destacadaEtiqueta {
+  padding: 0.0625rem 0.5rem;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--azul);
+  font-size: 0.8125rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.destacadaDescripcion {
+  font-size: 1.0625rem;
+  line-height: 1.35;
+  color: #e2e8f0;
+}
+
+.destacadaFlecha {
+  flex: none;
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--naranja);
+}
