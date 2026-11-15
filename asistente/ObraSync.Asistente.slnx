@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="ObraSync.Asistente.Api/ObraSync.Asistente.Api.csproj" />
+  <Project Path="ObraSync.Asistente.Application/ObraSync.Asistente.Application.csproj" />
+  <Project Path="ObraSync.Asistente.Infrastructure/ObraSync.Asistente.Infrastructure.csproj" />
+  <Project Path="ObraSync.Asistente.Tests/ObraSync.Asistente.Tests.csproj" />
+</Solution>
