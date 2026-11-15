@@ -4,6 +4,7 @@ using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using ObraSync.Recepcion.Api.Conventions;
 using ObraSync.Recepcion.Infrastructure;
 using ObraSync.Recepcion.Infrastructure.Consumers;
 using ObraSync.Recepcion.Infrastructure.Persistence;
@@ -11,7 +12,11 @@ using ObraSync.Recepcion.Infrastructure.Persistence;
 var builder = WebApplication.CreateBuilder(args);
 
 // Servicios de controladores y Swagger (OpenAPI)
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    // #175: TestController solo se registra en Development y Testing
+    options.Conventions.Add(new SoloEntornoDesarrolloConvention(builder.Environment));
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -144,33 +149,36 @@ if (!app.Environment.IsEnvironment("Testing"))
         var logger = services.GetRequiredService<ILogger<Program>>();
         var context = services.GetRequiredService<RecepcionDbContext>();
 
-        const int maxIntentos = 10;
-        const int delaySegundos = 5;
-
-        for (int intento = 1; intento <= maxIntentos; intento++)
+        if (context.Database.IsRelational())
         {
-            try
-            {
-                logger.LogInformation("Intentando aplicar migraciones a la base de datos (intento {Intento}/{MaxIntentos})...", intento, maxIntentos);
-                await context.Database.MigrateAsync();
-                logger.LogInformation("Migraciones aplicadas exitosamente.");
-                break;
-            }
-            catch (Exception ex)
-            {
-                if (ex is not Microsoft.Data.SqlClient.SqlException)
-                {
-                    throw;
-                }
+            const int maxIntentos = 10;
+            const int delaySegundos = 5;
 
-                logger.LogWarning(ex, "Error al intentar aplicar migraciones en el intento {Intento}/{MaxIntentos}.", intento, maxIntentos);
-                if (intento == maxIntentos)
+            for (int intento = 1; intento <= maxIntentos; intento++)
+            {
+                try
                 {
-                    logger.LogCritical(ex, "Se agotaron los {MaxIntentos} intentos para aplicar las migraciones. El servicio fallará.", maxIntentos);
-                    throw;
+                    logger.LogInformation("Intentando aplicar migraciones a la base de datos (intento {Intento}/{MaxIntentos})...", intento, maxIntentos);
+                    await context.Database.MigrateAsync();
+                    logger.LogInformation("Migraciones aplicadas exitosamente.");
+                    break;
                 }
+                catch (Exception ex)
+                {
+                    if (ex is not Microsoft.Data.SqlClient.SqlException)
+                    {
+                        throw;
+                    }
 
-                await Task.Delay(TimeSpan.FromSeconds(delaySegundos));
+                    logger.LogWarning(ex, "Error al intentar aplicar migraciones en el intento {Intento}/{MaxIntentos}.", intento, maxIntentos);
+                    if (intento == maxIntentos)
+                    {
+                        logger.LogCritical(ex, "Se agotaron los {MaxIntentos} intentos para aplicar las migraciones. El servicio fallará.", maxIntentos);
+                        throw;
+                    }
+
+                    await Task.Delay(TimeSpan.FromSeconds(delaySegundos));
+                }
             }
         }
     }

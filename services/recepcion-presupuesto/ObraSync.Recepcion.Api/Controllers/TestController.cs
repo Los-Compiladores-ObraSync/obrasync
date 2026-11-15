@@ -1,12 +1,13 @@
 ﻿using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
 using ObraSync.Contracts.Events;
 
 namespace ObraSync.Recepcion.Api.Controllers;
 
 // Endpoint solo para pruebas internas (publica un evento de OC inventado). Antes estaba abierto a cualquiera;
-// ahora exige un JWT con rol Admin. Tarjeta #136.
+// ahora exige un JWT con rol Admin (tarjeta #136) y solo está activo en entornos Development y Testing (tarjeta #175).
 [ApiController]
 [Authorize(Roles = "Admin")]
 [Route("api/[controller]")]
@@ -14,16 +15,26 @@ public class TestController : ControllerBase
 {
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<TestController> _logger;
+    private readonly IHostEnvironment? _environment;
 
-    public TestController(IPublishEndpoint publishEndpoint, ILogger<TestController> logger)
+    public TestController(
+        IPublishEndpoint publishEndpoint,
+        ILogger<TestController> logger,
+        IHostEnvironment? environment = null)
     {
         _publishEndpoint = publishEndpoint;
         _logger = logger;
+        _environment = environment;
     }
 
     [HttpPost("publish-orden-compra")]
     public async Task<IActionResult> PublishOrdenCompra([FromBody] PublishOrdenCompraRequest request, CancellationToken cancellationToken)
     {
+        if (_environment != null && !_environment.IsDevelopment() && !_environment.IsEnvironment("Testing"))
+        {
+            return NotFound();
+        }
+
         if (request == null || request.Items == null || request.Items.Count == 0)
         {
             _logger.LogWarning("Solicitud de testing inválida: items vacíos");
