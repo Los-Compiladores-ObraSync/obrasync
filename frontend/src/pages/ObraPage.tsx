@@ -12,6 +12,11 @@ export function ObraPage() {
           </Link>
         </li>
         <li>
+          <Link to="/obra/asistente" className="accion-grande">
+            Asistente
+          </Link>
+        </li>
+        <li>
           <Link to="/obra/recepcion" className="accion-grande">
             Recibir mercadería
           </Link>

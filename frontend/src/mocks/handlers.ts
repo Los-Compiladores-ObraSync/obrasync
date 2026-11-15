@@ -765,6 +765,71 @@ export const handlers: RequestHandler[] = [
     )
   }),
 
+  // Contrato: POST /api/asistente/chat → 200 ChatResponseDto | 400 | 429 | 503 (asistente-openapi.json, #138)
+  // Asistente SIMULADO: no hay modelo de IA. Busca una cantidad y un material del catálogo en el mensaje;
+  // si encuentra los dos arma un BORRADOR de requisición (sin crear nada), si no pide el dato que falta.
+  // Los casos de 429, 503 y red caída se configuran en los tests con server.use().
+  http.post('*/api/asistente/chat', async ({ request }) => {
+    const body = (await request.json()) as { mensaje?: string }
+    const mensaje = (body.mensaje ?? '').trim()
+    if (!mensaje || mensaje.length > 500) {
+      return HttpResponse.json(
+        { title: 'Mensaje inválido', status: 400, detail: 'El mensaje debe tener entre 1 y 500 caracteres.' },
+        { status: 400 },
+      )
+    }
+
+    const texto = mensaje.toLowerCase()
+    const cantidadTexto = texto.match(/(\d+(?:[.,]\d+)?)/)?.[1]
+    const cantidad = cantidadTexto ? Number(cantidadTexto.replace(',', '.')) : 0
+    const insumo = [
+      { palabra: 'cemento', indice: 0 },
+      { palabra: 'arena', indice: 1 },
+      { palabra: 'cal', indice: 2 },
+    ]
+      .filter((m) => new RegExp(`\\b${m.palabra}\\b`).test(texto))
+      .map((m) => MOCK_CATALOGO[m.indice])[0]
+    const obra = obrasMock[0]
+
+    if (!insumo || cantidad <= 0 || !obra) {
+      const pideMateriales = texto.includes('pedir materiales') && !insumo && cantidad <= 0
+      return HttpResponse.json(
+        {
+          respuesta: pideMateriales
+            ? 'Dale. ¿Qué material necesitás y en qué cantidad?'
+            : 'Para armar la requisición necesito el material y la cantidad. Por ejemplo: "necesito 20 bolsas de cemento".',
+          borrador: null,
+          tokensUsados: 0,
+        },
+        { status: 200 },
+      )
+    }
+
+    const etapa = obra.etapas.find((e) => e.estado !== 'Completada')?.nombreEtapa ?? null
+    return HttpResponse.json(
+      {
+        respuesta: `Armé un borrador con ${cantidad} ${insumo.unidadMedida.toLowerCase()} de ${insumo.descripcion} para ${obra.nombre}. Revisalo y tocá Confirmar para crearlo.`,
+        borrador: {
+          accion: 'crearRequisicion',
+          titulo: 'Nueva requisición',
+          resumen: {
+            obra: obra.nombre,
+            etapa,
+            items: [{ descripcion: insumo.descripcion, cantidad, unidadMedida: insumo.unidadMedida }],
+          },
+          requisicion: {
+            obraId: obra.id,
+            etapa,
+            observaciones: 'Armada con el asistente',
+            items: [{ articuloId: insumo.articuloId, cantidad }],
+          },
+        },
+        tokensUsados: 0,
+      },
+      { status: 200 },
+    )
+  }),
+
   // Contrato: GET /api/requisiciones?estado=&obraId= → 200 RequisicionResponseDto[]
   http.get('*/api/requisiciones', ({ request }) => {
     const url = new URL(request.url)

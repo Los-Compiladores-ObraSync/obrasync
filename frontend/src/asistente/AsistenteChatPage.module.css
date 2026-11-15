@@ -1,0 +1,311 @@
+/* Chat del asistente (#138). Estilo de chat de IA: limpio y casi sin color. El asistente habla como
+   texto plano, el usuario en un globo gris suave, y lo único con color es el botón de enviar y el
+   Confirmar de la tarjeta. Mobile-first: botones grandes (se usa con guantes) y texto legible al sol. */
+
+.contenedor {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 44rem;
+  min-height: calc(100dvh - 9rem);
+  margin: 0 auto;
+}
+
+/* Una sola fila: flecha de volver (área de toque de 44 px) y el título. */
+.encabezado {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.volver {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-left: -0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--azul);
+  text-decoration: none;
+}
+
+.titulo {
+  margin: 0;
+  font-size: 1.375rem;
+}
+
+/* La conversación ocupa el espacio que sobra; la página es la que se desplaza. */
+.conversacion {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0.5rem 0 1rem;
+}
+
+/* ---- Pantalla de inicio (sin mensajes todavía) ---- */
+.inicio {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 0;
+  text-align: center;
+}
+
+.iconoGrande {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--naranja);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
+}
+
+.iconoGrande svg {
+  width: 28px;
+  height: 28px;
+}
+
+.pregunta {
+  margin: 0.5rem 0 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+/* Lo que sabe hacer el asistente: lista simple, sin colores de acento. */
+.capacidades {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 28rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+/* Cada capacidad es un botón: tocarla manda un mensaje al asistente. */
+.capacidad {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+  width: 100%;
+  height: auto;
+  padding: 0.75rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #ffffff;
+  color: inherit;
+  font-weight: 400;
+  text-align: left;
+  box-shadow: none;
+}
+
+.capacidad:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.capacidadTitulo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.pronto {
+  padding: 0.0625rem 0.5rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: var(--texto-suave);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.capacidadDescripcion {
+  color: var(--texto-suave);
+  font-size: 1rem;
+}
+
+/* ---- Mensajes ---- */
+.delUsuario {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 0.625rem 1rem;
+  border-radius: 20px;
+  background: #e2e8f0;
+}
+
+.delAsistente {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+}
+
+.marca {
+  display: inline-flex;
+  flex: none;
+  margin-top: 0.125rem;
+  color: var(--naranja);
+}
+
+.contenido {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+/* Los saltos de línea se respetan. El contenido es siempre texto, nunca HTML. */
+.texto {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.dato {
+  margin: 0;
+  font-weight: 700;
+}
+
+.items {
+  margin: 0.25rem 0 0;
+  padding-left: 1.25rem;
+}
+
+/* "Pensando": tres puntos que laten. */
+.puntos {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding-top: 0.5rem;
+}
+
+.puntos span {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--texto-suave);
+  animation: latido 1.2s infinite ease-in-out;
+}
+
+.puntos span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.puntos span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes latido {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .puntos span {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+.error {
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-weight: 700;
+}
+
+/* ---- Campo para escribir, pegado abajo ---- */
+.pie {
+  position: sticky;
+  bottom: 0;
+  padding: 0.5rem 0 0.75rem;
+  background: var(--fondo-app);
+}
+
+.compositor {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+}
+
+.compositor:focus-within {
+  border-color: var(--azul);
+}
+
+/* El campo es transparente: el borde y el fondo los pone el contenedor. */
+.caja {
+  flex: 1;
+  min-height: 2.5rem;
+  max-height: 9rem;
+  padding: 0.5rem 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  resize: none;
+  outline: none;
+}
+
+.enviar {
+  flex: none;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.enviar:disabled {
+  background: #cbd5e1;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.nota {
+  margin: 0.5rem 0 0;
+  text-align: center;
+  font-size: 0.9375rem;
+  color: var(--texto-suave);
+}
+
+/* Visible solo para lectores de pantalla. */
+.soloLectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -1,0 +1,341 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "ObraSync.Asistente.Api",
+    "version": "1.0",
+    "description": "Contrato del chat del asistente de IA (borrador v1, tarjetas #137, #138 y #140). Lo implementa el squad Frontend, Gateway y MCP dentro del proyecto del MCP (#98). Regla de oro: el asistente NUNCA escribe datos. Solo responde y, si corresponde, arma un BORRADOR. La escritura la hace el frontend llamando al endpoint existente (por ejemplo POST /api/requisiciones) con el JWT del usuario cuando éste toca Confirmar (#146)."
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/asistente/chat": {
+      "post": {
+        "tags": [
+          "Asistente"
+        ],
+        "summary": "Enviar un mensaje al asistente y recibir su respuesta (Roles: Capataz, Admin en la primera versión)",
+        "description": "Recibe el mensaje del usuario y el historial reciente. Devuelve la respuesta en texto y, opcionalmente, un borrador para que el usuario lo confirme. El servicio usa el JWT del usuario para llamar a las herramientas del backend, nunca una cuenta propia (#102). Un rol sin perfil recibe 403 y no se llama al modelo (#143). Los límites de uso (#144) responden 429 sin llamar al modelo.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (mensaje vacío o más largo que el máximo, historial demasiado largo)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (sin token o token vencido)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (el rol no tiene perfil de asistente)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (el asistente está ocupado por el tope de consumo o el límite por usuario; probar de nuevo en un rato)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable (el asistente está apagado o el modelo no responde)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Token JWT emitido por ObraSync.Usuarios.Api (HS256) con claims: sub, email, name, role."
+      }
+    },
+    "schemas": {
+      "ChatRequestDto": {
+        "type": "object",
+        "required": [
+          "mensaje"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "mensaje": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Lo que escribió el usuario (o la transcripción de la voz, #139). Máximo 500 caracteres."
+          },
+          "historial": {
+            "type": "array",
+            "maxItems": 10,
+            "nullable": true,
+            "description": "Los últimos mensajes de la conversación, del más viejo al más nuevo (máximo 10). El servidor no guarda conversaciones: el cliente las reenvía.",
+            "items": {
+              "$ref": "#/components/schemas/ChatMensajeDto"
+            }
+          }
+        }
+      },
+      "ChatMensajeDto": {
+        "type": "object",
+        "required": [
+          "rol",
+          "texto"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rol": {
+            "type": "string",
+            "enum": [
+              "usuario",
+              "asistente"
+            ],
+            "description": "Quién lo escribió."
+          },
+          "texto": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      },
+      "ChatResponseDto": {
+        "type": "object",
+        "required": [
+          "respuesta"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "respuesta": {
+            "type": "string",
+            "description": "Texto de la respuesta del asistente. El cliente lo muestra SIEMPRE como texto plano, nunca como HTML (#174)."
+          },
+          "borrador": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BorradorRequisicionDto"
+              }
+            ],
+            "description": "Presente solo cuando el asistente armó un borrador para confirmar. Su existencia NO significa que se haya creado nada."
+          },
+          "tokensUsados": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Tokens que gastó este pedido (#144). Informativo."
+          }
+        }
+      },
+      "BorradorRequisicionDto": {
+        "type": "object",
+        "required": [
+          "accion",
+          "titulo",
+          "resumen",
+          "requisicion"
+        ],
+        "additionalProperties": false,
+        "description": "Borrador de una requisición. Para crearla, el frontend envía 'requisicion' tal cual a POST /api/requisiciones (con Idempotency-Key) cuando el usuario toca Confirmar. El borrador NO se guarda en ninguna base.",
+        "properties": {
+          "accion": {
+            "type": "string",
+            "enum": [
+              "crearRequisicion"
+            ],
+            "description": "Qué escritura representa el borrador. Hoy solo existe esta; el campo permite sumar otras (aprobar, adjudicar, recibir) sin cambiar el contrato."
+          },
+          "titulo": {
+            "type": "string",
+            "description": "Título corto para la tarjeta de confirmación (por ejemplo, 'Nueva requisición')."
+          },
+          "resumen": {
+            "$ref": "#/components/schemas/ResumenBorradorDto"
+          },
+          "requisicion": {
+            "$ref": "#/components/schemas/CrearRequisicionRequestDto"
+          }
+        }
+      },
+      "ResumenBorradorDto": {
+        "type": "object",
+        "required": [
+          "obra",
+          "items"
+        ],
+        "additionalProperties": false,
+        "description": "Lo que se muestra en pantalla para que el usuario revise antes de confirmar. Los datos salen de las herramientas (catálogo y obras), nunca los inventa el modelo.",
+        "properties": {
+          "obra": {
+            "type": "string",
+            "description": "Nombre de la obra."
+          },
+          "etapa": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/ResumenItemDto"
+            }
+          }
+        }
+      },
+      "ResumenItemDto": {
+        "type": "object",
+        "required": [
+          "descripcion",
+          "cantidad",
+          "unidadMedida"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "descripcion": {
+            "type": "string"
+          },
+          "cantidad": {
+            "type": "number",
+            "format": "double"
+          },
+          "unidadMedida": {
+            "type": "string"
+          }
+        }
+      },
+      "CrearRequisicionRequestDto": {
+        "type": "object",
+        "required": [
+          "obraId",
+          "items"
+        ],
+        "additionalProperties": false,
+        "description": "Mismo esquema que CrearRequisicionRequestDto de contracts/openapi/requisiciones-catalogo-openapi.json. Si ese contrato cambia, cambia acá.",
+        "properties": {
+          "obraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "etapa": {
+            "type": "string",
+            "nullable": true
+          },
+          "observaciones": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/CrearRequisicionItemDto"
+            }
+          }
+        }
+      },
+      "CrearRequisicionItemDto": {
+        "type": "object",
+        "required": [
+          "articuloId",
+          "cantidad"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "articuloId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cantidad": {
+            "type": "number",
+            "format": "double",
+            "exclusiveMinimum": true,
+            "minimum": 0
+          }
+        }
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "additionalProperties": {},
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
+          },
+          "correlationId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Identificador de correlación propagado desde el API Gateway (X-Correlation-ID) para rastrear errores entre servicios."
+          }
+        }
+      }
+    }
+  }
+}

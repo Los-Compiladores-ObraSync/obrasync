@@ -1,0 +1,90 @@
+/* Tarjeta de confirmación del asistente (#146). Mobile-first: botones grandes (se usan con guantes)
+   y texto con buen contraste (se lee a pleno sol). Usa las variables de index.css. */
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.reforzada {
+  border-color: var(--accion);
+}
+
+.titulo {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.aviso {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: var(--accion-oscura);
+  font-weight: 700;
+}
+
+.resumen {
+  color: var(--texto);
+}
+
+.resumenGrande {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.error {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-weight: 700;
+}
+
+.botones {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.confirmar {
+  width: 100%;
+}
+
+/* Cancelar es un botón de texto: así el único botón con color es Confirmar. */
+.cancelar {
+  width: 100%;
+  background: transparent;
+  color: var(--texto-suave);
+  box-shadow: none;
+}
+
+.confirmar:disabled,
+.cancelar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.confirmar:focus-visible,
+.cancelar:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+@media (min-width: 40rem) {
+  .botones {
+    flex-direction: row-reverse;
+  }
+
+  .confirmar,
+  .cancelar {
+    width: auto;
+    flex: 1;
+  }
+}

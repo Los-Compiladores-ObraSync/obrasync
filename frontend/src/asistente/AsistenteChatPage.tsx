@@ -1,0 +1,318 @@
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link } from 'react-router'
+import { ApiError } from '../api/ApiError'
+import { crearRequisicion, generarIdempotencyKey } from '../requisiciones/requisicionesService'
+import { enviarMensajeAlAsistente } from './asistenteService'
+import {
+  MAX_CARACTERES_MENSAJE,
+  type BorradorRequisicionDto,
+  type ChatMensajeDto,
+} from './asistenteTipos'
+import styles from './AsistenteChatPage.module.css'
+import { ConfirmacionAccion } from './ConfirmacionAccion'
+
+type EstadoBorrador = 'pendiente' | 'confirmada' | 'cancelada'
+
+interface MensajeChat {
+  id: number
+  rol: 'usuario' | 'asistente'
+  texto: string
+  /** Mensaje armado por la propia pantalla (no lo dijo el modelo): no se reenvía como historial. */
+  local?: boolean
+  borrador?: BorradorRequisicionDto
+  /** Una sola clave por borrador: si el usuario confirma dos veces, el servidor no duplica la requisición. */
+  claveIdempotencia?: string
+  estado?: EstadoBorrador
+}
+
+/** Lo que el asistente sabe hacer, para que el Capataz lo descubra. Lo que todavía no anda se muestra con la
+ *  etiqueta "Próximamente": cuando se sume una función, se cambia su `disponible` a true (la consulta de
+ *  requisiciones y la recepción por chat son la tarjeta #147). */
+const CAPACIDADES = [
+  {
+    titulo: 'Pedir materiales',
+    descripcion: 'Contame qué necesitás y armo la requisición. Vos la revisás y la confirmás.',
+    mensaje: 'Quiero pedir materiales',
+    disponible: true,
+  },
+  {
+    titulo: 'Ver tus requisiciones',
+    descripcion: 'Preguntame en qué quedó una requisición tuya.',
+    mensaje: 'Quiero ver mis requisiciones',
+    disponible: false, // #147
+  },
+  {
+    titulo: 'Registrar lo que llegó',
+    descripcion: 'Te armo la recepción de la mercadería para que la confirmes.',
+    mensaje: 'Quiero registrar lo que llegó',
+    disponible: false, // #147
+  },
+]
+
+/** A partir de cuántos caracteres se muestra el contador (antes sería ruido). */
+const CARACTERES_PARA_MOSTRAR_CONTADOR = 400
+
+function mensajeDeErrorDelAsistente(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 400) {
+      return err.detail ?? 'No pude entender el mensaje. Probá escribirlo de nuevo.'
+    }
+    if (err.status === 403) {
+      return 'Tu usuario no puede usar el asistente.'
+    }
+    if (err.status === 429) {
+      return 'El asistente está ocupado. Probá de nuevo en un minuto.'
+    }
+    if (err.status === 503) {
+      return 'El asistente no está disponible ahora. Podés cargar la requisición con el formulario.'
+    }
+  }
+  return 'No se pudo conectar con el asistente. Probá de nuevo o usá el formulario.'
+}
+
+function formatoCantidad(cantidad: number): string {
+  return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 4 }).format(cantidad)
+}
+
+function IconoDestello() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" focusable="false" aria-hidden="true">
+      <path d="M9 3l1.8 4.7L15.5 9.5l-4.7 1.8L9 16l-1.8-4.7L2.5 9.5l4.7-1.8L9 3z" />
+      <path d="M18 12l1.1 2.9 2.9 1.1-2.9 1.1L18 20l-1.1-2.9-2.9-1.1 2.9-1.1L18 12z" />
+    </svg>
+  )
+}
+
+/** Chat del asistente en el portal del Capataz (tarjeta #138).
+ *  - Todo texto (del usuario o del asistente) se muestra como TEXTO, nunca como HTML (#174).
+ *  - El asistente nunca crea nada: arma un borrador y solo el botón Confirmar (#146) llama al
+ *    endpoint de requisiciones con el JWT del usuario. */
+export function AsistenteChatPage() {
+  const [mensajes, setMensajes] = useState<MensajeChat[]>([])
+  const [texto, setTexto] = useState('')
+  const [pensando, setPensando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const siguienteId = useRef(0)
+  const finDeLista = useRef<HTMLDivElement>(null)
+  const caja = useRef<HTMLTextAreaElement>(null)
+  // Evita que dos envíos seguidos salgan antes del siguiente render.
+  const enviandoRef = useRef(false)
+
+  useEffect(() => {
+    finDeLista.current?.scrollIntoView?.({ block: 'end' })
+  }, [mensajes, pensando])
+
+  // La caja de texto crece con lo que se escribe (hasta un máximo que fija el CSS).
+  useEffect(() => {
+    const elemento = caja.current
+    if (elemento && elemento.scrollHeight > 0) {
+      elemento.style.height = 'auto'
+      elemento.style.height = `${elemento.scrollHeight}px`
+    }
+  }, [texto])
+
+  function actualizarMensaje(id: number, cambios: Partial<MensajeChat>) {
+    setMensajes((actuales) => actuales.map((m) => (m.id === id ? { ...m, ...cambios } : m)))
+  }
+
+  function agregarMensaje(mensaje: Omit<MensajeChat, 'id'>): number {
+    const id = siguienteId.current++
+    setMensajes((actuales) => [...actuales, { ...mensaje, id }])
+    return id
+  }
+
+  function enviar(evento: FormEvent) {
+    evento.preventDefault()
+    void enviarTexto(texto)
+  }
+
+  async function enviarTexto(textoAEnviar: string) {
+    const mensaje = textoAEnviar.trim()
+    if (!mensaje || enviandoRef.current) {
+      return
+    }
+    enviandoRef.current = true
+    const historial: ChatMensajeDto[] = mensajes
+      .filter((m) => !m.local)
+      .map((m) => ({ rol: m.rol, texto: m.texto }))
+
+    setError(null)
+    setTexto('')
+    agregarMensaje({ rol: 'usuario', texto: mensaje })
+    setPensando(true)
+    try {
+      const respuesta = await enviarMensajeAlAsistente(mensaje, historial)
+      agregarMensaje({
+        rol: 'asistente',
+        texto: respuesta.respuesta,
+        borrador: respuesta.borrador ?? undefined,
+        claveIdempotencia: respuesta.borrador ? generarIdempotencyKey() : undefined,
+        estado: respuesta.borrador ? 'pendiente' : undefined,
+      })
+    } catch (err) {
+      setError(mensajeDeErrorDelAsistente(err))
+    } finally {
+      setPensando(false)
+      enviandoRef.current = false
+    }
+  }
+
+  async function confirmarBorrador(mensaje: MensajeChat) {
+    if (!mensaje.borrador) {
+      return
+    }
+    // Si falla, el error lo muestra la tarjeta y el borrador sigue pendiente para reintentar.
+    const creada = await crearRequisicion(mensaje.borrador.requisicion, mensaje.claveIdempotencia)
+    actualizarMensaje(mensaje.id, { estado: 'confirmada' })
+    agregarMensaje({
+      rol: 'asistente',
+      texto: `Listo, creé la requisición ${creada.numeroRequisicion}. Quedó pendiente de aprobación de Compras.`,
+      local: true,
+    })
+  }
+
+  function cancelarBorrador(mensaje: MensajeChat) {
+    actualizarMensaje(mensaje.id, { estado: 'cancelada' })
+    agregarMensaje({
+      rol: 'asistente',
+      texto: 'Listo, descarté el borrador. No se creó nada.',
+      local: true,
+    })
+  }
+
+  const vacio = texto.trim().length === 0
+  const conversacionNueva = mensajes.length === 0
+
+  return (
+    <section className={styles.contenedor}>
+      <header className={styles.encabezado}>
+        <Link to="/" className={styles.volver} aria-label="Volver al inicio">
+          <span aria-hidden="true">←</span>
+        </Link>
+        <h1 className={styles.titulo}>Asistente</h1>
+      </header>
+
+      <div className={styles.conversacion} role="log" aria-live="polite" aria-label="Conversación">
+        {conversacionNueva && (
+          <div className={styles.inicio}>
+            <span className={styles.iconoGrande} aria-hidden="true">
+              <IconoDestello />
+            </span>
+            <p className={styles.pregunta}>¿En qué te ayudo?</p>
+            <ul className={styles.capacidades} aria-label="Lo que puedo hacer">
+              {CAPACIDADES.map((capacidad) => (
+                <li key={capacidad.titulo}>
+                  {/* Tocar una capacidad manda ese mensaje: el asistente responde con lo que necesita. */}
+                  <button
+                    type="button"
+                    className={styles.capacidad}
+                    disabled={!capacidad.disponible || pensando}
+                    onClick={() => void enviarTexto(capacidad.mensaje)}
+                  >
+                    <span className={styles.capacidadTitulo}>
+                      {capacidad.titulo}
+                      {!capacidad.disponible && <span className={styles.pronto}>Próximamente</span>}
+                    </span>
+                    <span className={styles.capacidadDescripcion}>{capacidad.descripcion}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {mensajes.map((mensaje) =>
+          mensaje.rol === 'usuario' ? (
+            <div key={mensaje.id} className={styles.delUsuario}>
+              <p className={styles.texto}>{mensaje.texto}</p>
+            </div>
+          ) : (
+            <div key={mensaje.id} className={styles.delAsistente}>
+              <span className={styles.marca} aria-hidden="true">
+                <IconoDestello />
+              </span>
+              <div className={styles.contenido}>
+                <p className={styles.texto}>{mensaje.texto}</p>
+                {mensaje.borrador && mensaje.estado === 'pendiente' && (
+                  <ConfirmacionAccion
+                    titulo={mensaje.borrador.titulo}
+                    onConfirmar={() => confirmarBorrador(mensaje)}
+                    onCancelar={() => cancelarBorrador(mensaje)}
+                  >
+                    <p className={styles.dato}>Obra: {mensaje.borrador.resumen.obra}</p>
+                    {mensaje.borrador.resumen.etapa && (
+                      <p className={styles.dato}>Etapa: {mensaje.borrador.resumen.etapa}</p>
+                    )}
+                    <ul className={styles.items}>
+                      {mensaje.borrador.resumen.items.map((item) => (
+                        <li key={`${item.descripcion}-${item.cantidad}`}>
+                          {formatoCantidad(item.cantidad)} {item.unidadMedida.toLowerCase()} ·{' '}
+                          {item.descripcion}
+                        </li>
+                      ))}
+                    </ul>
+                  </ConfirmacionAccion>
+                )}
+              </div>
+            </div>
+          ),
+        )}
+
+        {pensando && (
+          <div className={styles.delAsistente} role="status">
+            <span className={styles.marca} aria-hidden="true">
+              <IconoDestello />
+            </span>
+            <span className={styles.puntos} aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+            <span className={styles.soloLectores}>El asistente está pensando…</span>
+          </div>
+        )}
+
+        {error && (
+          <p role="alert" className={styles.error}>
+            {error}
+          </p>
+        )}
+        <div ref={finDeLista} />
+      </div>
+
+      <div className={styles.pie}>
+        <form className={styles.compositor} onSubmit={enviar}>
+          {/* La etiqueta se lee con lector de pantalla, pero no ocupa lugar: el placeholder ya dice qué escribir. */}
+          <label htmlFor="mensaje-asistente" className={styles.soloLectores}>
+            Escribí tu mensaje
+          </label>
+          <textarea
+            id="mensaje-asistente"
+            ref={caja}
+            className={styles.caja}
+            rows={1}
+            maxLength={MAX_CARACTERES_MENSAJE}
+            placeholder="Escribí lo que necesitás…"
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            disabled={pensando}
+          />
+          <button type="submit" className={styles.enviar} aria-label="Enviar" disabled={vacio || pensando}>
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+              <path d="M12 19V5" />
+              <path d="M5 12l7-7 7 7" />
+            </svg>
+          </button>
+        </form>
+        <p className={styles.nota}>
+          {texto.length >= CARACTERES_PARA_MOSTRAR_CONTADOR && (
+            <span aria-hidden="true">
+              {texto.length}/{MAX_CARACTERES_MENSAJE} ·{' '}
+            </span>
+          )}
+          <Link to="/obra/requisicion/nueva">Cargar una requisición a mano</Link>
+        </p>
+      </div>
+    </section>
+  )
+}

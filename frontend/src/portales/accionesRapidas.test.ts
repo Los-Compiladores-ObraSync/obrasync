@@ -10,8 +10,9 @@ function portalDeRuta(ruta: string): PortalId {
 }
 
 describe('accionesParaRol', () => {
-  it('el Capataz crea requisiciones, recibe mercadería y ve su historial', () => {
+  it('el Capataz usa el asistente, crea requisiciones, recibe mercadería y ve su historial', () => {
     expect(accionesParaRol('Capataz').map((a) => a.texto)).toEqual([
+      'Asistente',
       'Nueva requisición',
       'Recibir mercadería',
       'Historial de requisiciones',
@@ -29,6 +30,7 @@ describe('accionesParaRol', () => {
 
   it('el Admin ve todo lo que hacen los otros roles, incluidas las licitaciones abiertas', () => {
     expect(accionesParaRol('Admin').map((a) => a.texto)).toEqual([
+      'Asistente',
       'Nueva requisición',
       'Recibir mercadería',
       'Historial de requisiciones',
@@ -37,6 +39,14 @@ describe('accionesParaRol', () => {
       'Licitaciones y cotizaciones',
       'Licitaciones abiertas',
     ])
+  })
+
+  it('el asistente es la única acción destacada', () => {
+    for (const rol of ['Capataz', 'Admin']) {
+      const destacadas = accionesParaRol(rol).filter((a) => a.destacada)
+      expect(destacadas.map((a) => a.texto)).toEqual(['Asistente'])
+    }
+    expect(accionesParaRol('Comprador').some((a) => a.destacada)).toBe(false)
   })
 
   it('el Proveedor no tiene botones (su Inicio es la lista de licitaciones) y un rol desconocido tampoco', () => {
