@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
+import { BotonVerMas } from '../componentes/BotonVerMas'
 import {
   aprobarRequisicion,
   listarRequisiciones,
@@ -41,6 +42,12 @@ export function AprobarRequisicionesPage() {
   const [nombresObras, setNombresObras] = useState<Record<string, string>>({})
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
+
+  // Paginación (#172): el servicio entrega de a 50; "Ver más" pide la página siguiente.
+  const [total, setTotal] = useState<number | undefined>(undefined)
+  const [paginaCargada, setPaginaCargada] = useState(1)
+  const [cargandoMas, setCargandoMas] = useState(false)
+  const [errorMas, setErrorMas] = useState(false)
   const [operacionEnVuelo, setOperacionEnVuelo] = useState<{
     tipo: 'aprobar' | 'rechazar'
     id: string
@@ -68,13 +75,15 @@ export function AprobarRequisicionesPage() {
 
     async function cargar() {
       try {
-        const [lista, obras] = await Promise.all([
+        const [pagina, obras] = await Promise.all([
           listarRequisiciones({ estado: 'Pendiente' }),
           // Si falla la lista de obras no es grave: se muestra el identificador.
           obtenerObras().catch(() => []),
         ])
         if (cancelado) return
-        setPendientes(lista)
+        setPendientes(pagina.items)
+        setTotal(pagina.total)
+        setPaginaCargada(1)
         setNombresObras(Object.fromEntries(obras.map((o) => [o.id, o.nombre])))
       } catch {
         if (!cancelado) {
@@ -97,6 +106,26 @@ export function AprobarRequisicionesPage() {
     setIntento((n) => n + 1)
   }
 
+  async function verMas() {
+    if (cargandoMas) return
+    setCargandoMas(true)
+    setErrorMas(false)
+    try {
+      const pagina = await listarRequisiciones({ estado: 'Pendiente' }, paginaCargada + 1)
+      // Las aprobadas o rechazadas desde acá corren la lista: una fila puede repetirse y se descarta.
+      setPendientes((actuales) => {
+        const ids = new Set(actuales.map((r) => r.requisicionId))
+        return [...actuales, ...pagina.items.filter((r) => !ids.has(r.requisicionId))]
+      })
+      setTotal(pagina.total)
+      setPaginaCargada((n) => n + 1)
+    } catch {
+      setErrorMas(true)
+    } finally {
+      setCargandoMas(false)
+    }
+  }
+
   async function aprobar(req: RequisicionResponseDto) {
     if (peticionEnVueloRef.current) return
     peticionEnVueloRef.current = true
@@ -106,6 +135,7 @@ export function AprobarRequisicionesPage() {
     try {
       const resultado = await aprobarRequisicion(req.requisicionId)
       setPendientes((actuales) => actuales.filter((r) => r.requisicionId !== req.requisicionId))
+      setTotal((t) => (t === undefined ? t : Math.max(0, t - 1)))
       setMensajeEstado(`La requisición ${resultado.numeroRequisicion} fue aprobada.`)
       // La campana del encabezado tiene que bajar el número enseguida.
       refrescarCampana()
@@ -147,6 +177,7 @@ export function AprobarRequisicionesPage() {
     try {
       const resultado = await rechazarRequisicion(req.requisicionId, motivoLimpio)
       setPendientes((actuales) => actuales.filter((r) => r.requisicionId !== req.requisicionId))
+      setTotal((t) => (t === undefined ? t : Math.max(0, t - 1)))
       setMensajeEstado(`La requisición ${resultado.numeroRequisicion} fue rechazada.`)
       refrescarCampana()
       setRechazandoId(null)
@@ -312,6 +343,16 @@ export function AprobarRequisicionesPage() {
             </li>
           ))}
         </ul>
+      )}
+
+      {!cargando && !errorCarga && (
+        <BotonVerMas
+          cargadas={pendientes.length}
+          total={total}
+          cargando={cargandoMas}
+          error={errorMas}
+          onVerMas={() => void verMas()}
+        />
       )}
     </section>
   )

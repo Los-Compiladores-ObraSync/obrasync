@@ -1,4 +1,5 @@
-import { apiFetch } from '../api/client'
+import { apiFetch, apiFetchPagina } from '../api/client'
+import { conPaginacion, traerTodas, type PaginaDe } from '../api/paginacion'
 import type {
   InsumoCatalogo,
   CrearRequisicionRequestDto,
@@ -7,13 +8,14 @@ import type {
 } from './requisicionesTipos'
 
 /**
- * Obtiene los insumos disponibles en el catálogo de materiales.
- * Fuente: GET /api/catalogo/insumos
+ * Obtiene UNA página de los insumos del catálogo de materiales (#172).
+ * Fuente: GET /api/catalogo/insumos?search=&soloActivos=&pagina=&tamano=
  */
 export function obtenerInsumosCatalogo(
   search?: string,
   soloActivos = true,
-): Promise<InsumoCatalogo[]> {
+  pagina = 1,
+): Promise<PaginaDe<InsumoCatalogo>> {
   const params = new URLSearchParams()
   if (search) {
     params.set('search', search)
@@ -22,15 +24,18 @@ export function obtenerInsumosCatalogo(
     params.set('soloActivos', 'false')
   }
   const query = params.toString() ? `?${params.toString()}` : ''
-  return apiFetch<InsumoCatalogo[]>(`/api/catalogo/insumos${query}`)
+  return apiFetchPagina<InsumoCatalogo>(conPaginacion(`/api/catalogo/insumos${query}`, pagina))
 }
 
 /**
  * Lista las obras disponibles con sus etapas.
  * Fuente: GET /api/obras (autorizado para Capataz, Comprador, Admin)
+ *
+ * Trae TODAS las páginas (#172): las pantallas usan esta lista para mostrar nombres y para los
+ * selectores de obra, y una obra que faltara quedaría sin nombre o sin poder elegirse.
  */
 export function obtenerObras(): Promise<ObraResumen[]> {
-  return apiFetch<ObraResumen[]>('/api/obras')
+  return traerTodas((pagina) => apiFetchPagina<ObraResumen>(conPaginacion('/api/obras', pagina)))
 }
 
 export function generarIdempotencyKey(): string {
@@ -57,17 +62,18 @@ export function crearRequisicion(
   })
 }
 /**
- * Lista requisiciones, opcionalmente filtradas por estado y/u obra.
+ * Lista UNA página de requisiciones, opcionalmente filtradas por estado y/u obra (#172).
  * Fuente: GET /api/requisiciones (Capataz, Comprador, Admin)
  */
 export function listarRequisiciones(
   filtros: { estado?: string; obraId?: string } = {},
-): Promise<RequisicionResponseDto[]> {
+  pagina = 1,
+): Promise<PaginaDe<RequisicionResponseDto>> {
   const params = new URLSearchParams()
   if (filtros.estado) params.set('estado', filtros.estado)
   if (filtros.obraId) params.set('obraId', filtros.obraId)
   const query = params.toString() ? `?${params.toString()}` : ''
-  return apiFetch<RequisicionResponseDto[]>(`/api/requisiciones${query}`)
+  return apiFetchPagina<RequisicionResponseDto>(conPaginacion(`/api/requisiciones${query}`, pagina))
 }
 
 /**

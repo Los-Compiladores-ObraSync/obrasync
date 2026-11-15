@@ -302,3 +302,65 @@ describe('AprobarRequisicionesPage', () => {
     expect(await screen.findByRole('button', { name: 'Notificaciones: 1 sin leer' })).toBeInTheDocument()
   })
 })
+
+describe('AprobarRequisicionesPage - paginación (#172)', () => {
+  beforeEach(() => {
+    reiniciarRequisicionesMock()
+  })
+
+  function pendiente(n: number) {
+    return {
+      requisicionId: `d1d2d3d4-0000-0000-0000-0000000002${n}`,
+      numeroRequisicion: `REQ-2026-02${n}`,
+      obraId: 'b1b2c3d4-0000-0000-0000-0000000000a1',
+      etapa: 'Estructura',
+      solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000001',
+      estado: 'Pendiente',
+      observaciones: null,
+      fechaCreacion: '2026-10-19T12:00:00Z',
+      items: [],
+    }
+  }
+
+  function tresPendientesDeADos() {
+    server.use(
+      http.get('*/api/requisiciones', ({ request }) => {
+        const pagina = Number(new URL(request.url).searchParams.get('pagina') ?? '1')
+        const filas = pagina === 1 ? [pendiente(11), pendiente(12)] : [pendiente(13)]
+        return HttpResponse.json(filas, { headers: { 'X-Total-Count': '3' } })
+      }),
+    )
+  }
+
+  it('si hay más pendientes que las cargadas, "Ver más" trae las que faltan', async () => {
+    tresPendientesDeADos()
+    const user = userEvent.setup()
+    renderPagina()
+
+    expect(await screen.findByText('REQ-2026-0211')).toBeInTheDocument()
+    expect(screen.queryByText('REQ-2026-0213')).not.toBeInTheDocument()
+    expect(screen.getByText('Mostrando 2 de 3.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Ver más' }))
+
+    expect(await screen.findByText('REQ-2026-0213')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ver más' })).not.toBeInTheDocument()
+  })
+
+  it('al aprobar una, el total baja y "Ver más" sigue trayendo lo que falta', async () => {
+    tresPendientesDeADos()
+    server.use(
+      http.post('*/api/requisiciones/:id/aprobar', ({ params }) =>
+        HttpResponse.json({ ...pendiente(11), requisicionId: params.id, estado: 'Aprobada' }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderPagina()
+    await screen.findByText('REQ-2026-0211')
+
+    await user.click(screen.getByRole('button', { name: 'Aprobar REQ-2026-0211' }))
+    await screen.findByText('Mostrando 1 de 2.')
+
+    expect(screen.queryByText('REQ-2026-0211')).not.toBeInTheDocument()
+  })
+})

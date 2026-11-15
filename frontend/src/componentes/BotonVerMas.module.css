@@ -1,0 +1,28 @@
+.contenedor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.resumen {
+  margin: 0;
+}
+
+.error {
+  margin: 0;
+  color: #b3261e;
+  font-weight: 600;
+}
+
+.boton {
+  min-height: 48px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.boton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

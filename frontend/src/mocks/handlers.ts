@@ -387,6 +387,41 @@ export function reiniciarLicitacionesMock() {
   cotizacionesMock = crearCotizacionesMock()
 }
 
+// Paginación de los listados (#172). Imita a los servicios: ?pagina=&tamano= opcionales
+// (por defecto 1 y 50, máximo 50), 400 si están fuera de rango y el total en X-Total-Count.
+const TAMANO_MAXIMO_MOCK = 50
+
+function responderPaginado<T>(request: Request, lista: T[]) {
+  const url = new URL(request.url)
+  const pagina = Number(url.searchParams.get('pagina') ?? '1')
+  const tamano = Number(url.searchParams.get('tamano') ?? String(TAMANO_MAXIMO_MOCK))
+  const valido =
+    Number.isInteger(pagina) &&
+    pagina >= 1 &&
+    Number.isInteger(tamano) &&
+    tamano >= 1 &&
+    tamano <= TAMANO_MAXIMO_MOCK
+  if (!valido) {
+    return HttpResponse.json(
+      {
+        title: 'Paginación inválida',
+        status: 400,
+        detail: `La página debe ser 1 o mayor y el tamaño debe estar entre 1 y ${TAMANO_MAXIMO_MOCK}.`,
+      },
+      { status: 400 },
+    )
+  }
+  const desde = (pagina - 1) * tamano
+  return HttpResponse.json(lista.slice(desde, desde + tamano), {
+    status: 200,
+    headers: {
+      'X-Total-Count': String(lista.length),
+      'X-Page': String(pagina),
+      'X-Page-Size': String(tamano),
+    },
+  })
+}
+
 export const handlers: RequestHandler[] = [
   // Contrato: POST /api/usuarios/login → 200 AuthResponseDto | 401 ProblemDetails
   // Se usa '*/api/usuarios/login' para interceptar la ruta tanto relativa (en browser con proxy)
@@ -615,7 +650,7 @@ export const handlers: RequestHandler[] = [
   }),
 
   // Contrato: GET /api/plantillas-obra → 200 PlantillaObraResponseDto[] (Admin, Comprador, Capataz)
-  http.get('*/api/plantillas-obra', () => HttpResponse.json(PLANTILLAS_MOCK, { status: 200 })),
+  http.get('*/api/plantillas-obra', ({ request }) => responderPaginado(request, PLANTILLAS_MOCK)),
 
   // Contrato: GET /api/plantillas-obra/{id} → 200 PlantillaObraResponseDto | 404
   http.get('*/api/plantillas-obra/:id', ({ params }) => {
@@ -630,13 +665,13 @@ export const handlers: RequestHandler[] = [
   }),
 
   // Contrato: GET /api/usuarios/capataces → 200 [{ id, nombreCompleto }]
-  http.get('*/api/usuarios/capataces', () => {
-    return HttpResponse.json(
+  http.get('*/api/usuarios/capataces', ({ request }) => {
+    return responderPaginado(
+      request,
       USUARIOS_MOCK.filter((u) => u.rol === 'Capataz').map((u) => ({
         id: u.id,
         nombreCompleto: u.nombreCompleto,
       })),
-      { status: 200 },
     )
   }),
 
@@ -695,12 +730,12 @@ export const handlers: RequestHandler[] = [
           i.descripcion.toLowerCase().includes(search),
       )
     }
-    return HttpResponse.json(resultado, { status: 200 })
+    return responderPaginado(request, resultado)
   }),
 
   // Contrato: GET /api/obras → 200 Obra[] (Admin, Comprador, Capataz)
-  http.get('*/api/obras', () => {
-    return HttpResponse.json(obrasMock, { status: 200 })
+  http.get('*/api/obras', ({ request }) => {
+    return responderPaginado(request, obrasMock)
   }),
 
   // Contrato: POST /api/requisiciones → 201 RequisicionResponseDto | 400 ProblemDetails
@@ -841,7 +876,7 @@ export const handlers: RequestHandler[] = [
         (!estado || r.estado.toLowerCase() === estado.toLowerCase()) &&
         (!obraId || r.obraId === obraId),
     )
-    return HttpResponse.json(lista, { status: 200 })
+    return responderPaginado(request, lista)
   }),
 
   // Contrato: GET /api/requisiciones/{id} → 200 RequisicionResponseDto | 404 ProblemDetails
@@ -918,7 +953,7 @@ export const handlers: RequestHandler[] = [
   http.get('*/api/recepciones/ordenes-pendientes', ({ request }) => {
     const obraId = new URL(request.url).searchParams.get('obraId')
     const lista = ordenesPendientesMock.filter((o) => !obraId || o.obraId === obraId)
-    return HttpResponse.json(lista, { status: 200 })
+    return responderPaginado(request, lista)
   }),
 
   // Contrato: POST /api/recepciones → 201 RecepcionDto | 400 | 409 ProblemDetails
@@ -975,7 +1010,7 @@ export const handlers: RequestHandler[] = [
   // Al Proveedor el backend ya le devuelve únicamente las abiertas.
   // yaCotizada: el backend real solo lo completa para el Proveedor (con el 'sub' de su token). El mock
   // no lee el token, así que lo calcula siempre para el proveedor de prueba.
-  http.get('*/api/licitaciones', () => {
+  http.get('*/api/licitaciones', ({ request }) => {
     const proveedorId = USUARIOS_MOCK.find((u) => u.rol === 'Proveedor')?.id
     const abiertas = licitacionesMock
       .filter((l) => l.estado === 'Abierta')
@@ -985,7 +1020,7 @@ export const handlers: RequestHandler[] = [
           (c) => c.licitacionId === l.licitacionId && c.proveedorId === proveedorId,
         ),
       }))
-    return HttpResponse.json(abiertas, { status: 200 })
+    return responderPaginado(request, abiertas)
   }),
 
   // Contrato: POST /api/licitaciones → 201 LicitacionResponseDto | 400 | 404 | 409 ProblemDetails
@@ -1131,7 +1166,7 @@ export const handlers: RequestHandler[] = [
     }
 
     const filtradas = cotizacionesMock.filter((c) => c.licitacionId === licitacionId)
-    return HttpResponse.json(filtradas, { status: 200 })
+    return responderPaginado(request, filtradas)
   }),
 
   // Contrato: POST /api/licitaciones/{licitacionId}/adjudicar con body {"cotizacionId": "<guid>"}

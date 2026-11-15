@@ -1,4 +1,5 @@
-import { apiFetch } from '../api/client'
+import { apiFetch, apiFetchPagina } from '../api/client'
+import { conPaginacion, traerTodas } from '../api/paginacion'
 
 /** Un capataz disponible para asignar a una obra. Es el item de GET /api/usuarios/capataces. */
 export interface Capataz {
@@ -11,7 +12,9 @@ export interface Capataz {
  * Fuente: GET /api/usuarios/capataces (contracts/openapi/usuarios-obras-openapi.json)
  */
 export function obtenerCapataces(): Promise<Capataz[]> {
-  return apiFetch<Capataz[]>('/api/usuarios/capataces')
+  return traerTodas((pagina) =>
+    apiFetchPagina<Capataz>(conPaginacion('/api/usuarios/capataces', pagina)),
+  )
 }
 
 /** Cuerpo de POST /api/usuarios/registro (RegisterRequestDto del contrato). */
