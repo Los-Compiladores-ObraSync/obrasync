@@ -5,7 +5,10 @@ public class CotizacionResponseDto
     public Guid CotizacionId { get; set; }
     public Guid LicitacionId { get; set; }
     public Guid ProveedorId { get; set; }
+    public decimal SubtotalItems { get; set; }
     public decimal Flete { get; set; }
+    public decimal CostoTotal { get; set; }
+    public bool EsMasBarata { get; set; }
     public int PlazoEntregaDias { get; set; }
     public DateTime FechaCreacion { get; set; }
     public IReadOnlyList<CrearCotizacionItemDto> Items { get; set; } = Array.Empty<CrearCotizacionItemDto>();

@@ -124,6 +124,18 @@ public class CrearCotizacionCommandHandler
         await _cotizacionRepository.AddAsync(cotizacion, cancellationToken);
         await _cotizacionRepository.SaveChangesAsync(cancellationToken);
 
-        return cotizacion.ToDto();
+        var cantidadesPorArticulo = licitacion.Items
+            .GroupBy(i => i.ArticuloId)
+            .ToDictionary(g => g.Key, g => g.First().Cantidad);
+
+        decimal subtotalItems = cotizacion.Items.Sum(i =>
+            cantidadesPorArticulo.TryGetValue(i.ArticuloId, out var cantidad)
+                ? cantidad * i.PrecioUnitario
+                : 0m);
+
+        var dto = cotizacion.ToDto();
+        dto.SubtotalItems = subtotalItems;
+        dto.CostoTotal = subtotalItems + cotizacion.Flete;
+        return dto;
     }
 }
