@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Domain.Entities;
 
@@ -50,19 +51,32 @@ public class CotizacionRepository : ICotizacionRepository
             .Include(c => c.Items)
             .Where(c => c.LicitacionId == licitacionId)
             .OrderByDescending(c => c.FechaCreacion)
+            .ThenBy(c => c.CotizacionId)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Cotizacion>> GetByProveedorIdAsync(
+    public async Task<PaginaDe<Cotizacion>> GetByProveedorIdAsync(
         Guid proveedorId,
+        ParametrosPagina? paginacion = null,
         CancellationToken cancellationToken = default)
     {
-        return await _context.Cotizaciones
+        var p = paginacion ?? new ParametrosPagina();
+
+        var consultaFiltros = _context.Cotizaciones
             .AsNoTracking()
+            .Where(c => c.ProveedorId == proveedorId);
+
+        var total = await consultaFiltros.CountAsync(cancellationToken);
+
+        var items = await consultaFiltros
             .Include(c => c.Items)
-            .Where(c => c.ProveedorId == proveedorId)
             .OrderByDescending(c => c.FechaCreacion)
+            .ThenBy(c => c.CotizacionId)
+            .Skip(p.Saltear)
+            .Take(p.Tamano)
             .ToListAsync(cancellationToken);
+
+        return new PaginaDe<Cotizacion>(items, total);
     }
 
     public Task AddAsync(
@@ -81,8 +95,8 @@ public class CotizacionRepository : ICotizacionRepository
 
     public async Task<Cotizacion?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-    return await _context.Cotizaciones
-        .Include(c => c.Items)
-        .FirstOrDefaultAsync(c => c.CotizacionId == id, cancellationToken);
+        return await _context.Cotizaciones
+            .Include(c => c.Items)
+            .FirstOrDefaultAsync(c => c.CotizacionId == id, cancellationToken);
     }
 }
