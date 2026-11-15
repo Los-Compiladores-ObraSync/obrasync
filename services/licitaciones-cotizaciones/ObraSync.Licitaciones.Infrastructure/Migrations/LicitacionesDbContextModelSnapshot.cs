@@ -315,6 +315,36 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                     b.ToTable("LicitacionItems");
                 });
 
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.MagicLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("FechaDeUso")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaDeVencimiento")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<Guid>("LicitacionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProveedorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Hash")
+                        .IsUnique();
+
+                    b.ToTable("MagicLinks");
+                });
+
             modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.OrdenCompra", b =>
                 {
                     b.Property<Guid>("OrdenCompraId")

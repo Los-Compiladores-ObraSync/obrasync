@@ -90,3 +90,13 @@ public class OrdenCompraItem
     public string UnidadMedida { get; set; } = "";
     public decimal PrecioUnitario { get; set; }
 }
+
+public class MagicLink
+{
+    public Guid Id { get; set; }
+    public string Hash { get; set; } = string.Empty;
+    public Guid LicitacionId { get; set; }
+    public Guid ProveedorId { get; set; }
+    public DateTime FechaDeVencimiento { get; set; }
+    public DateTime? FechaDeUso { get; set; }
+}

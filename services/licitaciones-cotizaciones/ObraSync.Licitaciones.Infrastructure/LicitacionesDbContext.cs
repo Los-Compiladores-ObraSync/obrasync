@@ -18,6 +18,7 @@ public class LicitacionesDbContext : DbContext
     public DbSet<CotizacionItem> CotizacionItems => Set<CotizacionItem>();
     public DbSet<OrdenCompra> OrdenesCompra => Set<OrdenCompra>();
     public DbSet<OrdenCompraItem> OrdenCompraItems => Set<OrdenCompraItem>();
+    public DbSet<MagicLink> MagicLinks => Set<MagicLink>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -121,5 +122,13 @@ public class LicitacionesDbContext : DbContext
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();
+
+        modelBuilder.Entity<MagicLink>(e =>
+    {
+        e.HasKey(x => x.Id);
+        e.HasIndex(x => x.Hash).IsUnique();
+        e.Property(x => x.Hash).IsRequired();
+    });
+    
     }
 }
