@@ -110,3 +110,17 @@ Para correr el recorrido completo contra Docker:
 - `gateway/` API Gateway con YARP
 - `frontend/` PWA en React
 - `contracts/` contratos OpenAPI y esquemas de eventos
+
+## Gestión e higiene de secretos (#165)
+
+> [!IMPORTANT]
+> **Los secretos van en variables de entorno o user-secrets (`dotnet user-secrets`), nunca en archivos commiteados en el repositorio, Dockerfiles, Trello ni chats.**
+
+1. **Variables de entorno y secretos locales:**
+   - Crear el archivo `.env` en la raíz a partir de `.env.example`. Los archivos `.env`, `.env.*` (salvo `.env.example`) y archivos de credenciales (`credenciales*.json`, `*.pem`, `*.key`, `*.pfx`) están estrictamente ignorados en `.gitignore`.
+   - Para desarrollo local en .NET sin Docker, se recomienda usar `dotnet user-secrets` en cada proyecto API.
+2. **Rotación de claves de IA y APIs:**
+   - Cualquier secreto o API key compartida o pegada en chats grupales (por ejemplo, la clave del gateway de IA) se considera **expuesta** y debe rotarse de inmediato, configurando el nuevo valor en la variable de entorno `AI_API_KEY` local de cada integrante.
+3. **Seguridad y firma de JWT:**
+   - Los tokens JWT emitidos tienen un tiempo de vida acotado y vencen solos (vida útil de 60 minutos).
+   - El secreto de firma `JWT_SECRET` debe poseer una longitud mínima de 32 caracteres y configurarse exclusivamente por variables de entorno compartidas por canal seguro entre los integrantes del equipo.
