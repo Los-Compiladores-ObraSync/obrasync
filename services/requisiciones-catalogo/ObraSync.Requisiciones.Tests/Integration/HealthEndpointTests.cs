@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using ObraSync.Requisiciones.Application.DTOs;
+using ObraSync.Requisiciones.Application.Exceptions;
 using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Domain.Constants;
 using ObraSync.Requisiciones.Infrastructure.Persistence;
@@ -1001,6 +1002,48 @@ namespace ObraSync.Requisiciones.Tests.Integration
             Assert.Equal(HttpStatusCode.Created, postAdminResp.StatusCode);
         }
 
+        [Fact]
+        public async Task PostRequisicion_CapatazConUsuariosObrasCaido_Devuelve503YNoUn403()
+        {
+            var capatazId = Guid.NewGuid();
+            var cementoSeedId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+
+            var factoryConUsuariosCaido = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureServices(services =>
+                {
+                    var descriptor = services.SingleOrDefault(
+                        d => d.ServiceType == typeof(IObraAsignacionValidator));
+                    if (descriptor != null)
+                    {
+                        services.Remove(descriptor);
+                    }
+
+                    services.AddScoped<IObraAsignacionValidator, ValidadorQueNoPuedeVerificar>();
+                });
+            });
+
+            var client = factoryConUsuariosCaido.CreateClient();
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", capatazId));
+
+            var resp = await client.PostAsJsonAsync("/api/requisiciones", new CrearRequisicionRequestDto
+            {
+                ObraId = Guid.NewGuid(),
+                Etapa = "Fundaciones",
+                Items = new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = cementoSeedId, Cantidad = 10m }
+                }
+            });
+
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, resp.StatusCode);
+            Assert.Equal("application/problem+json", resp.Content.Headers.ContentType?.MediaType);
+            using var jsonDoc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            Assert.Equal(503, jsonDoc.RootElement.GetProperty("status").GetInt32());
+            Assert.Equal("No se pudo verificar la obra", jsonDoc.RootElement.GetProperty("title").GetString());
+        }
+
         private sealed class StubObraAsignacionValidator : IObraAsignacionValidator
         {
             private readonly Guid _obraAsignada;
@@ -1013,8 +1056,19 @@ namespace ObraSync.Requisiciones.Tests.Integration
             public Task<bool> EstaAsignadaACapatazAsync(
                 Guid obraId,
                 string? authorizationHeader,
+                string? correlationId,
                 CancellationToken cancellationToken = default)
                 => Task.FromResult(obraId == _obraAsignada);
+        }
+
+        private sealed class ValidadorQueNoPuedeVerificar : IObraAsignacionValidator
+        {
+            public Task<bool> EstaAsignadaACapatazAsync(
+                Guid obraId,
+                string? authorizationHeader,
+                string? correlationId,
+                CancellationToken cancellationToken = default)
+                => throw new ObraAsignacionNoVerificableException("Usuarios y Obras no respondió.");
         }
     }
 }

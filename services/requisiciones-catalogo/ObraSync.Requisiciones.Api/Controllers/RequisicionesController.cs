@@ -126,6 +126,7 @@ namespace ObraSync.Requisiciones.Api.Controllers
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
         public async Task<ActionResult<RequisicionResponseDto>> CrearRequisicion(
             [FromBody] CrearRequisicionRequestDto request,
             [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey = null,
@@ -143,10 +144,23 @@ namespace ObraSync.Requisiciones.Api.Controllers
             if (EsCapatazSinPrivilegiosSuperiores() && _obraAsignacionValidator != null)
             {
                 var authHeader = Request?.Headers["Authorization"].ToString();
-                var asignada = await _obraAsignacionValidator.EstaAsignadaACapatazAsync(
-                    request.ObraId,
-                    authHeader,
-                    cancellationToken);
+                bool asignada;
+                try
+                {
+                    asignada = await _obraAsignacionValidator.EstaAsignadaACapatazAsync(
+                        request.ObraId,
+                        authHeader,
+                        GetCorrelationId().ToString(),
+                        cancellationToken);
+                }
+                catch (ObraAsignacionNoVerificableException)
+                {
+                    // #178: no es "obra no asignada" (403): Usuarios y Obras no respondió y no se pudo comprobar.
+                    return Problem(
+                        detail: "No se pudo verificar que la obra esté asignada al capataz porque el servicio Usuarios y Obras no respondió. Reintentá en unos segundos.",
+                        statusCode: StatusCodes.Status503ServiceUnavailable,
+                        title: "No se pudo verificar la obra");
+                }
 
                 if (!asignada)
                 {
