@@ -129,3 +129,10 @@ Para correr el recorrido completo contra Docker:
 4. **Entorno de ejecución (`ASPNETCORE_ENVIRONMENT`) (#169):**
    - En `docker-compose.yml`, la variable `ASPNETCORE_ENVIRONMENT` está parametrizada con valor por defecto `Development` (`${ASPNETCORE_ENVIRONMENT:-Development}`) para facilitar el desarrollo local y el acceso a Swagger.
    - Para ejecutar o probar en entornos productivos o de staging, definir `ASPNETCORE_ENVIRONMENT=Production` o `Staging` en `.env`.
+
+## Colaboración en GitHub (#180)
+
+- Cada Pull Request usa la plantilla de `.github/PULL_REQUEST_TEMPLATE.md`: tarjeta, Definición de Terminado y quién revisó.
+- Las ramas se borran solas al mergear el PR (opción "Automatically delete head branches" de GitHub).
+- Usá siempre el mismo nombre y correo en Git (`git config user.name` y `git config user.email`); el archivo `.mailmap` une las identidades viejas duplicadas.
+- No agregues líneas de coautoría automáticas (`Co-Authored-By`, `Claude-Session`) en commits ni en Pull Requests.
