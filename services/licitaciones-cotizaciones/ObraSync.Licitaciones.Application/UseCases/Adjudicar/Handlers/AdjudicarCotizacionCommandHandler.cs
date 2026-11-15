@@ -3,6 +3,8 @@ using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Domain.Entities;
 using MassTransit;
 using MediatR;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using ObraSync.Contracts.Events;
 using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Commands;
 
@@ -15,23 +17,34 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
     private readonly IOrdenCompraRepository _ordenCompraRepository;
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILogger<AdjudicarCotizacionCommandHandler> _logger;
 
     public AdjudicarCotizacionCommandHandler(
         ILicitacionRepository licitacionRepository,
         ICotizacionRepository cotizacionRepository,
         IOrdenCompraRepository ordenCompraRepository,
         IPublishEndpoint publishEndpoint,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ILogger<AdjudicarCotizacionCommandHandler>? logger = null)
     {
         _licitacionRepository = licitacionRepository;
         _cotizacionRepository = cotizacionRepository;
         _ordenCompraRepository = ordenCompraRepository;
         _publishEndpoint = publishEndpoint;
         _unitOfWork = unitOfWork;
+        _logger = logger ?? NullLogger<AdjudicarCotizacionCommandHandler>.Instance;
     }
 
     public async Task<OrdenCompraResponseDto> Handle(AdjudicarCotizacionCommand request, CancellationToken cancellationToken)
     {
+        var correlationId = request.CorrelationId != Guid.Empty
+            ? request.CorrelationId
+            : Guid.NewGuid();
+
+        using var logScope = _logger.BeginScope(new Dictionary<string, object>
+        {
+            ["CorrelationId"] = correlationId
+        });
         // 1. Obtener y validar Licitación
         var licitacion = await _licitacionRepository.GetByIdAsync(request.LicitacionId, cancellationToken)
             ?? throw new KeyNotFoundException($"No se encontró la licitación con ID {request.LicitacionId}.");
@@ -107,11 +120,11 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
         await _ordenCompraRepository.AddAsync(ordenCompra, cancellationToken);
         await _licitacionRepository.UpdateAsync(licitacion, cancellationToken);
 
-        // 5. Publicar el evento de integración con MassTransit
+        // 5. Publicar el evento de integración con MassTransit propagando el CorrelationId del pedido original (#104)
         var evento = new OrdenCompraEmitidaEvent(
             EventId: Guid.NewGuid(),
             OccurredAt: DateTime.UtcNow,
-            CorrelationId: Guid.NewGuid(),
+            CorrelationId: correlationId,
             OrdenCompraId: ordenCompra.OrdenCompraId,
             LicitacionId: licitacion.LicitacionId,
             RequisicionId: licitacion.RequisicionId,
@@ -133,6 +146,12 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
         // El evento se publica ANTES de guardar a propósito (#135): con el outbox, este único
         // SaveChanges guarda en la misma transacción la adjudicación, la OC y el evento.
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Licitación {LicitacionId} adjudicada y OrdenCompra {OrdenCompraId} emitida. CorrelationId {CorrelationId}",
+            licitacion.LicitacionId,
+            ordenCompra.OrdenCompraId,
+            correlationId);
 
         return new OrdenCompraResponseDto(
             ordenCompra.OrdenCompraId,
