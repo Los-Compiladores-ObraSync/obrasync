@@ -52,6 +52,8 @@ Dentro de Docker cada servicio escucha en el 8080 (corriendo bajo usuario no-roo
 
 **Requisiciones y la validación de obras (#178):** el servicio de Requisiciones consulta a Usuarios y Obras para comprobar que el Capataz tenga asignada la obra. Necesita `UsuariosObras__BaseUrl`: en Docker ya viene en el compose y en Visual Studio lo trae `launchSettings.json` (`http://localhost:5001`). Si falta, el servicio no arranca. Si Usuarios y Obras no responde, crear una requisición como Capataz devuelve 503 (no 403).
 
+**Eventos que fallan (#179):** si un consumidor de eventos (Licitaciones: `RequisicionAprobadaEvent`; Recepción: `OrdenCompraEmitidaEvent`) tiene un error pasajero, MassTransit reintenta hasta 5 veces con espera creciente (de 1 a 30 segundos). Si se agotan los reintentos, el mensaje queda en la cola `<nombre>_error`: se ve en el panel de RabbitMQ (`http://localhost:15672`, pestaña Queues, cola terminada en `_error`, botón Get messages). Los eventos inválidos no se reintentan: se descartan.
+
 ## Probar que está andando
 
 - Frontend: `http://localhost:5173` debe mostrar el login.
