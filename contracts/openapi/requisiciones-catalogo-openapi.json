@@ -37,11 +37,54 @@
               "type": "boolean",
               "default": true
             }
+          },
+          {
+            "name": "pagina",
+            "in": "query",
+            "description": "Número de página (1 en adelante).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "tamano",
+            "in": "query",
+            "description": "Cantidad de elementos por página (entre 1 y 50).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Success",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total de elementos que coinciden con el filtro",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Page": {
+                "description": "Página actual",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Page-Size": {
+                "description": "Tamaño de página aplicado",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "text/plain": {
                 "schema": {
@@ -65,6 +108,26 @@
                   "items": {
                     "$ref": "#/components/schemas/InsumoCatalogoDto"
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (Parámetros de paginación inválidos)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -267,11 +330,54 @@
               "type": "string",
               "nullable": true
             }
+          },
+          {
+            "name": "pagina",
+            "in": "query",
+            "description": "Número de página (1 en adelante).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "tamano",
+            "in": "query",
+            "description": "Cantidad de elementos por página (entre 1 y 50).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Success",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total de elementos que coinciden con el filtro",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Page": {
+                "description": "Página actual",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Page-Size": {
+                "description": "Tamaño de página aplicado",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "text/plain": {
                 "schema": {
@@ -295,6 +401,26 @@
                   "items": {
                     "$ref": "#/components/schemas/RequisicionResponseDto"
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (Parámetros de paginación inválidos)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
