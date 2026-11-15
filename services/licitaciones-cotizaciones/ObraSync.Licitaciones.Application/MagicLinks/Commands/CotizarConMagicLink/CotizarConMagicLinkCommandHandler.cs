@@ -8,6 +8,7 @@ public class CotizarConMagicLinkCommandHandler : IRequestHandler<CotizarConMagic
 {
     private readonly IMagicLinkRepository _magicLinkRepository;
     private readonly ICotizacionRepository _cotizacionRepository;
+    private readonly IUnitOfWork _unitOfWork; // O tu interfaz para persistir cambios si la usan
 
     public CotizarConMagicLinkCommandHandler(
         IMagicLinkRepository magicLinkRepository,
@@ -19,7 +20,7 @@ public class CotizarConMagicLinkCommandHandler : IRequestHandler<CotizarConMagic
 
     public async Task<Unit> Handle(CotizarConMagicLinkCommand request, CancellationToken cancellationToken)
     {
-        // 1. Buscar el Magic Link por su hash usando el repositorio
+        // 1. Buscar el Magic Link por su hash
         var magicLink = await _magicLinkRepository.GetByHashAsync(request.Hash, cancellationToken);
 
         // 2. Validar existencia, vencimiento y uso previo
@@ -28,22 +29,21 @@ public class CotizarConMagicLinkCommandHandler : IRequestHandler<CotizarConMagic
             throw new InvalidOperationException("El enlace de cotización es inválido, ya expiró o ya fue utilizado.");
         }
 
-        // 3. Marcar el enlace como usado y actualizarlo
+        // 3. Marcar el enlace como usado (al estar trackeado por EF, se persiste al guardar cambios)
         magicLink.FechaDeUso = DateTime.UtcNow;
-        await _magicLinkRepository.UpdateAsync(magicLink, cancellationToken);
 
-        // 4. Crear la cotización extrayendo el ProveedorId del Magic Link (Requerimiento #87)
+        // 4. Crear la cotización usando las propiedades correctas de tu entidad Domain
         var cotizacion = new Cotizacion
         {
-            Id = Guid.NewGuid(),
             LicitacionId = magicLink.LicitacionId,
-            ProveedorId = magicLink.ProveedorId, 
+            ProveedorId = magicLink.ProveedorId,
             FechaCreacion = DateTime.UtcNow,
             Flete = request.Flete,
             PlazoEntregaDias = request.PlazoEntregaDias
+            // Si requiere agregar los ítems, mapealos según tu entidad de dominio
         };
 
-        // 5. Guardar la cotización mediante su repositorio
+        // 5. Agregar la cotización mediante su repositorio
         await _cotizacionRepository.AddAsync(cotizacion, cancellationToken);
 
         return Unit.Value;
