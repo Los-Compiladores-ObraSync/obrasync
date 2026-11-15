@@ -4,7 +4,9 @@ using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
 using ObraSync.Recepcion.Infrastructure.Persistence;
 
@@ -24,14 +26,8 @@ public class RecepcionApiFactory : WebApplicationFactory<Program>
 
         builder.ConfigureServices(services =>
         {
-            var descriptor = services.SingleOrDefault(
-                d => d.ServiceType == typeof(DbContextOptions<RecepcionDbContext>));
-
-            if (descriptor != null)
-            {
-                services.Remove(descriptor);
-            }
-
+            services.RemoveAll<DbContextOptions<RecepcionDbContext>>();
+            services.RemoveAll<IDbContextOptionsConfiguration<RecepcionDbContext>>();
             services.AddDbContext<RecepcionDbContext>(options =>
             {
                 options.UseInMemoryDatabase(DatabaseName);

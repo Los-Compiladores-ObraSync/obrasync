@@ -1,3 +1,4 @@
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Domain.Entities;
@@ -23,6 +24,11 @@ public class RecepcionDbContext : DbContext, IRecepcionDbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Tablas del Outbox transaccional de MassTransit (#171)
+        modelBuilder.AddInboxStateEntity();
+        modelBuilder.AddOutboxMessageEntity();
+        modelBuilder.AddOutboxStateEntity();
 
         // Aplica automáticamente todas las configuraciones IEntityTypeConfiguration del ensamblado actual
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
