@@ -439,4 +439,26 @@ public class CrearRecepcionCommandHandlerTests
 
         Assert.Equal(0, await db.Recepciones.CountAsync());
     }
+
+    [Fact]
+    public async Task Handle_SiOrdenCompraEstaBloqueada_LanzaRecepcionConflictoException()
+    {
+        // Arrange (#95, #96)
+        using var db = CreateInMemoryContext();
+        var (oc, obraId, articuloId) = SembrarOrdenCompra(db);
+        oc.BloquearPorDesvioPresupuestario("Supera presupuesto asignado a la etapa");
+        await db.SaveChangesAsync();
+
+        var publisher = Substitute.For<IRecepcionEventPublisher>();
+        var handler = new CrearRecepcionCommandHandler(db, publisher, NullLogger<CrearRecepcionCommandHandler>.Instance);
+
+        var command = CrearComandoValido(obraId, oc.Id, articuloId);
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<RecepcionConflictoException>(() =>
+            handler.Handle(command, CancellationToken.None));
+
+        Assert.Contains("bloqueada", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, await db.Recepciones.CountAsync());
+    }
 }

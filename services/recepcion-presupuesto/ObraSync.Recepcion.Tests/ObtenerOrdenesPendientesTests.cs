@@ -143,5 +143,34 @@ public class ObtenerOrdenesPendientesTests
         // Assert
         Assert.Empty(ExtraerLista(resultado));
     }
+
+    [Fact]
+    public async Task OrdenesPendientes_ConOCBloqueada_NoLaDevuelve()
+    {
+        // Arrange (#95, #154): una OC bloqueada por desvío no debe aparecer en órdenes pendientes
+        using var db = CreateInMemoryContext($"Db_Pend_Bloq_{Guid.NewGuid()}");
+        var ocActivaId = Guid.NewGuid();
+        var ocBloqueadaId = Guid.NewGuid();
+        var obraId = Guid.NewGuid();
+        var articuloId = Guid.NewGuid();
+
+        var ocActiva = CrearOrden(ocActivaId, obraId, articuloId);
+        var ocBloqueada = CrearOrden(ocBloqueadaId, obraId, articuloId);
+        ocBloqueada.BloquearPorDesvioPresupuestario("Supera presupuesto de etapa");
+
+        db.OrdenesCompra.AddRange(ocActiva, ocBloqueada);
+        await db.SaveChangesAsync();
+
+        var controller = CrearController(db);
+
+        // Act
+        var resultado = await controller.ObtenerOrdenesPendientes(null, CancellationToken.None);
+
+        // Assert
+        var lista = ExtraerLista(resultado);
+        var unica = Assert.Single(lista);
+        Assert.Equal(ocActivaId, unica.OrdenCompraId);
+        Assert.DoesNotContain(lista, o => o.OrdenCompraId == ocBloqueadaId);
+    }
 }
 
