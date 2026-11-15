@@ -72,6 +72,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=DB_Req;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True;"
+      UsuariosObras__BaseUrl: http://usuarios-obras-api:8080
       Jwt__Secret: ${JWT_SECRET:?Falta JWT_SECRET en el archivo .env}
       RabbitMQ__Host: rabbitmq
       RabbitMQ__Username: ${RABBITMQ_USER:?Falta RABBITMQ_USER en el archivo .env}

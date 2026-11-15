@@ -23,7 +23,6 @@ namespace ObraSync.Requisiciones.Infrastructure
 
             services.AddScoped<IInsumoRepository, InsumoRepository>();
             services.AddScoped<IRequisicionRepository, RequisicionRepository>();
-            services.AddScoped<IObraAsignacionValidator, HttpObraAsignacionValidator>();
 
             var useInMemoryTransport = string.Equals(
                 configuration["RabbitMQ:UseInMemory"],
@@ -75,6 +74,24 @@ namespace ObraSync.Requisiciones.Infrastructure
                     });
                 }
             });
+
+            // #178: la validación "la obra está asignada al Capataz" depende de Usuarios y Obras.
+            // Antes, si faltaba la URL el validador dejaba pasar cualquier obra sin avisar.
+            // Ahora el servicio no arranca sin esa URL; solo las pruebas aisladas (transporte en
+            // memoria) usan un validador que deja pasar todo, y es explícito.
+            var usuariosObrasBaseUrl = configuration["UsuariosObras:BaseUrl"];
+            if (!string.IsNullOrWhiteSpace(usuariosObrasBaseUrl))
+            {
+                services.AddScoped<IObraAsignacionValidator, HttpObraAsignacionValidator>();
+            }
+            else if (useInMemoryTransport)
+            {
+                services.AddScoped<IObraAsignacionValidator, ValidadorObraAsignacionDeshabilitado>();
+            }
+            else
+            {
+                throw new InvalidOperationException("UsuariosObras:BaseUrl debe estar configurado cuando no se utiliza el transporte en memoria (#178). Configure 'UsuariosObras:BaseUrl' (en Docker: http://usuarios-obras-api:8080).");
+            }
 
             services.AddScoped<IRequisicionEventPublisher, MassTransitRequisicionEventPublisher>();
 

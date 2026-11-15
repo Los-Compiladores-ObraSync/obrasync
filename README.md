@@ -50,6 +50,8 @@ Por seguridad, todos los puertos expuestos al host están explícitamente restri
 
 Dentro de Docker cada servicio escucha en el 8080 (corriendo bajo usuario no-root `USER $APP_UID`); los puertos de la tabla son los mapeados a `127.0.0.1`.
 
+**Requisiciones y la validación de obras (#178):** el servicio de Requisiciones consulta a Usuarios y Obras para comprobar que el Capataz tenga asignada la obra. Necesita `UsuariosObras__BaseUrl`: en Docker ya viene en el compose y en Visual Studio lo trae `launchSettings.json` (`http://localhost:5001`). Si falta, el servicio no arranca. Si Usuarios y Obras no responde, crear una requisición como Capataz devuelve 503 (no 403).
+
 ## Probar que está andando
 
 - Frontend: `http://localhost:5173` debe mostrar el login.
