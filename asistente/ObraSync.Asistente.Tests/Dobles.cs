@@ -123,3 +123,47 @@ internal sealed class HandlerCatalogo : HttpMessageHandler
         };
     }
 }
+
+/// <summary>Obras falsas en memoria (como las vería un Capataz). Se puede cambiar el resultado y contar las llamadas.</summary>
+internal sealed class ObrasFalsas : IBuscadorObras
+{
+    public static readonly Guid IdTorre = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
+    public static readonly Guid IdGalpon = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000002");
+
+    public ResultadoObras Resultado { get; set; } = ResultadoObras.Bien(new[]
+    {
+        new ObraAsistente(IdTorre, "Torre Central", new[] { "Estructura", "Obra Gruesa" }),
+        new ObraAsistente(IdGalpon, "Galpón Norte", new string[0])
+    });
+
+    public int Llamadas { get; private set; }
+
+    public Task<ResultadoObras> ListarAsync(CancellationToken ct)
+    {
+        Llamadas++;
+        return Task.FromResult(Resultado);
+    }
+}
+
+/// <summary>
+/// Hace de Gateway con varias rutas (obras y catálogo) y anota TODOS los pedidos que recibe:
+/// sirve para probar que el asistente solo hace GET y que siempre manda el JWT del usuario.
+/// </summary>
+internal sealed class HandlerRutas : HttpMessageHandler
+{
+    private readonly Dictionary<string, string> _respuestas;
+
+    public List<(HttpMethod Metodo, string Url, string? Authorization)> Pedidos { get; } = new();
+
+    public HandlerRutas(Dictionary<string, string> respuestasPorRuta) => _respuestas = respuestasPorRuta;
+
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct)
+    {
+        Pedidos.Add((req.Method, req.RequestUri!.AbsoluteUri, req.Headers.Authorization?.ToString()));
+        var ruta = req.RequestUri!.AbsolutePath;
+        var cuerpo = _respuestas.FirstOrDefault(r => ruta.StartsWith(r.Key, StringComparison.OrdinalIgnoreCase)).Value;
+        return Task.FromResult(cuerpo is null
+            ? new HttpResponseMessage(HttpStatusCode.NotFound)
+            : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(cuerpo, Encoding.UTF8, "application/json") });
+    }
+}

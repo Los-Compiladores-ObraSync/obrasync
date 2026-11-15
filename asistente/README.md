@@ -3,18 +3,25 @@
 Servicio que atiende el chat del asistente: recibe el mensaje del usuario y el historial reciente, le pregunta al
 modelo (gpt-4.1-mini, por el gateway de IA de la cátedra) y devuelve la respuesta en texto.
 
-**Regla de oro:** el asistente NUNCA escribe datos. Solo tiene herramientas de lectura. Si algún día arma un borrador
-(requisición, aprobación…), la escritura la hace el frontend llamando al endpoint existente con el JWT del usuario
-cuando éste toca Confirmar.
+**Regla de oro:** el asistente NUNCA escribe datos. Solo tiene herramientas de lectura. A lo sumo ARMA un borrador
+(tarjeta #100: una requisición) que viaja en el campo `borrador` de la respuesta. La escritura la hace el frontend
+llamando a `POST /api/requisiciones` con el JWT del usuario y una `Idempotency-Key`, cuando la persona toca Confirmar.
+El borrador no se guarda en ninguna base.
 
 - Contrato: `contracts/openapi/asistente-openapi.json` (`POST /api/asistente/chat`, por el Gateway).
 - Roles con acceso en esta versión: Capataz y Admin (el resto recibe 403 y no se llama al modelo).
-- Herramienta disponible: `buscar_insumos` (catálogo real, vía Gateway, con el JWT del usuario).
+- Herramientas (todas de lectura, vía Gateway, con el JWT del usuario):
+  - `buscar_insumos`: busca en el catálogo real.
+  - `armar_borrador_requisicion`: recibe obra, etapa y materiales por NOMBRE; el servicio resuelve la obra
+    (`GET /api/obras`, que ya filtra por rol) y los insumos (`GET /api/catalogo/insumos`), así el modelo nunca
+    inventa ids. Si falta o es ambiguo un dato, devuelve un error con opciones (`obra_requerida`, `obra_ambigua`,
+    `etapa_requerida`, `insumo_ambiguo`, `insumo_no_encontrado`, `cantidad_invalida`, `items_invalidos`…) y no
+    arma nada a medias. Máximo 10 ítems por borrador.
 - Puerto: 5005 en tu computadora (propuesto; todavía hay que acordarlo con el equipo). Dentro del contenedor, 8080.
 
 ## Capas
 `Api` (controlador, JWT, errores ProblemDetails) · `Application` (el agente, sus límites y la herramienta) ·
-`Infrastructure` (cliente del gateway de IA y buscador del catálogo). No hay capa `Domain` porque el servicio no
+`Infrastructure` (cliente del gateway de IA y lectores de catálogo y obras). No hay capa `Domain` porque el servicio no
 tiene entidades ni base de datos.
 
 ## Límites del agente (para no gastar de más: el cupo es compartido por todo el grupo)
