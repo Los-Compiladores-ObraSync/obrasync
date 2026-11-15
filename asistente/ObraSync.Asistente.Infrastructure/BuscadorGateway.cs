@@ -27,7 +27,7 @@ public sealed class ConfiguracionApi
 public sealed class BuscadorGateway : IBuscadorInsumos
 {
     public const int MaxBytes = 32 * 1024;      // si la API devuelve más, no se lo pasamos al modelo
-    public const int MaxResultados = 5;         // el modelo no necesita ver 200 insumos
+    public const int MaxResultados = 5;         // el modelo no necesita ver 200 insumos: se los pedimos ya paginados (#172)
     public static readonly TimeSpan TiempoApi = TimeSpan.FromSeconds(3);
 
     private static readonly JsonSerializerOptions Opciones = new() { PropertyNameCaseInsensitive = true };
@@ -52,7 +52,7 @@ public sealed class BuscadorGateway : IBuscadorInsumos
         if (string.IsNullOrWhiteSpace(jwt))
             return ResultadoBusqueda.Falla("sin_permiso");
 
-        var url = $"{_config.BaseUrl}/api/catalogo/insumos?search={Uri.EscapeDataString(texto.Trim())}&soloActivos=true";
+        var url = $"{_config.BaseUrl}/api/catalogo/insumos?search={Uri.EscapeDataString(texto.Trim())}&soloActivos=true&pagina=1&tamano={MaxResultados}";
 
         using var limite = CancellationTokenSource.CreateLinkedTokenSource(ct);
         limite.CancelAfter(TiempoApi);

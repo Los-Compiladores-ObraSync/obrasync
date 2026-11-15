@@ -32,7 +32,7 @@ public class BuscadorGatewayTests
 
         await Armar(handler).BuscarAsync("cemento y arena", default);
 
-        Assert.Equal("http://gateway.test:5000/api/catalogo/insumos?search=cemento%20y%20arena&soloActivos=true", handler.Url);
+        Assert.Equal("http://gateway.test:5000/api/catalogo/insumos?search=cemento%20y%20arena&soloActivos=true&pagina=1&tamano=5", handler.Url);
     }
 
     [Fact]

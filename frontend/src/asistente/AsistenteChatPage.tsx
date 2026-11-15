@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { crearRequisicion, generarIdempotencyKey } from '../requisiciones/requisicionesService'
@@ -19,6 +19,8 @@ interface MensajeChat {
   texto: string
   /** Mensaje armado por la propia pantalla (no lo dijo el modelo): no se reenvía como historial. */
   local?: boolean
+  /** Muestra "qué querés hacer ahora" debajo del mensaje (después de confirmar o cancelar un borrador). */
+  siguientesPasos?: 'creada' | 'descartada'
   borrador?: BorradorRequisicionDto
   /** Una sola clave por borrador: si el usuario confirma dos veces, el servidor no duplica la requisición. */
   claveIdempotencia?: string
@@ -126,6 +128,14 @@ export function AsistenteChatPage() {
     void enviarTexto(texto)
   }
 
+  /** Enter envía el mensaje; Shift+Enter baja de renglón. No se envía mientras un teclado compone un carácter (acentos, IME). */
+  function alApretarTecla(evento: KeyboardEvent<HTMLTextAreaElement>) {
+    if (evento.key === 'Enter' && !evento.shiftKey && !evento.nativeEvent.isComposing) {
+      evento.preventDefault()
+      void enviarTexto(texto)
+    }
+  }
+
   async function enviarTexto(textoAEnviar: string) {
     const mensaje = textoAEnviar.trim()
     if (!mensaje || enviandoRef.current) {
@@ -168,6 +178,7 @@ export function AsistenteChatPage() {
       rol: 'asistente',
       texto: `Listo, creé la requisición ${creada.numeroRequisicion}. Quedó pendiente de aprobación de Compras.`,
       local: true,
+      siguientesPasos: 'creada',
     })
   }
 
@@ -177,9 +188,12 @@ export function AsistenteChatPage() {
       rol: 'asistente',
       texto: 'Listo, descarté el borrador. No se creó nada.',
       local: true,
+      siguientesPasos: 'descartada',
     })
   }
 
+  // Solo el último mensaje ofrece "qué hacer ahora": los anteriores ya quedaron atrás en la conversación.
+  const ultimoId = mensajes.length > 0 ? mensajes[mensajes.length - 1].id : -1
   const vacio = texto.trim().length === 0
   const conversacionNueva = mensajes.length === 0
 
@@ -233,6 +247,25 @@ export function AsistenteChatPage() {
               </span>
               <div className={styles.contenido}>
                 <p className={styles.texto}>{mensaje.texto}</p>
+                {mensaje.siguientesPasos && mensaje.id === ultimoId && !pensando && (
+                  <div className={styles.siguientesPasos} role="group" aria-label="¿Qué querés hacer ahora?">
+                    <button
+                      type="button"
+                      className={styles.siguientePaso}
+                      onClick={() => void enviarTexto('Quiero pedir materiales')}
+                    >
+                      {mensaje.siguientesPasos === 'creada' ? 'Pedir otros materiales' : 'Armar otro pedido'}
+                    </button>
+                    {mensaje.siguientesPasos === 'creada' && (
+                      <Link to="/obra/requisiciones" className={styles.siguientePaso}>
+                        Ver mis requisiciones
+                      </Link>
+                    )}
+                    <Link to="/" className={styles.siguientePaso}>
+                      Ir al inicio
+                    </Link>
+                  </div>
+                )}
                 {mensaje.borrador && mensaje.estado === 'pendiente' && (
                   <ConfirmacionAccion
                     titulo={mensaje.borrador.titulo}
@@ -295,6 +328,7 @@ export function AsistenteChatPage() {
             placeholder="Escribí lo que necesitás…"
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
+            onKeyDown={alApretarTecla}
             disabled={pensando}
           />
           <button type="submit" className={styles.enviar} aria-label="Enviar" disabled={vacio || pensando}>
