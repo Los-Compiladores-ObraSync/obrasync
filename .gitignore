@@ -438,3 +438,25 @@ CLAUDE.md
 # Documentación y archivos locales
 docs/
 *.pdf
+
+# Higiene de secretos y credenciales locales (#165)
+credenciales*.json
+credenciales/
+**/credenciales*.json
+
+# Variables de entorno y secretos locales (#165)
+.env
+.env.*
+!.env.example
+!frontend/.env.development
+.env.local
+.env.*.local
+*.local.env
+
+# Certificados y claves privadas
+*.pem
+*.key
+*.pfx
+*.p12
+id_rsa*
+
