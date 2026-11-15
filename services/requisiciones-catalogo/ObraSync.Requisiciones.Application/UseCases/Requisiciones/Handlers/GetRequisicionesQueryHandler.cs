@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,17 +18,19 @@ namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         }
 
-        public async Task<IReadOnlyList<RequisicionResponseDto>> Handle(
+        public async Task<PaginaDe<RequisicionResponseDto>> Handle(
             GetRequisicionesQuery query,
             CancellationToken cancellationToken = default)
         {
-            var requisiciones = await _repository.GetFilteredAsync(
+            var pagina = await _repository.GetFilteredAsync(
                 query.ObraId,
                 query.Estado,
                 query.SolicitanteId,
+                query.Paginacion,
                 cancellationToken);
 
-            return requisiciones.Select(r => r.ToDto()).ToList();
+            var items = pagina.Items.Select(r => r.ToDto()).ToList();
+            return new PaginaDe<RequisicionResponseDto>(items, pagina.Total);
         }
     }
 }

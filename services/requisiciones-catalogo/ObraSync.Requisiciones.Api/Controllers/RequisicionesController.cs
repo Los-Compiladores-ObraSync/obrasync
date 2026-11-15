@@ -49,13 +49,26 @@ namespace ObraSync.Requisiciones.Api.Controllers
         [HttpGet]
         [Authorize(Roles = "Capataz,Comprador,Admin")]
         [ProducesResponseType(typeof(IEnumerable<RequisicionResponseDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         public async Task<ActionResult<IReadOnlyList<RequisicionResponseDto>>> ListarRequisiciones(
             [FromQuery] Guid? obraId = null,
             [FromQuery] string? estado = null,
+            [FromQuery] int pagina = 1,
+            [FromQuery] int tamano = 50,
             CancellationToken cancellationToken = default)
         {
+            var p = new ParametrosPagina(pagina, tamano);
+            var error = p.Validar();
+            if (error is not null)
+            {
+                return Problem(
+                    detail: error,
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: "Paginación inválida");
+            }
+
             Guid? solicitanteId = null;
             if (EsCapatazSinPrivilegiosSuperiores())
             {
@@ -69,9 +82,14 @@ namespace ObraSync.Requisiciones.Api.Controllers
                 solicitanteId = userId;
             }
 
-            var query = new GetRequisicionesQuery(obraId, estado, solicitanteId);
-            var requisiciones = await _getRequisicionesHandler.Handle(query, cancellationToken);
-            return Ok(requisiciones);
+            var query = new GetRequisicionesQuery(obraId, estado, solicitanteId, p);
+            var resultado = await _getRequisicionesHandler.Handle(query, cancellationToken);
+
+            Response.Headers["X-Total-Count"] = resultado.Total.ToString();
+            Response.Headers["X-Page"] = p.Pagina.ToString();
+            Response.Headers["X-Page-Size"] = p.Tamano.ToString();
+
+            return Ok(resultado.Items);
         }
 
         /// <summary>
