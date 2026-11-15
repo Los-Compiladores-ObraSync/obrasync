@@ -185,7 +185,7 @@ public class CambiarPasswordEndpointTests : IClassFixture<WebApplicationFactory<
             new CambiarPasswordRequestDto(SeedPassword, "12345", "12345"));
 
         var detail = await AssertProblemDetailsConCorrelationIdAsync(response, HttpStatusCode.BadRequest, correlationId);
-        Assert.Contains("6 caracteres", detail);
+        Assert.Contains("8 caracteres", detail);
     }
 
     [Theory]

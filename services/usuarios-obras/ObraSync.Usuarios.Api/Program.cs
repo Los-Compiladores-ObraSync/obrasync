@@ -30,11 +30,18 @@ builder.Services.AddDbContext<AuthDbContext>(options =>
 // 2. Configurar ASP.NET Core Identity usando Guid como PK
 builder.Services.AddIdentity<AppUser, AppRole>(options =>
 {
-    options.Password.RequireDigit = false;
+    // Política de contraseñas (tarjeta #168): mínimo 8 caracteres y al menos un dígito
+    options.Password.RequireDigit = true;
     options.Password.RequireLowercase = false;
     options.Password.RequireNonAlphanumeric = false;
     options.Password.RequireUppercase = false;
-    options.Password.RequiredLength = 6;
+    options.Password.RequiredLength = 8;
+
+    // Bloqueo temporal por intentos fallidos de login (tarjeta #168)
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+    options.Lockout.AllowedForNewUsers = true;
+
     options.User.RequireUniqueEmail = true;
 })
 .AddEntityFrameworkStores<AuthDbContext>()

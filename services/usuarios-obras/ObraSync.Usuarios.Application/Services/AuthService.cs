@@ -16,11 +16,17 @@ public class AuthService : IAuthService
     private const string MensajeRecuperacionGenerico =
         "Si el correo está registrado, se enviaron las instrucciones para restablecer la contraseña.";
 
-    // Mensajes de restablecimiento y cambio de contraseña (tarjetas #54 y #121)
+    // Mensajes de login, bloqueo, restablecimiento y cambio de contraseña (tarjetas #54, #121 y #168)
+    private const string MensajeCredencialesInvalidas =
+        "Credenciales inválidas.";
+    private const string MensajeCuentaBloqueada =
+        "La cuenta está bloqueada temporalmente por múltiples intentos fallidos. Intentá nuevamente más tarde.";
     private const string MensajeEnlaceInvalidoOExpirado =
         "El enlace de recuperación es inválido o ha expirado. Por favor, solicitá uno nuevo.";
     private const string MensajePasswordCorta =
-        "La contraseña debe tener al menos 6 caracteres.";
+        "La contraseña debe tener al menos 8 caracteres.";
+    private const string MensajePasswordSinDigito =
+        "La contraseña debe incluir al menos un número.";
     private const string MensajePasswordRestablecida =
         "Contraseña restablecida con éxito.";
     private const string MensajePasswordActualizada =
@@ -115,6 +121,8 @@ public class AuthService : IAuthService
         var result = await _userManager.CreateAsync(user, request.Password);
         if (!result.Succeeded)
         {
+            LanzarValidacionSiErrorDePassword(result);
+
             var errores = string.Join(", ", result.Errors.Select(e => e.Description));
             throw new ConflictoException($"Error al crear el usuario: {errores}");
         }
@@ -143,21 +151,36 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request)
     {
-        // 1. Buscar usuario por email
+        // 1. Buscar usuario por email. Mismo mensaje si no existe, está inactivo o la clave falla (anti-enumeración, #168)
         var user = await _userManager.FindByEmailAsync(request.Email);
         if (user == null || !user.Activo)
         {
-            throw new UnauthorizedAccessException("Credenciales inválidas o cuenta desactivada.");
+            throw new UnauthorizedAccessException(MensajeCredencialesInvalidas);
         }
 
-        // 2. Validar contraseña
+        // 2. Verificar si la cuenta ya se encuentra bloqueada temporalmente por intentos fallidos (#168)
+        if (await _userManager.IsLockedOutAsync(user))
+        {
+            throw new UnauthorizedAccessException(MensajeCuentaBloqueada);
+        }
+
+        // 3. Validar contraseña y contabilizar intentos fallidos
         var passwordValida = await _userManager.CheckPasswordAsync(user, request.Password);
         if (!passwordValida)
         {
-            throw new UnauthorizedAccessException("Credenciales inválidas.");
+            await _userManager.AccessFailedAsync(user);
+            if (await _userManager.IsLockedOutAsync(user))
+            {
+                throw new UnauthorizedAccessException(MensajeCuentaBloqueada);
+            }
+
+            throw new UnauthorizedAccessException(MensajeCredencialesInvalidas);
         }
 
-        // 3. Obtener roles y generar JWT
+        // 4. Login exitoso: reiniciar el contador de intentos fallidos a cero
+        await _userManager.ResetAccessFailedCountAsync(user);
+
+        // 5. Obtener roles y generar JWT
         var roles = await _userManager.GetRolesAsync(user);
         var token = _jwtProvider.GenerarToken(user, roles);
 
@@ -232,10 +255,7 @@ public class AuthService : IAuthService
                 throw new ValidacionException(MensajeEnlaceInvalidoOExpirado);
             }
 
-            if (result.Errors.Any(e => e.Code.Contains("PasswordTooShort", StringComparison.OrdinalIgnoreCase)))
-            {
-                throw new ValidacionException(MensajePasswordCorta);
-            }
+            LanzarValidacionSiErrorDePassword(result);
 
             var errores = string.Join(" ", result.Errors.Select(e => e.Description));
             throw new ValidacionException(
@@ -283,10 +303,7 @@ public class AuthService : IAuthService
                 throw new ValidacionException(MensajePasswordActualIncorrecta);
             }
 
-            if (result.Errors.Any(e => e.Code.Contains("PasswordTooShort", StringComparison.OrdinalIgnoreCase)))
-            {
-                throw new ValidacionException(MensajePasswordCorta);
-            }
+            LanzarValidacionSiErrorDePassword(result);
 
             var errores = string.Join(" ", result.Errors.Select(e => e.Description));
             throw new ValidacionException(
@@ -294,5 +311,18 @@ public class AuthService : IAuthService
         }
 
         return new MensajeResponseDto(MensajePasswordActualizada);
+    }
+
+    private static void LanzarValidacionSiErrorDePassword(IdentityResult result)
+    {
+        if (result.Errors.Any(e => e.Code.Contains("PasswordTooShort", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ValidacionException(MensajePasswordCorta);
+        }
+
+        if (result.Errors.Any(e => e.Code.Contains("PasswordRequiresDigit", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ValidacionException(MensajePasswordSinDigito);
+        }
     }
 }
