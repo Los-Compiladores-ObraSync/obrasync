@@ -188,6 +188,15 @@ public class CrearRecepcionCommandHandler
 
         _context.Recepciones.Add(recepcion);
 
+        var correlationId = command.CorrelationId != Guid.Empty
+            ? command.CorrelationId
+            : Guid.NewGuid();
+
+        // El evento se publica ANTES de guardar a propósito (#171): con el outbox transaccional de MassTransit,
+        // este único SaveChangesAsync guarda en la misma transacción la recepción y el evento.
+        // Si RabbitMQ está caído, la recepción se guarda y el evento se entrega automáticamente al restablecer la conexión.
+        await _eventPublisher.PublishRecepcionConfirmadaAsync(recepcion, correlationId, cancellationToken);
+
         try
         {
             await _context.SaveChangesAsync(cancellationToken);
@@ -195,21 +204,6 @@ public class CrearRecepcionCommandHandler
         catch (DbUpdateException ex) when (EsViolacionDeIndiceUnico(ex))
         {
             throw new RecepcionConflictoException("La orden de compra ya fue recibida o el número de remito está repetido.");
-        }
-
-        var correlationId = command.CorrelationId != Guid.Empty
-            ? command.CorrelationId
-            : Guid.NewGuid();
-
-        try
-        {
-            await _eventPublisher.PublishRecepcionConfirmadaAsync(recepcion, correlationId, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex,
-                "No se pudo publicar RecepcionConfirmadaEvent. RecepcionId: {RecepcionId}, CorrelationId: {CorrelationId}. La recepción quedó guardada.",
-                recepcion.Id, correlationId);
         }
 
         return RecepcionDto.DesdeEntidad(recepcion);

@@ -38,6 +38,15 @@ builder.Services.AddMassTransit(x =>
     }
     else
     {
+        // Outbox transaccional (#171): el evento se guarda en DB_Recepcion junto con la recepción
+        // y un servicio en segundo plano lo entrega a RabbitMQ. Si RabbitMQ está caído,
+        // no se cuelga ni se pierde el evento: se entrega al restablecer la conexión.
+        x.AddEntityFrameworkOutbox<RecepcionDbContext>(outbox =>
+        {
+            outbox.UseSqlServer();
+            outbox.UseBusOutbox();
+        });
+
         x.UsingRabbitMq((context, cfg) =>
         {
             var host = builder.Configuration["RabbitMQ:Host"] ?? "localhost";

@@ -421,28 +421,22 @@ public class CrearRecepcionCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_SiPublisherLanzaExcepcion_RegistraLogYRetornaRecepcionGuardada()
+    public async Task Handle_SiPublisherLanzaExcepcion_NoGuardaRecepcionAsegurandoAtomicidad()
     {
         using var db = CreateInMemoryContext();
         var (oc, obraId, articuloId) = SembrarOrdenCompra(db);
         var publisher = Substitute.For<IRecepcionEventPublisher>();
         publisher.PublishRecepcionConfirmadaAsync(default!, default, default)
-            .ReturnsForAnyArgs(Task.FromException(new InvalidOperationException("Broker no disponible")));
+            .ReturnsForAnyArgs(Task.FromException(new InvalidOperationException("Fallo al publicar")));
 
         var logger = Substitute.For<ILogger<CrearRecepcionCommandHandler>>();
         var handler = new CrearRecepcionCommandHandler(db, publisher, logger);
 
         var command = CrearComandoValido(obraId, oc.Id, articuloId);
 
-        var resultado = await handler.Handle(command, CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            handler.Handle(command, CancellationToken.None));
 
-        Assert.NotEqual(Guid.Empty, resultado.Id);
-        Assert.Equal(1, await db.Recepciones.CountAsync());
-        logger.ReceivedWithAnyArgs(1).Log(
-            LogLevel.Error,
-            default,
-            default!,
-            default,
-            default!);
+        Assert.Equal(0, await db.Recepciones.CountAsync());
     }
 }
