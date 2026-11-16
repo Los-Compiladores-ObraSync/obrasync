@@ -1,8 +1,14 @@
-import { http, HttpResponse } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { server } from '../mocks/server'
 import { ApiError } from './ApiError'
-import { apiFetch, apiFetchPagina, setToken } from './client'
+import {
+  apiFetch,
+  apiFetchPagina,
+  setToken,
+  TIEMPO_LIMITE_ASISTENTE_MS,
+  TIEMPO_LIMITE_MS,
+} from './client'
 
 const URL_PRUEBA = 'http://localhost:5000/api/prueba'
 
@@ -167,5 +173,70 @@ describe('apiFetchPagina', () => {
     )
 
     await expect(apiFetchPagina('/api/prueba')).rejects.toBeInstanceOf(ApiError)
+  })
+})
+
+describe('tiempo límite de los pedidos (#199)', () => {
+  beforeEach(() => setToken(null))
+
+  it('un pedido que no responde falla con un ApiError "No pudimos conectarnos, reintentá."', async () => {
+    server.use(
+      http.get(URL_PRUEBA, async () => {
+        await delay('infinite')
+        return HttpResponse.json({})
+      }),
+    )
+
+    const error = await apiFetch('/api/prueba', { tiempoLimiteMs: 50 }).catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).status).toBe(0)
+    expect((error as ApiError).detail).toBe('No pudimos conectarnos, reintentá.')
+  })
+
+  it('también corta los listados paginados que no responden', async () => {
+    server.use(
+      http.get(URL_PRUEBA, async () => {
+        await delay('infinite')
+        return HttpResponse.json([])
+      }),
+    )
+
+    await expect(apiFetchPagina('/api/prueba', { tiempoLimiteMs: 50 })).rejects.toMatchObject({
+      status: 0,
+    })
+  })
+
+  it('un pedido que responde a tiempo no se corta', async () => {
+    server.use(
+      http.get(URL_PRUEBA, async () => {
+        await delay(20)
+        return HttpResponse.json({ ok: true })
+      }),
+    )
+
+    await expect(apiFetch('/api/prueba', { tiempoLimiteMs: 2000 })).resolves.toEqual({ ok: true })
+  })
+
+  it('si quien llama cancela, se propaga la cancelación y no se confunde con el tiempo agotado', async () => {
+    server.use(
+      http.get(URL_PRUEBA, async () => {
+        await delay('infinite')
+        return HttpResponse.json({})
+      }),
+    )
+    const cancelador = new AbortController()
+
+    const pedido = apiFetch('/api/prueba', { signal: cancelador.signal }).catch((e: unknown) => e)
+    cancelador.abort()
+    const error = await pedido
+
+    expect(error).not.toBeInstanceOf(ApiError)
+    expect((error as Error).name).toBe('AbortError')
+  })
+
+  it('un pedido normal espera 15 s y el del asistente más que los 45 s que le da el servidor', () => {
+    expect(TIEMPO_LIMITE_MS).toBe(15_000)
+    expect(TIEMPO_LIMITE_ASISTENTE_MS).toBeGreaterThan(45_000)
   })
 })

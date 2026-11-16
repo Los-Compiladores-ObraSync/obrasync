@@ -1,4 +1,4 @@
-import { apiFetch } from '../api/client'
+import { apiFetch, TIEMPO_LIMITE_ASISTENTE_MS } from '../api/client'
 import {
   MAX_MENSAJES_HISTORIAL,
   type ChatMensajeDto,
@@ -22,5 +22,7 @@ export function enviarMensajeAlAsistente(
   return apiFetch<ChatResponseDto>('/api/asistente/chat', {
     method: 'POST',
     body: JSON.stringify(dto),
+    // El asistente tarda más que un pedido normal (el servidor le da hasta 45 s).
+    tiempoLimiteMs: TIEMPO_LIMITE_ASISTENTE_MS,
   })
 }
