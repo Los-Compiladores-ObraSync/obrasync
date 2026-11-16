@@ -18,6 +18,9 @@ public class OrdenCompra : BaseEntity
     public EstadoOrdenCompra Estado { get; set; } = EstadoOrdenCompra.Activa;
     public string? MotivoBloqueo { get; set; }
 
+    // Visibilidad presupuestaria cuando no se encuentra partida (#196)
+    public bool SinPartidaPresupuestaria { get; set; }
+
     public bool EstaBloqueada => Estado == EstadoOrdenCompra.Bloqueada;
 
     private readonly List<OrdenCompraItem> _items = new();
@@ -34,7 +37,8 @@ public class OrdenCompra : BaseEntity
         IEnumerable<OrdenCompraItem> items,
         string? etapa = null,
         EstadoOrdenCompra estado = EstadoOrdenCompra.Activa,
-        string? motivoBloqueo = null)
+        string? motivoBloqueo = null,
+        bool sinPartidaPresupuestaria = false)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("El identificador de la orden de compra no puede estar vacío.", nameof(id));
@@ -77,6 +81,7 @@ public class OrdenCompra : BaseEntity
             Etapa = string.IsNullOrWhiteSpace(etapa) ? null : etapa.Trim(),
             Estado = estado,
             MotivoBloqueo = string.IsNullOrWhiteSpace(motivoBloqueo) ? null : motivoBloqueo.Trim(),
+            SinPartidaPresupuestaria = sinPartidaPresupuestaria,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -106,6 +111,26 @@ public class OrdenCompra : BaseEntity
     {
         Estado = EstadoOrdenCompra.Activa;
         MotivoBloqueo = null;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Marca la orden de compra como carente de partida presupuestaria (#196).
+    /// Permite continuar la operatoria sin bloqueo preventivo (#154), pero señaliza
+    /// la falta de partida para visibilidad de Compras y auditoría.
+    /// </summary>
+    public void MarcarSinPartida()
+    {
+        SinPartidaPresupuestaria = true;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Asocia la orden de compra con una partida presupuestaria (#196).
+    /// </summary>
+    public void AsignarPartida()
+    {
+        SinPartidaPresupuestaria = false;
         UpdatedAt = DateTime.UtcNow;
     }
 }

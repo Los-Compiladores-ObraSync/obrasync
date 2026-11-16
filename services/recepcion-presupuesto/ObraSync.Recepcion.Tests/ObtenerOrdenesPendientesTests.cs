@@ -172,5 +172,96 @@ public class ObtenerOrdenesPendientesTests
         Assert.Equal(ocActivaId, unica.OrdenCompraId);
         Assert.DoesNotContain(lista, o => o.OrdenCompraId == ocBloqueadaId);
     }
+
+    [Fact]
+    public async Task OrdenesPendientes_FiltroSinPartidaTrue_DevuelveSoloOrdenesSinPartida()
+    {
+        // Arrange (#196)
+        using var db = CreateInMemoryContext($"Db_Pend_SinPartida_{Guid.NewGuid()}");
+        var obraId = Guid.NewGuid();
+        var articuloId = Guid.NewGuid();
+
+        var ocConPartidaId = Guid.NewGuid();
+        var ocSinPartidaId = Guid.NewGuid();
+
+        var ocConPartida = CrearOrden(ocConPartidaId, obraId, articuloId);
+        var ocSinPartida = CrearOrden(ocSinPartidaId, obraId, articuloId);
+        ocSinPartida.MarcarSinPartida();
+
+        db.OrdenesCompra.AddRange(ocConPartida, ocSinPartida);
+        await db.SaveChangesAsync();
+
+        var controller = CrearController(db);
+
+        // Act
+        var resultado = await controller.ObtenerOrdenesPendientes(obraId, sinPartida: true, CancellationToken.None);
+
+        // Assert
+        var lista = ExtraerLista(resultado);
+        var unica = Assert.Single(lista);
+        Assert.Equal(ocSinPartidaId, unica.OrdenCompraId);
+        Assert.True(unica.SinPartidaPresupuestaria);
+    }
+
+    [Fact]
+    public async Task OrdenesPendientes_FiltroSinPartidaFalse_DevuelveSoloOrdenesConPartida()
+    {
+        // Arrange (#196)
+        using var db = CreateInMemoryContext($"Db_Pend_ConPartida_{Guid.NewGuid()}");
+        var obraId = Guid.NewGuid();
+        var articuloId = Guid.NewGuid();
+
+        var ocConPartidaId = Guid.NewGuid();
+        var ocSinPartidaId = Guid.NewGuid();
+
+        var ocConPartida = CrearOrden(ocConPartidaId, obraId, articuloId);
+        var ocSinPartida = CrearOrden(ocSinPartidaId, obraId, articuloId);
+        ocSinPartida.MarcarSinPartida();
+
+        db.OrdenesCompra.AddRange(ocConPartida, ocSinPartida);
+        await db.SaveChangesAsync();
+
+        var controller = CrearController(db);
+
+        // Act
+        var resultado = await controller.ObtenerOrdenesPendientes(obraId, sinPartida: false, CancellationToken.None);
+
+        // Assert
+        var lista = ExtraerLista(resultado);
+        var unica = Assert.Single(lista);
+        Assert.Equal(ocConPartidaId, unica.OrdenCompraId);
+        Assert.False(unica.SinPartidaPresupuestaria);
+    }
+
+    [Fact]
+    public async Task OrdenesPendientes_MapeaEtapaYSinPartidaPresupuestaria()
+    {
+        // Arrange (#196)
+        using var db = CreateInMemoryContext($"Db_Pend_Mapeo_{Guid.NewGuid()}");
+        var obraId = Guid.NewGuid();
+        var ocId = Guid.NewGuid();
+        var articuloId = Guid.NewGuid();
+
+        var oc = OrdenCompra.Crear(
+            ocId, obraId, Guid.NewGuid(), 5000m,
+            new[] { OrdenCompraItem.Crear(articuloId, 5m, "UN", 1000m, "Hierro") },
+            etapa: "Estructura",
+            sinPartidaPresupuestaria: true);
+
+        db.OrdenesCompra.Add(oc);
+        await db.SaveChangesAsync();
+
+        var controller = CrearController(db);
+
+        // Act
+        var resultado = await controller.ObtenerOrdenesPendientes(null, CancellationToken.None);
+
+        // Assert
+        var lista = ExtraerLista(resultado);
+        var orden = Assert.Single(lista);
+        Assert.Equal(ocId, orden.OrdenCompraId);
+        Assert.Equal("Estructura", orden.Etapa);
+        Assert.True(orden.SinPartidaPresupuestaria);
+    }
 }
 
