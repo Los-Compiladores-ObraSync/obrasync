@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using ObraSync.Contracts.Events;
 using ObraSync.Recepcion.Application.Interfaces;
+using ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
+using ObraSync.Recepcion.Application.UseCases.Recepciones.Queries;
 using ObraSync.Recepcion.Domain.Entities;
 using ObraSync.Recepcion.Domain.Enums;
 using ObraSync.Recepcion.Infrastructure.Consumers;
@@ -545,6 +547,8 @@ public class OrdenCompraEmitidaConsumerTests
         Assert.Equal(0, await db.EventosProcesados.CountAsync());
     }
 
+    // ── Tarjetas #196, #95, #154 y #195: Emparejamiento de etapa, evaluación presupuestaria, bloqueo, auditoría y concurrencia ────
+
     [Fact]
     public async Task CasoK_EventoConEtapaQueCoincideConPartida_EmparejaYComprometePresupuesto_SinPartidaFalso()
     {
@@ -677,13 +681,16 @@ public class OrdenCompraEmitidaConsumerTests
             },
             Etapa: "Pintura");
 
+        var context = CreateConsumeContext(evento);
+
         // Act
-        await consumer.Consume(CreateConsumeContext(evento));
+        await consumer.Consume(context);
 
         // Assert
         var oc = await db.OrdenesCompra.SingleAsync(o => o.Id == evento.OrdenCompraId);
         Assert.Equal(EstadoOrdenCompra.Activa, oc.Estado); // No se bloquea
         Assert.True(oc.SinPartidaPresupuestaria); // Queda marcada
+        await context.DidNotReceive().Publish(Arg.Any<OrdenCompraBloqueadaEvent>(), Arg.Any<CancellationToken>());
 
         Assert.Contains(logger.Logs, l =>
             l.LogLevel == LogLevel.Warning &&
@@ -730,8 +737,10 @@ public class OrdenCompraEmitidaConsumerTests
             },
             Etapa: "  CIMIENTOS ");
 
+        var context = CreateConsumeContext(evento);
+
         // Act
-        await consumer.Consume(CreateConsumeContext(evento));
+        await consumer.Consume(context);
 
         // Assert
         var oc = await db.OrdenesCompra.SingleAsync(o => o.Id == evento.OrdenCompraId);
@@ -742,6 +751,406 @@ public class OrdenCompraEmitidaConsumerTests
 
         var partidaActualizada = await db.PartidasPresupuestarias.SingleAsync(p => p.Id == partida.Id);
         Assert.Equal(0m, partidaActualizada.MontoComprometido); // NO se compromete al estar bloqueada
+        await context.Received(1).Publish(Arg.Any<OrdenCompraBloqueadaEvent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CasoO_OcNoSuperaPartida_QuedaActiva_IncrementaMontoComprometido_YNoPublicaAuditoria()
+    {
+        // Arrange
+        using var db = CreateDbContext(Guid.NewGuid().ToString());
+        var repo = new OrdenCompraRepository(db);
+        var logger = new TestLogger<OrdenCompraEmitidaConsumer>();
+        var consumer = new OrdenCompraEmitidaConsumer(db, repo, logger);
+
+        var obraId = Guid.NewGuid();
+        var partida = new PartidaPresupuestaria
+        {
+            Id = Guid.NewGuid(),
+            ObraId = obraId,
+            Etapa = "Estructura",
+            CodigoPartida = "EST-01",
+            Descripcion = "Hormigón y acero",
+            MontoAsignado = 100_000m,
+            MontoComprometido = 40_000m,
+            MontoEjecutado = 0m
+        };
+        db.PartidasPresupuestarias.Add(partida);
+        await db.SaveChangesAsync();
+
+        var evento = new OrdenCompraEmitidaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: Guid.NewGuid(),
+            LicitacionId: Guid.NewGuid(),
+            RequisicionId: Guid.NewGuid(),
+            ObraId: obraId,
+            ProveedorId: Guid.NewGuid(),
+            MontoTotal: 60_000m, // 40k + 60k = 100k == 100k (no supera)
+            Items: new List<OrdenCompraEmitidaItemEvent>
+            {
+                new(Guid.NewGuid(), 60m, "M3", 1000m, "Hormigón H30")
+            },
+            Etapa: "Estructura");
+
+        var context = CreateConsumeContext(evento);
+
+        // Act
+        await consumer.Consume(context);
+
+        // Assert: OC Activa y presente en órdenes pendientes
+        var oc = await db.OrdenesCompra.SingleAsync(o => o.Id == evento.OrdenCompraId);
+        Assert.Equal(EstadoOrdenCompra.Activa, oc.Estado);
+        Assert.False(oc.EstaBloqueada);
+        Assert.Null(oc.MotivoBloqueo);
+
+        // Assert: MontoComprometido subió de 40.000 a 100.000
+        var partidaActualizada = await db.PartidasPresupuestarias.SingleAsync(p => p.Id == partida.Id);
+        Assert.Equal(100_000m, partidaActualizada.MontoComprometido);
+
+        // Assert: Aparece en ordenes-pendientes
+        var pendientesHandler = new ObtenerOrdenesPendientesQueryHandler(db);
+        var pendientes = await pendientesHandler.Handle(new ObtenerOrdenesPendientesQuery(obraId));
+        Assert.Contains(pendientes, p => p.OrdenCompraId == evento.OrdenCompraId);
+
+        // Assert: No se publicó evento de bloqueo
+        await context.DidNotReceive().Publish(Arg.Any<OrdenCompraBloqueadaEvent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CasoP_OcSuperaPartida_QuedaBloqueada_NoSumaMontoComprometido_NoApareceEnPendientes_YPublicaOrdenCompraBloqueadaEvent()
+    {
+        // Arrange
+        using var db = CreateDbContext(Guid.NewGuid().ToString());
+        var repo = new OrdenCompraRepository(db);
+        var logger = new TestLogger<OrdenCompraEmitidaConsumer>();
+        var consumer = new OrdenCompraEmitidaConsumer(db, repo, logger);
+
+        var obraId = Guid.NewGuid();
+        var partida = new PartidaPresupuestaria
+        {
+            Id = Guid.NewGuid(),
+            ObraId = obraId,
+            Etapa = "Estructura",
+            CodigoPartida = "EST-01",
+            Descripcion = "Hormigón y acero",
+            MontoAsignado = 100_000m,
+            MontoComprometido = 40_000m,
+            MontoEjecutado = 0m
+        };
+        db.PartidasPresupuestarias.Add(partida);
+        await db.SaveChangesAsync();
+
+        var correlationId = Guid.NewGuid();
+        var evento = new OrdenCompraEmitidaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: correlationId,
+            OrdenCompraId: Guid.NewGuid(),
+            LicitacionId: Guid.NewGuid(),
+            RequisicionId: Guid.NewGuid(),
+            ObraId: obraId,
+            ProveedorId: Guid.NewGuid(),
+            MontoTotal: 75_000m, // 40k + 75k = 115k > 100k (exceso: 15k)
+            Items: new List<OrdenCompraEmitidaItemEvent>
+            {
+                new(Guid.NewGuid(), 75m, "M3", 1000m, "Hormigón H30")
+            },
+            Etapa: "estructura"); // minúscula para probar coincidencia case-insensitive
+
+        var context = CreateConsumeContext(evento);
+
+        // Act
+        await consumer.Consume(context);
+
+        // Assert 1: OC guardada como Bloqueada con su motivo
+        var oc = await db.OrdenesCompra.SingleAsync(o => o.Id == evento.OrdenCompraId);
+        Assert.Equal(EstadoOrdenCompra.Bloqueada, oc.Estado);
+        Assert.True(oc.EstaBloqueada);
+        Assert.NotNull(oc.MotivoBloqueo);
+        Assert.Contains("supera la partida asignada", oc.MotivoBloqueo);
+
+        // Assert 2: MontoComprometido NO se incrementó (sigue en 40.000)
+        var partidaActualizada = await db.PartidasPresupuestarias.SingleAsync(p => p.Id == partida.Id);
+        Assert.Equal(40_000m, partidaActualizada.MontoComprometido);
+
+        // Assert 3: NO aparece en ordenes-pendientes
+        var pendientesHandler = new ObtenerOrdenesPendientesQueryHandler(db);
+        var pendientes = await pendientesHandler.Handle(new ObtenerOrdenesPendientesQuery(obraId));
+        Assert.DoesNotContain(pendientes, p => p.OrdenCompraId == evento.OrdenCompraId);
+
+        // Assert 4: Se publicó exactamente 1 OrdenCompraBloqueadaEvent con los datos exactos
+        await context.Received(1).Publish(
+            Arg.Is<OrdenCompraBloqueadaEvent>(ev =>
+                ev.EventId != Guid.Empty &&
+                ev.CorrelationId == correlationId &&
+                ev.OrdenCompraId == evento.OrdenCompraId &&
+                ev.ObraId == obraId &&
+                ev.ProveedorId == evento.ProveedorId &&
+                ev.PartidaId == partida.Id &&
+                ev.Etapa == "estructura" &&
+                ev.MontoOrdenCompra == 75_000m &&
+                ev.MontoAsignadoPartida == 100_000m &&
+                ev.MontoComprometidoActual == 40_000m &&
+                ev.MontoProyectado == 115_000m &&
+                ev.Exceso == 15_000m &&
+                !string.IsNullOrWhiteSpace(ev.Motivo)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CasoQ_IdempotenciaConDesvio_MismoEventIdODistintoEventIdMismaOc_NoDuplicaPublicacionDeAuditoria()
+    {
+        // Arrange
+        using var db = CreateDbContext(Guid.NewGuid().ToString());
+        var repo = new OrdenCompraRepository(db);
+        var logger = Substitute.For<ILogger<OrdenCompraEmitidaConsumer>>();
+        var consumer = new OrdenCompraEmitidaConsumer(db, repo, logger);
+
+        var obraId = Guid.NewGuid();
+        db.PartidasPresupuestarias.Add(new PartidaPresupuestaria
+        {
+            Id = Guid.NewGuid(),
+            ObraId = obraId,
+            Etapa = null,
+            CodigoPartida = "GEN-01",
+            Descripcion = "Partida general de obra",
+            MontoAsignado = 10_000m,
+            MontoComprometido = 5_000m
+        });
+        await db.SaveChangesAsync();
+
+        var ocId = Guid.NewGuid();
+        var proveedorId = Guid.NewGuid();
+        var items = new List<OrdenCompraEmitidaItemEvent>
+        {
+            new(Guid.NewGuid(), 10m, "UN", 800m, "Material")
+        };
+
+        var primerEvento = new OrdenCompraEmitidaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: ocId,
+            LicitacionId: Guid.NewGuid(),
+            RequisicionId: Guid.NewGuid(),
+            ObraId: obraId,
+            ProveedorId: proveedorId,
+            MontoTotal: 8_000m, // 5k + 8k = 13k > 10k -> Bloquea
+            Items: items);
+
+        var context = CreateConsumeContext(primerEvento);
+
+        // Act 1: primer consumo
+        await consumer.Consume(context);
+
+        // Act 2: reintento con el MISMO EventId
+        await consumer.Consume(context);
+
+        // Act 3: reenvío con un NUEVO EventId pero el MISMO OrdenCompraId
+        var segundoEventoMismaOc = primerEvento with { EventId = Guid.NewGuid() };
+        var contextSegundo = CreateConsumeContext(segundoEventoMismaOc);
+        await consumer.Consume(contextSegundo);
+
+        // Assert: solo se publicó 1 vez en el primer consumo, y 0 veces en el segundo contexto
+        await context.Received(1).Publish(Arg.Any<OrdenCompraBloqueadaEvent>(), Arg.Any<CancellationToken>());
+        await contextSegundo.DidNotReceive().Publish(Arg.Any<OrdenCompraBloqueadaEvent>(), Arg.Any<CancellationToken>());
+        Assert.Equal(1, await db.OrdenesCompra.CountAsync());
+    }
+
+    [Fact]
+    public async Task CasoR_IdempotenciaSinDesvio_MismoEventIdODistintoEventIdMismaOc_NoSumaDosVecesAMontoComprometido()
+    {
+        // Arrange
+        using var db = CreateDbContext(Guid.NewGuid().ToString());
+        var repo = new OrdenCompraRepository(db);
+        var logger = Substitute.For<ILogger<OrdenCompraEmitidaConsumer>>();
+        var consumer = new OrdenCompraEmitidaConsumer(db, repo, logger);
+
+        var obraId = Guid.NewGuid();
+        var partidaId = Guid.NewGuid();
+        db.PartidasPresupuestarias.Add(new PartidaPresupuestaria
+        {
+            Id = partidaId,
+            ObraId = obraId,
+            Etapa = "Cimientos",
+            CodigoPartida = "CIM-01",
+            Descripcion = "Excavación y fundaciones",
+            MontoAsignado = 50_000m,
+            MontoComprometido = 10_000m
+        });
+        await db.SaveChangesAsync();
+
+        var ocId = Guid.NewGuid();
+        var primerEvento = new OrdenCompraEmitidaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: ocId,
+            LicitacionId: Guid.NewGuid(),
+            RequisicionId: Guid.NewGuid(),
+            ObraId: obraId,
+            ProveedorId: Guid.NewGuid(),
+            MontoTotal: 15_000m, // 10k + 15k = 25k <= 50k
+            Items: new List<OrdenCompraEmitidaItemEvent>
+            {
+                new(Guid.NewGuid(), 15m, "M3", 1000m, "Tierra")
+            },
+            Etapa: "Cimientos");
+
+        // Act 1: primer consumo -> MontoComprometido sube a 25.000
+        await consumer.Consume(CreateConsumeContext(primerEvento));
+
+        // Act 2: mismo EventId repetido
+        await consumer.Consume(CreateConsumeContext(primerEvento));
+
+        // Act 3: distinto EventId pero mismo OrdenCompraId
+        var segundoEventoMismaOc = primerEvento with { EventId = Guid.NewGuid() };
+        await consumer.Consume(CreateConsumeContext(segundoEventoMismaOc));
+
+        // Assert: MontoComprometido se incrementó una sola vez (25.000, no 40.000 ni 55.000)
+        var partida = await db.PartidasPresupuestarias.SingleAsync(p => p.Id == partidaId);
+        Assert.Equal(25_000m, partida.MontoComprometido);
+    }
+
+    [Fact]
+    public async Task CasoS_DosOrdenesSimultaneasMismaPartida_PrimeraCompromete_SegundaLanzaConcurrenciaYEnReintentoQuedaBloqueada()
+    {
+        // Arrange (#195): Partida con $100.000 asignados y $0 comprometidos.
+        // Dos órdenes de $60.000 compiten al mismo tiempo: individualmente caben ($60k <= $100k),
+        // pero juntas superan la partida ($120k > $100k).
+        var dbName = Guid.NewGuid().ToString();
+        var obraId = Guid.NewGuid();
+        var partidaId = Guid.NewGuid();
+
+        using (var dbSetup = CreateDbContext(dbName))
+        {
+            dbSetup.PartidasPresupuestarias.Add(new PartidaPresupuestaria
+            {
+                Id = partidaId,
+                ObraId = obraId,
+                Etapa = "Estructura",
+                CodigoPartida = "EST-01",
+                Descripcion = "Hormigón",
+                MontoAsignado = 100_000m,
+                MontoComprometido = 0m
+            });
+            await dbSetup.SaveChangesAsync();
+        }
+
+        var eventoOc1 = new OrdenCompraEmitidaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: Guid.NewGuid(),
+            LicitacionId: Guid.NewGuid(),
+            RequisicionId: Guid.NewGuid(),
+            ObraId: obraId,
+            ProveedorId: Guid.NewGuid(),
+            MontoTotal: 60_000m,
+            Items: new List<OrdenCompraEmitidaItemEvent>
+            {
+                new(Guid.NewGuid(), 60m, "M3", 1000m, "Hormigón OC 1")
+            },
+            Etapa: "Estructura");
+
+        var eventoOc2 = new OrdenCompraEmitidaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: Guid.NewGuid(),
+            LicitacionId: Guid.NewGuid(),
+            RequisicionId: Guid.NewGuid(),
+            ObraId: obraId,
+            ProveedorId: Guid.NewGuid(),
+            MontoTotal: 60_000m,
+            Items: new List<OrdenCompraEmitidaItemEvent>
+            {
+                new(Guid.NewGuid(), 60m, "M3", 1000m, "Hormigón OC 2")
+            },
+            Etapa: "Estructura");
+
+        using var db1 = CreateDbContext(dbName);
+        var repo1 = new OrdenCompraRepository(db1);
+        var logger1 = new TestLogger<OrdenCompraEmitidaConsumer>();
+        var consumer1 = new OrdenCompraEmitidaConsumer(db1, repo1, logger1);
+        var context1 = CreateConsumeContext(eventoOc1);
+
+        var optionsDb2 = new DbContextOptionsBuilder<RecepcionDbContext>()
+            .UseInMemoryDatabase(dbName)
+            .Options;
+
+        // Justo después de que el consumidor 2 leyó MontoComprometido = 0 y evaluó que cabía,
+        // antes de confirmar su SaveChangesAsync, el consumidor 1 confirma su transacción y avanza el RowVersion.
+        using var db2 = new ConcurrenciaIntercaladaDbContext(
+            optionsDb2,
+            antesDeGuardarAsync: () => consumer1.Consume(context1));
+
+        var repo2 = new OrdenCompraRepository(db2);
+        var logger2 = new TestLogger<OrdenCompraEmitidaConsumer>();
+        var consumer2 = new OrdenCompraEmitidaConsumer(db2, repo2, logger2);
+        var context2Intento1 = CreateConsumeContext(eventoOc2);
+
+        // Act 1: El primer intento de la OC 2 detecta el cambio de RowVersion y lanza DbUpdateConcurrencyException
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => consumer2.Consume(context2Intento1));
+        Assert.Contains(logger2.Logs, l => l.LogLevel == LogLevel.Warning && l.Message.Contains("Conflicto de concurrencia"));
+
+        // Act 2: MassTransit reintenta el mensaje de la OC 2 en un DbContext limpio
+        using var db3 = CreateDbContext(dbName);
+        var repo3 = new OrdenCompraRepository(db3);
+        var logger3 = new TestLogger<OrdenCompraEmitidaConsumer>();
+        var consumer3 = new OrdenCompraEmitidaConsumer(db3, repo3, logger3);
+        var context2Reintento = CreateConsumeContext(eventoOc2);
+
+        await consumer3.Consume(context2Reintento);
+
+        // Assert:
+        // 1. La OC 1 quedó Activa y comprometió $60.000
+        using var dbVerif = CreateDbContext(dbName);
+        var oc1EnBd = await dbVerif.OrdenesCompra.SingleAsync(o => o.Id == eventoOc1.OrdenCompraId);
+        Assert.Equal(EstadoOrdenCompra.Activa, oc1EnBd.Estado);
+
+        // 2. La OC 2 quedó Bloqueada en el reintento y NO sumó al MontoComprometido
+        var oc2EnBd = await dbVerif.OrdenesCompra.SingleAsync(o => o.Id == eventoOc2.OrdenCompraId);
+        Assert.Equal(EstadoOrdenCompra.Bloqueada, oc2EnBd.Estado);
+
+        var partidaFinal = await dbVerif.PartidasPresupuestarias.SingleAsync(p => p.Id == partidaId);
+        Assert.Equal(60_000m, partidaFinal.MontoComprometido);
+
+        // 3. Se publicó el evento de auditoría OrdenCompraBloqueadaEvent para la OC 2
+        await context2Reintento.Received(1).Publish(
+            Arg.Is<OrdenCompraBloqueadaEvent>(e =>
+                e.OrdenCompraId == eventoOc2.OrdenCompraId &&
+                e.MontoComprometidoActual == 60_000m &&
+                e.MontoProyectado == 120_000m &&
+                e.Exceso == 20_000m),
+            Arg.Any<CancellationToken>());
+    }
+
+    private sealed class ConcurrenciaIntercaladaDbContext : RecepcionDbContext
+    {
+        private readonly Func<Task> _antesDeGuardarAsync;
+        private bool _intercaladoEjecutado;
+
+        public ConcurrenciaIntercaladaDbContext(
+            DbContextOptions<RecepcionDbContext> options,
+            Func<Task> antesDeGuardarAsync)
+            : base(options)
+        {
+            _antesDeGuardarAsync = antesDeGuardarAsync;
+        }
+
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            if (!_intercaladoEjecutado)
+            {
+                _intercaladoEjecutado = true;
+                await _antesDeGuardarAsync();
+            }
+
+            return await base.SaveChangesAsync(cancellationToken);
+        }
     }
 }
 

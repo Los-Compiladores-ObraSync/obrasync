@@ -108,7 +108,7 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
                 return;
             }
 
-            // ── CONTROL PRESUPUESTARIO Y EMPAREJAMIENTO DE ETAPA (#154, #94, #95, #196) ──
+            // ── CONTROL PRESUPUESTARIO Y EMPAREJAMIENTO DE ETAPA (#154, #94, #95, #195, #196) ──
             var partidasObra = await _db.PartidasPresupuestarias
                 .Where(p => p.ObraId == msg.ObraId)
                 .ToListAsync(context.CancellationToken);
@@ -132,10 +132,46 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
 
                 if (evaluacion.DebeBloquearse)
                 {
-                    oc.BloquearPorDesvioPresupuestario(evaluacion.Motivo);
+                    var motivo = evaluacion.Motivo.Length > 500
+                        ? evaluacion.Motivo[..500]
+                        : evaluacion.Motivo;
+
+                    oc.BloquearPorDesvioPresupuestario(motivo);
+
+                    var correlationId = msg.CorrelationId != Guid.Empty
+                        ? msg.CorrelationId
+                        : Guid.NewGuid();
+
+                    var eventoBloqueo = new OrdenCompraBloqueadaEvent(
+                        EventId: Guid.NewGuid(),
+                        OccurredAt: DateTime.UtcNow,
+                        CorrelationId: correlationId,
+                        OrdenCompraId: oc.Id,
+                        ObraId: oc.ObraId,
+                        ProveedorId: oc.ProveedorId,
+                        PartidaId: partida.Id,
+                        Etapa: oc.Etapa,
+                        MontoOrdenCompra: oc.MontoTotal,
+                        MontoAsignadoPartida: evaluacion.MontoAsignado,
+                        MontoComprometidoActual: evaluacion.GastoAcumulado,
+                        MontoProyectado: evaluacion.MontoProyectado,
+                        Exceso: evaluacion.Exceso,
+                        Motivo: motivo);
+
+                    await context.Publish(eventoBloqueo, context.CancellationToken);
+
                     _logger.LogWarning(
-                        "OrdenCompra {OrdenCompraId} bloqueada por desvío presupuestario en partida {PartidaId} (Código: {CodigoPartida}). {Motivo}",
-                        oc.Id, partida.Id, partida.CodigoPartida, evaluacion.Motivo);
+                        "OrdenCompra {OrdenCompraId} bloqueada por desvío presupuestario en partida {PartidaId} (Código: {CodigoPartida}). ObraId: {ObraId}, Etapa: {Etapa}, MontoOC: {MontoOC}, MontoAsignado: {MontoAsignado}, MontoComprometidoActual: {MontoComprometidoActual}, Exceso: {Exceso}. {Motivo}",
+                        oc.Id,
+                        partida.Id,
+                        partida.CodigoPartida,
+                        oc.ObraId,
+                        oc.Etapa ?? "sin etapa",
+                        oc.MontoTotal,
+                        evaluacion.MontoAsignado,
+                        evaluacion.GastoAcumulado,
+                        evaluacion.Exceso,
+                        motivo);
                 }
                 else
                 {
@@ -190,6 +226,14 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
         try
         {
             await _db.SaveChangesAsync(context.CancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Conflicto de concurrencia al comprometer la partida presupuestaria para OrdenCompra {OrdenCompraId} (Evento {EventId}). Se relanza para reintentar con el saldo actualizado (#195).",
+                msg.OrdenCompraId, msg.EventId);
+            throw;
         }
         catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
         {

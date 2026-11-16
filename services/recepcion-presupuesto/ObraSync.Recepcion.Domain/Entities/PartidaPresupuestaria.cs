@@ -21,6 +21,10 @@ public class PartidaPresupuestaria : BaseEntity
 
     public string Moneda { get; set; } = "ARS";
 
+    // Token de concurrencia optimista (#195): evita que dos órdenes simultáneas
+    // lean el mismo MontoComprometido y superen la partida sin bloqueo.
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+
     // Saldo disponible que todavía no fue comprometido por ninguna OC (#154)
     public decimal MontoDisponible => MontoAsignado - MontoComprometido;
 

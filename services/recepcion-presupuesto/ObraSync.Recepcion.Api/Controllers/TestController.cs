@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
 using ObraSync.Contracts.Events;
+using ObraSync.Recepcion.Application.Common.Interfaces;
 
 namespace ObraSync.Recepcion.Api.Controllers;
 
@@ -16,15 +17,18 @@ public class TestController : ControllerBase
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<TestController> _logger;
     private readonly IHostEnvironment? _environment;
+    private readonly IRecepcionDbContext? _dbContext;
 
     public TestController(
         IPublishEndpoint publishEndpoint,
         ILogger<TestController> logger,
-        IHostEnvironment? environment = null)
+        IHostEnvironment? environment = null,
+        IRecepcionDbContext? dbContext = null)
     {
         _publishEndpoint = publishEndpoint;
         _logger = logger;
         _environment = environment;
+        _dbContext = dbContext;
     }
 
     [HttpPost("publish-orden-compra")]
@@ -67,12 +71,18 @@ public class TestController : ControllerBase
             request.ObraId,
             request.ProveedorId,
             request.MontoTotal,
-            items
+            items,
+            request.Etapa
         );
 
         try
         {
             await _publishEndpoint.Publish(@event, cancellationToken);
+            if (_dbContext != null)
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+
             _logger.LogInformation("Evento OrdenCompraEmitida publicado. EventId: {EventId}, OrdenCompraId: {OrdenCompraId}", eventId, request.OrdenCompraId);
             return Ok(new { eventId, message = "Evento publicado correctamente" });
         }
@@ -93,6 +103,7 @@ public class PublishOrdenCompraRequest
     public Guid? CorrelationId { get; set; }
     public Guid? LicitacionId { get; set; }
     public Guid? RequisicionId { get; set; }
+    public string? Etapa { get; set; }
     public decimal MontoTotal { get; set; }
     public List<PublishOrdenCompraItemRequest> Items { get; set; } = [];
 }

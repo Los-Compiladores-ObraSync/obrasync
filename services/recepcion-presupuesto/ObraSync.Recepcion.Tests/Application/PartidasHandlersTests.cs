@@ -115,6 +115,97 @@ public class PartidasHandlersTests
     }
 
     [Fact]
+    public async Task CrearPartida_EtapaDuplicadaMismaObra_LanzaRecepcionConflictoException()
+    {
+        using var db = CreateInMemoryContext();
+        var handler = new CrearPartidaPresupuestariaCommandHandler(db);
+        var obraId = Guid.NewGuid();
+
+        var request1 = new CrearPartidaPresupuestariaRequest
+        {
+            ObraId = obraId,
+            Etapa = "Estructura",
+            CodigoPartida = "EST-01",
+            Descripcion = "Primera partida de estructura",
+            MontoAsignado = 100_000m
+        };
+
+        var request2 = new CrearPartidaPresupuestariaRequest
+        {
+            ObraId = obraId,
+            Etapa = "  estructura  ", // Distinto código pero misma etapa (case-insensitive)
+            CodigoPartida = "EST-02",
+            Descripcion = "Segunda partida de estructura",
+            MontoAsignado = 200_000m
+        };
+
+        await handler.Handle(new CrearPartidaPresupuestariaCommand(request1));
+
+        var ex = await Assert.ThrowsAsync<RecepcionConflictoException>(() =>
+            handler.Handle(new CrearPartidaPresupuestariaCommand(request2)));
+
+        Assert.Contains("estructura", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CrearPartida_AmbasSinEtapaMismaObra_LanzaRecepcionConflictoException()
+    {
+        using var db = CreateInMemoryContext();
+        var handler = new CrearPartidaPresupuestariaCommandHandler(db);
+        var obraId = Guid.NewGuid();
+
+        var request1 = new CrearPartidaPresupuestariaRequest
+        {
+            ObraId = obraId,
+            Etapa = null,
+            CodigoPartida = "GEN-01",
+            Descripcion = "Partida general 1",
+            MontoAsignado = 500_000m
+        };
+
+        var request2 = new CrearPartidaPresupuestariaRequest
+        {
+            ObraId = obraId,
+            Etapa = "   ", // Equivale a Etapa = null ("toda la obra")
+            CodigoPartida = "GEN-02",
+            Descripcion = "Partida general 2",
+            MontoAsignado = 300_000m
+        };
+
+        await handler.Handle(new CrearPartidaPresupuestariaCommand(request1));
+
+        var ex = await Assert.ThrowsAsync<RecepcionConflictoException>(() =>
+            handler.Handle(new CrearPartidaPresupuestariaCommand(request2)));
+
+        Assert.Contains("toda la obra", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(2601)]
+    [InlineData(2627)]
+    public async Task CrearPartida_ViolacionIndiceUnicoEnSaveChanges_LanzaRecepcionConflictoException(int sqlErrorNumber)
+    {
+        using var db = new ConcurrenciaIndiceUnicoDbContext(
+            new DbContextOptionsBuilder<RecepcionDbContext>()
+                .UseInMemoryDatabase($"Partidas_Unique_{Guid.NewGuid()}")
+                .Options,
+            sqlErrorNumber);
+
+        var handler = new CrearPartidaPresupuestariaCommandHandler(db);
+        var request = new CrearPartidaPresupuestariaRequest
+        {
+            ObraId = Guid.NewGuid(),
+            Etapa = "Cimientos",
+            CodigoPartida = "CIM-01",
+            Descripcion = "Partida concurrente",
+            MontoAsignado = 100_000m
+        };
+
+        await Assert.ThrowsAsync<RecepcionConflictoException>(() =>
+            handler.Handle(new CrearPartidaPresupuestariaCommand(request)));
+    }
+
+    [Fact]
     public async Task ObtenerPartidas_FiltraPorObraYEtapa_DevuelveCorrectamente()
     {
         using var db = CreateInMemoryContext();
@@ -191,5 +282,33 @@ public class PartidasHandlersTests
         var partida = Assert.Single(resultado);
         Assert.Equal("PART-1", partida.CodigoPartida);
         Assert.Equal("Fundación", partida.Etapa);
+    }
+
+    private sealed class SqlException : Exception
+    {
+        public SqlException(int number) : base($"Violation of UNIQUE KEY constraint ({number}).")
+        {
+            Number = number;
+        }
+
+        public int Number { get; }
+    }
+
+    private sealed class ConcurrenciaIndiceUnicoDbContext : RecepcionDbContext
+    {
+        private readonly int _sqlErrorNumber;
+
+        public ConcurrenciaIndiceUnicoDbContext(
+            DbContextOptions<RecepcionDbContext> options,
+            int sqlErrorNumber)
+            : base(options)
+        {
+            _sqlErrorNumber = sqlErrorNumber;
+        }
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            throw new DbUpdateException("Error al guardar por índice único.", new SqlException(_sqlErrorNumber));
+        }
     }
 }
