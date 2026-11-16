@@ -211,3 +211,30 @@ internal sealed class ConsultorFalso : IConsultorRequisiciones
         return Task.FromResult(ResultadoDetalle);
     }
 }
+
+
+/// <summary>Órdenes pendientes de recepción falsas en memoria. Se puede cambiar el resultado y contar las llamadas.</summary>
+internal sealed class ConsultorRecepcionesFalso : IConsultorRecepciones
+{
+    public static readonly Guid IdOrden = Guid.Parse("cccccccc-0000-0000-0000-000000000001");
+    public static readonly Guid IdArticulo1 = Guid.Parse("dddddddd-0000-0000-0000-000000000001");
+    public static readonly Guid IdArticulo2 = Guid.Parse("dddddddd-0000-0000-0000-000000000002");
+
+    public static OrdenPendiente Orden { get; } = new(IdOrden, ObrasFalsas.IdTorre, "Estructura", new[]
+    {
+        new ItemOrdenPendiente(IdArticulo1, "Cemento Portland 50 kg", 80, "BOLSA"),
+        new ItemOrdenPendiente(IdArticulo2, "Arena gruesa", 12, "M3")
+    });
+
+    public ResultadoOrdenesPendientes Resultado { get; set; } = ResultadoOrdenesPendientes.Bien(new[] { Orden }, 1);
+
+    public int Llamadas { get; private set; }
+    public int UltimoMaximo { get; private set; }
+
+    public Task<ResultadoOrdenesPendientes> ListarPendientesAsync(int maximo, CancellationToken ct)
+    {
+        Llamadas++;
+        UltimoMaximo = maximo;
+        return Task.FromResult(Resultado);
+    }
+}

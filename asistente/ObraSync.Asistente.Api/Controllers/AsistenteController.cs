@@ -64,7 +64,7 @@ public sealed class AsistenteController : ControllerBase
             // Registro por pedido (#144): solo tokens, rol y correlationId. Nunca el mensaje ni el JWT.
             _log.LogInformation("Asistente consumo: tokens={Tok} rol={Rol} iteraciones={It} herramientas={Herr} correlationId={CorrelationId}",
                 r.Tokens, _contexto.Rol, r.Iteraciones, r.Herramientas, _contexto.CorrelationId);
-            return Ok(new ChatResponseDto(r.Texto, r.Borrador, r.Tokens, r.Aprobacion));
+            return Ok(new ChatResponseDto(r.Texto, r.Borrador, r.Tokens, r.Aprobacion, r.Recepcion));
         }
 
         // Se anota el código estable (nunca la clave ni el texto crudo del proveedor).

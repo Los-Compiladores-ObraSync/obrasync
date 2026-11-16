@@ -9,7 +9,8 @@ namespace ObraSync.Asistente.Application;
 /// "Borrador" solo lo completa armar_borrador_requisicion; el modelo nunca lo ve entero (ve el resumen).
 /// </summary>
 public sealed record ResultadoHerramienta(
-    bool Ok, JsonNode Datos, BorradorRequisicion? Borrador = null, BorradorAprobacion? Aprobacion = null)
+    bool Ok, JsonNode Datos, BorradorRequisicion? Borrador = null, BorradorAprobacion? Aprobacion = null,
+    BorradorRecepcion? Recepcion = null)
 {
     public static ResultadoHerramienta Bien(JsonNode datos) => new(true, datos);
     public static ResultadoHerramienta Error(string codigo) =>

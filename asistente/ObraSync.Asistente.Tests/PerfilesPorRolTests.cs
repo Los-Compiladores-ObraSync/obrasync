@@ -26,16 +26,19 @@ public class PerfilesPorRolTests
             Herramientas[0]!.Select(d => d!["function"]!["name"]!.GetValue<string>());
     }
 
-    private static Agente ArmarAgente(IModeloChat modelo, string? rol, ConsultorFalso? consultor = null) => new(
+    private static Agente ArmarAgente(
+        IModeloChat modelo, string? rol, ConsultorFalso? consultor = null, ConsultorRecepcionesFalso? recepciones = null) => new(
         modelo,
         new HerramientasCatalogo(new BuscadorFalso(), new ObrasFalsas()),
         new HerramientasCompras(consultor ?? new ConsultorFalso(), new ObrasFalsas()),
-        new ContextoFalso { Rol = rol });
+        new ContextoFalso { Rol = rol },
+        null,
+        new HerramientasRecepcion(recepciones ?? new ConsultorRecepcionesFalso(), new ObrasFalsas()));
 
     [Theory]
-    [InlineData("Capataz", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion" })]
+    [InlineData("Capataz", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion" })]
     [InlineData("Comprador", new[] { "listar_requisiciones", "ver_requisicion", "preparar_aprobacion_requisicion" })]
-    [InlineData("Admin", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "preparar_aprobacion_requisicion" })]
+    [InlineData("Admin", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion", "preparar_aprobacion_requisicion" })]
     public async Task Cada_rol_ve_solo_las_herramientas_de_su_perfil(string rol, string[] esperadas)
     {
         var modelo = new ModeloQueAnotaHerramientas(Respuestas.Final("Hola"));
@@ -76,7 +79,7 @@ public class PerfilesPorRolTests
         await agente.ResponderAsync("hola");
 
         Assert.Equal(
-            new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion" }.OrderBy(x => x),
+            new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion" }.OrderBy(x => x),
             modelo.NombresOfrecidos().OrderBy(x => x));
     }
 
@@ -147,6 +150,8 @@ public class PerfilesPorRolTests
     [Theory]
     [InlineData("Comprador", "buscar_insumos")]
     [InlineData("Comprador", "armar_borrador_requisicion")]
+    [InlineData("Comprador", "listar_ordenes_pendientes")]
+    [InlineData("Comprador", "preparar_recepcion")]
     [InlineData("Capataz", "preparar_aprobacion_requisicion")]
     public async Task Si_el_modelo_pide_una_herramienta_que_no_es_de_su_perfil_no_se_ejecuta(string rol, string herramienta)
     {
@@ -206,5 +211,25 @@ public class PerfilesPorRolTests
         Assert.Null(r.Borrador);
         // Nada se escribió: el consultor solo tiene operaciones de lectura.
         Assert.Equal(1, consultor.LlamadasDetalle);
+    }
+
+    [Fact]
+    public async Task El_Capataz_pide_registrar_lo_que_llego_y_la_respuesta_trae_el_borrador_de_recepcion()
+    {
+        var recepciones = new ConsultorRecepcionesFalso();
+        var modelo = new ModeloFalso(
+            _ => Respuestas.PideHerramienta(
+                "{\"ordenCompraId\":\"" + ConsultorRecepcionesFalso.IdOrden + "\",\"numeroRemito\":\"R-0001-55\"}", nombre: "preparar_recepcion"),
+            _ => Respuestas.Final("Revisá el resumen y tocá Confirmar."));
+
+        var r = await ArmarAgente(modelo, "Capataz", null, recepciones).ResponderAsync("llegó el cemento, remito R-0001-55");
+
+        Assert.True(r.Ok);
+        Assert.NotNull(r.Recepcion);
+        Assert.Equal("R-0001-55", r.Recepcion!.Recepcion.NumeroRemito);
+        Assert.Null(r.Borrador);
+        Assert.Null(r.Aprobacion);
+        // El modelo solo recibe el resumen corto, no el borrador completo.
+        Assert.DoesNotContain("detalles", modelo.Pedidos[1].Last()!["content"]!.GetValue<string>());
     }
 }

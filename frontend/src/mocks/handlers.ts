@@ -825,6 +825,63 @@ export const handlers: RequestHandler[] = [
       return HttpResponse.json({ respuesta, borrador: null, tokensUsados: 0 }, { status: 200 })
     }
 
+    // Perfil Capataz (#147): registrar lo que llegó. Solo ARMA el borrador de una recepción TOTAL; la recepción
+    // real la hace el frontend con POST /api/recepciones cuando el Capataz toca Confirmar. El remito lo da la
+    // persona: si no lo dijo, se lo pide (nunca se inventa).
+    if (/lleg|recib|remito/.test(texto)) {
+      const orden = ordenesPendientesMock[0]
+      if (!orden) {
+        return HttpResponse.json(
+          { respuesta: 'No hay órdenes pendientes de recepción por ahora.', borrador: null, tokensUsados: 0 },
+          { status: 200 },
+        )
+      }
+      const remito = mensaje.match(/remito\s+(?:n[°º.]?\s*)?([\w-]+)/i)?.[1]
+      if (!remito) {
+        return HttpResponse.json(
+          { respuesta: 'Dale. ¿Cuál es el número de remito?', borrador: null, tokensUsados: 0 },
+          { status: 200 },
+        )
+      }
+      const obraDeLaOrden = obrasMock.find((o) => o.id === orden.obraId)
+      return HttpResponse.json(
+        {
+          respuesta: `Armé la recepción del remito ${remito}. Revisala y tocá Confirmar para registrarla.`,
+          borrador: null,
+          recepcion: {
+            accion: 'registrarRecepcion',
+            titulo: `Registrar recepción · remito ${remito}`,
+            resumen: {
+              obra: obraDeLaOrden?.nombre ?? null,
+              etapa: null,
+              numeroRemito: remito,
+              items: orden.items.map((i) => ({
+                descripcion: i.descripcionArticulo,
+                cantidad: i.cantidadEsperada,
+                unidadMedida: i.unidadMedida,
+              })),
+            },
+            recepcion: {
+              obraId: orden.obraId,
+              ordenCompraId: orden.ordenCompraId,
+              numeroRemito: remito,
+              observaciones: null,
+              detalles: orden.items.map((i) => ({
+                articuloId: i.articuloId,
+                descripcionArticulo: i.descripcionArticulo,
+                cantidadEsperada: i.cantidadEsperada,
+                cantidadRecibida: i.cantidadEsperada,
+                unidadMedida: i.unidadMedida,
+                conforme: true,
+              })),
+            },
+          },
+          tokensUsados: 0,
+        },
+        { status: 200 },
+      )
+    }
+
     // Perfil Comprador (#141): consulta y aprobación. Aprobar solo ARMA el borrador; la aprobación real
     // la hace el frontend con POST /api/requisiciones/{id}/aprobar cuando el Comprador toca Confirmar.
     if (/aprob|pendiente/.test(texto)) {

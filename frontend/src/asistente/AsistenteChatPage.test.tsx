@@ -2,7 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { reiniciarRecepcionesMock } from '../mocks/handlers'
 import { server } from '../mocks/server'
 import { AsistenteChatPage } from './AsistenteChatPage'
 
@@ -60,7 +61,7 @@ describe('AsistenteChatPage', () => {
     expect(screen.getByRole('link', { name: 'Volver al inicio' })).toHaveAttribute('href', '/')
   })
 
-  it('cuenta lo que sabe hacer, marca lo que todavía no anda y lo saca cuando empieza la conversación', async () => {
+  it('cuenta lo que sabe hacer, sin etiquetas de "Próximamente", y lo saca cuando empieza la conversación', async () => {
     const user = userEvent.setup()
     renderPagina()
 
@@ -68,8 +69,8 @@ describe('AsistenteChatPage', () => {
     expect(lista).toHaveTextContent('Pedir materiales')
     expect(lista).toHaveTextContent('Ver tus requisiciones')
     expect(lista).toHaveTextContent('Registrar lo que llegó')
-    // "Pedir materiales" y "Ver tus requisiciones" funcionan: solo la recepción lleva la etiqueta.
-    expect(screen.getAllByText('Próximamente')).toHaveLength(1)
+    // Las tres funciones andan: ninguna lleva la etiqueta "Próximamente".
+    expect(screen.queryByText('Próximamente')).not.toBeInTheDocument()
 
     await escribirYEnviar(user, 'necesito 20 bolsas de cemento')
     await screen.findByRole('button', { name: 'Confirmar' })
@@ -77,12 +78,12 @@ describe('AsistenteChatPage', () => {
     expect(screen.queryByRole('list', { name: 'Lo que puedo hacer' })).not.toBeInTheDocument()
   })
 
-  it('tocar "Pedir materiales" manda ese mensaje y el asistente pregunta qué necesita; la que falta está deshabilitada', async () => {
+  it('tocar "Pedir materiales" manda ese mensaje y el asistente pregunta qué necesita; las tres están habilitadas', async () => {
     const user = userEvent.setup()
     renderPagina()
 
     expect(screen.getByRole('button', { name: /Ver tus requisiciones/ })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /Registrar lo que llegó/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Registrar lo que llegó/ })).toBeEnabled()
 
     await user.click(screen.getByRole('button', { name: /Pedir materiales/ }))
 
@@ -457,5 +458,113 @@ describe('AsistenteChatPage', () => {
     renderPagina()
 
     expect(screen.getByLabelText('Escribí tu mensaje')).toHaveAttribute('maxlength', '500')
+  })
+
+  describe('registrar lo que llegó (#147)', () => {
+    const RUTA_RECEPCIONES = '*/api/recepciones'
+
+    /** Cuenta los POST /api/recepciones y guarda el último cuerpo. */
+    function espiarRecepcion(respuesta?: () => Response) {
+      const visto = { llamadas: 0, cuerpo: null as Record<string, unknown> | null }
+      server.use(
+        http.post(RUTA_RECEPCIONES, async ({ request }) => {
+          visto.llamadas += 1
+          visto.cuerpo = (await request.json()) as Record<string, unknown>
+          return (
+            respuesta?.() ??
+            HttpResponse.json(
+              {
+                id: 'f1f2f3f4-0000-0000-0000-000000000001',
+                obraId: 'b1b2c3d4-0000-0000-0000-0000000000a1',
+                ordenCompraId: 'e1e2e3e4-0000-0000-0000-000000000001',
+                numeroRemito: 'R-0001-55',
+                fechaRecepcion: new Date().toISOString(),
+                estado: 3,
+              },
+              { status: 201 },
+            )
+          )
+        }),
+      )
+      return visto
+    }
+
+    beforeEach(() => reiniciarRecepcionesMock())
+
+    it('sin remito el asistente lo pide y no muestra ninguna tarjeta', async () => {
+      const user = userEvent.setup()
+      renderPagina()
+
+      await user.click(screen.getByRole('button', { name: /Registrar lo que llegó/ }))
+
+      expect(await screen.findByText(/¿Cuál es el número de remito\?/)).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Registrar recepción' })).not.toBeInTheDocument()
+    })
+
+    it('con el remito arma la tarjeta para revisar y NO registra nada todavía', async () => {
+      const user = userEvent.setup()
+      const recepcion = espiarRecepcion()
+      renderPagina()
+
+      await escribirYEnviar(user, 'llegó todo, remito R-0001-55')
+
+      expect(await screen.findByRole('button', { name: 'Registrar recepción' })).toBeInTheDocument()
+      expect(screen.getByText('Remito: R-0001-55')).toBeInTheDocument()
+      expect(screen.getByText('Obra: Torre Alvear')).toBeInTheDocument()
+      expect(screen.getByText(/Se registra como recibido completo y conforme/)).toBeInTheDocument()
+      expect(recepcion.llamadas).toBe(0)
+    })
+
+    it('al confirmar registra la recepción total con la fecha de hoy y ofrece registrar otra', async () => {
+      const user = userEvent.setup()
+      const recepcion = espiarRecepcion()
+      renderPagina()
+
+      await escribirYEnviar(user, 'llegó todo, remito R-0001-55')
+      await user.click(await screen.findByRole('button', { name: 'Registrar recepción' }))
+
+      expect(await screen.findByText(/registré la recepción del remito R-0001-55/)).toBeInTheDocument()
+      expect(recepcion.llamadas).toBe(1)
+      const cuerpo = recepcion.cuerpo as { numeroRemito: string; fechaRecepcion: string; detalles: Record<string, unknown>[] }
+      expect(cuerpo.numeroRemito).toBe('R-0001-55')
+      expect(cuerpo.fechaRecepcion).toMatch(/^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/)
+      expect(cuerpo.detalles.length).toBeGreaterThan(0)
+      cuerpo.detalles.forEach((d) => {
+        expect(d.cantidadRecibida).toBe(d.cantidadEsperada)
+        expect(d.conforme).toBe(true)
+      })
+      expect(screen.getByRole('button', { name: 'Registrar otra recepción' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Registrar recepción' })).not.toBeInTheDocument()
+    })
+
+    it('si el servidor responde 409 muestra el motivo y deja reintentar o cancelar', async () => {
+      const user = userEvent.setup()
+      espiarRecepcion(() =>
+        HttpResponse.json(
+          { title: 'Conflicto', status: 409, detail: 'Esa orden de compra ya fue recibida.' },
+          { status: 409 },
+        ),
+      )
+      renderPagina()
+
+      await escribirYEnviar(user, 'llegó todo, remito R-0001-55')
+      await user.click(await screen.findByRole('button', { name: 'Registrar recepción' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Esa orden de compra ya fue recibida.')
+      expect(screen.getByRole('button', { name: 'Registrar recepción' })).toBeInTheDocument()
+    })
+
+    it('al cancelar no registra nada', async () => {
+      const user = userEvent.setup()
+      const recepcion = espiarRecepcion()
+      renderPagina()
+
+      await escribirYEnviar(user, 'llegó todo, remito R-0001-55')
+      await screen.findByRole('button', { name: 'Registrar recepción' })
+      await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+      expect(await screen.findByText(/no registré nada/)).toBeInTheDocument()
+      expect(recepcion.llamadas).toBe(0)
+    })
   })
 })

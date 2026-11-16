@@ -61,9 +61,42 @@ export interface BorradorAprobacionDto {
   resumen: ResumenAprobacionDto
 }
 
+export interface ResumenRecepcionDto {
+  obra?: string | null
+  etapa?: string | null
+  numeroRemito: string
+  items: ResumenItemAprobacionDto[]
+}
+
+/** Cuerpo de POST /api/recepciones SIN la fecha: la agrega el frontend al confirmar. */
+export interface CuerpoRecepcionDto {
+  obraId: string
+  ordenCompraId: string
+  numeroRemito: string
+  observaciones?: string | null
+  detalles: {
+    articuloId: string
+    descripcionArticulo: string
+    cantidadEsperada: number
+    cantidadRecibida: number
+    unidadMedida: string
+    conforme: boolean
+  }[]
+}
+
+/** Borrador de una recepción TOTAL (#147). Registra recién cuando el Capataz toca Confirmar:
+ *  el frontend llama a POST /api/recepciones con su JWT. */
+export interface BorradorRecepcionDto {
+  accion: 'registrarRecepcion'
+  titulo: string
+  resumen: ResumenRecepcionDto
+  recepcion: CuerpoRecepcionDto
+}
+
 export interface ChatResponseDto {
   respuesta: string
   borrador?: BorradorRequisicionDto | null
   aprobacion?: BorradorAprobacionDto | null
+  recepcion?: BorradorRecepcionDto | null
   tokensUsados?: number | null
 }

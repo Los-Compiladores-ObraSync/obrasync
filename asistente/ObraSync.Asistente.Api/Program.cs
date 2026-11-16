@@ -51,6 +51,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IContextoDePeticion, ContextoDePeticionHttp>();
 builder.Services.AddScoped<HerramientasCatalogo>();
 builder.Services.AddScoped<HerramientasCompras>();
+builder.Services.AddScoped<HerramientasRecepcion>();
 builder.Services.AddScoped<Agente>();
 
 // Control de consumo de tokens (#144): UNA sola instancia para todo el servicio, porque el cupo del modelo es

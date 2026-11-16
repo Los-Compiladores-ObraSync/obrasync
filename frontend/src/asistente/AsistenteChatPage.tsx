@@ -6,10 +6,14 @@ import {
   crearRequisicion,
   generarIdempotencyKey,
 } from '../requisiciones/requisicionesService'
+import { fechaAIso } from '../obras/validacionObra'
+import { hoyComoTexto } from '../obras/fechaEnPalabras'
+import { registrarRecepcion } from '../recepciones/recepcionesService'
 import { enviarMensajeAlAsistente } from './asistenteService'
 import {
   MAX_CARACTERES_MENSAJE,
   type BorradorAprobacionDto,
+  type BorradorRecepcionDto,
   type BorradorRequisicionDto,
   type ChatMensajeDto,
 } from './asistenteTipos'
@@ -25,10 +29,12 @@ interface MensajeChat {
   /** Mensaje armado por la propia pantalla (no lo dijo el modelo): no se reenvía como historial. */
   local?: boolean
   /** Muestra "qué querés hacer ahora" debajo del mensaje (después de confirmar o cancelar un borrador). */
-  siguientesPasos?: 'creada' | 'descartada' | 'aprobada'
+  siguientesPasos?: 'creada' | 'descartada' | 'aprobada' | 'recibida'
   borrador?: BorradorRequisicionDto
   /** Borrador de aprobación (portal de Compras, #141). */
   aprobacion?: BorradorAprobacionDto
+  /** Borrador de recepción total (portal de obra, #147). */
+  recepcion?: BorradorRecepcionDto
   /** Una sola clave por borrador: si el usuario confirma dos veces, el servidor no duplica la requisición. */
   claveIdempotencia?: string
   estado?: EstadoBorrador
@@ -57,7 +63,7 @@ const CAPACIDADES_OBRA = [
     titulo: 'Registrar lo que llegó',
     descripcion: 'Te armo la recepción de la mercadería para que la confirmes.',
     mensaje: 'Quiero registrar lo que llegó',
-    disponible: false, // #147
+    disponible: true, // #147 (solo recepción total; la parcial se hace desde la pantalla de Recepción)
   },
 ]
 
@@ -188,8 +194,9 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
         texto: respuesta.respuesta,
         borrador: respuesta.borrador ?? undefined,
         aprobacion: respuesta.aprobacion ?? undefined,
+        recepcion: respuesta.recepcion ?? undefined,
         claveIdempotencia: respuesta.borrador ? generarIdempotencyKey() : undefined,
-        estado: respuesta.borrador || respuesta.aprobacion ? 'pendiente' : undefined,
+        estado: respuesta.borrador || respuesta.aprobacion || respuesta.recepcion ? 'pendiente' : undefined,
       })
     } catch (err) {
       setError(mensajeDeErrorDelAsistente(err, portal))
@@ -226,6 +233,35 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
       texto: `Listo, aprobé la requisición ${aprobada.numeroRequisicion ?? mensaje.aprobacion.resumen.numero}.`,
       local: true,
       siguientesPasos: 'aprobada',
+    })
+  }
+
+  async function confirmarRecepcion(mensaje: MensajeChat) {
+    if (!mensaje.recepcion) {
+      return
+    }
+    // La fecha la pone el frontend al confirmar (igual que la pantalla de Recepción: hoy, hora local).
+    // Si falla (409: orden ya recibida o remito repetido; 400: entrega parcial), el error lo muestra la tarjeta.
+    await registrarRecepcion({
+      ...mensaje.recepcion.recepcion,
+      fechaRecepcion: fechaAIso(hoyComoTexto()),
+    })
+    actualizarMensaje(mensaje.id, { estado: 'confirmada' })
+    agregarMensaje({
+      rol: 'asistente',
+      texto: `Listo, registré la recepción del remito ${mensaje.recepcion.resumen.numeroRemito}.`,
+      local: true,
+      siguientesPasos: 'recibida',
+    })
+  }
+
+  function cancelarRecepcion(mensaje: MensajeChat) {
+    actualizarMensaje(mensaje.id, { estado: 'cancelada' })
+    agregarMensaje({
+      rol: 'asistente',
+      texto: 'Listo, no registré nada. La orden sigue pendiente de recepción.',
+      local: true,
+      siguientesPasos: 'descartada',
     })
   }
 
@@ -318,9 +354,17 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
                       <button
                         type="button"
                         className={styles.siguientePaso}
-                        onClick={() => void enviarTexto('Quiero pedir materiales')}
+                        onClick={() =>
+                          void enviarTexto(
+                            mensaje.siguientesPasos === 'recibida' ? 'Quiero registrar lo que llegó' : 'Quiero pedir materiales',
+                          )
+                        }
                       >
-                        {mensaje.siguientesPasos === 'creada' ? 'Pedir otros materiales' : 'Armar otro pedido'}
+                        {mensaje.siguientesPasos === 'creada'
+                          ? 'Pedir otros materiales'
+                          : mensaje.siguientesPasos === 'recibida'
+                            ? 'Registrar otra recepción'
+                            : 'Armar otro pedido'}
                       </button>
                     )}
                     {mensaje.siguientesPasos === 'creada' && (
@@ -351,6 +395,30 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
                         </li>
                       ))}
                     </ul>
+                  </ConfirmacionAccion>
+                )}
+                {mensaje.recepcion && mensaje.estado === 'pendiente' && (
+                  <ConfirmacionAccion
+                    titulo={mensaje.recepcion.titulo}
+                    textoConfirmar="Registrar recepción"
+                    onConfirmar={() => confirmarRecepcion(mensaje)}
+                    onCancelar={() => cancelarRecepcion(mensaje)}
+                  >
+                    <p className={styles.dato}>Remito: {mensaje.recepcion.resumen.numeroRemito}</p>
+                    {mensaje.recepcion.resumen.obra && (
+                      <p className={styles.dato}>Obra: {mensaje.recepcion.resumen.obra}</p>
+                    )}
+                    {mensaje.recepcion.resumen.etapa && (
+                      <p className={styles.dato}>Etapa: {mensaje.recepcion.resumen.etapa}</p>
+                    )}
+                    <ul className={styles.items}>
+                      {mensaje.recepcion.resumen.items.map((item, i) => (
+                        <li key={`${i}-${item.descripcion}`}>
+                          {formatoCantidad(item.cantidad)} {item.unidadMedida.toLowerCase()} · {item.descripcion}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className={styles.dato}>Se registra como recibido completo y conforme.</p>
                   </ConfirmacionAccion>
                 )}
                 {mensaje.aprobacion && mensaje.estado === 'pendiente' && (
