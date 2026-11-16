@@ -179,6 +179,34 @@ describe('AsistenteChatPage en el portal de Compras', () => {
     expect(container.querySelector('img')).toBeNull()
   })
 
+  it('muestra como TEXTO la obra y los ítems de la tarjeta de aprobación (datos del servidor) (#174)', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.post(RUTA_CHAT, () =>
+        HttpResponse.json({
+          ...BORRADOR_APROBACION,
+          aprobacion: {
+            ...BORRADOR_APROBACION.aprobacion,
+            resumen: {
+              ...BORRADOR_APROBACION.aprobacion.resumen,
+              obra: '<script>alert(1)</script> Torre',
+              items: [{ descripcion: '<img src=x onerror=alert(2)> Cemento', cantidad: 1, unidadMedida: 'BOLSA' }],
+            },
+          },
+        }),
+      ),
+    )
+    const { container } = renderCompras()
+
+    await user.type(screen.getByLabelText('Escribí tu mensaje'), 'aprobá la REQ-2026-0042')
+    await user.click(screen.getByRole('button', { name: 'Enviar' }))
+
+    expect(await screen.findByText(/<script>alert\(1\)<\/script> Torre/)).toBeInTheDocument()
+    expect(screen.getByText(/<img src=x onerror=alert\(2\)> Cemento/)).toBeInTheDocument()
+    expect(container.querySelector('img')).toBeNull()
+    expect(container.querySelector('script')).toBeNull()
+  })
+
   it('un 503 sugiere la pantalla de aprobar, no el formulario de obra', async () => {
     const user = userEvent.setup()
     server.use(http.post(RUTA_CHAT, () => HttpResponse.json({ title: 'Error', status: 503 }, { status: 503 })))
