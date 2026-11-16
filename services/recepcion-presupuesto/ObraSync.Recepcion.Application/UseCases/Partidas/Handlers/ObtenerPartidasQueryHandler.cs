@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.DTOs;
 using ObraSync.Recepcion.Application.Mappings;
 using ObraSync.Recepcion.Application.UseCases.Partidas.Queries;
+using ObraSync.Recepcion.Domain.Entities;
 using ObraSync.Recepcion.Domain.Presupuestos;
 
 namespace ObraSync.Recepcion.Application.UseCases.Partidas.Handlers;
@@ -19,7 +22,7 @@ public class ObtenerPartidasQueryHandler
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
-    public async Task<List<PartidaPresupuestariaDto>> Handle(
+    public async Task<PaginaDe<PartidaPresupuestariaDto>> Handle(
         ObtenerPartidasQuery query,
         CancellationToken cancellationToken = default)
     {
@@ -30,18 +33,34 @@ public class ObtenerPartidasQueryHandler
             dbQuery = dbQuery.Where(p => p.ObraId == query.ObraId.Value);
         }
 
-        var partidas = await dbQuery
-            .OrderBy(p => p.CodigoPartida)
-            .ToListAsync(cancellationToken);
+        var p = query.Paginacion ?? new ParametrosPagina();
+        int total;
+        List<PartidaPresupuestaria> partidas;
 
         // Filtrado por etapa normalizada (sin distinguir mayúsculas, espacios ni tildes) (#196)
         if (!string.IsNullOrWhiteSpace(query.Etapa))
         {
-            partidas = partidas
-                .Where(p => NormalizadorEtapa.SonEquivalentes(p.Etapa, query.Etapa))
+            var todas = await dbQuery.ToListAsync(cancellationToken);
+            var filtradas = todas
+                .Where(x => NormalizadorEtapa.SonEquivalentes(x.Etapa, query.Etapa))
+                .OrderBy(x => x.CodigoPartida)
+                .ThenBy(x => x.Id)
                 .ToList();
+
+            total = filtradas.Count;
+            partidas = filtradas.Skip(p.Saltear).Take(p.Tamano).ToList();
+        }
+        else
+        {
+            total = await dbQuery.CountAsync(cancellationToken);
+            partidas = await dbQuery
+                .OrderBy(x => x.CodigoPartida)
+                .ThenBy(x => x.Id)
+                .Skip(p.Saltear)
+                .Take(p.Tamano)
+                .ToListAsync(cancellationToken);
         }
 
-        return partidas.Select(p => p.ToDto()).ToList();
+        return new PaginaDe<PartidaPresupuestariaDto>(partidas.Select(p => p.ToDto()).ToList(), total);
     }
 }

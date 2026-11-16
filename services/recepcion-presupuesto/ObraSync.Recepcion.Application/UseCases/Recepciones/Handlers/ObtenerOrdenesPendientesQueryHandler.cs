@@ -15,7 +15,7 @@ public class ObtenerOrdenesPendientesQueryHandler
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
-    public async Task<List<OrdenPendienteDto>> Handle(
+    public async Task<PaginaDe<OrdenPendienteDto>> Handle(
         ObtenerOrdenesPendientesQuery query,
         CancellationToken cancellationToken = default)
     {
@@ -41,10 +41,20 @@ public class ObtenerOrdenesPendientesQueryHandler
             dbQuery = dbQuery.Where(o => o.SinPartidaPresupuestaria == query.SinPartida.Value);
         }
 
-        var ordenes = await dbQuery.ToListAsync(cancellationToken);
+        // Total sobre la consulta base con los mismos filtros sin paginar (#185)
+        var total = await dbQuery.CountAsync(cancellationToken);
+
+        var p = query.Paginacion ?? new ParametrosPagina();
+        var ordenes = await dbQuery
+            .OrderByDescending(o => o.CreatedAt)
+            .ThenBy(o => o.Id)
+            .Skip(p.Saltear)
+            .Take(p.Tamano)
+            .ToListAsync(cancellationToken);
 
         var ordenesIds = ordenes.Select(o => o.Id).ToList();
 
+        // Consulta secundaria de recepciones filtrada ÚNICAMENTE por los IDs de la página actual (#185)
         var recibidos = await _context.Recepciones
             .AsNoTracking()
             .Where(r => ordenesIds.Contains(r.OrdenCompraId))
@@ -56,7 +66,7 @@ public class ObtenerOrdenesPendientesQueryHandler
             }))
             .ToListAsync(cancellationToken);
 
-        return ordenes
+        var items = ordenes
             .Select(o => new OrdenPendienteDto
             {
                 OrdenCompraId = o.Id,
@@ -77,5 +87,7 @@ public class ObtenerOrdenesPendientesQueryHandler
                     .ToList()
             })
             .ToList();
+
+        return new PaginaDe<OrdenPendienteDto>(items, total);
     }
 }

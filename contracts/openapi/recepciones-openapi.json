@@ -48,11 +48,54 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "pagina",
+            "in": "query",
+            "description": "Número de página (1 en adelante).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "tamano",
+            "in": "query",
+            "description": "Cantidad de elementos por página (entre 1 y 50).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Lista de recepciones obtenida correctamente.",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total de elementos que coinciden con el filtro",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Page": {
+                "description": "Página actual",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Page-Size": {
+                "description": "Tamaño de página aplicado",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -60,6 +103,16 @@
                   "items": {
                     "$ref": "#/components/schemas/RecepcionDto"
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paginación inválida (pagina < 1 o tamano fuera del rango 1..50).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -227,11 +280,54 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "pagina",
+            "in": "query",
+            "description": "Número de página (1 en adelante).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "tamano",
+            "in": "query",
+            "description": "Cantidad de elementos por página (entre 1 y 50).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Lista de órdenes de compra pendientes de recibir.",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total de elementos que coinciden con el filtro",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Page": {
+                "description": "Página actual",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Page-Size": {
+                "description": "Tamaño de página aplicado",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -239,6 +335,16 @@
                   "items": {
                     "$ref": "#/components/schemas/OrdenPendienteDto"
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paginación inválida (pagina < 1 o tamano fuera del rango 1..50).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -370,11 +476,54 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "pagina",
+            "in": "query",
+            "description": "Número de página (1 en adelante).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "tamano",
+            "in": "query",
+            "description": "Cantidad de elementos por página (entre 1 y 50).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Lista de partidas presupuestarias.",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total de elementos que coinciden con el filtro",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Page": {
+                "description": "Página actual",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Page-Size": {
+                "description": "Tamaño de página aplicado",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -382,6 +531,16 @@
                   "items": {
                     "$ref": "#/components/schemas/PartidaPresupuestariaDto"
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paginación inválida (pagina < 1 o tamano fuera del rango 1..50).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }

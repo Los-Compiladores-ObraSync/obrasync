@@ -12,14 +12,18 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using ObraSync.Recepcion.Application.Exceptions;
 using ObraSync.Recepcion.Application.Interfaces;
+using Polly;
+using Polly.CircuitBreaker;
 
 namespace ObraSync.Recepcion.Infrastructure.Services;
 
 /// <summary>
 /// Valida contra el microservicio Usuarios y Obras (GET /api/Obras) que la obra pertenezca
-/// al Capataz autenticado (#189, #155), propagando su token JWT y el X-Correlation-ID sin acoplar bases de datos.
-/// Si Usuarios y Obras no responde o da timeout, lanza ObraAsignacionNoVerificableException (503 Service Unavailable),
-/// lo cual es distinto a una obra rechazada (403 Forbidden).
+/// al Capataz autenticado (#189, #155), propagando su token JWT y el X-Correlation-ID (#104).
+/// Protegido con resiliencia Polly v8 (#103): reintentos con retroceso exponencial ante fallas transitorias
+/// y circuit breaker que corta rápido si el servicio destino está caído.
+/// Si Usuarios y Obras no responde, da timeout o el breaker está abierto, lanza ObraAsignacionNoVerificableException
+/// (503 Service Unavailable), lo cual es distinto a una obra rechazada (403 Forbidden).
 /// </summary>
 public class HttpObraAsignacionValidator : IObraAsignacionValidator
 {
@@ -31,11 +35,13 @@ public class HttpObraAsignacionValidator : IObraAsignacionValidator
     private readonly HttpClient _httpClient;
     private readonly string _baseUrl;
     private readonly ILogger<HttpObraAsignacionValidator>? _logger;
+    private readonly ResiliencePipeline<HttpResponseMessage> _pipeline;
 
     public HttpObraAsignacionValidator(
         IConfiguration configuration,
         HttpClient? httpClient = null,
-        ILogger<HttpObraAsignacionValidator>? logger = null)
+        ILogger<HttpObraAsignacionValidator>? logger = null,
+        ResiliencePipeline<HttpResponseMessage>? pipeline = null)
     {
         var baseUrl = configuration["UsuariosObras:BaseUrl"];
         if (string.IsNullOrWhiteSpace(baseUrl))
@@ -47,6 +53,7 @@ public class HttpObraAsignacionValidator : IObraAsignacionValidator
         _baseUrl = baseUrl;
         _httpClient = httpClient ?? SharedHttpClient;
         _logger = logger;
+        _pipeline = pipeline ?? PipelineResilienciaHttp.Crear();
     }
 
     public async Task<bool> EstaAsignadaACapatazAsync(
@@ -65,23 +72,33 @@ public class HttpObraAsignacionValidator : IObraAsignacionValidator
         CancellationToken cancellationToken = default)
     {
         var endpoint = $"{_baseUrl.TrimEnd('/')}/api/Obras";
-        using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
-
-        if (!string.IsNullOrWhiteSpace(authorizationHeader)
-            && AuthenticationHeaderValue.TryParse(authorizationHeader, out var authHeader))
-        {
-            request.Headers.Authorization = authHeader;
-        }
-
-        if (!string.IsNullOrWhiteSpace(correlationId))
-        {
-            request.Headers.TryAddWithoutValidation("X-Correlation-ID", correlationId);
-        }
 
         HttpResponseMessage response;
         try
         {
-            response = await _httpClient.SendAsync(request, cancellationToken);
+            // Ejecutar a través del pipeline de Polly (#103):
+            // Cada reintento genera una nueva instancia de HttpRequestMessage para evitar errores de request ya enviado.
+            response = await _pipeline.ExecuteAsync(async state =>
+            {
+                var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
+
+                if (!string.IsNullOrWhiteSpace(authorizationHeader)
+                    && AuthenticationHeaderValue.TryParse(authorizationHeader, out var authHeader))
+                {
+                    request.Headers.Authorization = authHeader;
+                }
+
+                if (!string.IsNullOrWhiteSpace(correlationId))
+                {
+                    request.Headers.TryAddWithoutValidation("X-Correlation-ID", correlationId);
+                }
+
+                return await _httpClient.SendAsync(request, state);
+            }, cancellationToken);
+        }
+        catch (BrokenCircuitException ex)
+        {
+            throw NoVerificable("circuit breaker abierto por fallas reiteradas", correlationId, ex);
         }
         catch (HttpRequestException ex)
         {

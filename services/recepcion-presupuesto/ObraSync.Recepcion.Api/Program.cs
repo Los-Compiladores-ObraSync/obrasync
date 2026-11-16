@@ -167,6 +167,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseStatusCodePages();
 app.UseMiddleware<ExceptionMiddleware>();
 
