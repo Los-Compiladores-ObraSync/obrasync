@@ -41,6 +41,7 @@ public class HerramientasRecepcionTests
         Assert.False(datos["hayMas"]!.GetValue<bool>());
         var orden = datos["ordenes"]![0]!;
         Assert.Equal(ConsultorRecepcionesFalso.IdOrden.ToString(), orden["ordenCompraId"]!.GetValue<string>());
+        Assert.Equal(1, orden["opcion"]!.GetValue<int>());
         Assert.Equal("Torre Central", orden["obra"]!.GetValue<string>());
         Assert.Equal("Estructura", orden["etapa"]!.GetValue<string>());
         Assert.Equal(2, orden["items"]!.AsArray().Count);

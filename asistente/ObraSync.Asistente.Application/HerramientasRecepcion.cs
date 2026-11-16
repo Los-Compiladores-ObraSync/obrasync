@@ -106,8 +106,10 @@ public sealed class HerramientasRecepcion
 
         var nombresDeObras = await NombresDeObrasAsync(ct);
         var lista = new JsonArray();
+        var numero = 0;
         foreach (var o in resultado.Ordenes!.Take(MaxOrdenes))
         {
+            numero++;
             var items = new JsonArray();
             foreach (var i in o.Items.Take(MaxItemsPorOrden))
                 items.Add(new JsonObject
@@ -119,6 +121,8 @@ public sealed class HerramientasRecepcion
 
             lista.Add(new JsonObject
             {
+                // "opcion" es el número que ve la persona en la lista; ordenCompraId es solo para preparar_recepcion.
+                ["opcion"] = numero,
                 ["ordenCompraId"] = o.OrdenCompraId.ToString(),
                 ["obra"] = nombresDeObras.TryGetValue(o.ObraId, out var nombre) ? nombre : null,
                 ["etapa"] = o.Etapa,
