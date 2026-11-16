@@ -6,6 +6,7 @@ using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Infrastructure.Persistence;
 using ObraSync.Recepcion.Infrastructure.Persistence.Repositories;
+using ObraSync.Recepcion.Infrastructure.Services;
 
 namespace ObraSync.Recepcion.Infrastructure;
 
@@ -23,6 +24,19 @@ public static class DependencyInjection
         services.AddScoped<IRecepcionDbContext>(provider => provider.GetRequiredService<RecepcionDbContext>());
         services.AddScoped<IOrdenCompraRepository, OrdenCompraRepository>();
         services.AddScoped<IRecepcionEventPublisher, Messaging.MassTransitRecepcionEventPublisher>();
+
+        // Validación de pertenencia de obra para Capataz (#189, #155, #178)
+        var usuariosObrasBaseUrl = configuration["UsuariosObras:BaseUrl"];
+
+        if (!string.IsNullOrWhiteSpace(usuariosObrasBaseUrl))
+        {
+            services.AddScoped<IObraAsignacionValidator, HttpObraAsignacionValidator>();
+        }
+        else
+        {
+            services.AddScoped<IObraAsignacionValidator, ValidadorObraAsignacionDeshabilitado>();
+        }
+
         services.AddApplicationServices();
 
         return services;

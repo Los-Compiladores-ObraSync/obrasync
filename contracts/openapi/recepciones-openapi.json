@@ -68,7 +68,10 @@
             "description": "No se proporcionó un token válido."
           },
           "403": {
-            "description": "No autorizado para consultar recepciones."
+            "description": "No autorizado para consultar recepciones, o la obra filtrada no está asignada al Capataz."
+          },
+          "503": {
+            "description": "No se pudo verificar la obra asignada porque Usuarios y Obras no respondió."
           }
         }
       },
@@ -118,7 +121,10 @@
             "description": "No se proporcionó un token válido."
           },
           "403": {
-            "description": "El usuario no tiene el rol Capataz o Admin."
+            "description": "El usuario no tiene el rol Capataz o Admin, o la obra no está asignada al Capataz."
+          },
+          "503": {
+            "description": "No se pudo verificar la obra asignada porque Usuarios y Obras no respondió."
           },
           "409": {
             "description": "La orden de compra ya fue recibida por completo o el número de remito está repetido para esa OC.",
@@ -172,7 +178,7 @@
             "description": "No se proporcionó un token válido."
           },
           "403": {
-            "description": "Rol no autorizado."
+            "description": "Rol no autorizado, o la recepción pertenece a una obra no asignada al Capataz."
           },
           "404": {
             "description": "La recepción no existe.",
@@ -183,6 +189,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "No se pudo verificar la obra asignada porque Usuarios y Obras no respondió."
           }
         }
       }
@@ -238,7 +247,10 @@
             "description": "No se proporcionó un token válido."
           },
           "403": {
-            "description": "El usuario no tiene el rol Capataz o Admin."
+            "description": "El usuario no tiene el rol Capataz, Comprador o Admin, o la obra filtrada no está asignada al Capataz."
+          },
+          "503": {
+            "description": "No se pudo verificar la obra asignada porque Usuarios y Obras no respondió."
           }
         }
       }

@@ -21,24 +21,28 @@ public class RecepcionesController : ControllerBase
     private readonly ObtenerRecepcionesQueryHandler _obtenerRecepcionesHandler;
     private readonly ObtenerRecepcionPorIdQueryHandler _obtenerPorIdHandler;
     private readonly ObtenerOrdenesPendientesQueryHandler _obtenerOrdenesPendientesHandler;
+    private readonly IObraAsignacionValidator? _obraAsignacionValidator;
 
     [ActivatorUtilitiesConstructor]
     public RecepcionesController(
         CrearRecepcionCommandHandler crearHandler,
         ObtenerRecepcionesQueryHandler obtenerRecepcionesHandler,
         ObtenerRecepcionPorIdQueryHandler obtenerPorIdHandler,
-        ObtenerOrdenesPendientesQueryHandler obtenerOrdenesPendientesHandler)
+        ObtenerOrdenesPendientesQueryHandler obtenerOrdenesPendientesHandler,
+        IObraAsignacionValidator? obraAsignacionValidator = null)
     {
         _crearHandler = crearHandler;
         _obtenerRecepcionesHandler = obtenerRecepcionesHandler;
         _obtenerPorIdHandler = obtenerPorIdHandler;
         _obtenerOrdenesPendientesHandler = obtenerOrdenesPendientesHandler;
+        _obraAsignacionValidator = obraAsignacionValidator;
     }
 
     public RecepcionesController(
         IRecepcionDbContext context,
         ILogger<RecepcionesController> logger,
-        IRecepcionEventPublisher eventPublisher)
+        IRecepcionEventPublisher eventPublisher,
+        IObraAsignacionValidator? obraAsignacionValidator = null)
         : this(
             new CrearRecepcionCommandHandler(
                 context,
@@ -46,13 +50,15 @@ public class RecepcionesController : ControllerBase
                 NullLogger<CrearRecepcionCommandHandler>.Instance),
             new ObtenerRecepcionesQueryHandler(context),
             new ObtenerRecepcionPorIdQueryHandler(context),
-            new ObtenerOrdenesPendientesQueryHandler(context))
+            new ObtenerOrdenesPendientesQueryHandler(context),
+            obraAsignacionValidator)
     {
     }
 
     /// <summary>
     /// Obtiene las recepciones registradas, opcionalmente filtradas por ObraId y/o OrdenCompraId.
     /// Ambos filtros son opcionales y se pueden combinar.
+    /// Roles permitidos: Capataz, Comprador, Admin (#189: Capataz solo puede consultar obras que tiene asignadas).
     /// </summary>
     [Authorize(Roles = "Capataz,Comprador,Admin")]
     [HttpGet]
@@ -61,13 +67,70 @@ public class RecepcionesController : ControllerBase
         CancellationToken cancellationToken,
         [FromQuery] Guid? ordenCompraId = null)
     {
+        var correlationId = GetCorrelationIdFromHeader();
+
+        if (EsCapatazSinPrivilegiosSuperiores() && _obraAsignacionValidator != null)
+        {
+            var authHeader = Request?.Headers["Authorization"].ToString();
+
+            if (obraId.HasValue)
+            {
+                bool asignada;
+                try
+                {
+                    asignada = await _obraAsignacionValidator.EstaAsignadaACapatazAsync(
+                        obraId.Value,
+                        authHeader,
+                        correlationId.ToString(),
+                        cancellationToken);
+                }
+                catch (ObraAsignacionNoVerificableException)
+                {
+                    return Problem(
+                        detail: "No se pudo verificar que la obra esté asignada al capataz porque el servicio Usuarios y Obras no respondió. Reintentá en unos segundos.",
+                        statusCode: StatusCodes.Status503ServiceUnavailable,
+                        title: "Servicio no disponible");
+                }
+
+                if (!asignada)
+                {
+                    return Problem(
+                        detail: "La obra no está asignada al capataz autenticado.",
+                        statusCode: StatusCodes.Status403Forbidden,
+                        title: "Obra no asignada");
+                }
+            }
+            else
+            {
+                IReadOnlyList<Guid>? obrasAsignadas;
+                try
+                {
+                    obrasAsignadas = await _obraAsignacionValidator.ObtenerObrasAsignadasAsync(
+                        authHeader,
+                        correlationId.ToString(),
+                        cancellationToken);
+                }
+                catch (ObraAsignacionNoVerificableException)
+                {
+                    return Problem(
+                        detail: "No se pudo verificar las obras asignadas al capataz porque el servicio Usuarios y Obras no respondió. Reintentá en unos segundos.",
+                        statusCode: StatusCodes.Status503ServiceUnavailable,
+                        title: "Servicio no disponible");
+                }
+
+                var queryAsignadas = new ObtenerRecepcionesQuery(obraId, ordenCompraId, obrasAsignadas);
+                var resultadoAsignadas = await _obtenerRecepcionesHandler.Handle(queryAsignadas, cancellationToken);
+                return Ok(resultadoAsignadas);
+            }
+        }
+
         var query = new ObtenerRecepcionesQuery(obraId, ordenCompraId);
         var resultado = await _obtenerRecepcionesHandler.Handle(query, cancellationToken);
         return Ok(resultado);
     }
 
     /// <summary>
-    /// Obtiene una recepción por su identificador.
+    /// Obtiene una recepción por su identificador (#189: valida pertenencia de obra para Capataz).
     /// </summary>
     [Authorize(Roles = "Capataz,Comprador,Admin")]
     [HttpGet("{id:guid}")]
@@ -85,12 +148,43 @@ public class RecepcionesController : ControllerBase
                 detail: "La recepción no existe.");
         }
 
+        if (EsCapatazSinPrivilegiosSuperiores() && _obraAsignacionValidator != null)
+        {
+            var authHeader = Request?.Headers["Authorization"].ToString();
+            var correlationId = GetCorrelationIdFromHeader();
+            bool asignada;
+            try
+            {
+                asignada = await _obraAsignacionValidator.EstaAsignadaACapatazAsync(
+                    recepcion.ObraId,
+                    authHeader,
+                    correlationId.ToString(),
+                    cancellationToken);
+            }
+            catch (ObraAsignacionNoVerificableException)
+            {
+                return Problem(
+                    detail: "No se pudo verificar que la obra de la recepción esté asignada al capataz porque el servicio Usuarios y Obras no respondió. Reintentá en unos segundos.",
+                    statusCode: StatusCodes.Status503ServiceUnavailable,
+                    title: "Servicio no disponible");
+            }
+
+            if (!asignada)
+            {
+                return Problem(
+                    detail: "La obra no está asignada al capataz autenticado.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Obra no asignada");
+            }
+        }
+
         return Ok(recepcion);
     }
 
     /// <summary>
     /// Obtiene las órdenes de compra pendientes de recibir (sin recepción completa),
     /// opcionalmente filtradas por ObraId y/o por estado SinPartidaPresupuestaria (#196).
+    /// Roles permitidos: Capataz, Comprador, Admin (#189: Capataz solo puede consultar órdenes de sus obras asignadas).
     /// </summary>
     [Authorize(Roles = "Capataz,Comprador,Admin")]
     [HttpGet("ordenes-pendientes")]
@@ -99,6 +193,63 @@ public class RecepcionesController : ControllerBase
         [FromQuery] bool? sinPartida = null,
         CancellationToken cancellationToken = default)
     {
+        var correlationId = GetCorrelationIdFromHeader();
+
+        if (EsCapatazSinPrivilegiosSuperiores() && _obraAsignacionValidator != null)
+        {
+            var authHeader = Request?.Headers["Authorization"].ToString();
+
+            if (obraId.HasValue)
+            {
+                bool asignada;
+                try
+                {
+                    asignada = await _obraAsignacionValidator.EstaAsignadaACapatazAsync(
+                        obraId.Value,
+                        authHeader,
+                        correlationId.ToString(),
+                        cancellationToken);
+                }
+                catch (ObraAsignacionNoVerificableException)
+                {
+                    return Problem(
+                        detail: "No se pudo verificar que la obra esté asignada al capataz porque el servicio Usuarios y Obras no respondió. Reintentá en unos segundos.",
+                        statusCode: StatusCodes.Status503ServiceUnavailable,
+                        title: "Servicio no disponible");
+                }
+
+                if (!asignada)
+                {
+                    return Problem(
+                        detail: "La obra no está asignada al capataz autenticado.",
+                        statusCode: StatusCodes.Status403Forbidden,
+                        title: "Obra no asignada");
+                }
+            }
+            else
+            {
+                IReadOnlyList<Guid>? obrasAsignadas;
+                try
+                {
+                    obrasAsignadas = await _obraAsignacionValidator.ObtenerObrasAsignadasAsync(
+                        authHeader,
+                        correlationId.ToString(),
+                        cancellationToken);
+                }
+                catch (ObraAsignacionNoVerificableException)
+                {
+                    return Problem(
+                        detail: "No se pudo verificar las obras asignadas al capataz porque el servicio Usuarios y Obras no respondió. Reintentá en unos segundos.",
+                        statusCode: StatusCodes.Status503ServiceUnavailable,
+                        title: "Servicio no disponible");
+                }
+
+                var queryAsignadas = new ObtenerOrdenesPendientesQuery(obraId, sinPartida, obrasAsignadas);
+                var resultadoAsignadas = await _obtenerOrdenesPendientesHandler.Handle(queryAsignadas, cancellationToken);
+                return Ok(resultadoAsignadas);
+            }
+        }
+
         var query = new ObtenerOrdenesPendientesQuery(obraId, sinPartida);
         var resultado = await _obtenerOrdenesPendientesHandler.Handle(query, cancellationToken);
         return Ok(resultado);
@@ -114,7 +265,7 @@ public class RecepcionesController : ControllerBase
         ObtenerOrdenesPendientes(obraId, null, cancellationToken);
 
     /// <summary>
-    /// Registra una recepción total de materiales contra una orden de compra.
+    /// Registra una recepción total de materiales contra una orden de compra (#189: valida pertenencia de obra para Capataz).
     /// </summary>
     [Authorize(Roles = "Capataz,Admin")]
     [HttpPost]
@@ -132,6 +283,36 @@ public class RecepcionesController : ControllerBase
         }
 
         var correlationId = GetCorrelationIdFromHeader();
+
+        // #189: El Capataz solo puede registrar recepciones de obras que tiene asignadas
+        if (EsCapatazSinPrivilegiosSuperiores() && _obraAsignacionValidator != null)
+        {
+            var authHeader = Request?.Headers["Authorization"].ToString();
+            bool asignada;
+            try
+            {
+                asignada = await _obraAsignacionValidator.EstaAsignadaACapatazAsync(
+                    request.ObraId,
+                    authHeader,
+                    correlationId.ToString(),
+                    cancellationToken);
+            }
+            catch (ObraAsignacionNoVerificableException)
+            {
+                return Problem(
+                    detail: "No se pudo verificar que la obra esté asignada al capataz porque el servicio Usuarios y Obras no respondió. Reintentá en unos segundos.",
+                    statusCode: StatusCodes.Status503ServiceUnavailable,
+                    title: "Servicio no disponible");
+            }
+
+            if (!asignada)
+            {
+                return Problem(
+                    detail: "La obra no está asignada al capataz autenticado.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Obra no asignada");
+            }
+        }
 
         try
         {
@@ -156,6 +337,14 @@ public class RecepcionesController : ControllerBase
         {
             return Problem(statusCode: 400, detail: ex.Message);
         }
+    }
+
+    private bool EsCapatazSinPrivilegiosSuperiores()
+    {
+        if (User?.Identity?.IsAuthenticated != true)
+            return false;
+
+        return User.IsInRole("Capataz") && !User.IsInRole("Admin") && !User.IsInRole("Comprador");
     }
 
     private Guid GetCorrelationIdFromHeader()

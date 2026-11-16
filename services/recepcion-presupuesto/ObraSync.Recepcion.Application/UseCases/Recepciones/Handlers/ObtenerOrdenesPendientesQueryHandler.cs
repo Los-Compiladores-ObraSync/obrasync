@@ -31,6 +31,10 @@ public class ObtenerOrdenesPendientesQueryHandler
         {
             dbQuery = dbQuery.Where(o => o.ObraId == query.ObraId.Value);
         }
+        else if (query.ObrasPermitidas != null)
+        {
+            dbQuery = dbQuery.Where(o => query.ObrasPermitidas.Contains(o.ObraId));
+        }
 
         if (query.SinPartida.HasValue)
         {
