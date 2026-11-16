@@ -17,6 +17,7 @@ namespace ObraSync.Requisiciones.Application
             services.AddScoped<GetRequisicionByIdQueryHandler>();
             services.AddScoped<AprobarRequisicionCommandHandler>();
             services.AddScoped<RechazarRequisicionCommandHandler>();
+            services.AddScoped<ReenviarRequisicionCommandHandler>();
 
             return services;
         }

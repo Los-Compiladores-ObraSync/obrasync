@@ -26,6 +26,7 @@ namespace ObraSync.Requisiciones.Api.Controllers
         private readonly GetRequisicionByIdQueryHandler _getByIdHandler;
         private readonly AprobarRequisicionCommandHandler _aprobarHandler;
         private readonly RechazarRequisicionCommandHandler _rechazarHandler;
+        private readonly ReenviarRequisicionCommandHandler? _reenviarHandler;
         private readonly IObraAsignacionValidator? _obraAsignacionValidator;
 
         public RequisicionesController(
@@ -34,7 +35,8 @@ namespace ObraSync.Requisiciones.Api.Controllers
             GetRequisicionByIdQueryHandler getByIdHandler,
             AprobarRequisicionCommandHandler aprobarHandler,
             RechazarRequisicionCommandHandler rechazarHandler,
-            IObraAsignacionValidator? obraAsignacionValidator = null)
+            IObraAsignacionValidator? obraAsignacionValidator = null,
+            ReenviarRequisicionCommandHandler? reenviarHandler = null)
         {
             _createHandler = createHandler;
             _getRequisicionesHandler = getRequisicionesHandler;
@@ -42,6 +44,7 @@ namespace ObraSync.Requisiciones.Api.Controllers
             _aprobarHandler = aprobarHandler;
             _rechazarHandler = rechazarHandler;
             _obraAsignacionValidator = obraAsignacionValidator;
+            _reenviarHandler = reenviarHandler;
         }
 
         /// <summary>
@@ -232,6 +235,98 @@ namespace ObraSync.Requisiciones.Api.Controllers
                     detail: ex.Message,
                     statusCode: StatusCodes.Status404NotFound,
                     title: "Artículo de catálogo inexistente");
+            }
+            catch (ArgumentException ex)
+            {
+                return Problem(
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: "Datos de requisición inválidos");
+            }
+        }
+
+        /// <summary>
+        /// Editar y reenviar una requisición rechazada conservando su número y el historial de rechazos (Roles: Capataz dueño, Admin)
+        /// </summary>
+        [HttpPut("{id:guid}")]
+        [Authorize(Roles = "Capataz,Admin")]
+        [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        public async Task<ActionResult<RequisicionResponseDto>> EditarReenviarRequisicion(
+            Guid id,
+            [FromBody] EditarRequisicionRequestDto? request,
+            CancellationToken cancellationToken = default)
+        {
+            if (!TryGetUserId(out var usuarioId))
+            {
+                return Problem(
+                    detail: "El token JWT no contiene un claim 'sub' válido con formato GUID.",
+                    statusCode: StatusCodes.Status401Unauthorized,
+                    title: "Usuario no identificado");
+            }
+
+            if (request == null || request.Items == null || request.Items.Count == 0)
+            {
+                return Problem(
+                    detail: "La requisición debe contener al menos un ítem para poder reenviarse.",
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: "Datos de requisición inválidos");
+            }
+
+            var handler = _reenviarHandler
+                ?? HttpContext?.RequestServices.GetService(typeof(ReenviarRequisicionCommandHandler)) as ReenviarRequisicionCommandHandler;
+
+            if (handler == null)
+            {
+                throw new InvalidOperationException("No se encontró el servicio ReenviarRequisicionCommandHandler.");
+            }
+
+            var esAdmin = User.IsInRole("Admin");
+
+            try
+            {
+                var command = new ReenviarRequisicionCommand(
+                    id,
+                    usuarioId,
+                    esAdmin,
+                    request.Items,
+                    request.Etapa,
+                    request.Observaciones);
+
+                var reenviada = await handler.Handle(command, cancellationToken);
+                return Ok(reenviada);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return Problem(
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status404NotFound,
+                    title: "Recurso no encontrado");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Problem(
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Acceso denegado: no es el solicitante dueño de la requisición");
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Problem(
+                    detail: "La requisición cambió, recargá e intentá nuevamente.",
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Conflicto de concurrencia en la requisición");
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Problem(
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Conflicto de estado en la requisición");
             }
             catch (ArgumentException ex)
             {

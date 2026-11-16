@@ -25,6 +25,7 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Repositories
         {
             return await _context.Requisiciones
                 .Include(r => r.Items)
+                .Include(r => r.HistorialRechazos)
                 .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
         }
 
@@ -40,6 +41,7 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Repositories
             return await _context.Requisiciones
                 .AsNoTracking()
                 .Include(r => r.Items)
+                .Include(r => r.HistorialRechazos)
                 .FirstOrDefaultAsync(
                     r => r.SolicitanteId == solicitanteId && r.IdempotencyKey == keyNormalizada,
                     cancellationToken);
@@ -55,6 +57,7 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Repositories
             return await _context.Requisiciones
                 .AsNoTracking()
                 .Include(r => r.Items)
+                .Include(r => r.HistorialRechazos)
                 .Where(r =>
                     r.SolicitanteId == solicitanteId &&
                     r.ObraId == obraId &&
@@ -96,6 +99,7 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Repositories
 
             var items = await consultaFiltros
                 .Include(r => r.Items)
+                .Include(r => r.HistorialRechazos)
                 .OrderByDescending(r => r.FechaCreacion)
                 .ThenBy(r => r.Id)
                 .Skip(p.Saltear)

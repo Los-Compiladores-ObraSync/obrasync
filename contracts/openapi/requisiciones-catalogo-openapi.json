@@ -731,6 +731,167 @@
             }
           }
         }
+      },
+      "put": {
+        "tags": [
+          "Requisiciones"
+        ],
+        "summary": "Editar y reenviar una requisición rechazada conservando su número y el historial de rechazos (Roles: Capataz dueño, Admin)",
+        "description": "Permite al Capataz solicitante dueño de la requisición (o a un Admin) editar los ítems, la etapa y las observaciones de una requisición en estado Rechazada y reenviarla a estado Pendiente, conservando su número y asentando el rechazo anterior en historialRechazos.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identificador único (GUID) de la requisición a editar y reenviar.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditarRequisicionRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditarRequisicionRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditarRequisicionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success (Requisición editada y reenviada a estado Pendiente conservando historial de rechazos)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (Ítems vacíos, cantidades inválidas o artículo inactivo)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (El usuario no tiene rol autorizado o es un Capataz que no es el solicitante dueño de la requisición)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Requisición o artículo de catálogo inexistente)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (La requisición no se encuentra en estado Rechazada o sufrió un conflicto de concurrencia)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/requisiciones/{id}/aprobar": {
@@ -1322,6 +1483,73 @@
               "$ref": "#/components/schemas/RequisicionItemDto"
             },
             "description": "Lista de materiales o insumos de la requisición."
+          },
+          "historialRechazos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistorialRechazoRequisicionDto"
+            },
+            "description": "Historial cronológico de rechazos previos sufridos por la requisición."
+          }
+        },
+        "additionalProperties": false
+      },
+      "EditarRequisicionRequestDto": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "etapa": {
+            "type": "string",
+            "maxLength": 100,
+            "nullable": true,
+            "description": "Etapa de la obra para la que se solicitan los materiales (ej: Estructura, Terminaciones)."
+          },
+          "observaciones": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true,
+            "description": "Observaciones o justificación corregida al reenviar la requisición."
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/CrearRequisicionItemDto"
+            },
+            "description": "Nuevos ítems y cantidades solicitadas."
+          }
+        },
+        "additionalProperties": false
+      },
+      "HistorialRechazoRequisicionDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "motivo",
+          "fechaRechazo"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del registro de historial de rechazo."
+          },
+          "rechazadorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Identificador del comprador/administrador que rechazó la requisición."
+          },
+          "motivo": {
+            "type": "string",
+            "description": "Motivo del rechazo registrado en ese ciclo."
+          },
+          "fechaRechazo": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha y hora del rechazo en UTC."
           }
         },
         "additionalProperties": false
