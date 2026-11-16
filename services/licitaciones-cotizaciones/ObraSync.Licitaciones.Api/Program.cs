@@ -46,6 +46,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ILicitacionRepository, LicitacionRepository>();
 builder.Services.AddScoped<ILicitacionService, LicitacionService>();
 builder.Services.AddScoped<ICotizacionRepository, CotizacionRepository>();
+builder.Services.AddScoped<ICotizacionValidadorService, CotizacionValidadorService>();
 builder.Services.AddScoped<IOrdenCompraRepository, OrdenCompraRepository>();
 builder.Services.AddScoped<IMagicLinkRepository, MagicLinkRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();

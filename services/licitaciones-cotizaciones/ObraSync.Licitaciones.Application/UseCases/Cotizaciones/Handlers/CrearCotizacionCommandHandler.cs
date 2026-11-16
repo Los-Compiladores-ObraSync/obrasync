@@ -1,23 +1,24 @@
 using MediatR;
 using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Interfaces;
-using ObraSync.Licitaciones.Application.Mappings;
+using ObraSync.Licitaciones.Application.Services;
 using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Commands;
-using ObraSync.Licitaciones.Domain.Entities;
 
 namespace ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Handlers;
 
 public class CrearCotizacionCommandHandler
 {
-    private readonly ILicitacionRepository _licitacionRepository;
     private readonly ICotizacionRepository _cotizacionRepository;
+    private readonly ICotizacionValidadorService _validadorService;
 
     public CrearCotizacionCommandHandler(
         ILicitacionRepository licitacionRepository,
-        ICotizacionRepository cotizacionRepository)
+        ICotizacionRepository cotizacionRepository,
+        ICotizacionValidadorService? validadorService = null)
     {
-        _licitacionRepository = licitacionRepository ?? throw new ArgumentNullException(nameof(licitacionRepository));
+        if (licitacionRepository == null) throw new ArgumentNullException(nameof(licitacionRepository));
         _cotizacionRepository = cotizacionRepository ?? throw new ArgumentNullException(nameof(cotizacionRepository));
+        _validadorService = validadorService ?? new CotizacionValidadorService(licitacionRepository, cotizacionRepository);
     }
 
     public async Task<CotizacionResponseDto> Handle(
@@ -95,48 +96,14 @@ public class CrearCotizacionCommandHandler
         var yaCotizo = await _cotizacionRepository.ExistsByLicitacionAndProveedorAsync(
             command.LicitacionId,
             command.ProveedorId,
+            command.Flete,
+            command.PlazoEntregaDias,
+            command.Items,
             cancellationToken);
-
-        if (yaCotizo)
-        {
-            throw new InvalidOperationException("El proveedor ya presentó una cotización para esta licitación.");
-        }
-
-        var cotizacionId = Guid.NewGuid();
-        var cotizacion = new Cotizacion
-        {
-            CotizacionId = cotizacionId,
-            LicitacionId = command.LicitacionId,
-            ProveedorId = command.ProveedorId,
-            Flete = command.Flete,
-            PlazoEntregaDias = command.PlazoEntregaDias,
-            FechaCreacion = DateTime.UtcNow,
-            Items = command.Items
-                .Select(i => new CotizacionItem
-                {
-                    Id = Guid.NewGuid(),
-                    CotizacionId = cotizacionId,
-                    ArticuloId = i.ArticuloId,
-                    PrecioUnitario = i.PrecioUnitario
-                })
-                .ToList()
-        };
 
         await _cotizacionRepository.AddAsync(cotizacion, cancellationToken);
         await _cotizacionRepository.SaveChangesAsync(cancellationToken);
 
-        var cantidadesPorArticulo = licitacion.Items
-            .GroupBy(i => i.ArticuloId)
-            .ToDictionary(g => g.Key, g => g.First().Cantidad);
-
-        decimal subtotalItems = cotizacion.Items.Sum(i =>
-            cantidadesPorArticulo.TryGetValue(i.ArticuloId, out var cantidad)
-                ? cantidad * i.PrecioUnitario
-                : 0m);
-
-        var dto = cotizacion.ToDto();
-        dto.SubtotalItems = subtotalItems;
-        dto.CostoTotal = subtotalItems + cotizacion.Flete;
         return dto;
     }
 }

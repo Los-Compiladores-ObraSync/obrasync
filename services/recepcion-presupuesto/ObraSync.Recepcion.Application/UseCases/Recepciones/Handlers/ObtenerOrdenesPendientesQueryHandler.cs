@@ -32,6 +32,11 @@ public class ObtenerOrdenesPendientesQueryHandler
             dbQuery = dbQuery.Where(o => o.ObraId == query.ObraId.Value);
         }
 
+        if (query.SinPartida.HasValue)
+        {
+            dbQuery = dbQuery.Where(o => o.SinPartidaPresupuestaria == query.SinPartida.Value);
+        }
+
         var ordenes = await dbQuery.ToListAsync(cancellationToken);
 
         var ordenesIds = ordenes.Select(o => o.Id).ToList();
@@ -52,6 +57,8 @@ public class ObtenerOrdenesPendientesQueryHandler
             {
                 OrdenCompraId = o.Id,
                 ObraId = o.ObraId,
+                Etapa = o.Etapa,
+                SinPartidaPresupuestaria = o.SinPartidaPresupuestaria,
                 Items = o.Items
                     .Select(i => new ItemOrdenPendienteDto
                     {

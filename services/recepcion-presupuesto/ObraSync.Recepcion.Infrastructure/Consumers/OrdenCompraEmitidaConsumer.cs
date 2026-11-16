@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using ObraSync.Contracts.Events;
 using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Domain.Entities;
+using ObraSync.Recepcion.Domain.Presupuestos;
 using ObraSync.Recepcion.Infrastructure.Persistence;
 
 namespace ObraSync.Recepcion.Infrastructure.Consumers;
@@ -107,6 +108,44 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
                 return;
             }
 
+            // ── CONTROL PRESUPUESTARIO Y EMPAREJAMIENTO DE ETAPA (#154, #94, #95, #196) ──
+            var partidasObra = await _db.PartidasPresupuestarias
+                .Where(p => p.ObraId == msg.ObraId)
+                .ToListAsync(context.CancellationToken);
+
+            var partida = EmparejadorPartidaPresupuestaria.BuscarPartida(partidasObra, msg.Etapa);
+
+            if (partida is null)
+            {
+                // Regla #154 / #196: si no hay partida para la etapa ni general de obra,
+                // NO se bloquea la orden, pero se marca como SinPartidaPresupuestaria
+                // para visibilidad de Compras y auditoría.
+                oc.MarcarSinPartida();
+                _logger.LogWarning(
+                    "OrdenCompra {OrdenCompraId} para obra {ObraId} y etapa '{Etapa}' no encontró partida presupuestaria (específica ni general). Queda marcada como SinPartidaPresupuestaria.",
+                    msg.OrdenCompraId, msg.ObraId, msg.Etapa ?? "sin etapa");
+            }
+            else
+            {
+                oc.SinPartidaPresupuestaria = false;
+                var evaluacion = EvaluadorDesvioPresupuestario.Evaluar(partida, oc.MontoTotal);
+
+                if (evaluacion.DebeBloquearse)
+                {
+                    oc.BloquearPorDesvioPresupuestario(evaluacion.Motivo);
+                    _logger.LogWarning(
+                        "OrdenCompra {OrdenCompraId} bloqueada por desvío presupuestario en partida {PartidaId} (Código: {CodigoPartida}). {Motivo}",
+                        oc.Id, partida.Id, partida.CodigoPartida, evaluacion.Motivo);
+                }
+                else
+                {
+                    partida.ComprometerMonto(oc.MontoTotal);
+                    _logger.LogInformation(
+                        "Presupuesto comprometido en partida {PartidaId} (Código: {CodigoPartida}) por {MontoTotal} para OrdenCompra {OrdenCompraId}.",
+                        partida.Id, partida.CodigoPartida, oc.MontoTotal, oc.Id);
+                }
+            }
+
             _ordenCompraRepository.Agregar(oc);
 
             _db.EventosProcesados.Add(new EventoProcesado
@@ -170,11 +209,10 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
             diferencias.Add($"MontoTotal difiere (existente: {existente.MontoTotal}, evento: {evento.MontoTotal})");
         }
 
-        // La etapa opcional se compara normalizada igual que al crear la OC (vacío = sin etapa)
-        var etapaEvento = string.IsNullOrWhiteSpace(evento.Etapa) ? null : evento.Etapa.Trim();
-        if (!string.Equals(existente.Etapa, etapaEvento, StringComparison.Ordinal))
+        // La etapa opcional se compara normalizada en un único lugar (#196)
+        if (!NormalizadorEtapa.SonEquivalentes(existente.Etapa, evento.Etapa))
         {
-            diferencias.Add($"Etapa difiere (existente: {existente.Etapa ?? "sin etapa"}, evento: {etapaEvento ?? "sin etapa"})");
+            diferencias.Add($"Etapa difiere (existente: {existente.Etapa ?? "sin etapa"}, evento: {evento.Etapa ?? "sin etapa"})");
         }
 
         if (existente.Items.Count != evento.Items.Count)

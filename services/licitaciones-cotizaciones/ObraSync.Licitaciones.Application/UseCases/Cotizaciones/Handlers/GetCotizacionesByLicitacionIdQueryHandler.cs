@@ -42,8 +42,13 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             return new PaginaDe<CotizacionResponseDto>(Array.Empty<CotizacionResponseDto>(), 0);
         }
 
-        // 1. Mapeamos usando el constructor posicional exacto de la entidad Oferta del Dominio (sobre TODAS las cotizaciones)
-        var ofertasDomain = cotizaciones.Select(c => new Oferta(
+        // Solo las cotizaciones completas (con ítems válidos > 0) participan del scoring y de EsMasBarata (#186)
+        var cotizacionesCompletas = cotizaciones
+            .Where(c => c.Items != null && c.Items.Count > 0 && c.Items.All(i => i.PrecioUnitario > 0))
+            .ToList();
+
+        // 1. Mapeamos usando el constructor posicional exacto de la entidad Oferta del Dominio (sobre las cotizaciones completas)
+        var ofertasDomain = cotizacionesCompletas.Select(c => new Oferta(
             c.CotizacionId,
             c.ProveedorId,
             c.Items.Select(i => new OfertaItem(
@@ -62,14 +67,16 @@ public class GetCotizacionesByLicitacionIdQueryHandler
 
         var ponderacion = new PonderacionScoring(0.5m, 0.2m, 0.2m, 0.1m);
 
-        // 2. Ejecutamos el motor de scoring sobre TODAS las ofertas de la licitación
-        var resultadosScoring = CalculadorScoring.Calcular(ofertasDomain, itemsRequeridos, ponderacion);
+        // 2. Ejecutamos el motor de scoring sobre las ofertas completas de la licitación
+        var resultadosScoring = ofertasDomain.Count > 0
+            ? CalculadorScoring.Calcular(ofertasDomain, itemsRequeridos, ponderacion)
+            : Array.Empty<ResultadoScoring>();
 
-        // 3. Regla de negocio de la tarjeta #73: Con menos de 2 cotizaciones NO se marca ganadora a ninguna
-        bool evaluarGanadora = cotizaciones.Count >= 2;
+        // 3. Regla de negocio de la tarjeta #73: Con menos de 2 cotizaciones completas NO se marca ganadora a ninguna
+        bool evaluarGanadora = cotizacionesCompletas.Count >= 2;
 
         var ordenadasConDesempate = resultadosScoring
-            .Join(cotizaciones, s => s.CotizacionId, c => c.CotizacionId, (s, c) => new { Scoring = s, Cotizacion = c })
+            .Join(cotizacionesCompletas, s => s.CotizacionId, c => c.CotizacionId, (s, c) => new { Scoring = s, Cotizacion = c })
             .OrderByDescending(x => x.Scoring.Puntaje)
             .ThenBy(x => x.Cotizacion.PlazoEntregaDias)
             .ThenBy(x => x.Cotizacion.FechaCreacion)
@@ -80,7 +87,7 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             ? ordenadasConDesempate.First().Cotizacion.CotizacionId
             : null;
 
-        // 4. Cálculo de costos totales (precio de ítems + flete) y resaltado de la oferta más barata (CU-07, Tarjeta #89) sobre TODAS las ofertas
+        // 4. Cálculo de costos totales (precio de ítems + flete) y resaltado de la oferta más barata (CU-07, Tarjeta #89)
         var cantidadesPorArticulo = licitacion.Items
             .GroupBy(i => i.ArticuloId)
             .ToDictionary(g => g.Key, g => g.First().Cantidad);
@@ -109,10 +116,14 @@ public class GetCotizacionesByLicitacionIdQueryHandler
                 return dto;
             }).ToList();
 
-        if (dtos.Count > 0)
+        var dtosValidosParaMinimo = dtos
+            .Where(d => d.Items.Count > 0 && d.SubtotalItems > 0)
+            .ToList();
+
+        if (dtosValidosParaMinimo.Count > 0)
         {
-            decimal minCostoTotal = dtos.Min(d => d.CostoTotal);
-            foreach (var dto in dtos)
+            decimal minCostoTotal = dtosValidosParaMinimo.Min(d => d.CostoTotal);
+            foreach (var dto in dtosValidosParaMinimo)
             {
                 dto.EsMasBarata = dto.CostoTotal == minCostoTotal;
             }
