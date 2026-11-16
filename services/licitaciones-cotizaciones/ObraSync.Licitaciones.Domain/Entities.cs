@@ -95,6 +95,14 @@ public class MagicLink
 {
     public Guid Id { get; set; }
     public string Hash { get; set; } = string.Empty;
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string TokenHash
+    {
+        get => Hash;
+        set => Hash = value;
+    }
+
     public Guid LicitacionId { get; set; }
     public Guid ProveedorId { get; set; }
     public DateTime FechaDeVencimiento { get; set; }
