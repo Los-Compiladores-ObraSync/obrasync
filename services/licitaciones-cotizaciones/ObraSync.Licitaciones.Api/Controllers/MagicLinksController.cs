@@ -19,12 +19,13 @@ public class MagicLinksController : ControllerBase
     }
 
     [HttpPost("{licitacionId:guid}/magic-links")]
-    [Authorize(Roles = "Comprador,Admin")] // Restringido según requerimiento #86
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [Authorize(Roles = "Comprador,Admin")] // Restringido según requerimiento #86 / #198
+    [ProducesResponseType(typeof(GenerarMagicLinkResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> GenerarMagicLink(
         Guid licitacionId,
         [FromBody] GenerarMagicLinkRequestDto? dto,
@@ -41,9 +42,8 @@ public class MagicLinksController : ControllerBase
         try
         {
             var command = new GenerarMagicLinkCommand(licitacionId, dto.ProveedorId);
-            var hash = await _mediator.Send(command, cancellationToken);
-
-            return Ok(new { Hash = hash, ExpiresIn = "1 hour" });
+            var resultado = await _mediator.Send(command, cancellationToken);
+            return Ok(resultado);
         }
         catch (KeyNotFoundException ex)
         {
@@ -51,6 +51,13 @@ public class MagicLinksController : ControllerBase
                 detail: ex.Message,
                 statusCode: StatusCodes.Status404NotFound,
                 title: "Licitación no encontrada");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Licitación no disponible para generar enlace");
         }
         catch (ArgumentException ex)
         {
