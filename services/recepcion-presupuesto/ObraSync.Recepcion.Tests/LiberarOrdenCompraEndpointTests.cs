@@ -166,11 +166,12 @@ public class LiberarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactory
     [Fact]
     public async Task LiberarOrden_OrdenInexistente_Retorna404NotFoundConProblemDetails()
     {
+        var correlationId = Guid.NewGuid().ToString();
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             RecepcionApiFactory.CreateToken(role: "Admin"));
-        client.DefaultRequestHeaders.Add("X-Correlation-ID", "corr-liberar-404");
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
 
         var response = await client.PostAsync(
             $"/api/recepciones/ordenes/{Guid.NewGuid()}/liberar",
@@ -179,18 +180,19 @@ public class LiberarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactory
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(404, json.GetProperty("status").GetInt32());
-        Assert.Equal("corr-liberar-404", json.GetProperty("correlationId").GetString());
+        Assert.Equal(correlationId, json.GetProperty("correlationId").GetString());
     }
 
     [Fact]
     public async Task LiberarOrden_OrdenYaActivaNoBloqueada_Retorna409ConflictConProblemDetails()
     {
         var (ocId, _, _) = await SembrarOrdenConPartidaAsync(estado: EstadoOrdenCompra.Activa);
+        var correlationId = Guid.NewGuid().ToString();
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             RecepcionApiFactory.CreateToken(role: "Admin"));
-        client.DefaultRequestHeaders.Add("X-Correlation-ID", "corr-liberar-409");
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
 
         var response = await client.PostAsJsonAsync(
             $"/api/recepciones/ordenes/{ocId}/liberar",
@@ -199,6 +201,6 @@ public class LiberarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactory
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(409, json.GetProperty("status").GetInt32());
-        Assert.Equal("corr-liberar-409", json.GetProperty("correlationId").GetString());
+        Assert.Equal(correlationId, json.GetProperty("correlationId").GetString());
     }
 }

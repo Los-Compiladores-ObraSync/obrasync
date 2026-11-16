@@ -107,7 +107,6 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("FaultAddress")
                         .HasMaxLength(256)
-                        .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("Headers")
