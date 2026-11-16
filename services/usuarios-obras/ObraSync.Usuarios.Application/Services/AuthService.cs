@@ -195,11 +195,31 @@ public class AuthService : IAuthService
 
     public async Task<IEnumerable<CapatazDto>> GetCapatacesActivosAsync()
     {
+        var (items, _) = await GetCapatacesActivosPaginadosAsync(new ParametrosPagina());
+        return items;
+    }
+
+    public async Task<(IReadOnlyList<CapatazDto> Items, int Total)> GetCapatacesActivosPaginadosAsync(
+        ParametrosPagina? paginacion = null)
+    {
+        var p = paginacion ?? new ParametrosPagina();
         var usuariosCapataz = await _userManager.GetUsersInRoleAsync(UserRoles.Capataz);
 
-        return usuariosCapataz
+        var activos = usuariosCapataz
             .Where(u => u.Activo)
-            .Select(u => new CapatazDto(u.Id, u.NombreCompleto));
+            .ToList();
+
+        var total = activos.Count;
+
+        var items = activos
+            .OrderBy(u => u.NombreCompleto)
+            .ThenBy(u => u.Id)
+            .Skip(p.Saltear)
+            .Take(p.Tamano)
+            .Select(u => new CapatazDto(u.Id, u.NombreCompleto))
+            .ToList();
+
+        return (items, total);
     }
 
     public async Task<MensajeResponseDto> RecuperarPasswordAsync(RecuperarPasswordRequestDto request)

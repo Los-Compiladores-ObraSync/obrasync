@@ -86,6 +86,16 @@ public class ObraService : IObraService
 
     public async Task<IEnumerable<ObraResponseDto>> ListarObrasAsync(ClaimsPrincipal? usuario = null)
     {
+        var (items, _) = await ListarObrasPaginadasAsync(usuario, new ParametrosPagina());
+        return items;
+    }
+
+    public async Task<(IReadOnlyList<ObraResponseDto> Items, int Total)> ListarObrasPaginadasAsync(
+        ClaimsPrincipal? usuario = null,
+        ParametrosPagina? paginacion = null)
+    {
+        var p = paginacion ?? new ParametrosPagina();
+
         var query = _context.Obras
             .AsNoTracking()
             .Where(o => o.Activa);
@@ -102,9 +112,16 @@ public class ObraService : IObraService
             query = query.Where(o => o.CapatazId == capatazId);
         }
 
-        return await query
+        // Total con los mismos filtros, antes de paginar y sin Include (#182)
+        var total = await query.CountAsync();
+
+        var items = await query
             .Include(o => o.Capataz)
             .Include(o => o.Etapas)
+            .OrderBy(o => o.Nombre)
+            .ThenBy(o => o.Id)
+            .Skip(p.Saltear)
+            .Take(p.Tamano)
             .Select(o => new ObraResponseDto
             {
                 Id = o.Id,
@@ -122,6 +139,8 @@ public class ObraService : IObraService
                 }).ToList()
             })
             .ToListAsync();
+
+        return (items, total);
     }
 
     public async Task<ObraResponseDto> EditarObraAsync(Guid id, ActualizarObraDto dto)

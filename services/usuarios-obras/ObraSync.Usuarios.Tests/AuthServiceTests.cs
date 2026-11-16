@@ -163,6 +163,40 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task GetCapatacesActivosPaginadosAsync_OrdenEstableYPaginacion_DesempataPorIdYExcluyeInactivos()
+    {
+        // Arrange (#182): 3 capataces activos (2 con el mismo NombreCompleto) y 1 inactivo
+        var idMenor = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var idMayor = Guid.Parse("99999999-9999-9999-9999-999999999999");
+        var idZeta = Guid.Parse("55555555-5555-5555-5555-555555555555");
+
+        var capataces = new List<AppUser>
+        {
+            new AppUser { Id = idMayor, NombreCompleto = "Carlos Empate", Activo = true },
+            new AppUser { Id = Guid.NewGuid(), NombreCompleto = "Inactivo", Activo = false },
+            new AppUser { Id = idZeta, NombreCompleto = "Zulema Capataz", Activo = true },
+            new AppUser { Id = idMenor, NombreCompleto = "Carlos Empate", Activo = true }
+        };
+
+        _userManager.GetUsersInRoleAsync(UserRoles.Capataz).Returns(capataces);
+
+        // Act: página 1 (tamaño 2) y página 2 (tamaño 2)
+        var (pag1, total1) = await _authService.GetCapatacesActivosPaginadosAsync(new ParametrosPagina(1, 2));
+        var (pag2, total2) = await _authService.GetCapatacesActivosPaginadosAsync(new ParametrosPagina(2, 2));
+
+        // Assert
+        Assert.Equal(3, total1);
+        Assert.Equal(3, total2);
+        Assert.Equal(2, pag1.Count);
+        Assert.Single(pag2);
+
+        // Desempate por Id en los dos "Carlos Empate", luego "Zulema Capataz"
+        Assert.Equal(idMenor, pag1[0].Id);
+        Assert.Equal(idMayor, pag1[1].Id);
+        Assert.Equal(idZeta, pag2[0].Id);
+    }
+
+    [Fact]
     public async Task RegistrarAsync_DeberiaRetornarAuthResponseDto_CuandoRegistroEsExitoso()
     {
         // Arrange: para registrar un Capataz se requiere sesión de Comprador o Admin (#117)

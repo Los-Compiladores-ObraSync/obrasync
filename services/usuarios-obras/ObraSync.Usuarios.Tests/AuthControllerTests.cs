@@ -80,4 +80,43 @@ public class AuthControllerTests
         Assert.Equal(StatusCodes.Status200OK, ok.StatusCode);
         Assert.Same(respuesta, ok.Value);
     }
+
+    [Fact]
+    public async Task GetCapatacesActivos_PaginacionValida_Retorna200YHeaders()
+    {
+        // Arrange (#182)
+        var items = new List<CapatazDto>
+        {
+            new(Guid.NewGuid(), "Ana Capataz"),
+            new(Guid.NewGuid(), "Carlos Capataz")
+        };
+        _authService.GetCapatacesActivosPaginadosAsync(new ParametrosPagina(1, 2))
+            .Returns((items, 5));
+
+        // Act
+        var result = await _controller.GetCapatacesActivos(pagina: 1, tamano: 2);
+
+        // Assert
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Same(items, ok.Value);
+        Assert.Equal("5", _controller.Response.Headers["X-Total-Count"].ToString());
+        Assert.Equal("1", _controller.Response.Headers["X-Page"].ToString());
+        Assert.Equal("2", _controller.Response.Headers["X-Page-Size"].ToString());
+    }
+
+    [Theory]
+    [InlineData(0, 10)]
+    [InlineData(1, 0)]
+    [InlineData(1, 51)]
+    public async Task GetCapatacesActivos_ParametrosInvalidos_Retorna400ProblemDetails(int pagina, int tamano)
+    {
+        // Act (#182)
+        var result = await _controller.GetCapatacesActivos(pagina, tamano);
+
+        // Assert
+        var objectResult = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+        var problem = Assert.IsType<ProblemDetails>(objectResult.Value);
+        Assert.Equal("Paginación inválida", problem.Title);
+    }
 }
