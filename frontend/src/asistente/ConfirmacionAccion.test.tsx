@@ -107,6 +107,18 @@ describe('ConfirmacionAccion', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('No tenés permiso')
   })
 
+  it('un 401 avisa que la sesión venció y deja el borrador sin ejecutar otra vez', async () => {
+    const user = userEvent.setup()
+    const onConfirmar = vi.fn().mockRejectedValue(new ApiError(401, {}))
+    renderTarjeta({ onConfirmar })
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Tu sesión venció')
+    expect(onConfirmar).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: 'Confirmar' })).toBeEnabled()
+  })
+
   it('la confirmación reforzada avisa que no se puede deshacer', () => {
     renderTarjeta({ reforzada: true })
 
