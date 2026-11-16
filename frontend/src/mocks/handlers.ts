@@ -816,6 +816,15 @@ export const handlers: RequestHandler[] = [
 
     const texto = mensaje.toLowerCase()
 
+    // Perfil Capataz (#147): consulta de sus requisiciones, solo lectura (no arma ninguna tarjeta).
+    if (/mis requisiciones/.test(texto)) {
+      const masNueva = requisicionesMock[0]
+      const respuesta = masNueva
+        ? `Tenés ${requisicionesMock.length} requisición(es). La más nueva es la ${masNueva.numeroRequisicion} y está ${masNueva.estado.toLowerCase()}.`
+        : 'Todavía no tenés requisiciones.'
+      return HttpResponse.json({ respuesta, borrador: null, tokensUsados: 0 }, { status: 200 })
+    }
+
     // Perfil Comprador (#141): consulta y aprobación. Aprobar solo ARMA el borrador; la aprobación real
     // la hace el frontend con POST /api/requisiciones/{id}/aprobar cuando el Comprador toca Confirmar.
     if (/aprob|pendiente/.test(texto)) {

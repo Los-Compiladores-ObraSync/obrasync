@@ -68,8 +68,8 @@ describe('AsistenteChatPage', () => {
     expect(lista).toHaveTextContent('Pedir materiales')
     expect(lista).toHaveTextContent('Ver tus requisiciones')
     expect(lista).toHaveTextContent('Registrar lo que llegó')
-    // Solo "Pedir materiales" funciona hoy: las otras dos llevan la etiqueta.
-    expect(screen.getAllByText('Próximamente')).toHaveLength(2)
+    // "Pedir materiales" y "Ver tus requisiciones" funcionan: solo la recepción lleva la etiqueta.
+    expect(screen.getAllByText('Próximamente')).toHaveLength(1)
 
     await escribirYEnviar(user, 'necesito 20 bolsas de cemento')
     await screen.findByRole('button', { name: 'Confirmar' })
@@ -77,11 +77,11 @@ describe('AsistenteChatPage', () => {
     expect(screen.queryByRole('list', { name: 'Lo que puedo hacer' })).not.toBeInTheDocument()
   })
 
-  it('tocar "Pedir materiales" manda ese mensaje y el asistente pregunta qué necesita; las que faltan están deshabilitadas', async () => {
+  it('tocar "Pedir materiales" manda ese mensaje y el asistente pregunta qué necesita; la que falta está deshabilitada', async () => {
     const user = userEvent.setup()
     renderPagina()
 
-    expect(screen.getByRole('button', { name: /Ver tus requisiciones/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Ver tus requisiciones/ })).toBeEnabled()
     expect(screen.getByRole('button', { name: /Registrar lo que llegó/ })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: /Pedir materiales/ }))
@@ -89,6 +89,18 @@ describe('AsistenteChatPage', () => {
     expect(await screen.findByText('Quiero pedir materiales')).toBeInTheDocument()
     expect(await screen.findByText(/¿Qué material necesitás y en qué cantidad\?/)).toBeInTheDocument()
     expect(screen.queryByRole('list', { name: 'Lo que puedo hacer' })).not.toBeInTheDocument()
+  })
+
+  it('tocar "Ver tus requisiciones" manda ese mensaje y el asistente cuenta en qué quedó la más nueva', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+
+    await user.click(screen.getByRole('button', { name: /Ver tus requisiciones/ }))
+
+    expect(await screen.findByText('Quiero ver mis requisiciones')).toBeInTheDocument()
+    expect(await screen.findByText(/La más nueva es la REQ-2026-0011/)).toBeInTheDocument()
+    // Es solo una consulta: no arma ninguna tarjeta para confirmar.
+    expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument()
   })
 
   it('si falta el material o la cantidad, el asistente pide el dato y no muestra ninguna tarjeta', async () => {

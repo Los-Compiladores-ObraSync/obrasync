@@ -39,7 +39,7 @@ export type PortalAsistente = 'obra' | 'compras'
 
 /** Lo que el asistente sabe hacer, para que el Capataz lo descubra. Lo que todavía no anda se muestra con la
  *  etiqueta "Próximamente": cuando se sume una función, se cambia su `disponible` a true (la consulta de
- *  requisiciones y la recepción por chat son la tarjeta #147). */
+ *  requisiciones ya anda; la recepción por chat es lo que falta de la tarjeta #147). */
 const CAPACIDADES_OBRA = [
   {
     titulo: 'Pedir materiales',
@@ -51,7 +51,7 @@ const CAPACIDADES_OBRA = [
     titulo: 'Ver tus requisiciones',
     descripcion: 'Preguntame en qué quedó una requisición tuya.',
     mensaje: 'Quiero ver mis requisiciones',
-    disponible: false, // #147
+    disponible: true, // #147
   },
   {
     titulo: 'Registrar lo que llegó',
