@@ -322,6 +322,100 @@
           }
         }
       }
+    },
+    "/api/licitaciones/{licitacionId}/magic-links": {
+      "post": {
+        "tags": ["MagicLinks"],
+        "summary": "Generar un enlace temporal de un solo uso (Magic Link) para que un proveedor cotice (Roles: Comprador, Admin)",
+        "parameters": [
+          {
+            "name": "licitacionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["proveedorId"],
+                "properties": {
+                  "proveedorId": { "type": "string", "format": "uuid" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Enlace generado exitosamente."
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/licitaciones/magic-links/{hash}/cotizar": {
+      "post": {
+        "tags": ["MagicLinks"],
+        "summary": "Cotizar un pliego utilizando un Magic Link de un solo uso (Público / AllowAnonymous)",
+        "security": [],
+        "parameters": [
+          {
+            "name": "hash",
+            "in": "path",
+            "required": true,
+            "description": "Token temporal de un solo uso recibido por el proveedor.",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["items", "flete", "plazoEntregaDias"],
+                "properties": {
+                  "flete": { "type": "number", "format": "double", "minimum": 0 },
+                  "plazoEntregaDias": { "type": "integer", "format": "int32", "minimum": 1 },
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "required": ["precioUnitario"],
+                      "properties": {
+                        "licitacionItemId": { "type": "string", "format": "uuid" },
+                        "articuloId": { "type": "string", "format": "uuid" },
+                        "precioUnitario": { "type": "number", "format": "double", "exclusiveMinimum": true, "minimum": 0 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cotización validada y registrada exitosamente.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CotizacionResponseDto" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
     }
   },
   "components": {
