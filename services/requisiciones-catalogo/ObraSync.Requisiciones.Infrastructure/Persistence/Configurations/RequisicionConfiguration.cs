@@ -1,3 +1,4 @@
+using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -78,6 +79,11 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Configurations
             builder.HasMany(r => r.Items)
                 .WithOne()
                 .HasForeignKey(i => i.RequisicionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasMany(r => r.HistorialRechazos)
+                .WithOne()
+                .HasForeignKey(h => h.RequisicionId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

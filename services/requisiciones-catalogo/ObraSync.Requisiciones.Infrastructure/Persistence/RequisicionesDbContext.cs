@@ -23,6 +23,7 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence
         public DbSet<Insumo> Insumos => Set<Insumo>();
         public DbSet<Requisicion> Requisiciones => Set<Requisicion>();
         public DbSet<RequisicionItem> RequisicionItems => Set<RequisicionItem>();
+        public DbSet<HistorialRechazoRequisicion> HistorialRechazosRequisicion => Set<HistorialRechazoRequisicion>();
 
         public void EncolarAccionPostGuardado(Func<CancellationToken, Task> accion)
         {

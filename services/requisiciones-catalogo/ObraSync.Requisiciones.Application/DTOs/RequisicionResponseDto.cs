@@ -19,5 +19,6 @@ namespace ObraSync.Requisiciones.Application.DTOs
         public DateTime? FechaAprobacion { get; set; }
         public DateTime? FechaRechazo { get; set; }
         public List<RequisicionItemDto> Items { get; set; } = new();
+        public List<HistorialRechazoRequisicionDto> HistorialRechazos { get; set; } = new();
     }
 }
