@@ -45,6 +45,7 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
         {
             ["CorrelationId"] = correlationId
         });
+
         // 1. Obtener y validar Licitación
         var licitacion = await _licitacionRepository.GetByIdAsync(request.LicitacionId, cancellationToken)
             ?? throw new KeyNotFoundException($"No se encontró la licitación con ID {request.LicitacionId}.");
@@ -64,8 +65,6 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
         }
 
         // 3. Cruzar cada ítem cotizado con el ítem pedido en la licitación (para la cantidad).
-        // Antes se usaba .First(), que explotaba con "Sequence contains no matching element" (un 500)
-        // si la cotización traía un artículo que la licitación no pidió. Ahora es un 400 claro (#136).
         var itemsPorArticulo = new Dictionary<Guid, LicitacionItem>();
         foreach (var li in licitacion.Items)
         {
@@ -81,8 +80,6 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
             }
         }
 
-        // La etapa real viene de la requisición que originó la licitación (#136): Recepción la usa
-        // para validar la OC contra la partida de esa etapa. Es opcional (puede ser null).
         var requisicion = await _licitacionRepository.ObtenerRequisicionAsync(licitacion.RequisicionId, cancellationToken);
 
         decimal subtotalItems = cotizacion.Items.Sum(ci => ci.PrecioUnitario * itemsPorArticulo[ci.ArticuloId].Cantidad);

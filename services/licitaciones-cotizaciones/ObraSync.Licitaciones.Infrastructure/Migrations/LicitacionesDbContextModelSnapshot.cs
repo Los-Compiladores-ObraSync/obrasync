@@ -275,6 +275,12 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                     b.Property<Guid>("RequisicionId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.HasKey("LicitacionId");
 
                     b.HasIndex("RequisicionId");
@@ -338,6 +344,12 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
 
                     b.Property<Guid>("ProveedorId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.HasKey("Id");
 

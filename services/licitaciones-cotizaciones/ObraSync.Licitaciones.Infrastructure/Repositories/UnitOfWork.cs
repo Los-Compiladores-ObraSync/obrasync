@@ -6,7 +6,7 @@ namespace ObraSync.Licitaciones.Infrastructure.Repositories;
 
 public class UnitOfWork : IUnitOfWork
 {
-    private readonly LicitacionesDbContext _context;
+    private readonly LicitacionesDbContext _context = null!;
 
     public UnitOfWork(LicitacionesDbContext context)
     {
@@ -22,6 +22,13 @@ public class UnitOfWork : IUnitOfWork
         try
         {
             return await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // Conflicto de concurrencia optimista (RowVersion / Timestamp)
+            throw new InvalidOperationException(
+                "La licitación fue modificada o adjudicada por otro usuario en simultáneo. Por favor, actualice los datos e intente nuevamente.",
+                ex);
         }
         catch (DbUpdateException ex) when (EsDuplicadoDeOrdenPorLicitacion(ex))
         {
