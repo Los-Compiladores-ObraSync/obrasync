@@ -22,6 +22,24 @@ function newCorrelationId(): string {
   return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`
 }
 
+/** Tiempo máximo de un pedido normal (#199). Con mala señal en la obra un pedido podía quedar colgado para siempre. */
+export const TIEMPO_LIMITE_MS = 15_000
+/** El asistente tarda más: el servidor le da hasta 45 s, así que el cliente espera un poco más que eso. */
+export const TIEMPO_LIMITE_ASISTENTE_MS = 60_000
+
+/** Opciones de fetch más el tiempo límite propio de ObraSync. */
+export interface OpcionesApi extends RequestInit {
+  /** Milisegundos máximos del pedido completo (respuesta y cuerpo). Por defecto TIEMPO_LIMITE_MS. */
+  tiempoLimiteMs?: number
+}
+
+function errorDeTiempoAgotado(): ApiError {
+  return new ApiError(0, {
+    title: 'Sin conexión',
+    detail: 'No pudimos conectarnos, reintentá.',
+  })
+}
+
 interface RespuestaCruda {
   datos: unknown
   encabezados: Headers
@@ -29,8 +47,9 @@ interface RespuestaCruda {
 
 async function ejecutar(
   path: string,
-  options: RequestInit,
+  opciones: OpcionesApi,
 ): Promise<RespuestaCruda> {
+  const { tiempoLimiteMs = TIEMPO_LIMITE_MS, signal: senalExterna, ...options } = opciones
   const headers = new Headers(options.headers)
   headers.set('Accept', 'application/json')
   if (options.body && !headers.has('Content-Type')) {
@@ -43,48 +62,69 @@ async function ejecutar(
     headers.set('X-Correlation-ID', newCorrelationId())
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  })
+  // Tiempo límite (#199): se corta el pedido completo, también si se cuelga mientras llega el cuerpo.
+  // Si quien llama pasa su propia señal de cancelación, también se respeta.
+  const control = new AbortController()
+  let tiempoAgotado = false
+  const temporizador = setTimeout(() => {
+    tiempoAgotado = true
+    control.abort()
+  }, tiempoLimiteMs)
+  const cancelarPorQuienLlama = () => control.abort()
+  if (senalExterna?.aborted) control.abort()
+  else senalExterna?.addEventListener('abort', cancelarPorQuienLlama, { once: true })
 
-  if (!response.ok) {
-    // Si el servidor devuelve 401 y ya había un token activo, la sesión expiró.
-    // Notificamos a AuthContext para que limpie el estado sin romper el flujo normal de errores.
-    if (response.status === 401 && token && onUnauthorized) {
-      onUnauthorized()
-    }
-    const problem = (await response
-      .json()
-      .catch(() => ({}))) as ProblemDetails
-    throw new ApiError(response.status, {
-      ...problem,
-      correlationId:
-        problem.correlationId ??
-        response.headers.get('X-Correlation-ID') ??
-        undefined,
-    })
-  }
-
-  if (response.status === 204) {
-    return { datos: undefined, encabezados: response.headers }
-  }
-  // Leemos como texto y después intentamos JSON: algunos endpoints (ej. POST /api/obras)
-  // devuelven un string plano y response.json() fallaría con ese cuerpo.
-  const texto = await response.text()
-  if (!texto) {
-    return { datos: undefined, encabezados: response.headers }
-  }
   try {
-    return { datos: JSON.parse(texto), encabezados: response.headers }
-  } catch {
-    return { datos: texto, encabezados: response.headers }
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+      signal: control.signal,
+    })
+
+    if (!response.ok) {
+      // Si el servidor devuelve 401 y ya había un token activo, la sesión expiró.
+      // Notificamos a AuthContext para que limpie el estado sin romper el flujo normal de errores.
+      if (response.status === 401 && token && onUnauthorized) {
+        onUnauthorized()
+      }
+      const problem = (await response
+        .json()
+        .catch(() => ({}))) as ProblemDetails
+      throw new ApiError(response.status, {
+        ...problem,
+        correlationId:
+          problem.correlationId ??
+          response.headers.get('X-Correlation-ID') ??
+          undefined,
+      })
+    }
+
+    if (response.status === 204) {
+      return { datos: undefined, encabezados: response.headers }
+    }
+    // Leemos como texto y después intentamos JSON: algunos endpoints (ej. POST /api/obras)
+    // devuelven un string plano y response.json() fallaría con ese cuerpo.
+    const texto = await response.text()
+    if (!texto) {
+      return { datos: undefined, encabezados: response.headers }
+    }
+    try {
+      return { datos: JSON.parse(texto), encabezados: response.headers }
+    } catch {
+      return { datos: texto, encabezados: response.headers }
+    }
+  } catch (err) {
+    if (tiempoAgotado) throw errorDeTiempoAgotado()
+    throw err
+  } finally {
+    clearTimeout(temporizador)
+    senalExterna?.removeEventListener('abort', cancelarPorQuienLlama)
   }
 }
 
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {},
+  options: OpcionesApi = {},
 ): Promise<T> {
   const { datos } = await ejecutar(path, options)
   return datos as T
@@ -102,7 +142,7 @@ function leerEntero(valor: string | null): number | undefined {
  */
 export async function apiFetchPagina<T>(
   path: string,
-  options: RequestInit = {},
+  options: OpcionesApi = {},
 ): Promise<PaginaDe<T>> {
   const { datos, encabezados } = await ejecutar(path, options)
   return {
