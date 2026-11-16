@@ -815,6 +815,54 @@ export const handlers: RequestHandler[] = [
     }
 
     const texto = mensaje.toLowerCase()
+
+    // Perfil Comprador (#141): consulta y aprobación. Aprobar solo ARMA el borrador; la aprobación real
+    // la hace el frontend con POST /api/requisiciones/{id}/aprobar cuando el Comprador toca Confirmar.
+    if (/aprob|pendiente/.test(texto)) {
+      const pendientes = requisicionesMock.filter((r) => r.estado === 'Pendiente')
+      const primera = pendientes[0]
+      if (!primera) {
+        return HttpResponse.json(
+          { respuesta: 'No hay requisiciones pendientes por ahora.', borrador: null, tokensUsados: 0 },
+          { status: 200 },
+        )
+      }
+      if (!/aprob/.test(texto)) {
+        return HttpResponse.json(
+          {
+            respuesta: `Hay ${pendientes.length} requisición(es) pendiente(s). La más nueva es la ${primera.numeroRequisicion}.`,
+            borrador: null,
+            tokensUsados: 0,
+          },
+          { status: 200 },
+        )
+      }
+      const obraDeLaRequisicion = obrasMock.find((o) => o.id === primera.obraId)
+      return HttpResponse.json(
+        {
+          respuesta: `Armé la aprobación de la ${primera.numeroRequisicion}. Revisala y tocá Aprobar para confirmar.`,
+          borrador: null,
+          aprobacion: {
+            accion: 'aprobarRequisicion',
+            titulo: `Aprobar requisición ${primera.numeroRequisicion}`,
+            requisicionId: primera.requisicionId,
+            resumen: {
+              numero: primera.numeroRequisicion,
+              obra: obraDeLaRequisicion?.nombre ?? null,
+              etapa: primera.etapa ?? null,
+              items: primera.items.map((i) => ({
+                descripcion: i.descripcion,
+                cantidad: i.cantidad,
+                unidadMedida: i.unidadMedida,
+              })),
+            },
+          },
+          tokensUsados: 0,
+        },
+        { status: 200 },
+      )
+    }
+
     const cantidadTexto = texto.match(/(\d+(?:[.,]\d+)?)/)?.[1]
     const cantidad = cantidadTexto ? Number(cantidadTexto.replace(',', '.')) : 0
     const insumo = [

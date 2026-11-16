@@ -8,7 +8,8 @@ namespace ObraSync.Asistente.Application;
 /// Resultado de una herramienta: ok + datos, o ok=false + código de error estable.
 /// "Borrador" solo lo completa armar_borrador_requisicion; el modelo nunca lo ve entero (ve el resumen).
 /// </summary>
-public sealed record ResultadoHerramienta(bool Ok, JsonNode Datos, BorradorRequisicion? Borrador = null)
+public sealed record ResultadoHerramienta(
+    bool Ok, JsonNode Datos, BorradorRequisicion? Borrador = null, BorradorAprobacion? Aprobacion = null)
 {
     public static ResultadoHerramienta Bien(JsonNode datos) => new(true, datos);
     public static ResultadoHerramienta Error(string codigo) =>
