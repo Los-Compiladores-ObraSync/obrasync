@@ -521,6 +521,7 @@
           "Obras"
         ],
         "summary": "Dar de alta una nueva obra con sus etapas constructivas (Roles: Admin, Comprador)",
+        "description": "Crea una obra activa con sus etapas constructivas. El usuario indicado en capatazId debe existir, estar activo (Activo = true) y poseer el rol 'Capataz' (#200); de lo contrario, responde 400 Bad Request con ProblemDetails.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -562,8 +563,13 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Bad Request (Datos inválidos o el usuario asignado en capatazId no existe, está inactivo o no tiene rol Capataz)",
             "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
               "text/plain": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
@@ -715,7 +721,7 @@
           "Obras"
         ],
         "summary": "Editar los datos de una obra existente (Roles: Admin, Comprador)",
-        "description": "Permite modificar el nombre, la ubicación, la fecha de inicio y el capataz asignado de una obra activa. Si la obra no existe o está dada de baja, devuelve 404 Not Found. Si el capataz no existe, devuelve 400 Bad Request. Si ya existe otra obra activa con el mismo nombre y ubicación, devuelve 409 Conflict.",
+        "description": "Permite modificar el nombre, la ubicación, la fecha de inicio y el capataz asignado de una obra activa. Si la obra no existe o está dada de baja, devuelve 404 Not Found. Si el usuario asignado en capatazId no existe, está inactivo o no posee el rol 'Capataz' (#200), devuelve 400 Bad Request con ProblemDetails. Si ya existe otra obra activa con el mismo nombre y ubicación, devuelve 409 Conflict.",
         "parameters": [
           {
             "name": "id",
@@ -765,8 +771,13 @@
             }
           },
           "400": {
-            "description": "Bad Request (Datos inválidos o el Capataz especificado no existe)",
+            "description": "Bad Request (Datos inválidos o el usuario asignado en capatazId no existe, está inactivo o no tiene rol Capataz)",
             "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"

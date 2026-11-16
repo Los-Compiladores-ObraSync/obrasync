@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ObraSync.Usuarios.Application.DTOs;
 using ObraSync.Usuarios.Application.Interfaces;
@@ -15,20 +16,18 @@ namespace ObraSync.Usuarios.Infrastructure.Services;
 public class ObraService : IObraService
 {
     private readonly AuthDbContext _context;
+    private readonly UserManager<AppUser>? _userManager;
 
-    public ObraService(AuthDbContext context)
+    public ObraService(AuthDbContext context, UserManager<AppUser>? userManager = null)
     {
         _context = context;
+        _userManager = userManager;
     }
 
     public async Task<CrearObraResponseDto> CrearObraAsync(CrearObraDto dto)
     {
-        // Validar que el capataz exista
-        var capataz = await _context.Users.FindAsync(dto.CapatazId);
-        if (capataz == null)
-        {
-            throw new ValidacionException("El ID del capataz especificado no existe.");
-        }
+        // Validar existencia, estado activo y rol Capataz (#200)
+        await ValidarCapatazAsync(dto.CapatazId);
 
         // Validar regla de unicidad (#110): sin duplicados entre obras activas
         var nombreNormalizado = dto.Nombre.Trim().ToLower();
@@ -155,11 +154,8 @@ public class ObraService : IObraService
             throw new KeyNotFoundException($"No se encontró la obra activa con ID {id}.");
         }
 
-        var capataz = await _context.Users.FindAsync(dto.CapatazId);
-        if (capataz == null)
-        {
-            throw new ValidacionException("El ID del capataz especificado no existe.");
-        }
+        // Validar existencia, estado activo y rol Capataz (#200)
+        var capataz = await ValidarCapatazAsync(dto.CapatazId);
 
         // Validar regla de unicidad (#110): sin duplicados entre obras activas
         var nombreNormalizado = dto.Nombre.Trim().ToLower();
@@ -238,5 +234,38 @@ public class ObraService : IObraService
             ?? usuario?.FindFirstValue(ClaimTypes.NameIdentifier);
 
         return Guid.TryParse(subClaim, out userId) && userId != Guid.Empty;
+    }
+
+    private async Task<AppUser> ValidarCapatazAsync(Guid capatazId)
+    {
+        if (capatazId == Guid.Empty)
+        {
+            throw new ValidacionException("El ID del capataz especificado no existe.");
+        }
+
+        var capataz = await _context.Users.FindAsync(capatazId);
+        if (capataz == null)
+        {
+            throw new ValidacionException("El ID del capataz especificado no existe.");
+        }
+
+        if (!capataz.Activo)
+        {
+            throw new ValidacionException("El usuario seleccionado como capataz está inactivo.");
+        }
+
+        var esCapataz = _userManager != null
+            ? await _userManager.IsInRoleAsync(capataz, UserRoles.Capataz)
+            : await (from ur in _context.UserRoles
+                     join r in _context.Roles on ur.RoleId equals r.Id
+                     where ur.UserId == capataz.Id && r.Name == UserRoles.Capataz
+                     select ur.UserId).AnyAsync();
+
+        if (!esCapataz)
+        {
+            throw new ValidacionException("El usuario asignado debe tener el rol Capataz.");
+        }
+
+        return capataz;
     }
 }
