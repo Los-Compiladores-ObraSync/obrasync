@@ -38,6 +38,12 @@ builder.Services.AddMassTransit(x =>
     }
     else
     {
+        x.AddEntityFrameworkOutbox<RecepcionDbContext>(outbox =>
+        {
+            outbox.UseSqlServer();
+            outbox.UseBusOutbox();
+        });
+
         x.UsingRabbitMq((context, cfg) =>
         {
             var host = builder.Configuration["RabbitMQ:Host"] ?? "localhost";
@@ -188,4 +194,3 @@ app.Run();
 
 // Clase parcial para permitir integración con WebApplicationFactory en proyectos de pruebas xUnit
 public partial class Program { }
-

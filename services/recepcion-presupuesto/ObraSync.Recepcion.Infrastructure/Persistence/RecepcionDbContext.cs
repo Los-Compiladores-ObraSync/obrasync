@@ -1,3 +1,4 @@
+﻿using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Domain.Entities;
@@ -24,7 +25,11 @@ public class RecepcionDbContext : DbContext, IRecepcionDbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // Aplica automáticamente todas las configuraciones IEntityTypeConfiguration del ensamblado actual
+        // Aplica automÃ¡ticamente todas las configuraciones IEntityTypeConfiguration del ensamblado actual
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+        modelBuilder.AddInboxStateEntity();
+        modelBuilder.AddOutboxMessageEntity();
+        modelBuilder.AddOutboxStateEntity();
     }
 }

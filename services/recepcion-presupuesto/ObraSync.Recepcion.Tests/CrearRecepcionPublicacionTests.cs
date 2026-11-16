@@ -97,16 +97,16 @@ public class CrearRecepcionPublicacionTests
     }
 
     [Fact]
-    public async Task Si_publicar_falla_la_recepcion_queda_guardada_y_devuelve_201()
+    public async Task Si_publicar_falla_no_se_guarda_la_recepcion()
     {
         var (controller, publisher, request, db) = Preparar(Guid.NewGuid().ToString());
         publisher.PublishRecepcionConfirmadaAsync(default!, default, default)
             .ReturnsForAnyArgs(Task.FromException(new InvalidOperationException("rabbit caído")));
 
-        var result = await controller.CrearRecepcion(request, CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            controller.CrearRecepcion(request, CancellationToken.None));
 
-        Assert.Equal(201, Assert.IsType<ObjectResult>(result).StatusCode);
-        Assert.Equal(1, await db.Recepciones.CountAsync());
+        Assert.Equal(0, await db.Recepciones.CountAsync());
     }
 
     [Fact]

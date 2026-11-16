@@ -188,28 +188,24 @@ public class CrearRecepcionCommandHandler
 
         _context.Recepciones.Add(recepcion);
 
+        var correlationId = command.CorrelationId != Guid.Empty
+            ? command.CorrelationId
+            : Guid.NewGuid();
+
+        // El Outbox registra el evento junto con la recepción.
+        await _eventPublisher.PublishRecepcionConfirmadaAsync(
+            recepcion,
+            correlationId,
+            cancellationToken);
+
         try
         {
             await _context.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateException ex) when (EsViolacionDeIndiceUnico(ex))
         {
-            throw new RecepcionConflictoException("La orden de compra ya fue recibida o el número de remito está repetido.");
-        }
-
-        var correlationId = command.CorrelationId != Guid.Empty
-            ? command.CorrelationId
-            : Guid.NewGuid();
-
-        try
-        {
-            await _eventPublisher.PublishRecepcionConfirmadaAsync(recepcion, correlationId, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex,
-                "No se pudo publicar RecepcionConfirmadaEvent. RecepcionId: {RecepcionId}, CorrelationId: {CorrelationId}. La recepción quedó guardada.",
-                recepcion.Id, correlationId);
+            throw new RecepcionConflictoException(
+                "La orden de compra ya fue recibida o el número de remito está repetido.");
         }
 
         return RecepcionDto.DesdeEntidad(recepcion);

@@ -421,7 +421,7 @@ public class CrearRecepcionCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_SiPublisherLanzaExcepcion_RegistraLogYRetornaRecepcionGuardada()
+    public async Task Handle_SiPublisherLanzaExcepcion_NoGuardaRecepcion()
     {
         using var db = CreateInMemoryContext();
         var (oc, obraId, articuloId) = SembrarOrdenCompra(db);
@@ -434,15 +434,9 @@ public class CrearRecepcionCommandHandlerTests
 
         var command = CrearComandoValido(obraId, oc.Id, articuloId);
 
-        var resultado = await handler.Handle(command, CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            handler.Handle(command, CancellationToken.None));
 
-        Assert.NotEqual(Guid.Empty, resultado.Id);
-        Assert.Equal(1, await db.Recepciones.CountAsync());
-        logger.ReceivedWithAnyArgs(1).Log(
-            LogLevel.Error,
-            default,
-            default!,
-            default,
-            default!);
+        Assert.Equal(0, await db.Recepciones.CountAsync());
     }
 }
