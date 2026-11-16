@@ -31,7 +31,9 @@ public sealed record PerfilAsistente(string Rol, string Instrucciones, IReadOnly
     private static readonly string[] HerramientasCapataz =
     {
         HerramientasCatalogo.BuscarInsumos, HerramientasCatalogo.ArmarBorrador,
-        HerramientasCompras.ListarRequisiciones, HerramientasCompras.VerRequisicion
+        HerramientasCompras.ListarRequisiciones, HerramientasCompras.VerRequisicion,
+        // Recibir mercadería por chat (#147): solo el Capataz (y el Admin, que ve las de todos los roles).
+        HerramientasRecepcion.ListarOrdenes, HerramientasRecepcion.PrepararRecepcion
     };
 
     private static readonly string[] HerramientasComprador =

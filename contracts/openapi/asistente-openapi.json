@@ -238,6 +238,15 @@
               }
             ],
             "description": "Presente solo cuando el Comprador pidió aprobar una requisición Pendiente. Su existencia NO significa que se haya aprobado nada: el frontend llama a POST /api/requisiciones/{id}/aprobar cuando el usuario toca Confirmar."
+          },
+          "recepcion": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BorradorRecepcionDto"
+              }
+            ],
+            "description": "Presente solo cuando el Capataz pidió registrar lo que llegó (#147). Su existencia NO significa que se haya registrado nada: el frontend llama a POST /api/recepciones cuando el usuario toca Confirmar."
           }
         }
       },
@@ -397,6 +406,134 @@
             "type": "string",
             "nullable": true,
             "description": "Identificador de correlación propagado desde el API Gateway (X-Correlation-ID) para rastrear errores entre servicios."
+          }
+        }
+      },
+      "BorradorRecepcionDto": {
+        "type": "object",
+        "required": [
+          "accion",
+          "titulo",
+          "resumen",
+          "recepcion"
+        ],
+        "additionalProperties": false,
+        "description": "Borrador de una recepción TOTAL de una orden de compra (#147). Para registrarla, el frontend llama a POST /api/recepciones, con el JWT del usuario, cuando el usuario toca Confirmar: agrega fechaRecepcion (la del momento de confirmar) al cuerpo de 'recepcion'. El borrador NO se guarda en ninguna base. Las recepciones parciales no se arman por chat (el backend las rechaza hasta #90).",
+        "properties": {
+          "accion": {
+            "type": "string",
+            "enum": [
+              "registrarRecepcion"
+            ],
+            "description": "Qué escritura representa el borrador."
+          },
+          "titulo": {
+            "type": "string",
+            "description": "Título corto para la tarjeta de confirmación."
+          },
+          "resumen": {
+            "$ref": "#/components/schemas/ResumenRecepcionDto"
+          },
+          "recepcion": {
+            "$ref": "#/components/schemas/CuerpoRecepcionDto"
+          }
+        }
+      },
+      "ResumenRecepcionDto": {
+        "type": "object",
+        "required": [
+          "numeroRemito",
+          "items"
+        ],
+        "additionalProperties": false,
+        "description": "Lo que se muestra para revisar antes de confirmar. Sale de la API de Recepciones y de Obras, nunca lo inventa el modelo; el número de remito lo da la persona.",
+        "properties": {
+          "obra": {
+            "type": "string",
+            "nullable": true
+          },
+          "etapa": {
+            "type": "string",
+            "nullable": true
+          },
+          "numeroRemito": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResumenItemAprobacionDto"
+            }
+          }
+        }
+      },
+      "CuerpoRecepcionDto": {
+        "type": "object",
+        "required": [
+          "obraId",
+          "ordenCompraId",
+          "numeroRemito",
+          "detalles"
+        ],
+        "additionalProperties": false,
+        "description": "Cuerpo de POST /api/recepciones SIN fechaRecepcion (la agrega el frontend al confirmar). Mismos nombres y tipos que CrearRecepcionRequest en recepciones-openapi.json.",
+        "properties": {
+          "obraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ordenCompraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "numeroRemito": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "observaciones": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 500
+          },
+          "detalles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DetalleCuerpoRecepcionDto"
+            }
+          }
+        }
+      },
+      "DetalleCuerpoRecepcionDto": {
+        "type": "object",
+        "required": [
+          "articuloId",
+          "descripcionArticulo",
+          "cantidadEsperada",
+          "cantidadRecibida",
+          "unidadMedida",
+          "conforme"
+        ],
+        "additionalProperties": false,
+        "description": "En una recepción total por chat, cantidadRecibida es igual a cantidadEsperada y conforme es true.",
+        "properties": {
+          "articuloId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "descripcionArticulo": {
+            "type": "string"
+          },
+          "cantidadEsperada": {
+            "type": "number"
+          },
+          "cantidadRecibida": {
+            "type": "number"
+          },
+          "unidadMedida": {
+            "type": "string"
+          },
+          "conforme": {
+            "type": "boolean"
           }
         }
       },
