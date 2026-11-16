@@ -1,5 +1,5 @@
 /**
- * Tipos sincronizados con contracts/openapi/asistente-openapi.json (borrador v1, #137 y #138).
+ * Tipos sincronizados con contracts/openapi/asistente-openapi.json (borrador v1, #137, #138 y #141).
  * Regla de oro: el asistente NUNCA escribe datos. Solo responde y, si corresponde, arma un borrador;
  * la escritura la hace el frontend con el endpoint existente cuando el usuario toca Confirmar.
  */
@@ -39,8 +39,31 @@ export interface BorradorRequisicionDto {
   requisicion: CrearRequisicionRequestDto
 }
 
+export interface ResumenItemAprobacionDto {
+  descripcion: string
+  cantidad: number
+  unidadMedida: string
+}
+
+export interface ResumenAprobacionDto {
+  numero: string
+  obra?: string | null
+  etapa?: string | null
+  items: ResumenItemAprobacionDto[]
+}
+
+/** Borrador para aprobar UNA requisición Pendiente (#141). Aprueba recién cuando el Comprador toca Confirmar:
+ *  el frontend llama a POST /api/requisiciones/{requisicionId}/aprobar con su JWT. */
+export interface BorradorAprobacionDto {
+  accion: 'aprobarRequisicion'
+  titulo: string
+  requisicionId: string
+  resumen: ResumenAprobacionDto
+}
+
 export interface ChatResponseDto {
   respuesta: string
   borrador?: BorradorRequisicionDto | null
+  aprobacion?: BorradorAprobacionDto | null
   tokensUsados?: number | null
 }

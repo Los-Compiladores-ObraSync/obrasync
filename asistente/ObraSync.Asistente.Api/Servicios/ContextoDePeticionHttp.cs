@@ -2,7 +2,7 @@ using ObraSync.Asistente.Application;
 
 namespace ObraSync.Asistente.Api.Servicios;
 
-/// <summary>Saca el JWT y el X-Correlation-ID del pedido HTTP que se está atendiendo.</summary>
+/// <summary>Saca el JWT, el rol y el X-Correlation-ID del pedido HTTP que se está atendiendo.</summary>
 public sealed class ContextoDePeticionHttp : IContextoDePeticion
 {
     private const string Prefijo = "Bearer ";
@@ -19,6 +19,21 @@ public sealed class ContextoDePeticionHttp : IContextoDePeticion
                 return null;
             var token = cabecera[Prefijo.Length..].Trim();
             return token.Length == 0 ? null : token;
+        }
+    }
+
+    /// <summary>El rol ya validado del token. Si hubiera más de uno, gana el de más permisos (Admin, Comprador, Capataz).</summary>
+    public string? Rol
+    {
+        get
+        {
+            var usuario = _accesor.HttpContext?.User;
+            if (usuario?.Identity?.IsAuthenticated != true)
+                return null;
+            foreach (var rol in new[] { "Admin", "Comprador", "Capataz" })
+                if (usuario.IsInRole(rol))
+                    return rol;
+            return null;
         }
     }
 

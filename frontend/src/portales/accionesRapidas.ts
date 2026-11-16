@@ -20,6 +20,12 @@ const ASISTENTE: AccionRapida = {
   ruta: '/obra/asistente',
   destacada: true,
 }
+// El Comprador usa el mismo asistente en su portal (#141): consulta requisiciones y arma la aprobación para confirmar.
+const ASISTENTE_COMPRAS: AccionRapida = {
+  texto: 'Asistente',
+  ruta: '/compras/asistente',
+  destacada: true,
+}
 const NUEVA_REQUISICION: AccionRapida = {
   texto: 'Nueva requisición',
   ruta: '/obra/requisicion/nueva',
@@ -61,6 +67,7 @@ const LICITACIONES_Y_COTIZACIONES: AccionRapida = {
 const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
   Capataz: [ASISTENTE, NUEVA_REQUISICION, RECIBIR_MERCADERIA, HISTORIAL_REQUISICIONES_OBRA],
   Comprador: [
+    ASISTENTE_COMPRAS,
     HISTORIAL_REQUISICIONES_COMPRAS,
     NUEVA_OBRA,
     VER_OBRAS,

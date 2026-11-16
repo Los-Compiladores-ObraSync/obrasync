@@ -10,6 +10,12 @@ public interface IContextoDePeticion
     /// <summary>El JWT del usuario que escribe, sin el prefijo "Bearer ". Null si no vino.</summary>
     string? Jwt { get; }
 
+    /// <summary>
+    /// El rol del usuario que escribe (Admin, Comprador o Capataz), sacado de su token ya validado.
+    /// Decide qué herramientas e instrucciones se le dan al modelo (perfiles por rol, #143). Null si no hay un rol con perfil.
+    /// </summary>
+    string? Rol { get; }
+
     /// <summary>Identificador para rastrear el pedido entre servicios (X-Correlation-ID).</summary>
     string CorrelationId { get; }
 }

@@ -16,8 +16,8 @@
         "tags": [
           "Asistente"
         ],
-        "summary": "Enviar un mensaje al asistente y recibir su respuesta (Roles: Capataz, Admin en la primera versión)",
-        "description": "Recibe el mensaje del usuario y el historial reciente. Devuelve la respuesta en texto y, opcionalmente, un borrador para que el usuario lo confirme. El servicio usa el JWT del usuario para llamar a las herramientas del backend, nunca una cuenta propia (#102). Un rol sin perfil recibe 403 y no se llama al modelo (#143). Los límites de uso (#144) responden 429 sin llamar al modelo.",
+        "summary": "Enviar un mensaje al asistente y recibir su respuesta (Roles: Capataz, Comprador, Admin)",
+        "description": "Recibe el mensaje del usuario y el historial reciente. Devuelve la respuesta en texto y, opcionalmente, un borrador para que el usuario lo confirme. El servicio usa el JWT del usuario para llamar a las herramientas del backend, nunca una cuenta propia (#102). Cada rol tiene su perfil: el Capataz arma borradores de requisición; el Comprador consulta requisiciones (solo lectura, #141). Un rol sin perfil (Proveedor) recibe 403 y no se llama al modelo (#143). Los límites de uso (#144) responden 429 sin llamar al modelo.",
         "requestBody": {
           "required": true,
           "content": {
@@ -174,6 +174,15 @@
             "format": "int32",
             "nullable": true,
             "description": "Tokens que gastó este pedido (#144). Informativo."
+          },
+          "aprobacion": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BorradorAprobacionDto"
+              }
+            ],
+            "description": "Presente solo cuando el Comprador pidió aprobar una requisición Pendiente. Su existencia NO significa que se haya aprobado nada: el frontend llama a POST /api/requisiciones/{id}/aprobar cuando el usuario toca Confirmar."
           }
         }
       },
@@ -333,6 +342,85 @@
             "type": "string",
             "nullable": true,
             "description": "Identificador de correlación propagado desde el API Gateway (X-Correlation-ID) para rastrear errores entre servicios."
+          }
+        }
+      },
+      "BorradorAprobacionDto": {
+        "type": "object",
+        "required": [
+          "accion",
+          "titulo",
+          "requisicionId",
+          "resumen"
+        ],
+        "additionalProperties": false,
+        "description": "Borrador de la aprobación de UNA requisición que está Pendiente (#141). Para aprobarla, el frontend llama a POST /api/requisiciones/{requisicionId}/aprobar (sin cuerpo, con el JWT del usuario) cuando el usuario toca Confirmar. El borrador NO se guarda en ninguna base.",
+        "properties": {
+          "accion": {
+            "type": "string",
+            "enum": [
+              "aprobarRequisicion"
+            ],
+            "description": "Qué escritura representa el borrador."
+          },
+          "titulo": {
+            "type": "string",
+            "description": "Título corto para la tarjeta de confirmación."
+          },
+          "requisicionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "resumen": {
+            "$ref": "#/components/schemas/ResumenAprobacionDto"
+          }
+        }
+      },
+      "ResumenAprobacionDto": {
+        "type": "object",
+        "required": [
+          "numero",
+          "items"
+        ],
+        "additionalProperties": false,
+        "description": "Lo que se muestra para revisar antes de confirmar. Sale de la API de Requisiciones y de Obras, nunca lo inventa el modelo.",
+        "properties": {
+          "numero": {
+            "type": "string"
+          },
+          "obra": {
+            "type": "string",
+            "nullable": true
+          },
+          "etapa": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResumenItemAprobacionDto"
+            }
+          }
+        }
+      },
+      "ResumenItemAprobacionDto": {
+        "type": "object",
+        "required": [
+          "descripcion",
+          "cantidad",
+          "unidadMedida"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "descripcion": {
+            "type": "string"
+          },
+          "cantidad": {
+            "type": "number"
+          },
+          "unidadMedida": {
+            "type": "string"
           }
         }
       }

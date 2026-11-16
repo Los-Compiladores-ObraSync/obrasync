@@ -19,8 +19,9 @@ describe('accionesParaRol', () => {
     ])
   })
 
-  it('el Comprador ve el historial y las obras, con "Nueva obra" a un toque (aprobar es la tarjeta de arriba)', () => {
+  it('el Comprador usa el asistente y ve el historial y las obras, con "Nueva obra" a un toque (aprobar es la tarjeta de arriba)', () => {
     expect(accionesParaRol('Comprador').map((a) => a.texto)).toEqual([
+      'Asistente',
       'Historial de requisiciones',
       'Nueva obra',
       'Ver obras',
@@ -42,11 +43,15 @@ describe('accionesParaRol', () => {
   })
 
   it('el asistente es la única acción destacada', () => {
-    for (const rol of ['Capataz', 'Admin']) {
+    for (const rol of ['Capataz', 'Comprador', 'Admin']) {
       const destacadas = accionesParaRol(rol).filter((a) => a.destacada)
       expect(destacadas.map((a) => a.texto)).toEqual(['Asistente'])
     }
-    expect(accionesParaRol('Comprador').some((a) => a.destacada)).toBe(false)
+  })
+
+  it('el Comprador entra al asistente por su portal (/compras/asistente) y el Capataz por el suyo', () => {
+    expect(accionesParaRol('Comprador')[0].ruta).toBe('/compras/asistente')
+    expect(accionesParaRol('Capataz')[0].ruta).toBe('/obra/asistente')
   })
 
   it('el Proveedor no tiene botones (su Inicio es la lista de licitaciones) y un rol desconocido tampoco', () => {

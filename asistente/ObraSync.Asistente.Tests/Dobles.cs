@@ -62,6 +62,8 @@ internal sealed class BuscadorFalso : IBuscadorInsumos
 internal sealed class ContextoFalso : IContextoDePeticion
 {
     public string? Jwt { get; set; } = "JWT_DE_PRUEBA";
+    /// <summary>Por defecto Capataz, como la primera versión del asistente.</summary>
+    public string? Rol { get; set; } = "Capataz";
     public string CorrelationId { get; set; } = "11111111-2222-3333-4444-555555555555";
 }
 
@@ -165,5 +167,47 @@ internal sealed class HandlerRutas : HttpMessageHandler
         return Task.FromResult(cuerpo is null
             ? new HttpResponseMessage(HttpStatusCode.NotFound)
             : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(cuerpo, Encoding.UTF8, "application/json") });
+    }
+}
+
+
+/// <summary>Requisiciones falsas en memoria (como las vería un Comprador). Se puede cambiar el resultado y contar las llamadas.</summary>
+internal sealed class ConsultorFalso : IConsultorRequisiciones
+{
+    public static readonly Guid IdPendiente = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001");
+    public static readonly Guid IdAprobada = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000002");
+
+    public static RequisicionResumen Pendiente { get; } =
+        new(IdPendiente, "REQ-0001", "Pendiente", ObrasFalsas.IdTorre, "Estructura", new DateTime(2026, 11, 10), 2);
+
+    public static RequisicionResumen Aprobada { get; } =
+        new(IdAprobada, "REQ-0002", "Aprobada", ObrasFalsas.IdGalpon, null, new DateTime(2026, 11, 9), 1);
+
+    public ResultadoListaRequisiciones ResultadoLista { get; set; } =
+        ResultadoListaRequisiciones.Bien(new[] { Pendiente, Aprobada }, 2);
+
+    public ResultadoRequisicion ResultadoDetalle { get; set; } = ResultadoRequisicion.Bien(new RequisicionDetalle(
+        Pendiente, "Urge para el colado", null,
+        new[] { new ItemRequisicion("Cemento Portland 50 kg", 20, "BOLSA"), new ItemRequisicion("Arena gruesa", 3, "M3") }));
+
+    public int LlamadasLista { get; private set; }
+    public int LlamadasDetalle { get; private set; }
+    public string? UltimoEstado { get; private set; }
+    public int UltimoMaximo { get; private set; }
+    public Guid? UltimoId { get; private set; }
+
+    public Task<ResultadoListaRequisiciones> ListarAsync(string? estado, int maximo, CancellationToken ct)
+    {
+        LlamadasLista++;
+        UltimoEstado = estado;
+        UltimoMaximo = maximo;
+        return Task.FromResult(ResultadoLista);
+    }
+
+    public Task<ResultadoRequisicion> ObtenerAsync(Guid id, CancellationToken ct)
+    {
+        LlamadasDetalle++;
+        UltimoId = id;
+        return Task.FromResult(ResultadoDetalle);
     }
 }

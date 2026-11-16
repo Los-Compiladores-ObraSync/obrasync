@@ -8,8 +8,8 @@ namespace ObraSync.Asistente.Api.Controllers;
 
 [ApiController]
 [Route("api/asistente")]
-// Contrato v1: en la primera versión solo Capataz y Admin. Un rol sin perfil recibe 403 y NO se llama al modelo (#143).
-[Authorize(Roles = "Capataz,Admin")]
+// Perfiles por rol (#143): Capataz, Comprador y Admin. Un rol sin perfil (Proveedor) recibe 403 y NO se llama al modelo.
+[Authorize(Roles = "Capataz,Comprador,Admin")]
 public sealed class AsistenteController : ControllerBase
 {
     private readonly Agente _agente;
@@ -44,7 +44,7 @@ public sealed class AsistenteController : ControllerBase
         var r = await _agente.ResponderAsync(pedido.Mensaje!.Trim(), historial, ct);
 
         if (r.Ok)
-            return Ok(new ChatResponseDto(r.Texto, r.Borrador, r.Tokens));
+            return Ok(new ChatResponseDto(r.Texto, r.Borrador, r.Tokens, r.Aprobacion));
 
         // Se anota el código estable (nunca la clave ni el texto crudo del proveedor).
         _log.LogWarning("Asistente sin respuesta: {Codigo} (iteraciones={It}, herramientas={Herr}, tokens={Tok}) correlationId={CorrelationId}",

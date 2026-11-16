@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
-import { crearRequisicion, generarIdempotencyKey } from '../requisiciones/requisicionesService'
+import {
+  aprobarRequisicion,
+  crearRequisicion,
+  generarIdempotencyKey,
+} from '../requisiciones/requisicionesService'
 import { enviarMensajeAlAsistente } from './asistenteService'
 import {
   MAX_CARACTERES_MENSAJE,
+  type BorradorAprobacionDto,
   type BorradorRequisicionDto,
   type ChatMensajeDto,
 } from './asistenteTipos'
@@ -20,17 +25,22 @@ interface MensajeChat {
   /** Mensaje armado por la propia pantalla (no lo dijo el modelo): no se reenvía como historial. */
   local?: boolean
   /** Muestra "qué querés hacer ahora" debajo del mensaje (después de confirmar o cancelar un borrador). */
-  siguientesPasos?: 'creada' | 'descartada'
+  siguientesPasos?: 'creada' | 'descartada' | 'aprobada'
   borrador?: BorradorRequisicionDto
+  /** Borrador de aprobación (portal de Compras, #141). */
+  aprobacion?: BorradorAprobacionDto
   /** Una sola clave por borrador: si el usuario confirma dos veces, el servidor no duplica la requisición. */
   claveIdempotencia?: string
   estado?: EstadoBorrador
 }
 
+/** Qué portal está usando el asistente: cambia lo que ofrece y a dónde lleva los enlaces. */
+export type PortalAsistente = 'obra' | 'compras'
+
 /** Lo que el asistente sabe hacer, para que el Capataz lo descubra. Lo que todavía no anda se muestra con la
  *  etiqueta "Próximamente": cuando se sume una función, se cambia su `disponible` a true (la consulta de
  *  requisiciones y la recepción por chat son la tarjeta #147). */
-const CAPACIDADES = [
+const CAPACIDADES_OBRA = [
   {
     titulo: 'Pedir materiales',
     descripcion: 'Contame qué necesitás y armo la requisición. Vos la revisás y la confirmás.',
@@ -51,10 +61,26 @@ const CAPACIDADES = [
   },
 ]
 
+/** Lo que el asistente sabe hacer en el portal de Compras (#141): consultar y aprobar con confirmación. */
+const CAPACIDADES_COMPRAS = [
+  {
+    titulo: 'Ver requisiciones pendientes',
+    descripcion: 'Te cuento cuáles están esperando tu aprobación.',
+    mensaje: '¿Qué requisiciones están pendientes?',
+    disponible: true,
+  },
+  {
+    titulo: 'Aprobar una requisición',
+    descripcion: 'Te armo la aprobación para que la revises y la confirmes.',
+    mensaje: 'Quiero aprobar una requisición',
+    disponible: true,
+  },
+]
+
 /** A partir de cuántos caracteres se muestra el contador (antes sería ruido). */
 const CARACTERES_PARA_MOSTRAR_CONTADOR = 400
 
-function mensajeDeErrorDelAsistente(err: unknown): string {
+function mensajeDeErrorDelAsistente(err: unknown, portal: PortalAsistente): string {
   if (err instanceof ApiError) {
     if (err.status === 400) {
       return err.detail ?? 'No pude entender el mensaje. Probá escribirlo de nuevo.'
@@ -66,10 +92,14 @@ function mensajeDeErrorDelAsistente(err: unknown): string {
       return 'El asistente está ocupado. Probá de nuevo en un minuto.'
     }
     if (err.status === 503) {
-      return 'El asistente no está disponible ahora. Podés cargar la requisición con el formulario.'
+      return portal === 'compras'
+        ? 'El asistente no está disponible ahora. Podés aprobar desde la pantalla de requisiciones.'
+        : 'El asistente no está disponible ahora. Podés cargar la requisición con el formulario.'
     }
   }
-  return 'No se pudo conectar con el asistente. Probá de nuevo o usá el formulario.'
+  return portal === 'compras'
+    ? 'No se pudo conectar con el asistente. Probá de nuevo o usá la pantalla de requisiciones.'
+    : 'No se pudo conectar con el asistente. Probá de nuevo o usá el formulario.'
 }
 
 function formatoCantidad(cantidad: number): string {
@@ -85,11 +115,12 @@ function IconoDestello() {
   )
 }
 
-/** Chat del asistente en el portal del Capataz (tarjeta #138).
+/** Chat del asistente en el portal del Capataz (tarjeta #138) y, con portal="compras", en el del Comprador (#141).
  *  - Todo texto (del usuario o del asistente) se muestra como TEXTO, nunca como HTML (#174).
- *  - El asistente nunca crea nada: arma un borrador y solo el botón Confirmar (#146) llama al
+ *  - El asistente nunca crea ni aprueba nada: arma un borrador y solo el botón Confirmar (#146) llama al
  *    endpoint de requisiciones con el JWT del usuario. */
-export function AsistenteChatPage() {
+export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistente } = {}) {
+  const capacidades = portal === 'compras' ? CAPACIDADES_COMPRAS : CAPACIDADES_OBRA
   const [mensajes, setMensajes] = useState<MensajeChat[]>([])
   const [texto, setTexto] = useState('')
   const [pensando, setPensando] = useState(false)
@@ -156,11 +187,12 @@ export function AsistenteChatPage() {
         rol: 'asistente',
         texto: respuesta.respuesta,
         borrador: respuesta.borrador ?? undefined,
+        aprobacion: respuesta.aprobacion ?? undefined,
         claveIdempotencia: respuesta.borrador ? generarIdempotencyKey() : undefined,
-        estado: respuesta.borrador ? 'pendiente' : undefined,
+        estado: respuesta.borrador || respuesta.aprobacion ? 'pendiente' : undefined,
       })
     } catch (err) {
-      setError(mensajeDeErrorDelAsistente(err))
+      setError(mensajeDeErrorDelAsistente(err, portal))
     } finally {
       setPensando(false)
       enviandoRef.current = false
@@ -179,6 +211,31 @@ export function AsistenteChatPage() {
       texto: `Listo, creé la requisición ${creada.numeroRequisicion}. Quedó pendiente de aprobación de Compras.`,
       local: true,
       siguientesPasos: 'creada',
+    })
+  }
+
+  async function confirmarAprobacion(mensaje: MensajeChat) {
+    if (!mensaje.aprobacion) {
+      return
+    }
+    // Si falla (por ejemplo un 409 porque ya la resolvió otra persona), el error lo muestra la tarjeta y se puede reintentar o cancelar.
+    const aprobada = await aprobarRequisicion(mensaje.aprobacion.requisicionId)
+    actualizarMensaje(mensaje.id, { estado: 'confirmada' })
+    agregarMensaje({
+      rol: 'asistente',
+      texto: `Listo, aprobé la requisición ${aprobada.numeroRequisicion ?? mensaje.aprobacion.resumen.numero}.`,
+      local: true,
+      siguientesPasos: 'aprobada',
+    })
+  }
+
+  function cancelarAprobacion(mensaje: MensajeChat) {
+    actualizarMensaje(mensaje.id, { estado: 'cancelada' })
+    agregarMensaje({
+      rol: 'asistente',
+      texto: 'Listo, no aprobé nada. La requisición sigue pendiente.',
+      local: true,
+      siguientesPasos: 'descartada',
     })
   }
 
@@ -214,7 +271,7 @@ export function AsistenteChatPage() {
             </span>
             <p className={styles.pregunta}>¿En qué te ayudo?</p>
             <ul className={styles.capacidades} aria-label="Lo que puedo hacer">
-              {CAPACIDADES.map((capacidad) => (
+              {capacidades.map((capacidad) => (
                 <li key={capacidad.titulo}>
                   {/* Tocar una capacidad manda ese mensaje: el asistente responde con lo que necesita. */}
                   <button
@@ -249,13 +306,23 @@ export function AsistenteChatPage() {
                 <p className={styles.texto}>{mensaje.texto}</p>
                 {mensaje.siguientesPasos && mensaje.id === ultimoId && !pensando && (
                   <div className={styles.siguientesPasos} role="group" aria-label="¿Qué querés hacer ahora?">
-                    <button
-                      type="button"
-                      className={styles.siguientePaso}
-                      onClick={() => void enviarTexto('Quiero pedir materiales')}
-                    >
-                      {mensaje.siguientesPasos === 'creada' ? 'Pedir otros materiales' : 'Armar otro pedido'}
-                    </button>
+                    {portal === 'compras' ? (
+                      <button
+                        type="button"
+                        className={styles.siguientePaso}
+                        onClick={() => void enviarTexto('¿Qué requisiciones están pendientes?')}
+                      >
+                        Ver otras pendientes
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.siguientePaso}
+                        onClick={() => void enviarTexto('Quiero pedir materiales')}
+                      >
+                        {mensaje.siguientesPasos === 'creada' ? 'Pedir otros materiales' : 'Armar otro pedido'}
+                      </button>
+                    )}
                     {mensaje.siguientesPasos === 'creada' && (
                       <Link to="/obra/requisiciones" className={styles.siguientePaso}>
                         Ver mis requisiciones
@@ -281,6 +348,31 @@ export function AsistenteChatPage() {
                         <li key={`${item.descripcion}-${item.cantidad}`}>
                           {formatoCantidad(item.cantidad)} {item.unidadMedida.toLowerCase()} ·{' '}
                           {item.descripcion}
+                        </li>
+                      ))}
+                    </ul>
+                  </ConfirmacionAccion>
+                )}
+                {mensaje.aprobacion && mensaje.estado === 'pendiente' && (
+                  // Aprobar dispara el proceso de licitación: se muestra reforzada y con el nombre del botón claro.
+                  <ConfirmacionAccion
+                    titulo={mensaje.aprobacion.titulo}
+                    reforzada
+                    textoConfirmar="Aprobar"
+                    onConfirmar={() => confirmarAprobacion(mensaje)}
+                    onCancelar={() => cancelarAprobacion(mensaje)}
+                  >
+                    <p className={styles.dato}>Requisición: {mensaje.aprobacion.resumen.numero}</p>
+                    {mensaje.aprobacion.resumen.obra && (
+                      <p className={styles.dato}>Obra: {mensaje.aprobacion.resumen.obra}</p>
+                    )}
+                    {mensaje.aprobacion.resumen.etapa && (
+                      <p className={styles.dato}>Etapa: {mensaje.aprobacion.resumen.etapa}</p>
+                    )}
+                    <ul className={styles.items}>
+                      {mensaje.aprobacion.resumen.items.map((item, i) => (
+                        <li key={`${i}-${item.descripcion}`}>
+                          {formatoCantidad(item.cantidad)} {item.unidadMedida.toLowerCase()} · {item.descripcion}
                         </li>
                       ))}
                     </ul>
@@ -344,7 +436,11 @@ export function AsistenteChatPage() {
               {texto.length}/{MAX_CARACTERES_MENSAJE} ·{' '}
             </span>
           )}
-          <Link to="/obra/requisicion/nueva">Cargar una requisición a mano</Link>
+          {portal === 'compras' ? (
+            <Link to="/compras/requisiciones">Ir a aprobar requisiciones</Link>
+          ) : (
+            <Link to="/obra/requisicion/nueva">Cargar una requisición a mano</Link>
+          )}
         </p>
       </div>
     </section>
