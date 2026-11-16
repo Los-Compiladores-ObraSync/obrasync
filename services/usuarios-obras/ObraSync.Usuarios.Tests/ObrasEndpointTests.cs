@@ -850,4 +850,214 @@ public class ObrasEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal("Paginación inválida", problem.GetProperty("title").GetString());
         Assert.Equal("corr-capataces-182", problem.GetProperty("correlationId").GetString());
     }
+
+    // ── Tarjeta #200: Validación de Capataz al crear o editar una obra ────────
+
+    private async Task<Guid> CrearUsuarioConRolAsync(string rol, bool activo = true)
+    {
+        _factory.CreateClient();
+        using var scope = _factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+
+        var email = $"test.{rol.ToLowerInvariant()}.{Guid.NewGuid():N}@obrasync.com";
+        var usuario = new AppUser
+        {
+            UserName = email,
+            Email = email,
+            NombreCompleto = $"Usuario {rol}",
+            Activo = activo,
+            EmailConfirmed = true
+        };
+
+        var result = await userManager.CreateAsync(usuario, "Password123!");
+        Assert.True(result.Succeeded, string.Join(", ", result.Errors.Select(e => e.Description)));
+        await userManager.AddToRoleAsync(usuario, rol);
+
+        return usuario.Id;
+    }
+
+    private async Task<Guid> CrearObraParaEdicionAsync(HttpClient client, Guid capatazValidoId)
+    {
+        var resp = await client.PostAsJsonAsync("/api/Obras", new CrearObraDto
+        {
+            Nombre = $"Obra Editable {Guid.NewGuid():N}"[..24],
+            Ubicacion = $"Av. Test {Guid.NewGuid():N}"[..24],
+            CapatazId = capatazValidoId,
+            FasesEtapas = new List<string> { "Cimientos" }
+        });
+        Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+        var creada = await resp.Content.ReadFromJsonAsync<CrearObraResponseDto>();
+        return creada!.Id;
+    }
+
+    [Theory]
+    [InlineData(UserRoles.Proveedor)]
+    [InlineData(UserRoles.Comprador)]
+    [InlineData(UserRoles.Admin)]
+    public async Task PostObra_ConUsuarioSinRolCapataz_DebeRetornar400BadRequestConProblemDetails(string rolNoCapataz)
+    {
+        var usuarioId = await CrearUsuarioConRolAsync(rolNoCapataz, activo: true);
+        var correlationId = Guid.NewGuid().ToString();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Admin));
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
+
+        var response = await client.PostAsJsonAsync("/api/Obras", new CrearObraDto
+        {
+            Nombre = $"Obra Rol Invalido {Guid.NewGuid():N}"[..24],
+            Ubicacion = "Calle Prueba 123",
+            CapatazId = usuarioId,
+            FasesEtapas = new List<string> { "Cimientos" }
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(400, json.GetProperty("status").GetInt32());
+        Assert.Equal("Petición inválida", json.GetProperty("title").GetString());
+        Assert.Contains("rol Capataz", json.GetProperty("detail").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(correlationId, json.GetProperty("correlationId").GetString());
+    }
+
+    [Theory]
+    [InlineData(UserRoles.Proveedor)]
+    [InlineData(UserRoles.Comprador)]
+    [InlineData(UserRoles.Admin)]
+    public async Task PutObra_ConUsuarioSinRolCapataz_DebeRetornar400BadRequestConProblemDetails(string rolNoCapataz)
+    {
+        var capatazValidoId = await ObtenerIdCapatazSembradoAsync();
+        var usuarioInvalidoId = await CrearUsuarioConRolAsync(rolNoCapataz, activo: true);
+        var correlationId = Guid.NewGuid().ToString();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Admin));
+
+        var obraId = await CrearObraParaEdicionAsync(client, capatazValidoId);
+
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
+        var response = await client.PutAsJsonAsync($"/api/Obras/{obraId}", new ActualizarObraDto
+        {
+            Nombre = $"Obra Editada {Guid.NewGuid():N}"[..22],
+            Ubicacion = "Otra Calle 456",
+            CapatazId = usuarioInvalidoId
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(400, json.GetProperty("status").GetInt32());
+        Assert.Contains("rol Capataz", json.GetProperty("detail").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(correlationId, json.GetProperty("correlationId").GetString());
+    }
+
+    [Fact]
+    public async Task PostObra_ConCapatazInactivo_DebeRetornar400BadRequestConProblemDetails()
+    {
+        var capatazInactivoId = await CrearUsuarioConRolAsync(UserRoles.Capataz, activo: false);
+        var correlationId = Guid.NewGuid().ToString();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Comprador));
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
+
+        var response = await client.PostAsJsonAsync("/api/Obras", new CrearObraDto
+        {
+            Nombre = $"Obra Inactivo {Guid.NewGuid():N}"[..24],
+            Ubicacion = "Calle Inactiva 789",
+            CapatazId = capatazInactivoId,
+            FasesEtapas = new List<string> { "Cimientos" }
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(400, json.GetProperty("status").GetInt32());
+        Assert.Contains("inactivo", json.GetProperty("detail").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(correlationId, json.GetProperty("correlationId").GetString());
+    }
+
+    [Fact]
+    public async Task PutObra_ConCapatazInactivo_DebeRetornar400BadRequestConProblemDetails()
+    {
+        var capatazValidoId = await ObtenerIdCapatazSembradoAsync();
+        var capatazInactivoId = await CrearUsuarioConRolAsync(UserRoles.Capataz, activo: false);
+        var correlationId = Guid.NewGuid().ToString();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Comprador));
+
+        var obraId = await CrearObraParaEdicionAsync(client, capatazValidoId);
+
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
+        var response = await client.PutAsJsonAsync($"/api/Obras/{obraId}", new ActualizarObraDto
+        {
+            Nombre = $"Obra Editada Inactivo {Guid.NewGuid():N}"[..28],
+            Ubicacion = "Calle Editada 321",
+            CapatazId = capatazInactivoId
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(400, json.GetProperty("status").GetInt32());
+        Assert.Contains("inactivo", json.GetProperty("detail").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(correlationId, json.GetProperty("correlationId").GetString());
+    }
+
+    [Fact]
+    public async Task PostObra_ConUsuarioInexistente_DebeRetornar400BadRequestConProblemDetails()
+    {
+        var correlationId = Guid.NewGuid().ToString();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Admin));
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
+
+        var response = await client.PostAsJsonAsync("/api/Obras", new CrearObraDto
+        {
+            Nombre = $"Obra Inexistente {Guid.NewGuid():N}"[..24],
+            Ubicacion = "Calle Fantasma 000",
+            CapatazId = Guid.NewGuid(),
+            FasesEtapas = new List<string> { "Cimientos" }
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(400, json.GetProperty("status").GetInt32());
+        Assert.Contains("no existe", json.GetProperty("detail").GetString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(correlationId, json.GetProperty("correlationId").GetString());
+    }
+
+    [Fact]
+    public async Task PostYPutObra_ConCapatazValidoYActivo_DebeCrearYReasignarCorrectamente()
+    {
+        var capataz1Id = await CrearUsuarioConRolAsync(UserRoles.Capataz, activo: true);
+        var capataz2Id = await CrearUsuarioConRolAsync(UserRoles.Capataz, activo: true);
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Admin));
+
+        var nombreObra = $"Obra Valida {Guid.NewGuid():N}"[..22];
+        var postResp = await client.PostAsJsonAsync("/api/Obras", new CrearObraDto
+        {
+            Nombre = nombreObra,
+            Ubicacion = "Av. Válida 100",
+            CapatazId = capataz1Id,
+            FasesEtapas = new List<string> { "Cimientos" }
+        });
+
+        Assert.Equal(HttpStatusCode.Created, postResp.StatusCode);
+        var creada = await postResp.Content.ReadFromJsonAsync<CrearObraResponseDto>();
+        Assert.NotNull(creada);
+
+        var putResp = await client.PutAsJsonAsync($"/api/Obras/{creada!.Id}", new ActualizarObraDto
+        {
+            Nombre = $"{nombreObra} Ed",
+            Ubicacion = "Av. Válida 200",
+            CapatazId = capataz2Id
+        });
+
+        Assert.Equal(HttpStatusCode.OK, putResp.StatusCode);
+        var editada = await putResp.Content.ReadFromJsonAsync<ObraResponseDto>();
+        Assert.NotNull(editada);
+        Assert.Equal(capataz2Id, editada!.CapatazId);
+    }
 }
