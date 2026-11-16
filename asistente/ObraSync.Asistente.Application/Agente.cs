@@ -41,21 +41,24 @@ public sealed class Agente
     private readonly HerramientasCatalogo _herramientas;
     private readonly HerramientasCompras? _compras;
     private readonly IContextoDePeticion? _contexto;
+    private readonly IControlConsumo? _consumo;
 
     /// <summary>
-    /// "compras" y "contexto" son opcionales: sin contexto se atiende como Capataz (el comportamiento de la primera versión).
+    /// "compras", "contexto" y "consumo" son opcionales: sin contexto se atiende como Capataz (el comportamiento de la primera versión).
     /// En la aplicación real el contenedor de dependencias los entrega siempre.
     /// </summary>
     public Agente(
         IModeloChat modelo,
         HerramientasCatalogo herramientas,
         HerramientasCompras? compras = null,
-        IContextoDePeticion? contexto = null)
+        IContextoDePeticion? contexto = null,
+        IControlConsumo? consumo = null)
     {
         _modelo = modelo;
         _herramientas = herramientas;
         _compras = compras;
         _contexto = contexto;
+        _consumo = consumo;
     }
 
     public async Task<RespuestaAgente> ResponderAsync(
@@ -70,6 +73,17 @@ public sealed class Agente
         var perfil = PerfilAsistente.Para(_contexto is null ? PerfilAsistente.Capataz : _contexto.Rol);
         if (perfil is null)
             return Falla("rol_sin_perfil", 0, 0, 0);
+
+        // Control de consumo (#144): el cupo del modelo es compartido por todo el grupo. Si estamos cerca del tope
+        // (o el asistente está apagado) se responde sin llamar al modelo, así no se gasta ni un token.
+        var decision = _consumo?.Autorizar() ?? DecisionConsumo.Permitido;
+        if (decision != DecisionConsumo.Permitido)
+            return Falla(decision switch
+            {
+                DecisionConsumo.Apagado => "asistente_apagado",
+                DecisionConsumo.SinCupo => "asistente_sin_cupo",
+                _ => "asistente_ocupado"
+            }, 0, 0, 0);
 
         using var limite = CancellationTokenSource.CreateLinkedTokenSource(ct);
         limite.CancelAfter(TiempoTotal);
@@ -111,6 +125,7 @@ public sealed class Agente
                 var r = await _modelo.PedirAsync(mensajes, defs, MaxTokensSalida, limite.Token);
 
                 tokens += r.TokensTotales;
+                _consumo?.Registrar(r.TokensTotales);
                 var pedidos = r.Mensaje["tool_calls"] as JsonArray;
 
                 // Sin herramientas pedidas: es la respuesta final.
@@ -152,6 +167,11 @@ public sealed class Agente
         }
         catch (ModeloException ex)
         {
+            // 429: se pausa un rato y NO se reintenta. 403: cuota de costo agotada, se apaga el asistente.
+            if (ex.Codigo == "modelo_limite_de_tasa")
+                _consumo?.ReportarLimiteDeTasa();
+            else if (ex.Codigo == "modelo_sin_permiso_o_cupo")
+                _consumo?.ReportarSinCupo();
             return Falla(ex.Codigo, iteracion, llamadas, tokens);
         }
         catch (OperationCanceledException)
