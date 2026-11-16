@@ -15,6 +15,8 @@ public class RoutingTests : IClassFixture<GatewayFactory>
     [Theory]
     [InlineData("/api/usuarios/prueba", 5001)]
     [InlineData("/api/obras/prueba", 5001)]
+    [InlineData("/api/plantillas-obra", 5001)]
+    [InlineData("/api/plantillas-obra/prueba", 5001)]
     [InlineData("/api/requisiciones/prueba", 5002)]
     [InlineData("/api/catalogo/prueba", 5002)]
     [InlineData("/api/licitaciones/prueba", 5003)]
