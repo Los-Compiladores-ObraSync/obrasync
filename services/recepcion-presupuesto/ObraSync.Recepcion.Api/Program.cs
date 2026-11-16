@@ -4,6 +4,7 @@ using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using ObraSync.Recepcion.Api.Conventions;
 using ObraSync.Recepcion.Api.Middlewares;
 using ObraSync.Recepcion.Infrastructure;
@@ -20,7 +21,33 @@ builder.Services.AddControllers(options =>
     options.Conventions.Add(new SoloEntornoDesarrolloConvention(builder.Environment));
 });
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Pegá aquí el token JWT emitido por ObraSync.Usuarios.Api (sin la palabra 'Bearer').",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 // Persistencia y base de datos DB_Recepcion
 builder.Services.AddInfrastructureServices(builder.Configuration);

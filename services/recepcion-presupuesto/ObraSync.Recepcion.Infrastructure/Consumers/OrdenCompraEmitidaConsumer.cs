@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using ObraSync.Contracts.Events;
 using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Domain.Entities;
+using ObraSync.Recepcion.Domain.Presupuestos;
 using ObraSync.Recepcion.Infrastructure.Persistence;
 
 namespace ObraSync.Recepcion.Infrastructure.Consumers;
@@ -105,6 +106,56 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
             {
                 _logger.LogWarning(ex, "OrdenCompra {OrdenCompraId} rechazada por regla de dominio, se descarta", msg.OrdenCompraId);
                 return;
+            }
+
+            // ── Evaluación de regla de desvío presupuestario (#94, #95, #154) ───
+            var partida = await ObtenerPartidaPresupuestariaAsync(oc.ObraId, oc.Etapa, context.CancellationToken);
+            var evaluacion = EvaluadorDesvioPresupuestario.Evaluar(partida, oc.MontoTotal);
+
+            if (evaluacion.DebeBloquearse)
+            {
+                var motivo = evaluacion.Motivo.Length > 500
+                    ? evaluacion.Motivo[..500]
+                    : evaluacion.Motivo;
+
+                oc.BloquearPorDesvioPresupuestario(motivo);
+
+                var correlationId = msg.CorrelationId != Guid.Empty
+                    ? msg.CorrelationId
+                    : Guid.NewGuid();
+
+                var eventoBloqueo = new OrdenCompraBloqueadaEvent(
+                    EventId: Guid.NewGuid(),
+                    OccurredAt: DateTime.UtcNow,
+                    CorrelationId: correlationId,
+                    OrdenCompraId: oc.Id,
+                    ObraId: oc.ObraId,
+                    ProveedorId: oc.ProveedorId,
+                    PartidaId: partida!.Id,
+                    Etapa: oc.Etapa,
+                    MontoOrdenCompra: oc.MontoTotal,
+                    MontoAsignadoPartida: evaluacion.MontoAsignado,
+                    MontoComprometidoActual: evaluacion.GastoAcumulado,
+                    MontoProyectado: evaluacion.MontoProyectado,
+                    Exceso: evaluacion.Exceso,
+                    Motivo: motivo);
+
+                await context.Publish(eventoBloqueo, context.CancellationToken);
+
+                _logger.LogWarning(
+                    "OrdenCompra {OrdenCompraId} bloqueada preventivamente por desvío presupuestario (#95). ObraId: {ObraId}, Etapa: {Etapa}, PartidaId: {PartidaId}, MontoOC: {MontoOC}, MontoAsignado: {MontoAsignado}, MontoComprometidoActual: {MontoComprometidoActual}, Exceso: {Exceso}",
+                    oc.Id,
+                    oc.ObraId,
+                    oc.Etapa ?? "sin etapa",
+                    partida.Id,
+                    oc.MontoTotal,
+                    evaluacion.MontoAsignado,
+                    evaluacion.GastoAcumulado,
+                    evaluacion.Exceso);
+            }
+            else if (partida is not null)
+            {
+                partida.ComprometerMonto(oc.MontoTotal);
             }
 
             _ordenCompraRepository.Agregar(oc);
@@ -220,5 +271,25 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
         }
 
         return diferencias;
+    }
+
+    private async Task<PartidaPresupuestaria?> ObtenerPartidaPresupuestariaAsync(
+        Guid obraId,
+        string? etapa,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(etapa))
+        {
+            var etapaNormalizada = etapa.Trim().ToLower();
+            return await _db.PartidasPresupuestarias
+                .Where(p => p.ObraId == obraId && p.Etapa != null && p.Etapa.ToLower() == etapaNormalizada)
+                .OrderByDescending(p => p.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        return await _db.PartidasPresupuestarias
+            .Where(p => p.ObraId == obraId && p.Etapa == null)
+            .OrderByDescending(p => p.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 }

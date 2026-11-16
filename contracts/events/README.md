@@ -14,3 +14,10 @@ Los esquemas JSON de esta carpeta son el contrato: si un resumen o un comentario
 ## Campos obligatorios en todos los eventos
 
 `eventId` (GUID, los consumidores lo usan para ser idempotentes), `occurredAt` (UTC) y `correlationId`.
+
+## Esquemas publicados en esta carpeta
+
+- `RequisicionAprobadaEvent.json`: emitido por Requisiciones y Catálogo al aprobar una requisición; consumido por Licitaciones y Cotizaciones.
+- `OrdenCompraEmitidaEvent.json`: emitido por Licitaciones y Cotizaciones al adjudicar y emitir una orden de compra; consumido por Recepción y Control Presupuestario.
+- `OrdenCompraBloqueadaEvent.json`: evento de auditoría emitido por Recepción y Control Presupuestario cuando una orden de compra supera la partida presupuestaria de la etapa/obra y queda en estado `Bloqueada` (#95, #154).
+- `RecepcionConfirmadaEvent.json`: emitido por Recepción y Control Presupuestario al confirmar una recepción física de materiales en obra.
