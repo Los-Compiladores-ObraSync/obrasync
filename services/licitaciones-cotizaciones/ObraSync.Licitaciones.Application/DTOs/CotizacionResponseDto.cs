@@ -5,6 +5,8 @@ public class CotizacionResponseDto
     public Guid CotizacionId { get; set; }
     public Guid LicitacionId { get; set; }
     public Guid ProveedorId { get; set; }
+    public string? ProveedorNombre { get; set; }          // NUEVO (#206)
+    public int? CalificacionProveedor { get; set; }      // NUEVO (#206) - escala 1 a 5 o null
     public decimal SubtotalItems { get; set; }
     public decimal Flete { get; set; }
     public decimal CostoTotal { get; set; }
@@ -14,4 +16,6 @@ public class CotizacionResponseDto
     public IReadOnlyList<CrearCotizacionItemDto> Items { get; set; } = Array.Empty<CrearCotizacionItemDto>();
     public decimal PuntajeTotal { get; set; }
     public bool EsGanadora { get; set; }
+    public CriteriosScoringDto? DesglosePuntaje { get; set; }      // NUEVO (#206)
+    public CriteriosScoringDto? PonderacionesScoring { get; set; } // NUEVO (#206)
 }
