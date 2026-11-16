@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using ObraSync.Recepcion.Application.Common.Interfaces;
@@ -21,6 +23,7 @@ public class RecepcionesController : ControllerBase
     private readonly ObtenerRecepcionesQueryHandler _obtenerRecepcionesHandler;
     private readonly ObtenerRecepcionPorIdQueryHandler _obtenerPorIdHandler;
     private readonly ObtenerOrdenesPendientesQueryHandler _obtenerOrdenesPendientesHandler;
+    private readonly LiberarOrdenCompraCommandHandler? _liberarOrdenHandler;
     private readonly IObraAsignacionValidator? _obraAsignacionValidator;
 
     [ActivatorUtilitiesConstructor]
@@ -29,13 +32,15 @@ public class RecepcionesController : ControllerBase
         ObtenerRecepcionesQueryHandler obtenerRecepcionesHandler,
         ObtenerRecepcionPorIdQueryHandler obtenerPorIdHandler,
         ObtenerOrdenesPendientesQueryHandler obtenerOrdenesPendientesHandler,
-        IObraAsignacionValidator? obraAsignacionValidator = null)
+        IObraAsignacionValidator? obraAsignacionValidator = null,
+        LiberarOrdenCompraCommandHandler? liberarOrdenHandler = null)
     {
         _crearHandler = crearHandler;
         _obtenerRecepcionesHandler = obtenerRecepcionesHandler;
         _obtenerPorIdHandler = obtenerPorIdHandler;
         _obtenerOrdenesPendientesHandler = obtenerOrdenesPendientesHandler;
         _obraAsignacionValidator = obraAsignacionValidator;
+        _liberarOrdenHandler = liberarOrdenHandler;
     }
 
     public RecepcionesController(
@@ -51,7 +56,8 @@ public class RecepcionesController : ControllerBase
             new ObtenerRecepcionesQueryHandler(context),
             new ObtenerRecepcionPorIdQueryHandler(context),
             new ObtenerOrdenesPendientesQueryHandler(context),
-            obraAsignacionValidator)
+            obraAsignacionValidator,
+            new LiberarOrdenCompraCommandHandler(context))
     {
     }
 
@@ -371,6 +377,43 @@ public class RecepcionesController : ControllerBase
         {
             return Problem(statusCode: 400, detail: ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Autoriza y libera una orden de compra bloqueada por desvío presupuestario (#96, #154).
+    /// Exclusivo para el rol Admin. Registra quién (sub del token) y cuándo la liberó,
+    /// y suma su monto a MontoComprometido de la partida correspondiente.
+    /// </summary>
+    [Authorize(Roles = "Admin")]
+    [HttpPost("ordenes/{id:guid}/liberar")]
+    [HttpPost("ordenes-compra/{id:guid}/liberar")]
+    public async Task<IActionResult> LiberarOrdenCompra(
+        [FromRoute] Guid id,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] LiberarOrdenCompraRequest? request = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (_liberarOrdenHandler is null)
+        {
+            throw new InvalidOperationException("LiberarOrdenCompraCommandHandler no está configurado.");
+        }
+
+        string? usuarioIdTexto = User.FindFirst("sub")?.Value
+                                 ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (!Guid.TryParse(usuarioIdTexto, out Guid usuarioId) ||
+            usuarioId == Guid.Empty)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "No autorizado",
+                detail: "El token JWT no contiene un claim 'sub' válido con formato GUID.");
+        }
+
+        var resultado = await _liberarOrdenHandler.Handle(
+            new LiberarOrdenCompraCommand(id, usuarioId, request?.Motivo),
+            cancellationToken);
+
+        return Ok(resultado);
     }
 
     private bool EsCapatazSinPrivilegiosSuperiores()

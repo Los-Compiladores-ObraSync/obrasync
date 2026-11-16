@@ -1,6 +1,7 @@
 using System.Text.Json;
 using ObraSync.Recepcion.Domain.Entities;
 using ObraSync.Recepcion.Domain.Enums;
+using ObraSync.Recepcion.Domain.Exceptions;
 using Xunit;
 
 namespace ObraSync.Recepcion.Tests.Domain;
@@ -262,5 +263,51 @@ public class OrdenCompraTests
         // Assert
         Assert.False(oc.SinPartidaPresupuestaria);
         Assert.NotNull(oc.UpdatedAt);
+    }
+
+    [Fact]
+    public void LiberarConUsuario_OrdenBloqueada_RegistraQuienYCuandoYActivaOrden()
+    {
+        // Arrange (#96)
+        var item = OrdenCompraItem.Crear(Guid.NewGuid(), 5m, "UNIDAD", 100m);
+        var oc = OrdenCompra.Crear(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 500m, new[] { item },
+            estado: EstadoOrdenCompra.Bloqueada, motivoBloqueo: "Supera partida");
+        var adminId = Guid.NewGuid();
+        var antes = DateTime.UtcNow;
+
+        // Act
+        oc.Liberar(adminId, "  Autorizado por gerencia  ");
+
+        // Assert
+        Assert.Equal(EstadoOrdenCompra.Activa, oc.Estado);
+        Assert.False(oc.EstaBloqueada);
+        Assert.Null(oc.MotivoBloqueo);
+        Assert.Equal(adminId, oc.LiberadaPorUsuarioId);
+        Assert.NotNull(oc.LiberadaEn);
+        Assert.True(oc.LiberadaEn >= antes);
+        Assert.Equal("Autorizado por gerencia", oc.MotivoLiberacion);
+    }
+
+    [Fact]
+    public void LiberarConUsuario_OrdenYaActiva_DebeLanzarTransicionEstadoInvalidaException()
+    {
+        // Arrange (#96)
+        var item = OrdenCompraItem.Crear(Guid.NewGuid(), 5m, "UNIDAD", 100m);
+        var oc = OrdenCompra.Crear(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 500m, new[] { item });
+
+        // Act & Assert
+        Assert.Throws<TransicionEstadoInvalidaException>(() => oc.Liberar(Guid.NewGuid(), "Motivo"));
+    }
+
+    [Fact]
+    public void LiberarConUsuario_AdminIdVacio_DebeLanzarArgumentException()
+    {
+        var item = OrdenCompraItem.Crear(Guid.NewGuid(), 5m, "UNIDAD", 100m);
+        var oc = OrdenCompra.Crear(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 500m, new[] { item },
+            estado: EstadoOrdenCompra.Bloqueada);
+
+        Assert.Throws<ArgumentException>(() => oc.Liberar(Guid.Empty));
     }
 }

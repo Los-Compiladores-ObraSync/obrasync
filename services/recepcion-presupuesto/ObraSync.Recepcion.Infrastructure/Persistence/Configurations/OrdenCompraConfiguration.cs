@@ -32,6 +32,13 @@ public class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCompra>
         builder.Property(o => o.MotivoBloqueo)
             .HasMaxLength(500);
 
+        builder.Property(o => o.LiberadaPorUsuarioId);
+
+        builder.Property(o => o.LiberadaEn);
+
+        builder.Property(o => o.MotivoLiberacion)
+            .HasMaxLength(500);
+
         builder.Property(o => o.SinPartidaPresupuestaria)
             .IsRequired()
             .HasDefaultValue(false);

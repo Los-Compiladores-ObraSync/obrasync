@@ -361,6 +361,90 @@
         }
       }
     },
+    "/api/recepciones/ordenes/{id}/liberar": {
+      "post": {
+        "tags": [
+          "Recepciones"
+        ],
+        "summary": "Autorizar y liberar una orden de compra bloqueada por desvío presupuestario (#96)",
+        "description": "Exclusivo para el rol Admin. Libera una orden de compra en estado Bloqueada pasándola a Activa, registra quién (claim sub del JWT) y cuándo (UTC) autorizó la liberación, y compromete el monto de la orden en la partida presupuestaria correspondiente (#154).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Identificador único de la orden de compra a liberar.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiberarOrdenCompraRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Orden de compra liberada exitosamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrdenCompraLiberadaDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos de solicitud inválidos (por ejemplo, motivo mayor a 500 caracteres).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No se proporcionó un token válido o el claim sub no es un GUID válido."
+          },
+          "403": {
+            "description": "El usuario no tiene el rol Admin (Comprador, Capataz y Proveedor no están autorizados)."
+          },
+          "404": {
+            "description": "La orden de compra no existe.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto: la orden de compra no se encuentra en estado Bloqueada.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/presupuestos/partidas": {
       "get": {
         "tags": [
@@ -1045,6 +1129,65 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "LiberarOrdenCompraRequest": {
+        "type": "object",
+        "description": "Cuerpo opcional para registrar una observación o motivo al liberar una orden de compra bloqueada (#96).",
+        "properties": {
+          "motivo": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "OrdenCompraLiberadaDto": {
+        "type": "object",
+        "description": "Respuesta tras liberar una orden de compra bloqueada con los datos de auditoría de autorización (#96).",
+        "properties": {
+          "ordenCompraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "obraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "estado": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ],
+            "description": "1 = Activa, 2 = Bloqueada."
+          },
+          "liberadaPorUsuarioId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "liberadaEn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "motivoLiberacion": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
+          },
+          "montoTotal": {
+            "type": "number"
+          },
+          "partidaPresupuestariaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "montoComprometidoPartida": {
+            "type": "number",
+            "nullable": true
           }
         }
       }
