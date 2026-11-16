@@ -28,6 +28,9 @@ public sealed class OpcionesConsumo
     /// <summary>Mensajes por hora que puede mandar cada usuario al chat (valor inicial de #144; se ajusta con Consumo__MensajesPorHoraPorUsuario).</summary>
     public int MensajesPorHoraPorUsuario { get; set; } = 20;
 
+    /// <summary>Fotos de remito que puede leer cada usuario por hora (#209). Cada foto gasta bastante más que un mensaje de texto.</summary>
+    public int FotosPorHoraPorUsuario { get; set; } = 10;
+
     /// <summary>Segundos que se pausa el asistente después de un 429 del gateway de IA.</summary>
     public int EsperaTrasLimiteSegundos { get; set; } = 60;
 }

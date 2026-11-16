@@ -1,9 +1,10 @@
-import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
-import { esFechaPasada, fechaEnPalabras, hoyComoTexto } from '../obras/fechaEnPalabras'
+import { esFechaFutura, esFechaPasada, fechaEnPalabras, hoyComoTexto } from '../obras/fechaEnPalabras'
 import { fechaAIso } from '../obras/validacionObra'
-import { obtenerOrdenesPendientes, registrarRecepcion } from '../recepciones/recepcionesService'
+import { ErrorDeImagen, reducirImagen } from '../recepciones/imagenRemito'
+import { leerRemitoDeFoto, obtenerOrdenesPendientes, registrarRecepcion } from '../recepciones/recepcionesService'
 import type { OrdenPendiente, RecepcionRegistrada } from '../recepciones/recepcionesTipos'
 import {
   hayErrores,
@@ -32,6 +33,24 @@ function mensajeDeErrorApi(err: unknown): string {
   return 'No se pudo conectar con el servidor. Intentá nuevamente.'
 }
 
+/** Estado de la lectura del remito por foto (#209). */
+type EstadoFoto =
+  | { tipo: 'inactivo' }
+  | { tipo: 'leyendo' }
+  | { tipo: 'listo'; texto: string }
+  | { tipo: 'error'; texto: string }
+
+function mensajeDeErrorFoto(err: unknown): string {
+  if (err instanceof ErrorDeImagen) return err.message
+  if (err instanceof ApiError) {
+    if (err.status === 400) return 'La foto no sirvió. Probá con otra más clara o cargá el remito a mano.'
+    if (err.status === 403) return 'No tenés permiso para leer remitos.'
+    if (err.status === 429) return 'Hay muchas lecturas en este momento. Probá en un minuto o cargá el remito a mano.'
+    if (err.status === 503) return 'La lectura de remitos no está disponible ahora. Cargalo a mano.'
+  }
+  return 'No se pudo leer el remito. Cargalo a mano.'
+}
+
 /** Recibir mercadería en obra (#82): el Capataz elige la orden de compra que llegó y carga el
  *  remito. Por ahora solo se registra la recepción TOTAL: el contrato rechaza las entregas
  *  parciales hasta el Sprint 3 (#90), así que las cantidades se muestran y no se editan. */
@@ -55,6 +74,12 @@ export function RecepcionPage() {
   // cambia en el próximo render y un segundo toque podría colarse antes.
   const enviandoRef = useRef(false)
   const [registrada, setRegistrada] = useState<RecepcionRegistrada | null>(null)
+
+  // Foto del remito (#209): opcional. Lee el número y la fecha y los carga como SUGERENCIA editable.
+  const [foto, setFoto] = useState<EstadoFoto>({ tipo: 'inactivo' })
+  const entradaFotoRef = useRef<HTMLInputElement>(null)
+  // Número de la lectura vigente: si la persona cambia de orden mientras se lee, la respuesta vieja se ignora.
+  const lecturaVigenteRef = useRef(0)
 
   useEffect(() => {
     let cancelado = false
@@ -90,7 +115,53 @@ export function RecepcionPage() {
     setIntento((n) => n + 1)
   }
 
+  function descartarLecturaDeFoto() {
+    lecturaVigenteRef.current += 1
+    setFoto({ tipo: 'inactivo' })
+  }
+
+  async function handleFoto(e: ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0]
+    // Se vacía el campo para poder elegir la misma foto otra vez.
+    e.target.value = ''
+    if (!archivo || foto.tipo === 'leyendo') return
+
+    const lectura = ++lecturaVigenteRef.current
+    setFoto({ tipo: 'leyendo' })
+    try {
+      const imagen = await reducirImagen(archivo)
+      const leido = await leerRemitoDeFoto(imagen)
+      if (lectura !== lecturaVigenteRef.current) return
+
+      const numero = leido.numeroRemito?.trim().slice(0, LARGO_MAXIMO_REMITO) ?? ''
+      // La fecha también pasa por la regla de #127: una fecha futura no se carga.
+      const fechaLeida = leido.fecha && fechaEnPalabras(leido.fecha) && !esFechaFutura(leido.fecha) ? leido.fecha : ''
+
+      if (numero) setNumeroRemito(numero)
+      if (fechaLeida) setFecha(fechaLeida)
+      setErrores((previos) => ({
+        ...previos,
+        ...(numero ? { numeroRemito: undefined } : {}),
+        ...(fechaLeida ? { fecha: undefined } : {}),
+      }))
+
+      if (numero && fechaLeida) {
+        setFoto({ tipo: 'listo', texto: 'Leí el número y la fecha del remito. Revisalos antes de confirmar.' })
+      } else if (numero) {
+        setFoto({ tipo: 'listo', texto: 'Leí el número del remito. La fecha no se pudo leer: revisala.' })
+      } else if (fechaLeida) {
+        setFoto({ tipo: 'listo', texto: 'Leí solo la fecha del remito. Cargá el número a mano.' })
+      } else {
+        setFoto({ tipo: 'error', texto: 'No pude leer el remito en la foto. Probá con otra más clara o cargalo a mano.' })
+      }
+    } catch (err) {
+      if (lectura !== lecturaVigenteRef.current) return
+      setFoto({ tipo: 'error', texto: mensajeDeErrorFoto(err) })
+    }
+  }
+
   function elegirOrden(orden: OrdenPendiente) {
+    descartarLecturaDeFoto()
     setElegida(orden)
     setNumeroRemito('')
     setFecha(hoyComoTexto())
@@ -100,6 +171,7 @@ export function RecepcionPage() {
   }
 
   function recibirOtra() {
+    descartarLecturaDeFoto()
     setRegistrada(null)
     setElegida(null)
     recargar()
@@ -187,7 +259,14 @@ export function RecepcionPage() {
   if (elegida) {
     return (
       <section className={styles.contenedor}>
-        <button type="button" className={styles.volver} onClick={() => setElegida(null)}>
+        <button
+          type="button"
+          className={styles.volver}
+          onClick={() => {
+            descartarLecturaDeFoto()
+            setElegida(null)
+          }}
+        >
           ← Elegir otra orden
         </button>
         <h1>Recibir mercadería</h1>
@@ -216,6 +295,39 @@ export function RecepcionPage() {
               {errorApi}
             </p>
           )}
+
+          {/* Foto del remito (#209): opcional. Carga el número y la fecha como sugerencia; la persona los revisa. */}
+          <div className={styles.fotoRemito}>
+            <input
+              ref={entradaFotoRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              aria-label="Foto del remito"
+              onChange={(e) => void handleFoto(e)}
+            />
+            <button
+              type="button"
+              className={styles.botonFoto}
+              onClick={() => entradaFotoRef.current?.click()}
+              disabled={foto.tipo === 'leyendo'}
+              aria-busy={foto.tipo === 'leyendo'}
+            >
+              {foto.tipo === 'leyendo' ? 'Leyendo el remito…' : 'Sacar foto del remito'}
+            </button>
+            <p className={styles.ayuda}>Opcional: leo el número y la fecha por vos. Revisalos antes de confirmar.</p>
+            {foto.tipo === 'listo' && (
+              <p className={styles.estadoFoto} role="status">
+                {foto.texto}
+              </p>
+            )}
+            {foto.tipo === 'error' && (
+              <p className={styles.errorApi} role="alert">
+                {foto.texto}
+              </p>
+            )}
+          </div>
 
           <div className={styles.grupo}>
             <label htmlFor="recepcion-remito" className={styles.label}>
@@ -295,7 +407,12 @@ export function RecepcionPage() {
             )}
           </div>
 
-          <button type="submit" className={styles.boton} disabled={enviando} aria-busy={enviando}>
+          <button
+            type="submit"
+            className={styles.boton}
+            disabled={enviando || foto.tipo === 'leyendo'}
+            aria-busy={enviando}
+          >
             {enviando ? 'Guardando…' : 'Llegó todo: confirmar recepción'}
           </button>
           <p className={styles.nota}>

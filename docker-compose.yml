@@ -140,6 +140,8 @@ services:
       Ai__ApiKey: ${AI_API_KEY:-}
       Ai__BaseUrl: ${AI_BASE_URL:-}
       Ai__Deployment: ${AI_DEPLOYMENT:-gpt-4.1-mini}
+      # Modelo para leer remitos por foto (#209). Vacío = usa el mismo del chat; con un modelo más potente solo se cambia esto.
+      Ai__DeploymentRemito: ${AI_DEPLOYMENT_REMITO:-}
 
   # ── API Gateway (YARP) ─────────────────────────────────────────────────────
   # En appsettings.json los destinos apuntan a localhost:5001 a 5004 (para correr sin Docker).

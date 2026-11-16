@@ -52,7 +52,8 @@ async function ejecutar(
   const { tiempoLimiteMs = TIEMPO_LIMITE_MS, signal: senalExterna, ...options } = opciones
   const headers = new Headers(options.headers)
   headers.set('Accept', 'application/json')
-  if (options.body && !headers.has('Content-Type')) {
+  // Con FormData (subida de una foto) NO se pone Content-Type: el navegador lo arma solo, con el "boundary" que separa las partes.
+  if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
   if (token) {

@@ -239,4 +239,34 @@ describe('tiempo límite de los pedidos (#199)', () => {
     expect(TIEMPO_LIMITE_MS).toBe(15_000)
     expect(TIEMPO_LIMITE_ASISTENTE_MS).toBeGreaterThan(45_000)
   })
+
+  it('al subir un FormData deja que el navegador arme el Content-Type (con el boundary) y no lo pisa con JSON', async () => {
+    let tipo: string | null = null
+    server.use(
+      http.post(URL_PRUEBA, ({ request }) => {
+        tipo = request.headers.get('Content-Type')
+        return HttpResponse.json({})
+      }),
+    )
+    const formulario = new FormData()
+    formulario.append('imagen', new Blob(['x'], { type: 'image/jpeg' }), 'remito.jpg')
+
+    await apiFetch('/api/prueba', { method: 'POST', body: formulario })
+
+    expect(tipo).toMatch(/^multipart\/form-data; boundary=/)
+  })
+
+  it('con un cuerpo de texto sigue mandando application/json', async () => {
+    let tipo: string | null = null
+    server.use(
+      http.post(URL_PRUEBA, ({ request }) => {
+        tipo = request.headers.get('Content-Type')
+        return HttpResponse.json({})
+      }),
+    )
+
+    await apiFetch('/api/prueba', { method: 'POST', body: JSON.stringify({ a: 1 }) })
+
+    expect(tipo).toBe('application/json')
+  })
 })

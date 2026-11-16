@@ -25,6 +25,9 @@ public static class DependencyInjection
             sp.GetRequiredService<IHttpClientFactory>().CreateClient("modelo"),
             sp.GetRequiredService<ConfiguracionIA>()));
 
+        // Lectura de remitos por foto (#209): un solo lector para todo el servicio (no depende del usuario).
+        services.AddSingleton<IExtractorRemito>(sp => new LectorRemitoAzure(sp.GetRequiredService<ConfiguracionIA>()));
+
         services.AddScoped<IBuscadorInsumos>(sp => new BuscadorGateway(
             sp.GetRequiredService<IHttpClientFactory>().CreateClient("catalogo"),
             sp.GetRequiredService<ConfiguracionApi>(),

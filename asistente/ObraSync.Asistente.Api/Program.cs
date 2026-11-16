@@ -53,6 +53,9 @@ builder.Services.AddScoped<HerramientasCatalogo>();
 builder.Services.AddScoped<HerramientasCompras>();
 builder.Services.AddScoped<HerramientasRecepcion>();
 builder.Services.AddScoped<Agente>();
+// Lectura de remitos por foto (#209): usa el mismo control de consumo que el chat (el cupo es de todo el grupo).
+builder.Services.AddScoped<ServicioLecturaRemito>(sp => new ServicioLecturaRemito(
+    sp.GetRequiredService<IExtractorRemito>(), sp.GetRequiredService<IControlConsumo>()));
 
 // Control de consumo de tokens (#144): UNA sola instancia para todo el servicio, porque el cupo del modelo es
 // compartido por todos los usuarios. Los topes y el interruptor se leen de la sección "Consumo" (Consumo__Habilitado, etc.).
@@ -72,6 +75,17 @@ builder.Services.AddRateLimiter(options =>
             factory: _ => new SlidingWindowRateLimiterOptions
             {
                 PermitLimit = opcionesConsumo.MensajesPorHoraPorUsuario,
+                Window = TimeSpan.FromHours(1),
+                SegmentsPerWindow = 6,
+                QueueLimit = 0
+            }));
+    // Cada foto gasta bastante más que un mensaje: tiene su propio tope por usuario (10 por hora por defecto).
+    options.AddPolicy("remito-por-usuario", httpContext =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: httpContext.User.FindFirst("sub")?.Value ?? "sin-usuario",
+            factory: _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = opcionesConsumo.FotosPorHoraPorUsuario,
                 Window = TimeSpan.FromHours(1),
                 SegmentsPerWindow = 6,
                 QueueLimit = 0

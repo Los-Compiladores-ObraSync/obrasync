@@ -17,3 +17,10 @@ public sealed record ChatRequestDto(string? Mensaje, List<ChatMensajeDto>? Histo
 public sealed record ChatResponseDto(
     string Respuesta, BorradorRequisicion? Borrador, int? TokensUsados, BorradorAprobacion? Aprobacion = null,
     BorradorRecepcion? Recepcion = null);
+
+/// <summary>
+/// Lo que se leyó de la foto de un remito (#209). Cada campo es null si no se pudo leer: es una SUGERENCIA para
+/// completar el formulario, que la persona revisa y puede corregir. No se guarda nada.
+/// "Fecha" viene como yyyy-MM-dd.
+/// </summary>
+public sealed record LecturaRemitoDto(string? NumeroRemito, string? Fecha);
