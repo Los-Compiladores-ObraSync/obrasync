@@ -46,6 +46,13 @@ export interface CrearRecepcionRequest {
   detalles: CrearDetalleRecepcionRequest[]
 }
 
+/** Lo que el modelo leyó de la foto de un remito (LecturaRemitoDto). Cada campo es null si no se pudo leer. */
+export interface LecturaRemito {
+  numeroRemito?: string | null
+  /** yyyy-MM-dd */
+  fecha?: string | null
+}
+
 /** Lo que devuelve POST /api/recepciones (RecepcionDto, solo lo que usa la pantalla). */
 export interface RecepcionRegistrada {
   id: string

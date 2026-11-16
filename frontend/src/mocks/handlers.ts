@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import type { RequestHandler } from 'msw'
+import { hoyComoTexto } from '../obras/fechaEnPalabras'
 
 // Token simulado con la estructura real de JWT (header.payload.firma).
 // La firma es falsa y los claims son de ejemplo: el frontend no decodifica el token,
@@ -1068,6 +1069,21 @@ export const handlers: RequestHandler[] = [
     const obraId = new URL(request.url).searchParams.get('obraId')
     const lista = ordenesPendientesMock.filter((o) => !obraId || o.obraId === obraId)
     return responderPaginado(request, lista)
+  }),
+
+  // Contrato: POST /api/asistente/remito/leer (multipart, campo "imagen") → 200 LecturaRemitoDto | 400 | 429 | 503
+  // Lectura SIMULADA: no hay modelo de IA. Devuelve siempre el mismo remito de ayer; los casos de "no se pudo leer",
+  // 429 y 503 se configuran en los tests con server.use().
+  http.post('*/api/asistente/remito/leer', async ({ request }) => {
+    if (!(request.headers.get('content-type') ?? '').startsWith('multipart/form-data')) {
+      return HttpResponse.json(
+        { title: 'Pedido inválido', status: 400, detail: 'Falta la imagen del remito (campo \'imagen\').' },
+        { status: 400 },
+      )
+    }
+    const ayer = new Date()
+    ayer.setDate(ayer.getDate() - 1)
+    return HttpResponse.json({ numeroRemito: 'R-0001-00012345', fecha: hoyComoTexto(ayer) }, { status: 200 })
   }),
 
   // Contrato: POST /api/recepciones → 201 RecepcionDto | 400 | 409 ProblemDetails

@@ -238,3 +238,23 @@ internal sealed class ConsultorRecepcionesFalso : IConsultorRecepciones
         return Task.FromResult(Resultado);
     }
 }
+
+/// <summary>Extractor de remitos falso: devuelve lo que se le diga (o falla) y cuenta las llamadas. No gasta cupo de Azure.</summary>
+internal sealed class ExtractorRemitoFalso : IExtractorRemito
+{
+    public LecturaCruda Resultado { get; set; } = new("R-0001-00012345", "2026-11-10", 1200);
+    public ModeloException? Falla { get; set; }
+    public int Llamadas { get; private set; }
+    public string? UltimoTipoMedia { get; private set; }
+    public int UltimoTamano { get; private set; }
+
+    public Task<LecturaCruda> ExtraerAsync(byte[] imagen, string tipoMedia, CancellationToken ct)
+    {
+        Llamadas++;
+        UltimoTipoMedia = tipoMedia;
+        UltimoTamano = imagen.Length;
+        if (Falla is not null)
+            throw Falla;
+        return Task.FromResult(Resultado);
+    }
+}

@@ -14,12 +14,19 @@ public sealed class ConfiguracionIA
     public string ApiVersion { get; }
     public string ApiKey { get; }
 
-    public ConfiguracionIA(string? baseUrl, string? deployment, string? apiVersion, string? apiKey)
+    /// <summary>
+    /// Deployment para leer remitos por foto (#209). Si no se define, usa el mismo del chat. Separarlo permite que el profe
+    /// despliegue un modelo más potente para el OCR sin tocar el chat ni el código: solo se cambia Ai__DeploymentRemito.
+    /// </summary>
+    public string DeploymentRemito { get; }
+
+    public ConfiguracionIA(string? baseUrl, string? deployment, string? apiVersion, string? apiKey, string? deploymentRemito = null)
     {
         BaseUrl = (baseUrl ?? "").Trim().TrimEnd('/');
         Deployment = string.IsNullOrWhiteSpace(deployment) ? "gpt-4.1-mini" : deployment.Trim();
         ApiVersion = string.IsNullOrWhiteSpace(apiVersion) ? "2025-03-01-preview" : apiVersion.Trim();
         ApiKey = (apiKey ?? "").Trim();
+        DeploymentRemito = string.IsNullOrWhiteSpace(deploymentRemito) ? Deployment : deploymentRemito.Trim();
     }
 
     /// <summary>Sin clave o sin URL el asistente queda "apagado" (503), pero el servicio igual arranca.</summary>
@@ -33,7 +40,8 @@ public sealed class ConfiguracionIA
         PrimeroConValor(configuracion["Ai:BaseUrl"], Environment.GetEnvironmentVariable("AI_BASE_URL")),
         configuracion["Ai:Deployment"],
         configuracion["Ai:ApiVersion"],
-        PrimeroConValor(configuracion["Ai:ApiKey"], Environment.GetEnvironmentVariable("AI_API_KEY")));
+        PrimeroConValor(configuracion["Ai:ApiKey"], Environment.GetEnvironmentVariable("AI_API_KEY")),
+        configuracion["Ai:DeploymentRemito"]);
 
     private static string? PrimeroConValor(string? a, string? b) => string.IsNullOrWhiteSpace(a) ? b : a;
 
@@ -41,5 +49,5 @@ public sealed class ConfiguracionIA
         $"{BaseUrl}/openai/deployments/{Uri.EscapeDataString(Deployment)}/chat/completions?api-version={ApiVersion}";
 
     // Para que la clave no aparezca si alguien imprime este objeto por error.
-    public override string ToString() => $"ConfiguracionIA(Deployment={Deployment}, ApiKey=***)";
+    public override string ToString() => $"ConfiguracionIA(Deployment={Deployment}, DeploymentRemito={DeploymentRemito}, ApiKey=***)";
 }

@@ -1,15 +1,23 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http, HttpResponse } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { reiniciarRecepcionesMock } from '../mocks/handlers'
 import { server } from '../mocks/server'
 import { hoyComoTexto } from '../obras/fechaEnPalabras'
+import { ErrorDeImagen, reducirImagen } from '../recepciones/imagenRemito'
 import { RecepcionPage } from './RecepcionPage'
+
+// La foto se achica con APIs del navegador que jsdom no tiene: en estas pruebas se simula.
+vi.mock('../recepciones/imagenRemito', async (original) => ({
+  ...(await original<typeof import('../recepciones/imagenRemito')>()),
+  reducirImagen: vi.fn(),
+}))
 
 const RUTA_ORDENES = '*/api/recepciones/ordenes-pendientes'
 const RUTA_RECEPCIONES = '*/api/recepciones'
+const RUTA_LEER_REMITO = '*/api/asistente/remito/leer'
 
 function renderPagina() {
   return render(
@@ -174,5 +182,225 @@ describe('RecepcionPage', () => {
     await user.click(screen.getByRole('button', { name: 'Reintentar' }))
 
     expect(await screen.findAllByRole('button', { name: /Torre Alvear/ })).toHaveLength(2)
+  })
+
+  describe('foto del remito (#209)', () => {
+    const foto = () => new File(['pixeles'], 'remito.jpg', { type: 'image/jpeg' })
+
+    function ayerComoTexto() {
+      const ayer = new Date()
+      ayer.setDate(ayer.getDate() - 1)
+      return hoyComoTexto(ayer)
+    }
+
+    async function sacarFoto(user: ReturnType<typeof userEvent.setup>) {
+      await user.upload(screen.getByLabelText('Foto del remito'), foto())
+    }
+
+    beforeEach(() => {
+      vi.mocked(reducirImagen).mockReset()
+      vi.mocked(reducirImagen).mockResolvedValue(new Blob(['jpg'], { type: 'image/jpeg' }))
+    })
+
+    it('el botón para sacar la foto está arriba del formulario y la foto es opcional', async () => {
+      const user = userEvent.setup()
+      renderPagina()
+
+      await elegirPrimeraOrden(user)
+
+      const boton = screen.getByRole('button', { name: 'Sacar foto del remito' })
+      expect(boton).toBeEnabled()
+      expect(screen.getByText(/Opcional: leo el número y la fecha por vos/)).toBeInTheDocument()
+      // Sin foto, el formulario manual sigue funcionando igual.
+      expect(screen.getByLabelText('Número de remito')).toHaveValue('')
+      expect(boton.compareDocumentPosition(screen.getByLabelText('Número de remito')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('carga el número y la fecha leídos como sugerencia editable y NO registra nada', async () => {
+      let registros = 0
+      server.use(
+        http.post(RUTA_RECEPCIONES, () => {
+          registros += 1
+          return HttpResponse.json({}, { status: 201 })
+        }),
+      )
+      const user = userEvent.setup()
+      renderPagina()
+      await elegirPrimeraOrden(user)
+
+      await sacarFoto(user)
+
+      expect(await screen.findByText(/Leí el número y la fecha del remito/)).toBeInTheDocument()
+      expect(screen.getByLabelText('Número de remito')).toHaveValue('R-0001-00012345')
+      expect(screen.getByLabelText('Fecha de recepción')).toHaveValue(ayerComoTexto())
+      expect(registros).toBe(0)
+
+      // Se puede corregir a mano.
+      await user.clear(screen.getByLabelText('Número de remito'))
+      await user.type(screen.getByLabelText('Número de remito'), 'R-0001-00099999')
+      expect(screen.getByLabelText('Número de remito')).toHaveValue('R-0001-00099999')
+    })
+
+    it('manda la imagen achicada como multipart en el campo "imagen"', async () => {
+      let recibido: FormDataEntryValue | null = null
+      server.use(
+        http.post(RUTA_LEER_REMITO, async ({ request }) => {
+          recibido = (await request.formData()).get('imagen')
+          return HttpResponse.json({ numeroRemito: 'R-1', fecha: null })
+        }),
+      )
+      const user = userEvent.setup()
+      renderPagina()
+      await elegirPrimeraOrden(user)
+
+      await sacarFoto(user)
+
+      await screen.findByText(/Leí el número del remito/)
+      expect(reducirImagen).toHaveBeenCalledTimes(1)
+      expect(recibido).not.toBeNull()
+      expect((recibido as unknown as Blob).size).toBeGreaterThan(0)
+    })
+
+    it('si solo se leyó el número, la fecha queda en hoy y lo avisa', async () => {
+      server.use(http.post(RUTA_LEER_REMITO, () => HttpResponse.json({ numeroRemito: 'R-77', fecha: null })))
+      const user = userEvent.setup()
+      renderPagina()
+      await elegirPrimeraOrden(user)
+
+      await sacarFoto(user)
+
+      expect(await screen.findByText('Leí el número del remito. La fecha no se pudo leer: revisala.')).toBeInTheDocument()
+      expect(screen.getByLabelText('Número de remito')).toHaveValue('R-77')
+      expect(screen.getByLabelText('Fecha de recepción')).toHaveValue(hoyComoTexto())
+    })
+
+    it('no carga una fecha futura aunque el servidor la mande (#127)', async () => {
+      const manana = new Date()
+      manana.setDate(manana.getDate() + 3)
+      server.use(
+        http.post(RUTA_LEER_REMITO, () => HttpResponse.json({ numeroRemito: 'R-77', fecha: hoyComoTexto(manana) })),
+      )
+      const user = userEvent.setup()
+      renderPagina()
+      await elegirPrimeraOrden(user)
+
+      await sacarFoto(user)
+
+      await screen.findByText(/Leí el número del remito/)
+      expect(screen.getByLabelText('Fecha de recepción')).toHaveValue(hoyComoTexto())
+    })
+
+    it('si no se pudo leer nada lo dice y no pisa lo que la persona ya había escrito', async () => {
+      server.use(http.post(RUTA_LEER_REMITO, () => HttpResponse.json({ numeroRemito: null, fecha: null })))
+      const user = userEvent.setup()
+      renderPagina()
+      await elegirPrimeraOrden(user)
+      await user.type(screen.getByLabelText('Número de remito'), 'A-1')
+
+      await sacarFoto(user)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('No pude leer el remito en la foto')
+      expect(screen.getByLabelText('Número de remito')).toHaveValue('A-1')
+    })
+
+    it.each([
+      [400, /La foto no sirvió/],
+      [429, /Hay muchas lecturas en este momento/],
+      [503, /La lectura de remitos no está disponible ahora/],
+    ])('si el servidor responde %i muestra un mensaje claro y se puede cargar a mano', async (status, texto) => {
+      server.use(http.post(RUTA_LEER_REMITO, () => HttpResponse.json({ title: 'Error', status }, { status })))
+      const user = userEvent.setup()
+      renderPagina()
+      await elegirPrimeraOrden(user)
+
+      await sacarFoto(user)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(texto)
+      await user.type(screen.getByLabelText('Número de remito'), 'A-1')
+      expect(screen.getByLabelText('Número de remito')).toHaveValue('A-1')
+    })
+
+    it('si la foto no se puede abrir muestra el motivo sin llamar al servidor', async () => {
+      let llamadas = 0
+      server.use(
+        http.post(RUTA_LEER_REMITO, () => {
+          llamadas += 1
+          return HttpResponse.json({})
+        }),
+      )
+      vi.mocked(reducirImagen).mockRejectedValue(new ErrorDeImagen('No pude abrir esa foto. Probá con otra o cargá el remito a mano.'))
+      const user = userEvent.setup()
+      renderPagina()
+      await elegirPrimeraOrden(user)
+
+      await sacarFoto(user)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('No pude abrir esa foto')
+      expect(llamadas).toBe(0)
+    })
+
+    it('mientras lee, el botón avisa y no se puede confirmar la recepción', async () => {
+      server.use(
+        http.post(RUTA_LEER_REMITO, async () => {
+          await delay(150)
+          return HttpResponse.json({ numeroRemito: 'R-5', fecha: null })
+        }),
+      )
+      const user = userEvent.setup()
+      renderPagina()
+      await elegirPrimeraOrden(user)
+
+      await sacarFoto(user)
+
+      expect(await screen.findByRole('button', { name: 'Leyendo el remito…' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Llegó todo: confirmar recepción' })).toBeDisabled()
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Sacar foto del remito' })).toBeEnabled())
+      expect(screen.getByRole('button', { name: 'Llegó todo: confirmar recepción' })).toBeEnabled()
+    })
+
+    it('si se cambia de orden mientras lee, la lectura vieja no pisa el formulario nuevo', async () => {
+      server.use(
+        http.post(RUTA_LEER_REMITO, async () => {
+          await delay(150)
+          return HttpResponse.json({ numeroRemito: 'R-VIEJO', fecha: null })
+        }),
+      )
+      const user = userEvent.setup()
+      renderPagina()
+      await elegirPrimeraOrden(user)
+      await sacarFoto(user)
+      await screen.findByRole('button', { name: 'Leyendo el remito…' })
+
+      await user.click(screen.getByRole('button', { name: '← Elegir otra orden' }))
+      await elegirPrimeraOrden(user)
+      await delay(300)
+
+      expect(screen.getByLabelText('Número de remito')).toHaveValue('')
+      expect(screen.queryByText(/Leí el número/)).not.toBeInTheDocument()
+    })
+
+    it('después de la foto, lo que se registra es lo que quedó en el formulario (con la fecha leída)', async () => {
+      let cuerpo: { numeroRemito: string; fechaRecepcion: string } | undefined
+      server.use(
+        http.post(RUTA_RECEPCIONES, async ({ request }) => {
+          cuerpo = (await request.json()) as typeof cuerpo
+          return HttpResponse.json(
+            { id: 'x', obraId: 'o', ordenCompraId: 'oc', numeroRemito: cuerpo!.numeroRemito, fechaRecepcion: cuerpo!.fechaRecepcion, estado: 3 },
+            { status: 201 },
+          )
+        }),
+      )
+      const user = userEvent.setup()
+      renderPagina()
+      await elegirPrimeraOrden(user)
+      await sacarFoto(user)
+      await screen.findByText(/Leí el número y la fecha del remito/)
+
+      await user.click(screen.getByRole('button', { name: 'Llegó todo: confirmar recepción' }))
+
+      await screen.findByRole('heading', { level: 1, name: 'Recepción registrada' })
+      expect(cuerpo?.numeroRemito).toBe('R-0001-00012345')
+      expect(cuerpo?.fechaRecepcion).toBe(`${ayerComoTexto()}T00:00:00.000Z`)
+    })
   })
 })

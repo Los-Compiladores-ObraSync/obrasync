@@ -101,6 +101,102 @@
         }
       }
     },
+    "/api/asistente/remito/leer": {
+      "post": {
+        "tags": [
+          "Asistente"
+        ],
+        "summary": "Leer el número y la fecha de la foto de un remito (Roles: Capataz, Admin)",
+        "description": "Recibe la foto de un remito y devuelve el número y la fecha que el modelo de IA pudo leer, como SUGERENCIA para completar el formulario de Recepción (#209). No guarda la imagen ni escribe datos: la recepción se registra solo cuando la persona confirma el formulario, con POST /api/recepciones. Cada campo es null si falta, es ilegible o es ambiguo: nunca se inventa. La fecha leída no es futura (tolerancia de 1 día) ni anterior a 5 años; si no cumple, viene null. El tipo de imagen se decide por sus primeros bytes, no por el Content-Type que declare el cliente. Gasta del mismo cupo de tokens que el chat y tiene su propio tope por usuario (10 por hora por defecto). El texto que aparezca en la foto se trata como dato, nunca como instrucciones al modelo. El cliente achica la foto antes de subirla (el límite del servidor es 5 MB).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "imagen"
+                ],
+                "properties": {
+                  "imagen": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Foto del remito: JPG, PNG o WEBP, de hasta 5 MB."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK (también cuando no se pudo leer nada: los campos vienen null)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LecturaRemitoDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (falta la imagen, está vacía, pesa más de 5 MB o no es JPG, PNG o WEBP)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (solo Capataz y Admin; no se llama al modelo)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests (tope de fotos por usuario o asistente ocupado; incluye Retry-After)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable (asistente apagado, sin cupo o modelo caído; se carga a mano)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/asistente/estado": {
       "get": {
         "tags": [
@@ -406,6 +502,25 @@
             "type": "string",
             "nullable": true,
             "description": "Identificador de correlación propagado desde el API Gateway (X-Correlation-ID) para rastrear errores entre servicios."
+          }
+        }
+      },
+      "LecturaRemitoDto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Lo que el modelo leyó de la foto de un remito (#209). Es una sugerencia para completar el formulario: la persona la revisa y la puede corregir.",
+        "properties": {
+          "numeroRemito": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 50,
+            "description": "Número completo del remito, con ceros, letras y guiones; null si no se pudo leer."
+          },
+          "fecha": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "Fecha de emisión del remito (yyyy-MM-dd); null si no se pudo leer, es futura o es de hace más de 5 años."
           }
         }
       },

@@ -12,6 +12,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Lectura de remitos por foto (#209): los paquetes que indicó el profe. Versiones FIJAS (sin rangos): al 16/11/2026
+         son las que resolvió NuGet y compilan en .NET 8. OpenAI 2.14.0 llega solo como dependencia de Microsoft.Agents.AI.OpenAI. -->
+    <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
+    <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.28.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\ObraSync.Asistente.Application\ObraSync.Asistente.Application.csproj" />
   </ItemGroup>
 
