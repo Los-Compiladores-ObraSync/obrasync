@@ -27,7 +27,7 @@ public class ObtenerOrdenesPendientesTests
             NullLogger<RecepcionesController>.Instance,
             Substitute.For<IRecepcionEventPublisher>());
 
-    private static OrdenCompra CrearOrden(Guid id, Guid obraId, Guid articuloId, decimal cantidad = 10) =>
+    private static OrdenCompra CrearOrden(Guid id, Guid obraId, Guid articuloId, decimal cantidad = 10, DateTime? fechaDespacho = null) =>
         OrdenCompra.Crear(
             id,
             obraId,
@@ -36,7 +36,8 @@ public class ObtenerOrdenesPendientesTests
             new List<OrdenCompraItem>
             {
                 OrdenCompraItem.Crear(articuloId, cantidad, "UN", 10, "Cemento")
-            });
+            },
+            fechaDespacho: fechaDespacho ?? DateTime.UtcNow);
 
     private static List<OrdenPendienteDto> ExtraerLista(IActionResult resultado)
     {
@@ -246,7 +247,8 @@ public class ObtenerOrdenesPendientesTests
             ocId, obraId, Guid.NewGuid(), 5000m,
             new[] { OrdenCompraItem.Crear(articuloId, 5m, "UN", 1000m, "Hierro") },
             etapa: "Estructura",
-            sinPartidaPresupuestaria: true);
+            sinPartidaPresupuestaria: true,
+            fechaDespacho: DateTime.UtcNow);
 
         db.OrdenesCompra.Add(oc);
         await db.SaveChangesAsync();
@@ -262,6 +264,33 @@ public class ObtenerOrdenesPendientesTests
         Assert.Equal(ocId, orden.OrdenCompraId);
         Assert.Equal("Estructura", orden.Etapa);
         Assert.True(orden.SinPartidaPresupuestaria);
+    }
+
+    [Fact]
+    public async Task OrdenesPendientes_OrdenActivaSinDespachar_NoSeDevuelve()
+    {
+        using var db = CreateInMemoryContext($"Db_Pend_NoDesp_{Guid.NewGuid()}");
+        var obraId = Guid.NewGuid();
+        var articuloId = Guid.NewGuid();
+
+        var ocSinDespachar = OrdenCompra.Crear(
+            Guid.NewGuid(),
+            obraId,
+            Guid.NewGuid(),
+            1000m,
+            new[] { OrdenCompraItem.Crear(articuloId, 10m, "UN", 100m, "Cemento") }); // FechaDespacho = null
+
+        var ocDespachada = CrearOrden(Guid.NewGuid(), obraId, articuloId);
+
+        db.OrdenesCompra.AddRange(ocSinDespachar, ocDespachada);
+        await db.SaveChangesAsync();
+
+        var controller = CrearController(db);
+        var resultado = await controller.ObtenerOrdenesPendientes(obraId, CancellationToken.None);
+
+        var lista = ExtraerLista(resultado);
+        var unica = Assert.Single(lista);
+        Assert.Equal(ocDespachada.Id, unica.OrdenCompraId);
     }
 }
 

@@ -310,4 +310,46 @@ public class OrdenCompraTests
 
         Assert.Throws<ArgumentException>(() => oc.Liberar(Guid.Empty));
     }
+
+    [Fact]
+    public void MarcarComoDespachada_EnOrdenNueva_RegistraFechaUtcYMantieneEstadoIndependiente()
+    {
+        var item = OrdenCompraItem.Crear(Guid.NewGuid(), 5m, "UNIDAD", 100m);
+        var oc = OrdenCompra.Crear(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 500m, new[] { item });
+
+        Assert.False(oc.EstaDespachada);
+        Assert.Null(oc.FechaDespacho);
+
+        var fecha = new DateTime(2026, 11, 16, 18, 45, 0, DateTimeKind.Utc);
+        oc.MarcarComoDespachada(fecha);
+
+        Assert.True(oc.EstaDespachada);
+        Assert.Equal(fecha, oc.FechaDespacho);
+        Assert.Equal(EstadoOrdenCompra.Activa, oc.Estado);
+
+        // Segunda llamada conserva la primera fecha de forma idempotente
+        oc.MarcarComoDespachada(fecha.AddHours(2));
+        Assert.Equal(fecha, oc.FechaDespacho);
+    }
+
+    [Fact]
+    public void MarcarComoDespachada_EnOrdenBloqueada_MantieneBloqueoYLiberarPreservaDespacho()
+    {
+        var item = OrdenCompraItem.Crear(Guid.NewGuid(), 5m, "UNIDAD", 100m);
+        var oc = OrdenCompra.Crear(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 500m, new[] { item },
+            estado: EstadoOrdenCompra.Bloqueada, motivoBloqueo: "Supera partida");
+
+        var fecha = new DateTime(2026, 11, 16, 19, 0, 0, DateTimeKind.Utc);
+        oc.MarcarComoDespachada(fecha);
+
+        Assert.True(oc.EstaBloqueada);
+        Assert.True(oc.EstaDespachada);
+        Assert.Equal(fecha, oc.FechaDespacho);
+
+        oc.Liberar(Guid.NewGuid(), "Autorizado");
+        Assert.Equal(EstadoOrdenCompra.Activa, oc.Estado);
+        Assert.True(oc.EstaDespachada);
+        Assert.Equal(fecha, oc.FechaDespacho);
+    }
 }

@@ -799,18 +799,30 @@ public class OrdenCompraEmitidaConsumerTests
         // Act
         await consumer.Consume(context);
 
-        // Assert: OC Activa y presente en órdenes pendientes
+        // Assert: OC Activa sin despachar NO aparece en órdenes pendientes hasta recibir OrdenCompraDespachadaEvent (#204)
         var oc = await db.OrdenesCompra.SingleAsync(o => o.Id == evento.OrdenCompraId);
         Assert.Equal(EstadoOrdenCompra.Activa, oc.Estado);
         Assert.False(oc.EstaBloqueada);
+        Assert.False(oc.EstaDespachada);
         Assert.Null(oc.MotivoBloqueo);
 
         // Assert: MontoComprometido subió de 40.000 a 100.000
         var partidaActualizada = await db.PartidasPresupuestarias.SingleAsync(p => p.Id == partida.Id);
         Assert.Equal(100_000m, partidaActualizada.MontoComprometido);
 
-        // Assert: Aparece en ordenes-pendientes
+        // Assert: Sin despachar todavía NO aparece en ordenes-pendientes
         var pendientesHandler = new ObtenerOrdenesPendientesQueryHandler(db);
+        var pendientesAntes = await pendientesHandler.Handle(new ObtenerOrdenesPendientesQuery(obraId));
+        Assert.DoesNotContain(pendientesAntes, p => p.OrdenCompraId == evento.OrdenCompraId);
+
+        // Assert: Tras consumir OrdenCompraDespachadaEvent, SÍ aparece en ordenes-pendientes
+        var dispatchConsumer = new OrdenCompraDespachadaConsumer(
+            db, repo, new TestLogger<OrdenCompraDespachadaConsumer>());
+        var dispatchContext = Substitute.For<ConsumeContext<OrdenCompraDespachadaEvent>>();
+        dispatchContext.Message.Returns(new OrdenCompraDespachadaEvent(
+            Guid.NewGuid(), DateTime.UtcNow, evento.CorrelationId, evento.OrdenCompraId, obraId, DateTime.UtcNow));
+        await dispatchConsumer.Consume(dispatchContext);
+
         var pendientes = await pendientesHandler.Handle(new ObtenerOrdenesPendientesQuery(obraId));
         Assert.Contains(pendientes, p => p.OrdenCompraId == evento.OrdenCompraId);
 

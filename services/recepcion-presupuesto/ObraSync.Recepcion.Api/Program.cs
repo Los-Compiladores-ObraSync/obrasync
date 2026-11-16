@@ -61,6 +61,7 @@ var useInMemoryTransport = string.Equals(
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<OrdenCompraEmitidaConsumer>();
+    x.AddConsumer<OrdenCompraDespachadaConsumer>();
     if (useInMemoryTransport)
     {
         x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));

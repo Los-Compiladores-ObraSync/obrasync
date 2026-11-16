@@ -134,6 +134,37 @@ public class BusSerializacionTests
         Assert.Equal(JsonValueKind.Number, root.GetProperty("exceso").ValueKind);
     }
 
+    [Fact]
+    public async Task Bus_serializa_y_deserializa_OrdenCompraDespachadaEvent_segun_contrato()
+    {
+        var evento = new OrdenCompraDespachadaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: new DateTime(2026, 11, 16, 18, 30, 0, DateTimeKind.Utc),
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: Guid.NewGuid(),
+            ObraId: Guid.NewGuid(),
+            FechaDespacho: new DateTime(2026, 11, 16, 18, 30, 0, DateTimeKind.Utc));
+
+        var capturador = new CapturaCuerpo();
+
+        await using var provider = CrearProveedorConBus<CapturaCuerpoDespachoConsumer>(capturador);
+
+        var harness = provider.GetRequiredService<ITestHarness>();
+        await harness.Start();
+
+        await harness.Bus.Publish(evento);
+
+        var json = await capturador.EsperarCuerpoAsync(TimeSpan.FromSeconds(10));
+        Assert.True(await harness.Published.Any<OrdenCompraDespachadaEvent>());
+        Assert.True(await harness.Consumed.Any<OrdenCompraDespachadaEvent>());
+
+        var deserializado = JsonSerializer.Deserialize<OrdenCompraDespachadaEvent>(
+            json,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.NotNull(deserializado);
+        Assert.Equal(evento, deserializado);
+    }
+
     private ServiceProvider CrearProveedorConBus<TConsumer>(CapturaCuerpo capturador)
         where TConsumer : class, IConsumer
     {
@@ -210,6 +241,19 @@ public class CapturaCuerpoBloqueoConsumer : IConsumer<OrdenCompraBloqueadaEvent>
     public CapturaCuerpoBloqueoConsumer(CapturaCuerpo captura) => _captura = captura;
 
     public Task Consume(ConsumeContext<OrdenCompraBloqueadaEvent> context)
+    {
+        _captura.Registrar(Encoding.UTF8.GetString(context.ReceiveContext.GetBody()));
+        return Task.CompletedTask;
+    }
+}
+
+public class CapturaCuerpoDespachoConsumer : IConsumer<OrdenCompraDespachadaEvent>
+{
+    private readonly CapturaCuerpo _captura;
+
+    public CapturaCuerpoDespachoConsumer(CapturaCuerpo captura) => _captura = captura;
+
+    public Task Consume(ConsumeContext<OrdenCompraDespachadaEvent> context)
     {
         _captura.Registrar(Encoding.UTF8.GetString(context.ReceiveContext.GetBody()));
         return Task.CompletedTask;

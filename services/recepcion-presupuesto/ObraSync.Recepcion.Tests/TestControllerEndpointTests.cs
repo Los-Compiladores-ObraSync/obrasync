@@ -125,4 +125,104 @@ public class TestControllerEndpointTests : IClassFixture<RecepcionApiFactory>
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    [Fact]
+    public async Task PublishOrdenCompra_ConMarcarComoDespachadaFalse_Devuelve200Ok()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer", RecepcionApiFactory.CreateToken(role: "Admin"));
+
+        var request = CrearSolicitudValida();
+        request.MarcarComoDespachada = false;
+        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-compra", request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PublishOrdenDespachada_EnEntornoTesting_ConAdminYPayloadValido_Devuelve200Ok()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer", RecepcionApiFactory.CreateToken(role: "Admin"));
+
+        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-despachada", new PublishOrdenDespachadaRequest
+        {
+            OrdenCompraId = Guid.NewGuid(),
+            ObraId = Guid.NewGuid()
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PublishOrdenDespachada_EnEntornoTesting_SinToken_Devuelve401Unauthorized()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-despachada", new PublishOrdenDespachadaRequest
+        {
+            OrdenCompraId = Guid.NewGuid(),
+            ObraId = Guid.NewGuid()
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("Capataz")]
+    [InlineData("Comprador")]
+    [InlineData("Proveedor")]
+    public async Task PublishOrdenDespachada_EnEntornoTesting_ConRolNoAdmin_Devuelve403Forbidden(string rol)
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer", RecepcionApiFactory.CreateToken(role: rol));
+
+        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-despachada", new PublishOrdenDespachadaRequest
+        {
+            OrdenCompraId = Guid.NewGuid(),
+            ObraId = Guid.NewGuid()
+        });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PublishOrdenDespachada_ConIdsVacios_Devuelve400BadRequest()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer", RecepcionApiFactory.CreateToken(role: "Admin"));
+
+        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-despachada", new PublishOrdenDespachadaRequest
+        {
+            OrdenCompraId = Guid.Empty,
+            ObraId = Guid.NewGuid()
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PublishOrdenDespachada_EnEntornoProduction_Devuelve404NotFound()
+    {
+        using var prodFactory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Production");
+        });
+
+        using var client = prodFactory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer", RecepcionApiFactory.CreateToken(role: "Admin"));
+
+        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-despachada", new PublishOrdenDespachadaRequest
+        {
+            OrdenCompraId = Guid.NewGuid(),
+            ObraId = Guid.NewGuid()
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

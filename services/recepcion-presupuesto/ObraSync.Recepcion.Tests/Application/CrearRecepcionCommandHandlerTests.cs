@@ -32,7 +32,8 @@ public class CrearRecepcionCommandHandlerTests
         var obraId = Guid.NewGuid();
         var articuloId = Guid.NewGuid();
         var item = OrdenCompraItem.Crear(articuloId, cantidad, "UNIDAD", 10m, "Barras de hierro");
-        var oc = OrdenCompra.Crear(Guid.NewGuid(), obraId, Guid.NewGuid(), cantidad * 10m, new List<OrdenCompraItem> { item });
+        var oc = OrdenCompra.Crear(Guid.NewGuid(), obraId, Guid.NewGuid(), cantidad * 10m, new List<OrdenCompraItem> { item },
+            fechaDespacho: DateTime.UtcNow);
 
         db.OrdenesCompra.Add(oc);
         db.SaveChanges();
@@ -391,7 +392,8 @@ public class CrearRecepcionCommandHandlerTests
             {
                 OrdenCompraItem.Crear(art1, 10m, "UN", 100m, "Cemento"),
                 OrdenCompraItem.Crear(art2, 10m, "UN", 100m, "Cal")
-            });
+            },
+            fechaDespacho: DateTime.UtcNow);
         db.OrdenesCompra.Add(oc);
         await db.SaveChangesAsync();
 
@@ -459,6 +461,35 @@ public class CrearRecepcionCommandHandlerTests
             handler.Handle(command, CancellationToken.None));
 
         Assert.Contains("bloqueada", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, await db.Recepciones.CountAsync());
+    }
+
+    [Fact]
+    public async Task Handle_SiOrdenCompraNoEstaDespachada_LanzaRecepcionConflictoExceptionConMensajeExacto()
+    {
+        using var db = CreateInMemoryContext();
+        var obraId = Guid.NewGuid();
+        var articuloId = Guid.NewGuid();
+        var item = OrdenCompraItem.Crear(articuloId, 100m, "UNIDAD", 10m, "Barras de hierro");
+        var ocNoDespachada = OrdenCompra.Crear(
+            Guid.NewGuid(),
+            obraId,
+            Guid.NewGuid(),
+            1000m,
+            new List<OrdenCompraItem> { item });
+
+        db.OrdenesCompra.Add(ocNoDespachada);
+        await db.SaveChangesAsync();
+
+        var publisher = Substitute.For<IRecepcionEventPublisher>();
+        var handler = new CrearRecepcionCommandHandler(db, publisher, NullLogger<CrearRecepcionCommandHandler>.Instance);
+
+        var command = CrearComandoValido(obraId, ocNoDespachada.Id, articuloId);
+
+        var ex = await Assert.ThrowsAsync<RecepcionConflictoException>(() =>
+            handler.Handle(command, CancellationToken.None));
+
+        Assert.Equal("La orden de compra todavía no fue despachada", ex.Message);
         Assert.Equal(0, await db.Recepciones.CountAsync());
     }
 }

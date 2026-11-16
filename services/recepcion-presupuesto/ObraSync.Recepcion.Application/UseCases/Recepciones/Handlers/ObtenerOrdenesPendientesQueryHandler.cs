@@ -23,6 +23,7 @@ public class ObtenerOrdenesPendientesQueryHandler
             .Include(o => o.Items)
             .AsNoTracking()
             .Where(o => o.Estado == EstadoOrdenCompra.Activa &&
+                        o.FechaDespacho != null &&
                         !_context.Recepciones.Any(
                             r => r.OrdenCompraId == o.Id &&
                                  r.Estado == EstadoRecepcion.Completa));

@@ -27,6 +27,10 @@ public class OrdenCompra : BaseEntity
     // Visibilidad presupuestaria cuando no se encuentra partida (#196)
     public bool SinPartidaPresupuestaria { get; set; }
 
+    // Control de despacho (#204): independiente del estado presupuestario (Activa / Bloqueada)
+    public DateTime? FechaDespacho { get; private set; }
+    public bool EstaDespachada => FechaDespacho.HasValue;
+
     public bool EstaBloqueada => Estado == EstadoOrdenCompra.Bloqueada;
 
     private readonly List<OrdenCompraItem> _items = new();
@@ -44,7 +48,8 @@ public class OrdenCompra : BaseEntity
         string? etapa = null,
         EstadoOrdenCompra estado = EstadoOrdenCompra.Activa,
         string? motivoBloqueo = null,
-        bool sinPartidaPresupuestaria = false)
+        bool sinPartidaPresupuestaria = false,
+        DateTime? fechaDespacho = null)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("El identificador de la orden de compra no puede estar vacío.", nameof(id));
@@ -88,6 +93,7 @@ public class OrdenCompra : BaseEntity
             Estado = estado,
             MotivoBloqueo = string.IsNullOrWhiteSpace(motivoBloqueo) ? null : motivoBloqueo.Trim(),
             SinPartidaPresupuestaria = sinPartidaPresupuestaria,
+            FechaDespacho = fechaDespacho.HasValue ? DateTime.SpecifyKind(fechaDespacho.Value, DateTimeKind.Utc) : null,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -169,5 +175,27 @@ public class OrdenCompra : BaseEntity
     {
         SinPartidaPresupuestaria = false;
         UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Registra la fecha de despacho al consumir OrdenCompraDespachadaEvent (#204).
+    /// Es independiente del estado presupuestario (Activa / Bloqueada) y conserva
+    /// el primer despacho si recibe otro evento con distinto EventId.
+    /// </summary>
+    public void MarcarComoDespachada(DateTime fechaDespachoUtc)
+    {
+        if (fechaDespachoUtc == default)
+        {
+            throw new ArgumentException("La fecha de despacho es obligatoria.", nameof(fechaDespachoUtc));
+        }
+
+        if (FechaDespacho.HasValue)
+        {
+            return;
+        }
+
+        var ahora = DateTime.UtcNow;
+        FechaDespacho = DateTime.SpecifyKind(fechaDespachoUtc, DateTimeKind.Utc);
+        UpdatedAt = ahora;
     }
 }

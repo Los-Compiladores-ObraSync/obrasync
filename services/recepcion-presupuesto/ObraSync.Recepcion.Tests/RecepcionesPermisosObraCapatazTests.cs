@@ -60,7 +60,8 @@ public class RecepcionesPermisosObraCapatazTests : IClassFixture<RecepcionApiFac
             obraFinalId,
             Guid.NewGuid(),
             1000,
-            new List<OrdenCompraItem> { articulo });
+            new List<OrdenCompraItem> { articulo },
+            fechaDespacho: DateTime.UtcNow);
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();

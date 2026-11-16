@@ -197,7 +197,8 @@ public class PaginacionRecepcionTests : IClassFixture<RecepcionApiFactory>
                     proveedorId: Guid.NewGuid(),
                     montoTotal: 1000m * i,
                     items: new[] { OrdenCompraItem.Crear(artId, 20, "UN", 50, $"Item {i}") },
-                    etapa: "Estructura");
+                    etapa: "Estructura",
+                    fechaDespacho: DateTime.UtcNow);
                 db.OrdenesCompra.Add(oc);
             }
             await db.SaveChangesAsync();
@@ -242,9 +243,11 @@ public class PaginacionRecepcionTests : IClassFixture<RecepcionApiFactory>
             var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
 
             var oc1 = OrdenCompra.Crear(oc1Id, obraId, Guid.NewGuid(), 1000,
-                new[] { OrdenCompraItem.Crear(art1, 10, "UN", 100, "Articulo 1") });
+                new[] { OrdenCompraItem.Crear(art1, 10, "UN", 100, "Articulo 1") },
+                fechaDespacho: DateTime.UtcNow);
             var oc2 = OrdenCompra.Crear(oc2Id, obraId, Guid.NewGuid(), 2000,
-                new[] { OrdenCompraItem.Crear(art2, 20, "UN", 100, "Articulo 2") });
+                new[] { OrdenCompraItem.Crear(art2, 20, "UN", 100, "Articulo 2") },
+                fechaDespacho: DateTime.UtcNow);
 
             db.OrdenesCompra.AddRange(oc1, oc2);
 
@@ -324,11 +327,14 @@ public class PaginacionRecepcionTests : IClassFixture<RecepcionApiFactory>
         {
             var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
             var ocNormal = OrdenCompra.Crear(Guid.NewGuid(), obraId, Guid.NewGuid(), 100,
-                new[] { OrdenCompraItem.Crear(Guid.NewGuid(), 5, "UN", 20, "Item A") });
+                new[] { OrdenCompraItem.Crear(Guid.NewGuid(), 5, "UN", 20, "Item A") },
+                fechaDespacho: DateTime.UtcNow);
             var ocSinPartida1 = OrdenCompra.Crear(Guid.NewGuid(), obraId, Guid.NewGuid(), 200,
-                new[] { OrdenCompraItem.Crear(Guid.NewGuid(), 10, "UN", 20, "Item B") }, sinPartidaPresupuestaria: true);
+                new[] { OrdenCompraItem.Crear(Guid.NewGuid(), 10, "UN", 20, "Item B") }, sinPartidaPresupuestaria: true,
+                fechaDespacho: DateTime.UtcNow);
             var ocSinPartida2 = OrdenCompra.Crear(Guid.NewGuid(), obraId, Guid.NewGuid(), 300,
-                new[] { OrdenCompraItem.Crear(Guid.NewGuid(), 15, "UN", 20, "Item C") }, sinPartidaPresupuestaria: true);
+                new[] { OrdenCompraItem.Crear(Guid.NewGuid(), 15, "UN", 20, "Item C") }, sinPartidaPresupuestaria: true,
+                fechaDespacho: DateTime.UtcNow);
 
             db.OrdenesCompra.AddRange(ocNormal, ocSinPartida1, ocSinPartida2);
             await db.SaveChangesAsync();
