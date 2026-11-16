@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using ObraSync.Recepcion.Domain.Common;
 using ObraSync.Recepcion.Domain.Enums;
+using ObraSync.Recepcion.Domain.Exceptions;
 
 namespace ObraSync.Recepcion.Domain.Entities;
 
@@ -17,6 +18,11 @@ public class OrdenCompra : BaseEntity
     // Control de estado de la orden de compra (#94, #95, #96, #154)
     public EstadoOrdenCompra Estado { get; set; } = EstadoOrdenCompra.Activa;
     public string? MotivoBloqueo { get; set; }
+
+    // Auditoría de autorización al liberar una OC bloqueada (#96): quién (sub del token) y cuándo (UTC)
+    public Guid? LiberadaPorUsuarioId { get; private set; }
+    public DateTime? LiberadaEn { get; private set; }
+    public string? MotivoLiberacion { get; private set; }
 
     // Visibilidad presupuestaria cuando no se encuentra partida (#196)
     public bool SinPartidaPresupuestaria { get; set; }
@@ -105,7 +111,38 @@ public class OrdenCompra : BaseEntity
     }
 
     /// <summary>
-    /// Libera la orden de compra bloqueada por autorización de un Administrador (#96).
+    /// Libera la orden de compra bloqueada por autorización de un Administrador,
+    /// registrando quién y cuándo la liberó (#96).
+    /// </summary>
+    public void Liberar(Guid usuarioAdminId, string? motivoLiberacion = null)
+    {
+        if (usuarioAdminId == Guid.Empty)
+        {
+            throw new ArgumentException("El identificador del administrador que libera la orden es obligatorio.", nameof(usuarioAdminId));
+        }
+
+        if (Estado != EstadoOrdenCompra.Bloqueada)
+        {
+            throw new TransicionEstadoInvalidaException(
+                $"Solo se puede liberar una orden de compra que esté en estado Bloqueada (estado actual: {Estado}).");
+        }
+
+        if (!string.IsNullOrWhiteSpace(motivoLiberacion) && motivoLiberacion.Trim().Length > 500)
+        {
+            throw new ArgumentException("El motivo de liberación no puede superar los 500 caracteres.", nameof(motivoLiberacion));
+        }
+
+        var ahora = DateTime.UtcNow;
+        Estado = EstadoOrdenCompra.Activa;
+        MotivoBloqueo = null;
+        LiberadaPorUsuarioId = usuarioAdminId;
+        LiberadaEn = ahora;
+        MotivoLiberacion = string.IsNullOrWhiteSpace(motivoLiberacion) ? null : motivoLiberacion.Trim();
+        UpdatedAt = ahora;
+    }
+
+    /// <summary>
+    /// Sobrecarga sin parámetros preservada para compatibilidad con pruebas existentes.
     /// </summary>
     public void Liberar()
     {

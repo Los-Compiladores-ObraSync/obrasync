@@ -261,11 +261,21 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<DateTime?>("LiberadaEn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LiberadaPorUsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("MontoTotal")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("MotivoBloqueo")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("MotivoLiberacion")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
