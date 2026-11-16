@@ -6,6 +6,7 @@ using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.DTOs;
 using ObraSync.Recepcion.Application.Mappings;
 using ObraSync.Recepcion.Application.UseCases.Partidas.Queries;
+using ObraSync.Recepcion.Domain.Presupuestos;
 
 namespace ObraSync.Recepcion.Application.UseCases.Partidas.Handlers;
 
@@ -29,15 +30,17 @@ public class ObtenerPartidasQueryHandler
             dbQuery = dbQuery.Where(p => p.ObraId == query.ObraId.Value);
         }
 
-        if (!string.IsNullOrWhiteSpace(query.Etapa))
-        {
-            var etapaFiltro = query.Etapa.Trim();
-            dbQuery = dbQuery.Where(p => p.Etapa != null && p.Etapa.ToLower() == etapaFiltro.ToLower());
-        }
-
         var partidas = await dbQuery
             .OrderBy(p => p.CodigoPartida)
             .ToListAsync(cancellationToken);
+
+        // Filtrado por etapa normalizada (sin distinguir mayúsculas, espacios ni tildes) (#196)
+        if (!string.IsNullOrWhiteSpace(query.Etapa))
+        {
+            partidas = partidas
+                .Where(p => NormalizadorEtapa.SonEquivalentes(p.Etapa, query.Etapa))
+                .ToList();
+        }
 
         return partidas.Select(p => p.ToDto()).ToList();
     }

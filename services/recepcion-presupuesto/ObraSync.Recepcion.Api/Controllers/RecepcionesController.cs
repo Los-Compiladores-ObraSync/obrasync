@@ -90,18 +90,28 @@ public class RecepcionesController : ControllerBase
 
     /// <summary>
     /// Obtiene las órdenes de compra pendientes de recibir (sin recepción completa),
-    /// opcionalmente filtradas por ObraId.
+    /// opcionalmente filtradas por ObraId y/o por estado SinPartidaPresupuestaria (#196).
     /// </summary>
     [Authorize(Roles = "Capataz,Comprador,Admin")]
     [HttpGet("ordenes-pendientes")]
     public async Task<IActionResult> ObtenerOrdenesPendientes(
         [FromQuery] Guid? obraId,
-        CancellationToken cancellationToken)
+        [FromQuery] bool? sinPartida = null,
+        CancellationToken cancellationToken = default)
     {
-        var query = new ObtenerOrdenesPendientesQuery(obraId);
+        var query = new ObtenerOrdenesPendientesQuery(obraId, sinPartida);
         var resultado = await _obtenerOrdenesPendientesHandler.Handle(query, cancellationToken);
         return Ok(resultado);
     }
+
+    /// <summary>
+    /// Sobrecarga auxiliar para compatibilidad binaria y tests unitarios directos sin parámetro sinPartida.
+    /// </summary>
+    [NonAction]
+    public Task<IActionResult> ObtenerOrdenesPendientes(
+        Guid? obraId,
+        CancellationToken cancellationToken) =>
+        ObtenerOrdenesPendientes(obraId, null, cancellationToken);
 
     /// <summary>
     /// Registra una recepción total de materiales contra una orden de compra.

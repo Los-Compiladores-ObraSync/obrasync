@@ -209,6 +209,15 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "sinPartida",
+            "in": "query",
+            "description": "Filtra órdenes pendientes según si carecen de partida presupuestaria asignada (true) o si tienen partida asignada (false).",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -750,6 +759,15 @@
           "obraId": {
             "type": "string",
             "format": "uuid"
+          },
+          "etapa": {
+            "type": "string",
+            "nullable": true,
+            "description": "Etapa de la obra a la que pertenece la orden de compra."
+          },
+          "sinPartidaPresupuestaria": {
+            "type": "boolean",
+            "description": "Indica si la orden de compra no encontró partida presupuestaria de etapa ni general de obra."
           },
           "items": {
             "type": "array",
