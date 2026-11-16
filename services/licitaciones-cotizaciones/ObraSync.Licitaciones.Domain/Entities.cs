@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace ObraSync.Licitaciones.Domain.Entities;
 
 public class RequisicionAprobada
@@ -30,13 +32,16 @@ public enum EstadoLicitacion
 public class Licitacion
 {
     public Guid LicitacionId { get; set; }
-    public Guid RequisicionId { get; set; }            // GUID, sin clave foránea
+    public Guid RequisicionId { get; set; }             // GUID, sin clave foránea
     public string NumeroRequisicion { get; set; } = "";
     public Guid ObraId { get; set; }
     public EstadoLicitacion Estado { get; set; }
     public DateTime FechaCreacion { get; set; }
     public DateTime FechaLimiteCotizacion { get; set; }
     public List<LicitacionItem> Items { get; set; } = new();
+
+    [Timestamp]
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 }
 
 public class LicitacionItem
@@ -99,4 +104,7 @@ public class MagicLink
     public Guid ProveedorId { get; set; }
     public DateTime FechaDeVencimiento { get; set; }
     public DateTime? FechaDeUso { get; set; }
+
+    [Timestamp]
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 }

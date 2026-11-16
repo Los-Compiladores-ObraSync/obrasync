@@ -1,3 +1,4 @@
+using MediatR;
 using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.Mappings;
@@ -73,7 +74,7 @@ public class CrearCotizacionCommandHandler
             throw new ArgumentException("El plazo límite para cotizar esta licitación ya venció.");
         }
 
-        // 4. Validar coincidencia exacta de artículos con el pliego de la licitación (sin faltantes, sin sobrantes ni duplicados)
+        // 4. Validar coincidencia exacta de artículos con el pliego de la licitación
         var articulosPliego = licitacion.Items
             .Select(i => i.ArticuloId)
             .Distinct()
