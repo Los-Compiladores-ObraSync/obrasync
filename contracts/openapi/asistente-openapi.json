@@ -175,7 +175,7 @@
             "type": "array",
             "maxItems": 10,
             "nullable": true,
-            "description": "Los últimos mensajes de la conversación, del más viejo al más nuevo (máximo 10). El servidor no guarda conversaciones: el cliente las reenvía.",
+            "description": "Los últimos mensajes de la conversación, del más viejo al más nuevo (máximo 10). El servidor no guarda conversaciones: el cliente las reenvía, por eso NO se le cree (#194): cada mensaje debe tener rol 'usuario' o 'asistente' y texto no vacío de hasta 2000 caracteres (si no, 400 sin llamar al modelo). Si el total supera los 8000 caracteres, el servicio descarta los mensajes más viejos. Las instrucciones del asistente tratan el historial como contenido no confiable: una requisición solo se crea cuando la persona toca Confirmar en pantalla.",
             "items": {
               "$ref": "#/components/schemas/ChatMensajeDto"
             }
