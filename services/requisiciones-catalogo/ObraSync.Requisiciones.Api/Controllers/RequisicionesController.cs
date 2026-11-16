@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using ObraSync.Requisiciones.Application.DTOs;
 using ObraSync.Requisiciones.Application.Exceptions;
 using ObraSync.Requisiciones.Application.Interfaces;
@@ -279,6 +280,13 @@ namespace ObraSync.Requisiciones.Api.Controllers
                     statusCode: StatusCodes.Status404NotFound,
                     title: "Requisición no encontrada");
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Problem(
+                    detail: "La requisición cambió, recargá e intentá nuevamente.",
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Conflicto de concurrencia en la requisición");
+            }
             catch (InvalidOperationException ex)
             {
                 return Problem(
@@ -339,6 +347,13 @@ namespace ObraSync.Requisiciones.Api.Controllers
                     detail: ex.Message,
                     statusCode: StatusCodes.Status404NotFound,
                     title: "Requisición no encontrada");
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Problem(
+                    detail: "La requisición cambió, recargá e intentá nuevamente.",
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Conflicto de concurrencia en la requisición");
             }
             catch (InvalidOperationException ex)
             {

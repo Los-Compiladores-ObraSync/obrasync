@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using ObraSync.Requisiciones.Domain.Constants;
 
@@ -21,6 +22,10 @@ namespace ObraSync.Requisiciones.Domain.Entities
         public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
         public DateTime? FechaAprobacion { get; set; }
         public DateTime? FechaRechazo { get; set; }
+
+        [Timestamp]
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+
         public List<RequisicionItem> Items { get; set; } = new();
 
         public Requisicion() { }
