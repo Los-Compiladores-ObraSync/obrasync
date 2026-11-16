@@ -121,6 +121,39 @@ public class PresupuestosEndpointTests : IClassFixture<RecepcionApiFactory>
     }
 
     [Fact]
+    public async Task CrearPartida_EtapaDuplicadaEnMismaObra_Retorna409Conflict()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer", RecepcionApiFactory.CreateToken(role: "Admin"));
+
+        var obraId = Guid.NewGuid();
+        var req1 = new CrearPartidaPresupuestariaRequest
+        {
+            ObraId = obraId,
+            Etapa = "Cimientos",
+            CodigoPartida = "CIM-01",
+            Descripcion = "Primera partida de cimientos",
+            MontoAsignado = 100_000m
+        };
+
+        var req2 = new CrearPartidaPresupuestariaRequest
+        {
+            ObraId = obraId,
+            Etapa = "cimientos",
+            CodigoPartida = "CIM-02", // Distinto código, misma etapa
+            Descripcion = "Segunda partida de cimientos",
+            MontoAsignado = 150_000m
+        };
+
+        var res1 = await client.PostAsJsonAsync("/api/presupuestos/partidas", req1);
+        Assert.Equal(HttpStatusCode.Created, res1.StatusCode);
+
+        var res2 = await client.PostAsJsonAsync("/api/presupuestos/partidas", req2);
+        Assert.Equal(HttpStatusCode.Conflict, res2.StatusCode);
+    }
+
+    [Fact]
     public async Task CrearPartida_MontoNegativo_Retorna400BadRequest()
     {
         var client = _factory.CreateClient();

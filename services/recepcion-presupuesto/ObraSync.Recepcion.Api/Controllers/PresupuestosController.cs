@@ -33,18 +33,46 @@ public class PresupuestosController : ControllerBase
 
     /// <summary>
     /// Consulta las partidas presupuestarias, opcionalmente filtradas por ObraId y/o Etapa (#93, #154).
+    /// Soporta paginación con pagina y tamano (#185).
     /// Roles permitidos: Admin, Comprador, Capataz.
     /// </summary>
     [Authorize(Roles = "Admin,Comprador,Capataz")]
     [HttpGet("partidas")]
     public async Task<ActionResult<List<PartidaPresupuestariaDto>>> ObtenerPartidas(
-        [FromQuery] Guid? obraId,
-        [FromQuery] string? etapa,
-        CancellationToken cancellationToken)
+        [FromQuery] Guid? obraId = null,
+        [FromQuery] string? etapa = null,
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamano = ParametrosPagina.TamanoMaximo,
+        CancellationToken cancellationToken = default)
     {
-        var result = await _obtenerPartidasHandler.Handle(new ObtenerPartidasQuery(obraId, etapa), cancellationToken);
-        return Ok(result);
+        var p = new ParametrosPagina(pagina, tamano);
+        var error = p.Validar();
+        if (error is not null)
+        {
+            return Problem(detail: error, statusCode: StatusCodes.Status400BadRequest, title: "Paginación inválida");
+        }
+
+        var result = await _obtenerPartidasHandler.Handle(new ObtenerPartidasQuery(obraId, etapa, p), cancellationToken);
+
+        if (Response?.Headers is not null)
+        {
+            Response.Headers["X-Total-Count"] = result.Total.ToString();
+            Response.Headers["X-Page"] = p.Pagina.ToString();
+            Response.Headers["X-Page-Size"] = p.Tamano.ToString();
+        }
+
+        return Ok(result.Items.ToList());
     }
+
+    /// <summary>
+    /// Sobrecarga auxiliar para compatibilidad con invocaciones directas en pruebas unitarias.
+    /// </summary>
+    [NonAction]
+    public Task<ActionResult<List<PartidaPresupuestariaDto>>> ObtenerPartidas(
+        Guid? obraId,
+        string? etapa,
+        CancellationToken cancellationToken) =>
+        ObtenerPartidas(obraId, etapa, 1, ParametrosPagina.TamanoMaximo, cancellationToken);
 
     /// <summary>
     /// Obtiene el detalle de una partida presupuestaria por su identificador (#93).

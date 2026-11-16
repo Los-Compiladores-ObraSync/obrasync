@@ -418,26 +418,27 @@ namespace ObraSync.Requisiciones.Tests.Application
                 etapa: "Estructura",
                 fechaCreacion: new DateTime(2026, 10, 19, 10, 0, 0, DateTimeKind.Utc));
 
-            requisicionRepo.GetFilteredAsync(null, null, null, Arg.Any<CancellationToken>())
-                .Returns(new List<Requisicion> { reqRecienteAprobada, reqAntiguaPendiente });
+            requisicionRepo.GetFilteredAsync(null, null, null, null, Arg.Any<CancellationToken>())
+                .Returns(new PaginaDe<Requisicion>(new List<Requisicion> { reqRecienteAprobada, reqAntiguaPendiente }, 2));
 
             var handler = new GetRequisicionesQueryHandler(requisicionRepo);
             var query = new GetRequisicionesQuery();
 
             var resultado = await handler.Handle(query, CancellationToken.None);
 
-            Assert.Equal(2, resultado.Count);
-            Assert.Equal("REQ-2026-0002", resultado[0].NumeroRequisicion);
-            Assert.Equal(EstadoRequisicion.Aprobada, resultado[0].Estado);
-            Assert.Single(resultado[0].Items);
-            Assert.Equal(50m, resultado[0].Items[0].Cantidad);
+            Assert.Equal(2, resultado.Items.Count);
+            Assert.Equal(2, resultado.Total);
+            Assert.Equal("REQ-2026-0002", resultado.Items[0].NumeroRequisicion);
+            Assert.Equal(EstadoRequisicion.Aprobada, resultado.Items[0].Estado);
+            Assert.Single(resultado.Items[0].Items);
+            Assert.Equal(50m, resultado.Items[0].Items[0].Cantidad);
 
-            Assert.Equal("REQ-2026-0001", resultado[1].NumeroRequisicion);
-            Assert.Equal(EstadoRequisicion.Pendiente, resultado[1].Estado);
-            Assert.Single(resultado[1].Items);
-            Assert.Equal(80m, resultado[1].Items[0].Cantidad);
+            Assert.Equal("REQ-2026-0001", resultado.Items[1].NumeroRequisicion);
+            Assert.Equal(EstadoRequisicion.Pendiente, resultado.Items[1].Estado);
+            Assert.Single(resultado.Items[1].Items);
+            Assert.Equal(80m, resultado.Items[1].Items[0].Cantidad);
 
-            await requisicionRepo.Received(1).GetFilteredAsync(null, null, null, Arg.Any<CancellationToken>());
+            await requisicionRepo.Received(1).GetFilteredAsync(null, null, null, null, Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -446,16 +447,17 @@ namespace ObraSync.Requisiciones.Tests.Application
             var requisicionRepo = Substitute.For<IRequisicionRepository>();
             var obraId = Guid.NewGuid();
 
-            requisicionRepo.GetFilteredAsync(obraId, "Pendiente", null, Arg.Any<CancellationToken>())
-                .Returns(new List<Requisicion>());
+            requisicionRepo.GetFilteredAsync(obraId, "Pendiente", null, null, Arg.Any<CancellationToken>())
+                .Returns(new PaginaDe<Requisicion>(new List<Requisicion>(), 0));
 
             var handler = new GetRequisicionesQueryHandler(requisicionRepo);
             var query = new GetRequisicionesQuery(ObraId: obraId, Estado: "Pendiente");
 
             var resultado = await handler.Handle(query, CancellationToken.None);
 
-            Assert.Empty(resultado);
-            await requisicionRepo.Received(1).GetFilteredAsync(obraId, "Pendiente", null, Arg.Any<CancellationToken>());
+            Assert.Empty(resultado.Items);
+            Assert.Equal(0, resultado.Total);
+            await requisicionRepo.Received(1).GetFilteredAsync(obraId, "Pendiente", null, null, Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -556,16 +558,17 @@ namespace ObraSync.Requisiciones.Tests.Application
             var requisicionRepo = Substitute.For<IRequisicionRepository>();
             var solicitanteId = Guid.NewGuid();
 
-            requisicionRepo.GetFilteredAsync(null, null, solicitanteId, Arg.Any<CancellationToken>())
-                .Returns(new List<Requisicion>());
+            requisicionRepo.GetFilteredAsync(null, null, solicitanteId, null, Arg.Any<CancellationToken>())
+                .Returns(new PaginaDe<Requisicion>(new List<Requisicion>(), 0));
 
             var handler = new GetRequisicionesQueryHandler(requisicionRepo);
             var query = new GetRequisicionesQuery(SolicitanteId: solicitanteId);
 
             var resultado = await handler.Handle(query, CancellationToken.None);
 
-            Assert.Empty(resultado);
-            await requisicionRepo.Received(1).GetFilteredAsync(null, null, solicitanteId, Arg.Any<CancellationToken>());
+            Assert.Empty(resultado.Items);
+            Assert.Equal(0, resultado.Total);
+            await requisicionRepo.Received(1).GetFilteredAsync(null, null, solicitanteId, null, Arg.Any<CancellationToken>());
         }
 
         [Fact]

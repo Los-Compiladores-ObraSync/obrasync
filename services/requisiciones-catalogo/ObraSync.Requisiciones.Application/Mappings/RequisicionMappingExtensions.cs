@@ -28,7 +28,18 @@ namespace ObraSync.Requisiciones.Application.Mappings
                     Descripcion = i.Descripcion,
                     Cantidad = i.Cantidad,
                     UnidadMedida = i.UnidadMedida
-                }).ToList()
+                }).ToList(),
+                HistorialRechazos = (requisicion.HistorialRechazos ?? Enumerable.Empty<HistorialRechazoRequisicion>())
+                    .OrderBy(h => h.FechaRechazo)
+                    .ThenBy(h => h.Id)
+                    .Select(h => new HistorialRechazoRequisicionDto
+                    {
+                        Id = h.Id,
+                        RechazadorId = h.RechazadorId,
+                        Motivo = h.Motivo,
+                        FechaRechazo = h.FechaRechazo
+                    })
+                    .ToList()
             };
     }
 }

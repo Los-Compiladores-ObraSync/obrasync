@@ -1,51 +1,88 @@
 using MediatR;
+using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Interfaces;
-using ObraSync.Licitaciones.Domain.Entities;
+using ObraSync.Licitaciones.Application.Services;
 
 namespace ObraSync.Licitaciones.Application.MagicLinks.Commands.CotizarConMagicLink;
 
-public class CotizarConMagicLinkCommandHandler : IRequestHandler<CotizarConMagicLinkCommand, Unit>
+public class CotizarConMagicLinkCommandHandler : IRequestHandler<CotizarConMagicLinkCommand, CotizacionResponseDto>
 {
     private readonly IMagicLinkRepository _magicLinkRepository;
     private readonly ICotizacionRepository _cotizacionRepository;
-    private readonly IUnitOfWork _unitOfWork; // O tu interfaz para persistir cambios si la usan
+    private readonly ICotizacionValidadorService _validadorService;
 
     public CotizarConMagicLinkCommandHandler(
         IMagicLinkRepository magicLinkRepository,
-        ICotizacionRepository cotizacionRepository)
+        ICotizacionRepository cotizacionRepository,
+        ILicitacionRepository licitacionRepository,
+        ICotizacionValidadorService? validadorService = null)
     {
-        _magicLinkRepository = magicLinkRepository;
-        _cotizacionRepository = cotizacionRepository;
+        _magicLinkRepository = magicLinkRepository ?? throw new ArgumentNullException(nameof(magicLinkRepository));
+        _cotizacionRepository = cotizacionRepository ?? throw new ArgumentNullException(nameof(cotizacionRepository));
+        if (licitacionRepository == null) throw new ArgumentNullException(nameof(licitacionRepository));
+        _validadorService = validadorService ?? new CotizacionValidadorService(licitacionRepository, cotizacionRepository);
     }
 
-    public async Task<Unit> Handle(CotizarConMagicLinkCommand request, CancellationToken cancellationToken)
+    public async Task<CotizacionResponseDto> Handle(CotizarConMagicLinkCommand request, CancellationToken cancellationToken)
     {
-        // 1. Buscar el Magic Link por su hash
-        var magicLink = await _magicLinkRepository.GetByHashAsync(request.Hash, cancellationToken);
-
-        // 2. Validar existencia, vencimiento y uso previo
-        if (magicLink == null || magicLink.FechaDeVencimiento < DateTime.UtcNow || magicLink.FechaDeUso != null)
+        if (string.IsNullOrWhiteSpace(request.Hash))
         {
-            throw new InvalidOperationException("El enlace de cotización es inválido, ya expiró o ya fue utilizado.");
+            throw new ArgumentException("El hash del enlace de cotización es obligatorio.");
         }
 
-        // 3. Marcar el enlace como usado (al estar trackeado por EF, se persiste al guardar cambios)
-        magicLink.FechaDeUso = DateTime.UtcNow;
-
-        // 4. Crear la cotización usando las propiedades correctas de tu entidad Domain
-        var cotizacion = new Cotizacion
+        // 1. Buscar el Magic Link por el hash SHA-256 del token recibido (o coincidencia directa)
+        var magicLink = await _magicLinkRepository.GetByHashAsync(request.Hash, cancellationToken);
+        if (magicLink == null)
         {
-            LicitacionId = magicLink.LicitacionId,
-            ProveedorId = magicLink.ProveedorId,
-            FechaCreacion = DateTime.UtcNow,
-            Flete = request.Flete,
-            PlazoEntregaDias = request.PlazoEntregaDias
-            // Si requiere agregar los ítems, mapealos según tu entidad de dominio
-        };
+            throw new KeyNotFoundException("El enlace de cotización no existe o es inválido.");
+        }
 
-        // 5. Agregar la cotización mediante su repositorio
+        // 2. Validar que no haya sido usado previamente y que no esté vencido
+        if (magicLink.FechaDeUso != null)
+        {
+            throw new InvalidOperationException("El enlace de cotización ya fue utilizado.");
+        }
+
+        var ahoraUtc = DateTime.UtcNow;
+        var fechaVencimientoUtc = DateTime.SpecifyKind(magicLink.FechaDeVencimiento, DateTimeKind.Utc);
+        if (fechaVencimientoUtc <= ahoraUtc)
+        {
+            throw new ArgumentException("El enlace de cotización ya expiró.");
+        }
+
+        // 3. Reusar la validación compartida de #71 ANTES de consumir el enlace:
+        // Si los ítems están vacíos, incompletos o inválidos, se rechaza con 400 sin quemar el Magic Link.
+        var itemsMapeados = request.Items?
+            .Select(i => new CrearCotizacionItemDto
+            {
+                ArticuloId = i != null ? i.IdentificadorEfectivo : Guid.Empty,
+                PrecioUnitario = i?.PrecioUnitario ?? 0m
+            })
+            .ToList();
+
+        var (_, cotizacion, dto) = await _validadorService.ValidarYConstruirAsync(
+            magicLink.LicitacionId,
+            magicLink.ProveedorId,
+            request.Flete,
+            request.PlazoEntregaDias,
+            itemsMapeados,
+            cancellationToken);
+
+        // 4. Consumo atómico del enlace (UPDATE condicional: FechaDeUso == null && FechaDeVencimiento > ahoraUtc)
+        var consumido = await _magicLinkRepository.TryConsumirAtomicoAsync(
+            magicLink.Id,
+            DateTime.UtcNow,
+            cancellationToken);
+
+        if (!consumido)
+        {
+            throw new InvalidOperationException("El enlace de cotización ya fue utilizado o expiró.");
+        }
+
+        // 5. Persistir la cotización con todos sus ítems en la base de datos
         await _cotizacionRepository.AddAsync(cotizacion, cancellationToken);
+        await _cotizacionRepository.SaveChangesAsync(cancellationToken);
 
-        return Unit.Value;
+        return dto;
     }
 }

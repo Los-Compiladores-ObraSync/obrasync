@@ -40,15 +40,34 @@ public class ObrasController : ControllerBase
     /// <summary>
     /// Listar obras disponibles con sus etapas constructivas (Roles: Admin, Comprador, Capataz).
     /// Admin y Comprador ven todas las obras activas; el Capataz ve solo las que tiene asignadas (#155).
+    /// Soporta paginación opcional con pagina y tamano (#182).
     /// </summary>
     [HttpGet]
     [Authorize(Roles = "Admin,Comprador,Capataz")]
     [ProducesResponseType(typeof(IEnumerable<ObraResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<ActionResult<IEnumerable<ObraResponseDto>>> ListarObras()
+    public async Task<ActionResult<IEnumerable<ObraResponseDto>>> ListarObras(
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamano = ParametrosPagina.TamanoMaximo)
     {
-        var obras = await _obraService.ListarObrasAsync(User);
+        var p = new ParametrosPagina(pagina, tamano);
+        var error = p.Validar();
+        if (error is not null)
+        {
+            return Problem(detail: error, statusCode: StatusCodes.Status400BadRequest, title: "Paginación inválida");
+        }
+
+        var (obras, total) = await _obraService.ListarObrasPaginadasAsync(User, p);
+
+        if (Response?.Headers is not null)
+        {
+            Response.Headers["X-Total-Count"] = total.ToString();
+            Response.Headers["X-Page"] = p.Pagina.ToString();
+            Response.Headers["X-Page-Size"] = p.Tamano.ToString();
+        }
+
         return Ok(obras);
     }
 

@@ -6,6 +6,7 @@ using ObraSync.Recepcion.Application.Exceptions;
 using ObraSync.Recepcion.Application.Mappings;
 using ObraSync.Recepcion.Application.UseCases.Partidas.Commands;
 using ObraSync.Recepcion.Domain.Entities;
+using ObraSync.Recepcion.Domain.Presupuestos;
 
 namespace ObraSync.Recepcion.Application.UseCases.Partidas.Handlers;
 
@@ -42,13 +43,32 @@ public class CrearPartidaPresupuestariaCommandHandler
         var codigoLimpio = req.CodigoPartida.Trim();
         var etapaLimpia = string.IsNullOrWhiteSpace(req.Etapa) ? null : req.Etapa.Trim();
 
-        // Control de duplicados por código de partida y obra (#93)
+        // Control de duplicados por código de partida y obra (#93, #195)
+        var codigoNormalizado = codigoLimpio.ToLower();
         var codigoDuplicado = await _context.PartidasPresupuestarias
-            .AnyAsync(p => p.ObraId == req.ObraId && p.CodigoPartida == codigoLimpio, cancellationToken);
+            .AnyAsync(p => p.ObraId == req.ObraId && p.CodigoPartida.ToLower() == codigoNormalizado, cancellationToken);
 
         if (codigoDuplicado)
         {
             throw new RecepcionConflictoException($"Ya existe una partida con el código '{codigoLimpio}' para esta obra.");
+        }
+
+        // Control de duplicados por obra y etapa (#195, #196): una sola partida por (ObraId, Etapa)
+        // comparada de forma normalizada (sin distinguir mayúsculas, espacios ni tildes),
+        // incluyendo la partida de toda la obra (Etapa == null).
+        var etapasExistentes = await _context.PartidasPresupuestarias
+            .Where(p => p.ObraId == req.ObraId)
+            .Select(p => p.Etapa)
+            .ToListAsync(cancellationToken);
+
+        var etapaDuplicada = etapasExistentes.Any(e => NormalizadorEtapa.SonEquivalentes(e, etapaLimpia));
+
+        if (etapaDuplicada)
+        {
+            var descripcionEtapa = etapaLimpia is not null
+                ? $"la etapa '{etapaLimpia}'"
+                : "toda la obra (sin etapa)";
+            throw new RecepcionConflictoException($"Ya existe una partida presupuestaria para {descripcionEtapa} en esta obra.");
         }
 
         var partida = new PartidaPresupuestaria
@@ -66,8 +86,34 @@ public class CrearPartidaPresupuestariaCommandHandler
         };
 
         await _context.PartidasPresupuestarias.AddAsync(partida, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (EsViolacionDeIndiceUnico(ex))
+        {
+            throw new RecepcionConflictoException(
+                "Ya existe una partida presupuestaria con el mismo código o para la misma etapa en esta obra.");
+        }
 
         return partida.ToDto();
+    }
+
+    private static bool EsViolacionDeIndiceUnico(DbUpdateException ex)
+    {
+        var inner = ex.InnerException;
+        if (inner == null)
+        {
+            return false;
+        }
+
+        if (inner.GetType().Name == "SqlException" &&
+            inner.GetType().GetProperty("Number")?.GetValue(inner) is int sqlNumber)
+        {
+            return sqlNumber == 2601 || sqlNumber == 2627;
+        }
+
+        return false;
     }
 }

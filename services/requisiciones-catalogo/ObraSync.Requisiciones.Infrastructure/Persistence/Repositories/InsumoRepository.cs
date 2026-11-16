@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using ObraSync.Requisiciones.Application.DTOs;
 using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Domain.Entities;
 
@@ -18,11 +19,14 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Repositories
             _context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
-        public async Task<IReadOnlyList<Insumo>> GetFilteredAsync(
+        public async Task<PaginaDe<Insumo>> GetFilteredAsync(
             string? search = null,
             bool soloActivos = true,
+            ParametrosPagina? paginacion = null,
             CancellationToken cancellationToken = default)
         {
+            var p = paginacion ?? new ParametrosPagina();
+
             var dbQuery = _context.Insumos.AsNoTracking().AsQueryable();
 
             if (soloActivos)
@@ -37,9 +41,16 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Repositories
                                              EF.Functions.Like(i.Descripcion, $"%{term}%"));
             }
 
-            return await dbQuery
+            var total = await dbQuery.CountAsync(cancellationToken);
+
+            var items = await dbQuery
                 .OrderBy(i => i.Codigo)
+                .ThenBy(i => i.Id)
+                .Skip(p.Saltear)
+                .Take(p.Tamano)
                 .ToListAsync(cancellationToken);
+
+            return new PaginaDe<Insumo>(items, total);
         }
 
         public async Task<IReadOnlyList<Insumo>> GetByIdsAsync(

@@ -2,15 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using ObraSync.Requisiciones.Application.DTOs;
 using ObraSync.Requisiciones.Domain.Entities;
 
 namespace ObraSync.Requisiciones.Application.Interfaces
 {
     public interface IInsumoRepository
     {
-        Task<IReadOnlyList<Insumo>> GetFilteredAsync(
+        Task<PaginaDe<Insumo>> GetFilteredAsync(
             string? search = null,
             bool soloActivos = true,
+            ParametrosPagina? paginacion = null,
             CancellationToken cancellationToken = default);
 
         Task<IReadOnlyList<Insumo>> GetByIdsAsync(

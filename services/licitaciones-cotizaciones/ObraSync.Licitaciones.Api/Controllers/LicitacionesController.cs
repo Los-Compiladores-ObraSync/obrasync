@@ -42,13 +42,26 @@ public class LicitacionesController : ControllerBase
     [HttpGet]
     [Authorize(Roles = "Comprador,Proveedor,Admin")]
     [ProducesResponseType(typeof(IEnumerable<LicitacionResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<IReadOnlyList<LicitacionResponseDto>>> ListarLicitaciones(
         [FromQuery] Guid? obraId = null,
         [FromQuery] string? estado = null,
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamano = 50,
         CancellationToken cancellationToken = default)
     {
+        var p = new ParametrosPagina(pagina, tamano);
+        var error = p.Validar();
+        if (error is not null)
+        {
+            return Problem(
+                detail: error,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Paginación inválida");
+        }
+
         var rolUsuario = User.IsInRole("Proveedor")
             ? "Proveedor"
             : User.FindFirstValue("role") ?? User.FindFirstValue(ClaimTypes.Role);
@@ -64,9 +77,14 @@ public class LicitacionesController : ControllerBase
             }
         }
 
-        var query = new GetLicitacionesQuery(obraId, estado, rolUsuario, proveedorId);
-        var licitaciones = await _getLicitacionesHandler.Handle(query, cancellationToken);
-        return Ok(licitaciones);
+        var query = new GetLicitacionesQuery(obraId, estado, rolUsuario, proveedorId, p);
+        var resultado = await _getLicitacionesHandler.Handle(query, cancellationToken);
+
+        Response.Headers["X-Total-Count"] = resultado.Total.ToString();
+        Response.Headers["X-Page"] = p.Pagina.ToString();
+        Response.Headers["X-Page-Size"] = p.Tamano.ToString();
+
+        return Ok(resultado.Items);
     }
 
     /// <summary>

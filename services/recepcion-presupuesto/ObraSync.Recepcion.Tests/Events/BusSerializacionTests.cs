@@ -116,6 +116,70 @@ public class BusSerializacionTests
         Assert.NotNull(evento);
         Assert.Equal(10m, evento!.Items[0].CantidadRecibida);
     }
+
+    [Fact]
+    public async Task Bus_serializa_OrdenCompraBloqueadaEvent_con_montos_como_numero()
+    {
+        var evento = new OrdenCompraBloqueadaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: Guid.NewGuid(),
+            ObraId: Guid.NewGuid(),
+            ProveedorId: Guid.NewGuid(),
+            PartidaId: Guid.NewGuid(),
+            Etapa: "Estructura",
+            MontoOrdenCompra: 75_000.50m,
+            MontoAsignadoPartida: 100_000m,
+            MontoComprometidoActual: 40_000m,
+            MontoProyectado: 115_000.50m,
+            Exceso: 15_000.50m,
+            Motivo: "El monto proyectado supera la partida asignada (#95).");
+
+        var capturador = new CapturaCuerpo();
+
+        await using var provider = new ServiceCollection()
+            .AddSingleton(capturador)
+            .AddMassTransitTestHarness(x =>
+            {
+                x.AddConsumer<CapturaCuerpoBloqueoConsumer>();
+                x.UsingInMemory((context, cfg) =>
+                {
+                    cfg.UseRawJsonSerializer();
+                    cfg.ConfigureJsonSerializerOptions(opts =>
+                    {
+                        for (var i = opts.Converters.Count - 1; i >= 0; i--)
+                        {
+                            if (opts.Converters[i].GetType().Name == "StringDecimalJsonConverter")
+                                opts.Converters.RemoveAt(i);
+                        }
+
+                        opts.NumberHandling = JsonNumberHandling.AllowReadingFromString;
+                        return opts;
+                    });
+                    cfg.ConfigureEndpoints(context);
+                });
+            })
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetRequiredService<ITestHarness>();
+        await harness.Start();
+
+        await harness.Bus.Publish(evento);
+
+        Assert.True(await harness.Published.Any<OrdenCompraBloqueadaEvent>());
+        Assert.True(await harness.Consumed.Any<OrdenCompraBloqueadaEvent>());
+        Assert.True(capturador.Cuerpos.TryDequeue(out var json), "El consumidor no capturó el cuerpo.");
+        _output.WriteLine(json);
+
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        Assert.Equal(JsonValueKind.Number, root.GetProperty("montoOrdenCompra").ValueKind);
+        Assert.Equal(JsonValueKind.Number, root.GetProperty("montoAsignadoPartida").ValueKind);
+        Assert.Equal(JsonValueKind.Number, root.GetProperty("montoComprometidoActual").ValueKind);
+        Assert.Equal(JsonValueKind.Number, root.GetProperty("montoProyectado").ValueKind);
+        Assert.Equal(JsonValueKind.Number, root.GetProperty("exceso").ValueKind);
+    }
 }
 
 public class CapturaCuerpo
@@ -130,6 +194,19 @@ public class CapturaCuerpoConsumer : IConsumer<RecepcionConfirmadaEvent>
     public CapturaCuerpoConsumer(CapturaCuerpo captura) => _captura = captura;
 
     public Task Consume(ConsumeContext<RecepcionConfirmadaEvent> context)
+    {
+        _captura.Cuerpos.Enqueue(Encoding.UTF8.GetString(context.ReceiveContext.GetBody()));
+        return Task.CompletedTask;
+    }
+}
+
+public class CapturaCuerpoBloqueoConsumer : IConsumer<OrdenCompraBloqueadaEvent>
+{
+    private readonly CapturaCuerpo _captura;
+
+    public CapturaCuerpoBloqueoConsumer(CapturaCuerpo captura) => _captura = captura;
+
+    public Task Consume(ConsumeContext<OrdenCompraBloqueadaEvent> context)
     {
         _captura.Cuerpos.Enqueue(Encoding.UTF8.GetString(context.ReceiveContext.GetBody()));
         return Task.CompletedTask;

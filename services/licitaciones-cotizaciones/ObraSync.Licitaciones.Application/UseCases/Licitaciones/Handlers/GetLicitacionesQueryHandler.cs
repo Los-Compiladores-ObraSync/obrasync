@@ -19,7 +19,7 @@ public class GetLicitacionesQueryHandler
         _cotizacionRepository = cotizacionRepository ?? throw new ArgumentNullException(nameof(cotizacionRepository));
     }
 
-    public async Task<IReadOnlyList<LicitacionResponseDto>> Handle(
+    public async Task<PaginaDe<LicitacionResponseDto>> Handle(
         GetLicitacionesQuery query,
         CancellationToken cancellationToken = default)
     {
@@ -28,13 +28,14 @@ public class GetLicitacionesQueryHandler
             ? EstadoLicitacion.Abierta.ToString()
             : query.Estado;
 
-        var licitaciones = await _repository.GetFilteredAsync(
+        var pagina = await _repository.GetFilteredAsync(
             query.ObraId,
             estadoEfectivo,
             query.RolUsuario,
+            query.Paginacion,
             cancellationToken);
 
-        var dtos = licitaciones.Select(l => l.ToDto()).ToList();
+        var dtos = pagina.Items.Select(l => l.ToDto()).ToList();
 
         // Solo al Proveedor se le marca cuáles ya cotizó (una consulta para toda la lista).
         // Comprador y Admin reciben null: para ellos el dato no tiene sentido.
@@ -52,6 +53,6 @@ public class GetLicitacionesQueryHandler
             }
         }
 
-        return dtos;
+        return new PaginaDe<LicitacionResponseDto>(dtos, pagina.Total);
     }
 }

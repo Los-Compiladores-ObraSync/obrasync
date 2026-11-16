@@ -12,6 +12,9 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Configurations
 
             builder.HasKey(i => i.Id);
 
+            builder.Property(i => i.Id)
+                .ValueGeneratedNever();
+
             builder.Property(i => i.RequisicionId)
                 .IsRequired();
 

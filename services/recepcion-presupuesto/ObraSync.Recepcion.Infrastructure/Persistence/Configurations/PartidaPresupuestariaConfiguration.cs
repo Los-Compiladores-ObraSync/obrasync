@@ -15,6 +15,21 @@ public class PartidaPresupuestariaConfiguration : IEntityTypeConfiguration<Parti
         // ObraId es un GUID que apunta al servicio Usuarios y Obras.
         builder.HasIndex(p => p.ObraId);
 
+        // Claves únicas de negocio (#195):
+        // 1. No pueden existir dos partidas con el mismo código en la misma obra.
+        builder.HasIndex(p => new { p.ObraId, p.CodigoPartida })
+            .IsUnique();
+
+        // 2. Solo puede existir una partida por (ObraId, Etapa), incluyendo la partida
+        //    general de toda la obra (Etapa = NULL). HasFilter(null) evita el filtro
+        //    por defecto "[Etapa] IS NOT NULL" de EF Core en SQL Server.
+        builder.HasIndex(p => new { p.ObraId, p.Etapa })
+            .IsUnique()
+            .HasFilter(null);
+
+        builder.Property(p => p.RowVersion)
+            .IsRowVersion();
+
         builder.Property(p => p.Etapa)
             .HasMaxLength(200);
 

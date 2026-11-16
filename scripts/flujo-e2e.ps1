@@ -1,4 +1,4 @@
-# flujo-e2e.ps1 - recorrido B.2: Requisicion -> Licitacion -> OC -> Recepcion, todo por el Gateway
+﻿# flujo-e2e.ps1 - recorrido B.2: Requisicion -> Licitacion -> OC -> Recepcion, todo por el Gateway
 $ErrorActionPreference = 'Stop'
 $gw = 'http://localhost:5000'
 
@@ -75,3 +75,50 @@ Start-Sleep -Seconds 3
 $pend = Api Get '/api/recepciones/ordenes-pendientes' $capataz
 Write-Host "8. Ordenes pendientes en Recepcion: $($pend.Count)"
 $pend | ConvertTo-Json -Depth 5
+
+# 9. Capataz registra la recepción física de la OC adjudicada (#105)
+$ocPendiente = $pend | Where-Object { $_.obraId -eq $obra.id } | Select-Object -First 1
+if (-not $ocPendiente) {
+  $ocPendiente = $pend | Select-Object -First 1
+}
+
+if ($ocPendiente) {
+  $numeroRemito = "REM-E2E-" + (Get-Random -Minimum 100000 -Maximum 999999)
+  $fechaHoy = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+  $detalles = @($ocPendiente.items | ForEach-Object {
+    @{
+      articuloId          = $_.articuloId
+      descripcionArticulo = if ($_.descripcionArticulo) { $_.descripcionArticulo } else { "Material E2E" }
+      cantidadEsperada    = $_.cantidadEsperada
+      cantidadRecibida    = $_.cantidadEsperada
+      unidadMedida        = if ($_.unidadMedida) { $_.unidadMedida } else { "u" }
+      conforme            = $true
+      observacion         = "Recepción total física en obra (flujo-e2e #105)"
+    }
+  })
+
+  $rec = Api Post '/api/recepciones' $capataz @{
+    obraId         = $ocPendiente.obraId
+    ordenCompraId  = $ocPendiente.ordenCompraId
+    numeroRemito   = $numeroRemito
+    fechaRecepcion = $fechaHoy
+    observaciones  = "Recepción física registrada por flujo-e2e (#105)"
+    detalles       = $detalles
+  }
+  Write-Host "9. Recepción física registrada exitosamente: $($rec.id)"
+  Write-Host "   Remito: $($rec.numeroRemito) | Estado: $($rec.estado) | Total ítems: $($rec.detalles.Count)"
+
+  # 10. Consulta de la recepción creada y verificación de que la OC ya no figura pendiente
+  $recConsultada = Api Get "/api/recepciones/$($rec.id)" $capataz
+  Write-Host "10. Recepción consultada por ID: $($recConsultada.id) (Estado: $($recConsultada.estado))"
+
+  $pendDespues = Api Get '/api/recepciones/ordenes-pendientes' $capataz
+  $siguePendiente = $pendDespues | Where-Object { $_.ordenCompraId -eq $ocPendiente.ordenCompraId }
+  if (-not $siguePendiente) {
+    Write-Host "11. Verificación OK: La OC $($ocPendiente.ordenCompraId) fue recibida y ya no figura en órdenes pendientes." -ForegroundColor Green
+  } else {
+    Write-Host "11. Aviso: La OC aún figura pendiente." -ForegroundColor Yellow
+  }
+} else {
+  Write-Host "No se encontraron órdenes pendientes para recibir en Recepción." -ForegroundColor Yellow
+}

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using ObraSync.Requisiciones.Domain.Constants;
 
@@ -21,7 +22,12 @@ namespace ObraSync.Requisiciones.Domain.Entities
         public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
         public DateTime? FechaAprobacion { get; set; }
         public DateTime? FechaRechazo { get; set; }
+
+        [Timestamp]
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+
         public List<RequisicionItem> Items { get; set; } = new();
+        public List<HistorialRechazoRequisicion> HistorialRechazos { get; set; } = new();
 
         public Requisicion() { }
 
@@ -140,10 +146,75 @@ namespace ObraSync.Requisiciones.Domain.Entities
             if (!string.Equals(Estado, EstadoRequisicion.Pendiente, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException($"No se puede rechazar una requisición en estado '{Estado}'. Solo se pueden rechazar requisiciones pendientes.");
 
+            var fechaEfectiva = fechaRechazo?.ToUniversalTime() ?? DateTime.UtcNow;
+
             Estado = EstadoRequisicion.Rechazada;
             RechazadorId = rechazadorId;
             MotivoRechazo = motivoLimpio;
-            FechaRechazo = fechaRechazo?.ToUniversalTime() ?? DateTime.UtcNow;
+            FechaRechazo = fechaEfectiva;
+
+            HistorialRechazos.Add(new HistorialRechazoRequisicion(
+                Guid.NewGuid(),
+                Id,
+                rechazadorId,
+                motivoLimpio,
+                fechaEfectiva));
+        }
+
+        public void Reenviar(
+            IEnumerable<RequisicionItem> nuevosItems,
+            string? etapa = null,
+            string? observaciones = null)
+        {
+            if (!string.Equals(Estado, EstadoRequisicion.Rechazada, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Solo se pueden editar y reenviar requisiciones en estado '{EstadoRequisicion.Rechazada}'. Estado actual: '{Estado}'.");
+            }
+
+            var listaItems = nuevosItems?.ToList() ?? new List<RequisicionItem>();
+            if (listaItems.Count == 0)
+            {
+                throw new ArgumentException("La requisición debe contener al menos un ítem.", nameof(nuevosItems));
+            }
+
+            // Si la requisición tenía un rechazo cargado en cabecera que no estuviera aún en HistorialRechazos, lo asentamos
+            if (!string.IsNullOrWhiteSpace(MotivoRechazo))
+            {
+                var motivoActual = MotivoRechazo.Trim();
+                var fechaActual = FechaRechazo ?? DateTime.UtcNow;
+                var yaRegistrado = HistorialRechazos.Any(h =>
+                    string.Equals(h.Motivo, motivoActual, StringComparison.Ordinal) &&
+                    h.RechazadorId == RechazadorId &&
+                    h.FechaRechazo == fechaActual);
+
+                if (!yaRegistrado)
+                {
+                    HistorialRechazos.Add(new HistorialRechazoRequisicion(
+                        Guid.NewGuid(),
+                        Id,
+                        RechazadorId,
+                        motivoActual,
+                        fechaActual));
+                }
+            }
+
+            Etapa = string.IsNullOrWhiteSpace(etapa) ? null : etapa.Trim();
+            Observaciones = string.IsNullOrWhiteSpace(observaciones) ? null : observaciones.Trim();
+
+            Items.Clear();
+            foreach (var item in listaItems)
+            {
+                item.RequisicionId = Id;
+                Items.Add(item);
+            }
+
+            // Volvemos a Pendiente limpiando el rechazo activo de la cabecera (ya quedó en HistorialRechazos)
+            Estado = EstadoRequisicion.Pendiente;
+            RechazadorId = null;
+            MotivoRechazo = null;
+            FechaRechazo = null;
+            AprobadorId = null;
+            FechaAprobacion = null;
         }
     }
 }

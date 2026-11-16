@@ -701,4 +701,153 @@ public class ObrasEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         });
         Assert.Equal(HttpStatusCode.NotFound, putInactivaResp.StatusCode);
     }
+
+    // ── Tarjeta #182: Paginación en GET /api/Obras y GET /api/usuarios/capataces ──
+
+    [Fact]
+    public async Task GetObras_PrimeraYUltimaPagina_DevuelveCantidadCorrectaYHeadersDePaginacion()
+    {
+        var capatazId = await ObtenerIdCapatazSembradoAsync();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Capataz, capatazId));
+
+        // El capataz sembrado tiene 3 obras activas asignadas
+        var respPag1 = await client.GetAsync("/api/Obras?pagina=1&tamano=2");
+        Assert.Equal(HttpStatusCode.OK, respPag1.StatusCode);
+        Assert.Equal("3", respPag1.Headers.GetValues("X-Total-Count").Single());
+        Assert.Equal("1", respPag1.Headers.GetValues("X-Page").Single());
+        Assert.Equal("2", respPag1.Headers.GetValues("X-Page-Size").Single());
+
+        var obrasPag1 = await respPag1.Content.ReadFromJsonAsync<List<ObraResponseDto>>();
+        Assert.NotNull(obrasPag1);
+        Assert.Equal(2, obrasPag1.Count);
+
+        // Última página (página 2 de tamaño 2 -> 1 fila restante, mismo X-Total-Count = 3)
+        var respPag2 = await client.GetAsync("/api/Obras?pagina=2&tamano=2");
+        Assert.Equal(HttpStatusCode.OK, respPag2.StatusCode);
+        Assert.Equal("3", respPag2.Headers.GetValues("X-Total-Count").Single());
+        Assert.Equal("2", respPag2.Headers.GetValues("X-Page").Single());
+        Assert.Equal("2", respPag2.Headers.GetValues("X-Page-Size").Single());
+
+        var obrasPag2 = await respPag2.Content.ReadFromJsonAsync<List<ObraResponseDto>>();
+        Assert.NotNull(obrasPag2);
+        Assert.Single(obrasPag2);
+    }
+
+    [Theory]
+    [InlineData(0, 10)]
+    [InlineData(-1, 10)]
+    [InlineData(1, 0)]
+    [InlineData(1, 51)]
+    public async Task GetObras_ParametrosFueraDeRango_Retorna400ProblemDetailsConCorrelationId(int pagina, int tamano)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Admin));
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", "corr-pag-obras-182");
+
+        var response = await client.GetAsync($"/api/Obras?pagina={pagina}&tamano={tamano}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Paginación inválida", json.GetProperty("title").GetString());
+        Assert.Equal(400, json.GetProperty("status").GetInt32());
+        Assert.Equal("corr-pag-obras-182", json.GetProperty("correlationId").GetString());
+    }
+
+    [Fact]
+    public async Task GetObras_OrdenEstableConMismoNombre_DesempataPorIdYNoRepiteNiPierdeFilas()
+    {
+        _factory.CreateClient();
+        Guid capatazId;
+        var idsEsperados = new List<Guid>();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+            var context = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+
+            var email = $"capataz.estable.{Guid.NewGuid():N}@obrasync.com";
+            var capataz = new AppUser
+            {
+                UserName = email,
+                Email = email,
+                NombreCompleto = "Capataz Orden Estable",
+                Activo = true,
+                EmailConfirmed = true
+            };
+            await userManager.CreateAsync(capataz, "Password123!");
+            await userManager.AddToRoleAsync(capataz, UserRoles.Capataz);
+            capatazId = capataz.Id;
+
+            // 4 obras con exactamente el mismo Nombre y distinta ubicación para forzar el desempate por Id
+            for (int i = 1; i <= 4; i++)
+            {
+                var obra = new Obra
+                {
+                    Id = Guid.NewGuid(),
+                    Nombre = "Obra Mismo Nombre Empate",
+                    Ubicacion = $"Ubicación {i} - {Guid.NewGuid():N}",
+                    CapatazId = capatazId,
+                    Activa = true
+                };
+                idsEsperados.Add(obra.Id);
+                context.Obras.Add(obra);
+            }
+
+            await context.SaveChangesAsync();
+        }
+
+        idsEsperados.Sort();
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Capataz, capatazId));
+
+        var resp1 = await client.GetAsync("/api/Obras?pagina=1&tamano=2");
+        var pag1 = await resp1.Content.ReadFromJsonAsync<List<ObraResponseDto>>();
+
+        var resp2 = await client.GetAsync("/api/Obras?pagina=2&tamano=2");
+        var pag2 = await resp2.Content.ReadFromJsonAsync<List<ObraResponseDto>>();
+
+        Assert.NotNull(pag1);
+        Assert.NotNull(pag2);
+        Assert.Equal("4", resp1.Headers.GetValues("X-Total-Count").Single());
+
+        var idsRecibidos = pag1.Select(o => o.Id).Concat(pag2.Select(o => o.Id)).ToList();
+        Assert.Equal(4, idsRecibidos.Distinct().Count());
+        Assert.Equal(idsEsperados, idsRecibidos);
+    }
+
+    [Fact]
+    public async Task GetCapataces_EndpointHttp_PaginacionYValidacion400FuncionanCorrectamente()
+    {
+        await CrearOtroCapatazConObraAsync();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Admin));
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", "corr-capataces-182");
+
+        // 1. Primera página con tamano=1
+        var resp1 = await client.GetAsync("/api/usuarios/capataces?pagina=1&tamano=1");
+        Assert.Equal(HttpStatusCode.OK, resp1.StatusCode);
+        var total = int.Parse(resp1.Headers.GetValues("X-Total-Count").Single());
+        Assert.True(total >= 2);
+        Assert.Equal("1", resp1.Headers.GetValues("X-Page").Single());
+        Assert.Equal("1", resp1.Headers.GetValues("X-Page-Size").Single());
+        var items1 = await resp1.Content.ReadFromJsonAsync<List<CapatazDto>>();
+        Assert.NotNull(items1);
+        Assert.Single(items1);
+
+        // 2. Parámetros inválidos: pagina=0 y tamano=51
+        var respInvalida0 = await client.GetAsync("/api/usuarios/capataces?pagina=0&tamano=10");
+        Assert.Equal(HttpStatusCode.BadRequest, respInvalida0.StatusCode);
+
+        var respInvalida51 = await client.GetAsync("/api/usuarios/capataces?pagina=1&tamano=51");
+        Assert.Equal(HttpStatusCode.BadRequest, respInvalida51.StatusCode);
+        var problem = await respInvalida51.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Paginación inválida", problem.GetProperty("title").GetString());
+        Assert.Equal("corr-capataces-182", problem.GetProperty("correlationId").GetString());
+    }
 }

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:obrasync:events:orden-compra-bloqueada:v1",
+  "title": "OrdenCompraBloqueadaEvent",
+  "description": "Evento de auditoría publicado por el microservicio de Recepción y Control Presupuestario cuando una Orden de Compra supera la partida presupuestaria asignada a la obra/etapa y queda en estado Bloqueada (#95, #154).",
+  "type": "object",
+  "required": [
+    "eventId",
+    "occurredAt",
+    "correlationId",
+    "ordenCompraId",
+    "obraId",
+    "proveedorId",
+    "partidaId",
+    "montoOrdenCompra",
+    "montoAsignadoPartida",
+    "montoComprometidoActual",
+    "montoProyectado",
+    "exceso",
+    "motivo"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador único del evento para garantizar procesamiento idempotente en los consumidores."
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha y hora en que ocurrió el evento (en UTC)."
+    },
+    "correlationId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de correlación propagado desde el API Gateway (X-Correlation-ID) para trazabilidad transversal."
+    },
+    "ordenCompraId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de la orden de compra bloqueada."
+    },
+    "obraId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de la obra destino."
+    },
+    "proveedorId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador del proveedor adjudicado."
+    },
+    "partidaId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de la partida presupuestaria que fue superada."
+    },
+    "etapa": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Etapa de obra evaluada (mismo texto que viaja en OrdenCompraEmitidaEvent, o null si corresponde a la partida general de la obra)."
+    },
+    "montoOrdenCompra": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Monto total de la orden de compra bloqueada."
+    },
+    "montoAsignadoPartida": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Monto total presupuestado en la partida de la etapa/obra."
+    },
+    "montoComprometidoActual": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Monto comprometido acumulado en la partida antes de evaluar esta orden de compra."
+    },
+    "montoProyectado": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Suma de montoComprometidoActual más montoOrdenCompra que provocó el desvío."
+    },
+    "exceso": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Diferencia en que el montoProyectado supera al montoAsignadoPartida."
+    },
+    "motivo": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "Descripción detallada del motivo del bloqueo por desvío presupuestario."
+    }
+  },
+  "additionalProperties": false
+}

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using ObraSync.Contracts.Events;
 using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Domain.Entities;
+using ObraSync.Recepcion.Domain.Presupuestos;
 using ObraSync.Recepcion.Infrastructure.Persistence;
 
 namespace ObraSync.Recepcion.Infrastructure.Consumers;
@@ -28,6 +29,14 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
     public async Task Consume(ConsumeContext<OrdenCompraEmitidaEvent> context)
     {
         var msg = context.Message;
+        var correlationId = msg.CorrelationId != Guid.Empty
+            ? msg.CorrelationId
+            : (context.CorrelationId ?? Guid.Empty);
+
+        using var logScope = _logger.BeginScope(new Dictionary<string, object>
+        {
+            ["CorrelationId"] = correlationId
+        });
 
         // ── PASO 1: Validación básica del payload ───────────────────────────
         // Nota de diseño:
@@ -47,8 +56,8 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
                                string.IsNullOrWhiteSpace(i.UnidadMedida)))
         {
             _logger.LogWarning(
-                "OrdenCompraEmitidaEvent con payload inválido, se descarta. EventId: {EventId}, OrdenCompraId: {OrdenCompraId}",
-                msg.EventId, msg.OrdenCompraId);
+                "OrdenCompraEmitidaEvent con payload inválido, se descarta. EventId: {EventId}, OrdenCompraId: {OrdenCompraId}, CorrelationId: {CorrelationId}",
+                msg.EventId, msg.OrdenCompraId, correlationId);
             return;
         }
 
@@ -62,15 +71,15 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
         if (duplicadosEnPayload.Count > 0)
         {
             _logger.LogWarning(
-                "OrdenCompraEmitidaEvent contiene ArticuloId duplicados, se descarta. EventId: {EventId}, OrdenCompraId: {OrdenCompraId}, Artículos: {Articulos}",
-                msg.EventId, msg.OrdenCompraId, string.Join(", ", duplicadosEnPayload));
+                "OrdenCompraEmitidaEvent contiene ArticuloId duplicados, se descarta. EventId: {EventId}, OrdenCompraId: {OrdenCompraId}, CorrelationId: {CorrelationId}, Artículos: {Articulos}",
+                msg.EventId, msg.OrdenCompraId, correlationId, string.Join(", ", duplicadosEnPayload));
             return;
         }
 
         // ── PASO 3: Idempotencia nivel 1 (Evento ya procesado) ──────────────
         if (await _db.EventosProcesados.AnyAsync(e => e.EventId == msg.EventId, context.CancellationToken))
         {
-            _logger.LogInformation("Evento {EventId} duplicado, se descarta", msg.EventId);
+            _logger.LogInformation("Evento {EventId} duplicado, se descarta. CorrelationId: {CorrelationId}", msg.EventId, correlationId);
             return;
         }
 
@@ -103,8 +112,83 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
             }
             catch (ArgumentException ex)
             {
-                _logger.LogWarning(ex, "OrdenCompra {OrdenCompraId} rechazada por regla de dominio, se descarta", msg.OrdenCompraId);
+                _logger.LogWarning(ex, "OrdenCompra {OrdenCompraId} rechazada por regla de dominio, se descarta. CorrelationId: {CorrelationId}", msg.OrdenCompraId, correlationId);
                 return;
+            }
+
+            // ── CONTROL PRESUPUESTARIO Y EMPAREJAMIENTO DE ETAPA (#154, #94, #95, #195, #196) ──
+            var partidasObra = await _db.PartidasPresupuestarias
+                .Where(p => p.ObraId == msg.ObraId)
+                .ToListAsync(context.CancellationToken);
+
+            var partida = EmparejadorPartidaPresupuestaria.BuscarPartida(partidasObra, msg.Etapa);
+
+            if (partida is null)
+            {
+                // Regla #154 / #196: si no hay partida para la etapa ni general de obra,
+                // NO se bloquea la orden, pero se marca como SinPartidaPresupuestaria
+                // para visibilidad de Compras y auditoría.
+                oc.MarcarSinPartida();
+                _logger.LogWarning(
+                    "OrdenCompra {OrdenCompraId} para obra {ObraId} y etapa '{Etapa}' no encontró partida presupuestaria (específica ni general). Queda marcada como SinPartidaPresupuestaria. CorrelationId: {CorrelationId}",
+                    msg.OrdenCompraId, msg.ObraId, msg.Etapa ?? "sin etapa", correlationId);
+            }
+            else
+            {
+                oc.SinPartidaPresupuestaria = false;
+                var evaluacion = EvaluadorDesvioPresupuestario.Evaluar(partida, oc.MontoTotal);
+
+                if (evaluacion.DebeBloquearse)
+                {
+                    var motivo = evaluacion.Motivo.Length > 500
+                        ? evaluacion.Motivo[..500]
+                        : evaluacion.Motivo;
+
+                    oc.BloquearPorDesvioPresupuestario(motivo);
+
+                    var idCorrelacionBloqueo = correlationId != Guid.Empty
+                        ? correlationId
+                        : Guid.NewGuid();
+
+                    var eventoBloqueo = new OrdenCompraBloqueadaEvent(
+                        EventId: Guid.NewGuid(),
+                        OccurredAt: DateTime.UtcNow,
+                        CorrelationId: idCorrelacionBloqueo,
+                        OrdenCompraId: oc.Id,
+                        ObraId: oc.ObraId,
+                        ProveedorId: oc.ProveedorId,
+                        PartidaId: partida.Id,
+                        Etapa: oc.Etapa,
+                        MontoOrdenCompra: oc.MontoTotal,
+                        MontoAsignadoPartida: evaluacion.MontoAsignado,
+                        MontoComprometidoActual: evaluacion.GastoAcumulado,
+                        MontoProyectado: evaluacion.MontoProyectado,
+                        Exceso: evaluacion.Exceso,
+                        Motivo: motivo);
+
+                    await context.Publish(eventoBloqueo, context.CancellationToken);
+
+                    _logger.LogWarning(
+                        "OrdenCompra {OrdenCompraId} bloqueada por desvío presupuestario en partida {PartidaId} (Código: {CodigoPartida}). ObraId: {ObraId}, Etapa: {Etapa}, MontoOC: {MontoOC}, MontoAsignado: {MontoAsignado}, MontoComprometidoActual: {MontoComprometidoActual}, Exceso: {Exceso}. CorrelationId: {CorrelationId}. {Motivo}",
+                        oc.Id,
+                        partida.Id,
+                        partida.CodigoPartida,
+                        oc.ObraId,
+                        oc.Etapa ?? "sin etapa",
+                        oc.MontoTotal,
+                        evaluacion.MontoAsignado,
+                        evaluacion.GastoAcumulado,
+                        evaluacion.Exceso,
+                        idCorrelacionBloqueo,
+                        motivo);
+                }
+                else
+                {
+                    partida.ComprometerMonto(oc.MontoTotal);
+                    _logger.LogInformation(
+                        "Presupuesto comprometido en partida {PartidaId} (Código: {CodigoPartida}) por {MontoTotal} para OrdenCompra {OrdenCompraId}. CorrelationId: {CorrelationId}",
+                        partida.Id, partida.CodigoPartida, oc.MontoTotal, oc.Id, correlationId);
+                }
             }
 
             _ordenCompraRepository.Agregar(oc);
@@ -134,8 +218,8 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
             else
             {
                 _logger.LogInformation(
-                    "OrdenCompra {OrdenCompraId} ya existía y es idéntica al Evento {EventId}. Se registra solo el evento procesado.",
-                    msg.OrdenCompraId, msg.EventId);
+                    "OrdenCompra {OrdenCompraId} ya existía y es idéntica al Evento {EventId}. Se registra solo el evento procesado. CorrelationId: {CorrelationId}",
+                    msg.OrdenCompraId, msg.EventId, correlationId);
             }
 
             // Se agrega SOLO el evento procesado; la OC no se toca
@@ -152,11 +236,19 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
         {
             await _db.SaveChangesAsync(context.CancellationToken);
         }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Conflicto de concurrencia al comprometer la partida presupuestaria para OrdenCompra {OrdenCompraId} (Evento {EventId}). Se relanza para reintentar con el saldo actualizado (#195).",
+                msg.OrdenCompraId, msg.EventId);
+            throw;
+        }
         catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
         {
             _logger.LogInformation(
-                "OrdenCompra {OrdenCompraId} o Evento {EventId} duplicado (detectado por índice único en BD), se descarta",
-                msg.OrdenCompraId, msg.EventId);
+                "OrdenCompra {OrdenCompraId} o Evento {EventId} duplicado (detectado por índice único en BD), se descarta. CorrelationId: {CorrelationId}",
+                msg.OrdenCompraId, msg.EventId, correlationId);
             return;
         }
     }
@@ -170,11 +262,10 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
             diferencias.Add($"MontoTotal difiere (existente: {existente.MontoTotal}, evento: {evento.MontoTotal})");
         }
 
-        // La etapa opcional se compara normalizada igual que al crear la OC (vacío = sin etapa)
-        var etapaEvento = string.IsNullOrWhiteSpace(evento.Etapa) ? null : evento.Etapa.Trim();
-        if (!string.Equals(existente.Etapa, etapaEvento, StringComparison.Ordinal))
+        // La etapa opcional se compara normalizada en un único lugar (#196)
+        if (!NormalizadorEtapa.SonEquivalentes(existente.Etapa, evento.Etapa))
         {
-            diferencias.Add($"Etapa difiere (existente: {existente.Etapa ?? "sin etapa"}, evento: {etapaEvento ?? "sin etapa"})");
+            diferencias.Add($"Etapa difiere (existente: {existente.Etapa ?? "sin etapa"}, evento: {evento.Etapa ?? "sin etapa"})");
         }
 
         if (existente.Items.Count != evento.Items.Count)
