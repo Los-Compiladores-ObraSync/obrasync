@@ -19,5 +19,13 @@ Los esquemas JSON de esta carpeta son el contrato: si un resumen o un comentario
 
 - `RequisicionAprobadaEvent.json`: emitido por Requisiciones y Catálogo al aprobar una requisición; consumido por Licitaciones y Cotizaciones.
 - `OrdenCompraEmitidaEvent.json`: emitido por Licitaciones y Cotizaciones al adjudicar y emitir una orden de compra; consumido por Recepción y Control Presupuestario.
+- `OrdenCompraDespachadaEvent.json`: emitido por Licitaciones y Cotizaciones al marcar una orden de compra como despachada; consumido por Recepción y Control Presupuestario (#202). Su registro espejo en C# es `OrdenCompraDespachadaEvent.cs`.
 - `OrdenCompraBloqueadaEvent.json`: evento de auditoría emitido por Recepción y Control Presupuestario cuando una orden de compra supera la partida presupuestaria de la etapa/obra y queda en estado `Bloqueada` (#95, #154).
 - `RecepcionConfirmadaEvent.json`: emitido por Recepción y Control Presupuestario al confirmar una recepción física de materiales en obra.
+
+## Regla de orden y reintentos entre eventos de Orden de Compra
+
+En mensajería asíncrona (RabbitMQ + MassTransit), dos eventos distintos no tienen garantía estricta de orden global: `OrdenCompraDespachadaEvent` puede arribar a Recepción y Control Presupuestario **antes** de que se haya procesado `OrdenCompraEmitidaEvent` (por ejemplo, si el despacho ocurre inmediatamente después de adjudicar o ante un reintento en colas distintas).
+
+- **Comportamiento obligatorio en Recepción (#204):** si al consumir `OrdenCompraDespachadaEvent` todavía no existe la orden de compra (`ordenCompraId`) en `DB_Recepcion`, el consumidor **no debe descartar el mensaje ni registrar el `eventId` en `EventosProcesados`**. Debe fallar lanzando una excepción para que la política de reintentos de MassTransit vuelva a entregarlo hasta que `OrdenCompraEmitidaEvent` haya creado la orden.
+- Una vez persistida la orden en `DB_Recepcion`, el consumidor debe registrar el `eventId` en `EventosProcesados` y aplicar el estado de despacho de forma idempotente.
