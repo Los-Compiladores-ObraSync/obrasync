@@ -227,4 +227,40 @@ public class OrdenCompraTests
         Assert.Null(oc.MotivoBloqueo);
         Assert.NotNull(oc.UpdatedAt);
     }
+
+    [Fact]
+    public void MarcarSinPartida_MarcaBanderaSinPartidaPresupuestariaYActualizaFecha()
+    {
+        // Arrange (#196)
+        var item = OrdenCompraItem.Crear(Guid.NewGuid(), 5m, "UNIDAD", 100m);
+        var oc = OrdenCompra.Crear(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 500m, new[] { item });
+
+        Assert.False(oc.SinPartidaPresupuestaria);
+
+        // Act
+        oc.MarcarSinPartida();
+
+        // Assert
+        Assert.True(oc.SinPartidaPresupuestaria);
+        Assert.NotNull(oc.UpdatedAt);
+    }
+
+    [Fact]
+    public void AsignarPartida_RestauraBanderaSinPartidaAFalso()
+    {
+        // Arrange (#196)
+        var item = OrdenCompraItem.Crear(Guid.NewGuid(), 5m, "UNIDAD", 100m);
+        var oc = OrdenCompra.Crear(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 500m, new[] { item },
+            sinPartidaPresupuestaria: true);
+
+        Assert.True(oc.SinPartidaPresupuestaria);
+
+        // Act
+        oc.AsignarPartida();
+
+        // Assert
+        Assert.False(oc.SinPartidaPresupuestaria);
+        Assert.NotNull(oc.UpdatedAt);
+    }
 }

@@ -6,6 +6,7 @@ using ObraSync.Recepcion.Application.Exceptions;
 using ObraSync.Recepcion.Application.Mappings;
 using ObraSync.Recepcion.Application.UseCases.Partidas.Commands;
 using ObraSync.Recepcion.Domain.Entities;
+using ObraSync.Recepcion.Domain.Presupuestos;
 
 namespace ObraSync.Recepcion.Application.UseCases.Partidas.Handlers;
 
@@ -52,22 +53,15 @@ public class CrearPartidaPresupuestariaCommandHandler
             throw new RecepcionConflictoException($"Ya existe una partida con el código '{codigoLimpio}' para esta obra.");
         }
 
-        // Control de duplicados por obra y etapa (#195): una sola partida por (ObraId, Etapa),
+        // Control de duplicados por obra y etapa (#195, #196): una sola partida por (ObraId, Etapa)
+        // comparada de forma normalizada (sin distinguir mayúsculas, espacios ni tildes),
         // incluyendo la partida de toda la obra (Etapa == null).
-        bool etapaDuplicada;
-        if (etapaLimpia is not null)
-        {
-            var etapaNormalizada = etapaLimpia.ToLower();
-            etapaDuplicada = await _context.PartidasPresupuestarias
-                .AnyAsync(
-                    p => p.ObraId == req.ObraId && p.Etapa != null && p.Etapa.ToLower() == etapaNormalizada,
-                    cancellationToken);
-        }
-        else
-        {
-            etapaDuplicada = await _context.PartidasPresupuestarias
-                .AnyAsync(p => p.ObraId == req.ObraId && p.Etapa == null, cancellationToken);
-        }
+        var etapasExistentes = await _context.PartidasPresupuestarias
+            .Where(p => p.ObraId == req.ObraId)
+            .Select(p => p.Etapa)
+            .ToListAsync(cancellationToken);
+
+        var etapaDuplicada = etapasExistentes.Any(e => NormalizadorEtapa.SonEquivalentes(e, etapaLimpia));
 
         if (etapaDuplicada)
         {

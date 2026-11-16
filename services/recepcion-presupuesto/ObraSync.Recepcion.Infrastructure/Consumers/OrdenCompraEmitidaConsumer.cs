@@ -108,54 +108,78 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
                 return;
             }
 
-            // ── Evaluación de regla de desvío presupuestario (#94, #95, #154) ───
-            var partida = await ObtenerPartidaPresupuestariaAsync(oc.ObraId, oc.Etapa, context.CancellationToken);
-            var evaluacion = EvaluadorDesvioPresupuestario.Evaluar(partida, oc.MontoTotal);
+            // ── CONTROL PRESUPUESTARIO Y EMPAREJAMIENTO DE ETAPA (#154, #94, #95, #195, #196) ──
+            var partidasObra = await _db.PartidasPresupuestarias
+                .Where(p => p.ObraId == msg.ObraId)
+                .ToListAsync(context.CancellationToken);
 
-            if (evaluacion.DebeBloquearse)
+            var partida = EmparejadorPartidaPresupuestaria.BuscarPartida(partidasObra, msg.Etapa);
+
+            if (partida is null)
             {
-                var motivo = evaluacion.Motivo.Length > 500
-                    ? evaluacion.Motivo[..500]
-                    : evaluacion.Motivo;
-
-                oc.BloquearPorDesvioPresupuestario(motivo);
-
-                var correlationId = msg.CorrelationId != Guid.Empty
-                    ? msg.CorrelationId
-                    : Guid.NewGuid();
-
-                var eventoBloqueo = new OrdenCompraBloqueadaEvent(
-                    EventId: Guid.NewGuid(),
-                    OccurredAt: DateTime.UtcNow,
-                    CorrelationId: correlationId,
-                    OrdenCompraId: oc.Id,
-                    ObraId: oc.ObraId,
-                    ProveedorId: oc.ProveedorId,
-                    PartidaId: partida!.Id,
-                    Etapa: oc.Etapa,
-                    MontoOrdenCompra: oc.MontoTotal,
-                    MontoAsignadoPartida: evaluacion.MontoAsignado,
-                    MontoComprometidoActual: evaluacion.GastoAcumulado,
-                    MontoProyectado: evaluacion.MontoProyectado,
-                    Exceso: evaluacion.Exceso,
-                    Motivo: motivo);
-
-                await context.Publish(eventoBloqueo, context.CancellationToken);
-
+                // Regla #154 / #196: si no hay partida para la etapa ni general de obra,
+                // NO se bloquea la orden, pero se marca como SinPartidaPresupuestaria
+                // para visibilidad de Compras y auditoría.
+                oc.MarcarSinPartida();
                 _logger.LogWarning(
-                    "OrdenCompra {OrdenCompraId} bloqueada preventivamente por desvío presupuestario (#95). ObraId: {ObraId}, Etapa: {Etapa}, PartidaId: {PartidaId}, MontoOC: {MontoOC}, MontoAsignado: {MontoAsignado}, MontoComprometidoActual: {MontoComprometidoActual}, Exceso: {Exceso}",
-                    oc.Id,
-                    oc.ObraId,
-                    oc.Etapa ?? "sin etapa",
-                    partida.Id,
-                    oc.MontoTotal,
-                    evaluacion.MontoAsignado,
-                    evaluacion.GastoAcumulado,
-                    evaluacion.Exceso);
+                    "OrdenCompra {OrdenCompraId} para obra {ObraId} y etapa '{Etapa}' no encontró partida presupuestaria (específica ni general). Queda marcada como SinPartidaPresupuestaria.",
+                    msg.OrdenCompraId, msg.ObraId, msg.Etapa ?? "sin etapa");
             }
-            else if (partida is not null)
+            else
             {
-                partida.ComprometerMonto(oc.MontoTotal);
+                oc.SinPartidaPresupuestaria = false;
+                var evaluacion = EvaluadorDesvioPresupuestario.Evaluar(partida, oc.MontoTotal);
+
+                if (evaluacion.DebeBloquearse)
+                {
+                    var motivo = evaluacion.Motivo.Length > 500
+                        ? evaluacion.Motivo[..500]
+                        : evaluacion.Motivo;
+
+                    oc.BloquearPorDesvioPresupuestario(motivo);
+
+                    var correlationId = msg.CorrelationId != Guid.Empty
+                        ? msg.CorrelationId
+                        : Guid.NewGuid();
+
+                    var eventoBloqueo = new OrdenCompraBloqueadaEvent(
+                        EventId: Guid.NewGuid(),
+                        OccurredAt: DateTime.UtcNow,
+                        CorrelationId: correlationId,
+                        OrdenCompraId: oc.Id,
+                        ObraId: oc.ObraId,
+                        ProveedorId: oc.ProveedorId,
+                        PartidaId: partida.Id,
+                        Etapa: oc.Etapa,
+                        MontoOrdenCompra: oc.MontoTotal,
+                        MontoAsignadoPartida: evaluacion.MontoAsignado,
+                        MontoComprometidoActual: evaluacion.GastoAcumulado,
+                        MontoProyectado: evaluacion.MontoProyectado,
+                        Exceso: evaluacion.Exceso,
+                        Motivo: motivo);
+
+                    await context.Publish(eventoBloqueo, context.CancellationToken);
+
+                    _logger.LogWarning(
+                        "OrdenCompra {OrdenCompraId} bloqueada por desvío presupuestario en partida {PartidaId} (Código: {CodigoPartida}). ObraId: {ObraId}, Etapa: {Etapa}, MontoOC: {MontoOC}, MontoAsignado: {MontoAsignado}, MontoComprometidoActual: {MontoComprometidoActual}, Exceso: {Exceso}. {Motivo}",
+                        oc.Id,
+                        partida.Id,
+                        partida.CodigoPartida,
+                        oc.ObraId,
+                        oc.Etapa ?? "sin etapa",
+                        oc.MontoTotal,
+                        evaluacion.MontoAsignado,
+                        evaluacion.GastoAcumulado,
+                        evaluacion.Exceso,
+                        motivo);
+                }
+                else
+                {
+                    partida.ComprometerMonto(oc.MontoTotal);
+                    _logger.LogInformation(
+                        "Presupuesto comprometido en partida {PartidaId} (Código: {CodigoPartida}) por {MontoTotal} para OrdenCompra {OrdenCompraId}.",
+                        partida.Id, partida.CodigoPartida, oc.MontoTotal, oc.Id);
+                }
             }
 
             _ordenCompraRepository.Agregar(oc);
@@ -229,11 +253,10 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
             diferencias.Add($"MontoTotal difiere (existente: {existente.MontoTotal}, evento: {evento.MontoTotal})");
         }
 
-        // La etapa opcional se compara normalizada igual que al crear la OC (vacío = sin etapa)
-        var etapaEvento = string.IsNullOrWhiteSpace(evento.Etapa) ? null : evento.Etapa.Trim();
-        if (!string.Equals(existente.Etapa, etapaEvento, StringComparison.Ordinal))
+        // La etapa opcional se compara normalizada en un único lugar (#196)
+        if (!NormalizadorEtapa.SonEquivalentes(existente.Etapa, evento.Etapa))
         {
-            diferencias.Add($"Etapa difiere (existente: {existente.Etapa ?? "sin etapa"}, evento: {etapaEvento ?? "sin etapa"})");
+            diferencias.Add($"Etapa difiere (existente: {existente.Etapa ?? "sin etapa"}, evento: {evento.Etapa ?? "sin etapa"})");
         }
 
         if (existente.Items.Count != evento.Items.Count)
@@ -279,25 +302,5 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
         }
 
         return diferencias;
-    }
-
-    private async Task<PartidaPresupuestaria?> ObtenerPartidaPresupuestariaAsync(
-        Guid obraId,
-        string? etapa,
-        CancellationToken cancellationToken)
-    {
-        if (!string.IsNullOrWhiteSpace(etapa))
-        {
-            var etapaNormalizada = etapa.Trim().ToLower();
-            return await _db.PartidasPresupuestarias
-                .FirstOrDefaultAsync(
-                    p => p.ObraId == obraId && p.Etapa != null && p.Etapa.ToLower() == etapaNormalizada,
-                    cancellationToken);
-        }
-
-        return await _db.PartidasPresupuestarias
-            .FirstOrDefaultAsync(
-                p => p.ObraId == obraId && p.Etapa == null,
-                cancellationToken);
     }
 }

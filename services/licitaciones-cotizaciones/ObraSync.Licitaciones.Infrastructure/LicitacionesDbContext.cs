@@ -124,11 +124,15 @@ public class LicitacionesDbContext : DbContext
         modelBuilder.AddOutboxStateEntity();
 
         modelBuilder.Entity<MagicLink>(e =>
-    {
-        e.HasKey(x => x.Id);
-        e.HasIndex(x => x.Hash).IsUnique();
-        e.Property(x => x.Hash).IsRequired();
-    });
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.Hash).IsUnique();
+            e.Property(x => x.Hash)
+                .HasColumnName("TokenHash")
+                .HasMaxLength(64)
+                .IsRequired();
+            e.Ignore(x => x.TokenHash);
+        });
     
     }
 }

@@ -27,6 +27,10 @@ public class ObtenerRecepcionesQueryHandler
         {
             dbQuery = dbQuery.Where(r => r.ObraId == query.ObraId.Value);
         }
+        else if (query.ObrasPermitidas != null)
+        {
+            dbQuery = dbQuery.Where(r => query.ObrasPermitidas.Contains(r.ObraId));
+        }
 
         if (query.OrdenCompraId.HasValue)
         {

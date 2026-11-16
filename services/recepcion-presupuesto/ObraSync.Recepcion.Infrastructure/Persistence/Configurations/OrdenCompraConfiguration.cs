@@ -32,8 +32,13 @@ public class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCompra>
         builder.Property(o => o.MotivoBloqueo)
             .HasMaxLength(500);
 
+        builder.Property(o => o.SinPartidaPresupuestaria)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         // Índice no único para optimizar búsquedas por Obra
         builder.HasIndex(o => o.ObraId);
+        builder.HasIndex(o => o.SinPartidaPresupuestaria);
 
         // Relación 1 a N con Items en cascada
         builder.HasMany(o => o.Items)

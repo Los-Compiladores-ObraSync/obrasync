@@ -260,6 +260,30 @@ public class PartidasHandlersTests
         Assert.Null(inexistente);
     }
 
+    [Fact]
+    public async Task ObtenerPartidas_FiltrarPorEtapaConTildesYEspacios_DevuelveCoincidenciaNormalizada()
+    {
+        // Arrange (#196)
+        using var db = CreateInMemoryContext();
+        var obraId = Guid.NewGuid();
+
+        db.PartidasPresupuestarias.AddRange(
+            new PartidaPresupuestaria { Id = Guid.NewGuid(), ObraId = obraId, CodigoPartida = "PART-1", Descripcion = "Fund", Etapa = "Fundación", MontoAsignado = 1000 },
+            new PartidaPresupuestaria { Id = Guid.NewGuid(), ObraId = obraId, CodigoPartida = "PART-2", Descripcion = "Term", Etapa = "Terminaciones", MontoAsignado = 2000 }
+        );
+        await db.SaveChangesAsync();
+
+        var handler = new ObtenerPartidasQueryHandler(db);
+
+        // Act: Filtro sin tilde y con espacios
+        var resultado = await handler.Handle(new ObtenerPartidasQuery(ObraId: obraId, Etapa: "  fundacion "));
+
+        // Assert
+        var partida = Assert.Single(resultado);
+        Assert.Equal("PART-1", partida.CodigoPartida);
+        Assert.Equal("Fundación", partida.Etapa);
+    }
+
     private sealed class SqlException : Exception
     {
         public SqlException(int number) : base($"Violation of UNIQUE KEY constraint ({number}).")

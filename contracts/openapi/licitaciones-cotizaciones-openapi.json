@@ -3,7 +3,7 @@
   "info": {
     "title": "ObraSync.Licitaciones.Api",
     "version": "1.0",
-    "description": "API del microservicio de Licitaciones y Cotizaciones de ObraSync Enterprise. Primer corte (Sprint 1): pliegos y cotizaciones básicos. Magic Links y scoring quedan para el Sprint 2."
+    "description": "API del microservicio de Licitaciones y Cotizaciones de ObraSync Enterprise. Gestión de pliegos de licitación, recepción y validación de cotizaciones, matriz comparativa con scoring multicriterio y costos totales (CU-06/CU-07), emisión de órdenes de compra y cotización mediante enlaces temporales seguros de un solo uso (Magic Links)."
   },
   "security": [{ "bearerAuth": [] }],
   "paths": {
@@ -320,6 +320,137 @@
           "409": {
             "description": "La licitación ya se encuentra adjudicada o hay conflicto con el estado."
           }
+        }
+      }
+    },
+    "/api/licitaciones/{licitacionId}/magic-links": {
+      "post": {
+        "tags": ["MagicLinks"],
+        "summary": "Generar un enlace temporal de un solo uso (Magic Link) para que un proveedor cotice (Roles: Comprador, Admin)",
+        "parameters": [
+          {
+            "name": "licitacionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["proveedorId"],
+                "properties": {
+                  "proveedorId": { "type": "string", "format": "uuid" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Enlace generado exitosamente. El token en claro se devuelve una única vez y en base de datos solo se almacena su hash SHA-256.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["token", "hash", "url", "fechaDeVencimiento", "expiresIn", "horasVigencia"],
+                  "properties": {
+                    "token": {
+                      "type": "string",
+                      "description": "Token aleatorio criptográfico de 32 bytes en Base64 URL-safe (devuelto una única vez)."
+                    },
+                    "hash": {
+                      "type": "string",
+                      "description": "Alias retrocompatible del token para construir la ruta de cotización."
+                    },
+                    "url": {
+                      "type": "string",
+                      "description": "Ruta relativa del endpoint para cotizar con este enlace."
+                    },
+                    "fechaDeVencimiento": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "Fecha y hora exacta de vencimiento del enlace en UTC."
+                    },
+                    "expiresIn": {
+                      "type": "string",
+                      "description": "Duración legible configurada para la vigencia del enlace."
+                    },
+                    "horasVigencia": {
+                      "type": "number",
+                      "format": "double",
+                      "description": "Cantidad de horas de vigencia aplicadas según configuración."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/licitaciones/magic-links/{hash}/cotizar": {
+      "post": {
+        "tags": ["MagicLinks"],
+        "summary": "Cotizar un pliego utilizando un Magic Link de un solo uso (Público / AllowAnonymous)",
+        "security": [],
+        "parameters": [
+          {
+            "name": "hash",
+            "in": "path",
+            "required": true,
+            "description": "Token temporal de un solo uso recibido por el proveedor.",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["items", "flete", "plazoEntregaDias"],
+                "properties": {
+                  "flete": { "type": "number", "format": "double", "minimum": 0 },
+                  "plazoEntregaDias": { "type": "integer", "format": "int32", "minimum": 1 },
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "required": ["precioUnitario"],
+                      "properties": {
+                        "licitacionItemId": { "type": "string", "format": "uuid" },
+                        "articuloId": { "type": "string", "format": "uuid" },
+                        "precioUnitario": { "type": "number", "format": "double", "exclusiveMinimum": true, "minimum": 0 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cotización validada y registrada exitosamente.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CotizacionResponseDto" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
         }
       }
     }

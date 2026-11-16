@@ -17,6 +17,8 @@ export interface ItemOrdenPendiente {
 export interface OrdenPendiente {
   ordenCompraId: string
   obraId: string
+  etapa?: string | null
+  sinPartidaPresupuestaria?: boolean
   items: ItemOrdenPendiente[]
 }
 
