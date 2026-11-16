@@ -1,4 +1,5 @@
-import { apiFetch } from '../api/client'
+import { apiFetch, apiFetchPagina } from '../api/client'
+import { conPaginacion, traerTodas } from '../api/paginacion'
 import type {
   CrearCotizacionRequestDto,
   CrearLicitacionRequestDto,
@@ -12,7 +13,10 @@ import type {
  * Fuente: GET /api/licitaciones (Comprador, Proveedor, Admin)
  */
 export function listarLicitaciones(): Promise<LicitacionResponseDto[]> {
-  return apiFetch<LicitacionResponseDto[]>('/api/licitaciones')
+  // Trae todas las páginas (#172): la pantalla muestra la lista completa de pliegos.
+  return traerTodas((pagina) =>
+    apiFetchPagina<LicitacionResponseDto>(conPaginacion('/api/licitaciones', pagina)),
+  )
 }
 
 /**
@@ -55,8 +59,11 @@ export function crearCotizacion(
  * Fuente: GET /api/cotizaciones?licitacionId={id} (Comprador, Admin)
  */
 export function listarCotizaciones(licitacionId: string): Promise<CotizacionResponseDto[]> {
-  return apiFetch<CotizacionResponseDto[]>(
-    `/api/cotizaciones?licitacionId=${encodeURIComponent(licitacionId)}`,
+  // Trae todas las páginas (#172): comparar ofertas necesita TODAS las cotizaciones del pliego.
+  return traerTodas((pagina) =>
+    apiFetchPagina<CotizacionResponseDto>(
+      conPaginacion(`/api/cotizaciones?licitacionId=${encodeURIComponent(licitacionId)}`, pagina),
+    ),
   )
 }
 

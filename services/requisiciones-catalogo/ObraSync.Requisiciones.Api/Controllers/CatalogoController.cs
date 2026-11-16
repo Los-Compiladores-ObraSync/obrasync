@@ -33,19 +33,39 @@ namespace ObraSync.Requisiciones.Api.Controllers
         /// </summary>
         /// <param name="search">Filtro opcional por código o descripción del insumo. Búsqueda por subcadena (contiene), insensible a mayúsculas/minúsculas pero sensible a tildes según la collation de la base de datos (SQL_Latin1_General_CP1_CI_AS).</param>
         /// <param name="soloActivos">Filtrar únicamente insumos activos (por defecto true).</param>
+        /// <param name="pagina">Número de página (1 en adelante).</param>
+        /// <param name="tamano">Cantidad de elementos por página (entre 1 y 50).</param>
         /// <param name="cancellationToken">Token de cancelación.</param>
         [HttpGet("insumos")]
         [ProducesResponseType(typeof(IEnumerable<InsumoCatalogoDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         public async Task<ActionResult<IReadOnlyList<InsumoCatalogoDto>>> ListarInsumos(
             [FromQuery] string? search = null,
             [FromQuery] bool soloActivos = true,
+            [FromQuery] int pagina = 1,
+            [FromQuery] int tamano = 50,
             CancellationToken cancellationToken = default)
         {
-            var query = new GetInsumosQuery(search, soloActivos);
-            var insumos = await _getInsumosHandler.Handle(query, cancellationToken);
-            return Ok(insumos);
+            var p = new ParametrosPagina(pagina, tamano);
+            var error = p.Validar();
+            if (error is not null)
+            {
+                return Problem(
+                    detail: error,
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: "Paginación inválida");
+            }
+
+            var query = new GetInsumosQuery(search, soloActivos, p);
+            var resultado = await _getInsumosHandler.Handle(query, cancellationToken);
+
+            Response.Headers["X-Total-Count"] = resultado.Total.ToString();
+            Response.Headers["X-Page"] = p.Pagina.ToString();
+            Response.Headers["X-Page-Size"] = p.Tamano.ToString();
+
+            return Ok(resultado.Items);
         }
 
         /// <summary>

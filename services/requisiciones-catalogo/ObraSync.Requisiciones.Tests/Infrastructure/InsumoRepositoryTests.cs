@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using ObraSync.Requisiciones.Application.DTOs;
 using ObraSync.Requisiciones.Domain.Constants;
 using ObraSync.Requisiciones.Domain.Entities;
 using ObraSync.Requisiciones.Infrastructure.Persistence;
@@ -49,16 +51,17 @@ namespace ObraSync.Requisiciones.Tests.Infrastructure
                 soloActivos: true,
                 cancellationToken: CancellationToken.None);
 
-            Assert.Equal(6, resultado.Count);
-            Assert.All(resultado, i => Assert.True(i.Activo));
+            Assert.Equal(6, resultado.Total);
+            Assert.Equal(6, resultado.Items.Count);
+            Assert.All(resultado.Items, i => Assert.True(i.Activo));
 
             // Orden ascendente por Código
-            Assert.Equal("MAT-ARI-001", resultado[0].Codigo);
-            Assert.Equal("MAT-ARI-002", resultado[1].Codigo);
-            Assert.Equal("MAT-ARI-003", resultado[2].Codigo);
-            Assert.Equal("MAT-CAL-001", resultado[3].Codigo);
-            Assert.Equal("MAT-CEM-001", resultado[4].Codigo);
-            Assert.Equal("MAT-CEM-002", resultado[5].Codigo);
+            Assert.Equal("MAT-ARI-001", resultado.Items[0].Codigo);
+            Assert.Equal("MAT-ARI-002", resultado.Items[1].Codigo);
+            Assert.Equal("MAT-ARI-003", resultado.Items[2].Codigo);
+            Assert.Equal("MAT-CAL-001", resultado.Items[3].Codigo);
+            Assert.Equal("MAT-CEM-001", resultado.Items[4].Codigo);
+            Assert.Equal("MAT-CEM-002", resultado.Items[5].Codigo);
         }
 
         [Fact]
@@ -72,8 +75,9 @@ namespace ObraSync.Requisiciones.Tests.Infrastructure
                 soloActivos: false,
                 cancellationToken: CancellationToken.None);
 
-            Assert.Equal(7, resultado.Count);
-            Assert.Contains(resultado, i => !i.Activo && i.Codigo == "MAT-INA-001");
+            Assert.Equal(7, resultado.Total);
+            Assert.Equal(7, resultado.Items.Count);
+            Assert.Contains(resultado.Items, i => !i.Activo && i.Codigo == "MAT-INA-001");
         }
 
         [Fact]
@@ -87,9 +91,10 @@ namespace ObraSync.Requisiciones.Tests.Infrastructure
                 soloActivos: true,
                 cancellationToken: CancellationToken.None);
 
-            Assert.Equal(2, resultado.Count);
-            Assert.Contains(resultado, i => i.Codigo == "MAT-CEM-001");
-            Assert.Contains(resultado, i => i.Codigo == "MAT-CEM-002");
+            Assert.Equal(2, resultado.Total);
+            Assert.Equal(2, resultado.Items.Count);
+            Assert.Contains(resultado.Items, i => i.Codigo == "MAT-CEM-001");
+            Assert.Contains(resultado.Items, i => i.Codigo == "MAT-CEM-002");
         }
 
         [Fact]
@@ -103,8 +108,9 @@ namespace ObraSync.Requisiciones.Tests.Infrastructure
                 soloActivos: true,
                 cancellationToken: CancellationToken.None);
 
-            Assert.Single(resultado);
-            Assert.Equal("MAT-CEM-001", resultado[0].Codigo);
+            Assert.Equal(1, resultado.Total);
+            Assert.Single(resultado.Items);
+            Assert.Equal("MAT-CEM-001", resultado.Items[0].Codigo);
         }
 
         [Theory]
@@ -122,9 +128,10 @@ namespace ObraSync.Requisiciones.Tests.Infrastructure
                 soloActivos: true,
                 cancellationToken: CancellationToken.None);
 
-            Assert.Equal(2, resultado.Count);
-            Assert.Equal("MAT-CEM-001", resultado[0].Codigo);
-            Assert.Equal("MAT-CEM-002", resultado[1].Codigo);
+            Assert.Equal(2, resultado.Total);
+            Assert.Equal(2, resultado.Items.Count);
+            Assert.Equal("MAT-CEM-001", resultado.Items[0].Codigo);
+            Assert.Equal("MAT-CEM-002", resultado.Items[1].Codigo);
         }
 
         [Fact]
@@ -138,9 +145,10 @@ namespace ObraSync.Requisiciones.Tests.Infrastructure
                 soloActivos: true,
                 cancellationToken: CancellationToken.None);
 
-            Assert.Equal(2, resultado.Count);
-            Assert.Equal("MAT-CEM-001", resultado[0].Codigo);
-            Assert.Equal("MAT-CEM-002", resultado[1].Codigo);
+            Assert.Equal(2, resultado.Total);
+            Assert.Equal(2, resultado.Items.Count);
+            Assert.Equal("MAT-CEM-001", resultado.Items[0].Codigo);
+            Assert.Equal("MAT-CEM-002", resultado.Items[1].Codigo);
         }
 
         [Theory]
@@ -156,7 +164,8 @@ namespace ObraSync.Requisiciones.Tests.Infrastructure
                 soloActivos: true,
                 cancellationToken: CancellationToken.None);
 
-            Assert.Equal(6, resultado.Count);
+            Assert.Equal(6, resultado.Total);
+            Assert.Equal(6, resultado.Items.Count);
         }
 
         [Fact]
@@ -171,7 +180,8 @@ namespace ObraSync.Requisiciones.Tests.Infrastructure
                 cancellationToken: CancellationToken.None);
 
             Assert.NotNull(resultado);
-            Assert.Empty(resultado);
+            Assert.Equal(0, resultado.Total);
+            Assert.Empty(resultado.Items);
         }
 
         [Fact]
@@ -185,45 +195,45 @@ namespace ObraSync.Requisiciones.Tests.Infrastructure
                 search: "Río",
                 soloActivos: true,
                 cancellationToken: CancellationToken.None);
-            Assert.Single(conTildeRio);
-            Assert.Equal("MAT-ARI-001", conTildeRio[0].Codigo);
+            Assert.Single(conTildeRio.Items);
+            Assert.Equal("MAT-ARI-001", conTildeRio.Items[0].Codigo);
 
             // Búsqueda sin tilde "rio" no encuentra "Arena Gruesa Lavada de Río" por la collation sensible a acentos (_AS)
             var sinTildeRio = await repository.GetFilteredAsync(
                 search: "rio",
                 soloActivos: true,
                 cancellationToken: CancellationToken.None);
-            Assert.Empty(sinTildeRio);
+            Assert.Empty(sinTildeRio.Items);
 
             // Búsqueda con tilde "Granítica" encuentra "Piedra Partida Granítica 6-20 mm"
             var conTildeGranitica = await repository.GetFilteredAsync(
                 search: "Granítica",
                 soloActivos: true,
                 cancellationToken: CancellationToken.None);
-            Assert.Single(conTildeGranitica);
-            Assert.Equal("MAT-ARI-002", conTildeGranitica[0].Codigo);
+            Assert.Single(conTildeGranitica.Items);
+            Assert.Equal("MAT-ARI-002", conTildeGranitica.Items[0].Codigo);
 
             // Búsqueda sin tilde "Granitica" no encuentra nada
             var sinTildeGranitica = await repository.GetFilteredAsync(
                 search: "Granitica",
                 soloActivos: true,
                 cancellationToken: CancellationToken.None);
-            Assert.Empty(sinTildeGranitica);
+            Assert.Empty(sinTildeGranitica.Items);
 
             // Búsqueda con tilde "Albañilería" encuentra "Cemento de Albañilería Plasticor"
             var conTildeAlbanileria = await repository.GetFilteredAsync(
                 search: "Albañilería",
                 soloActivos: true,
                 cancellationToken: CancellationToken.None);
-            Assert.Single(conTildeAlbanileria);
-            Assert.Equal("MAT-CEM-002", conTildeAlbanileria[0].Codigo);
+            Assert.Single(conTildeAlbanileria.Items);
+            Assert.Equal("MAT-CEM-002", conTildeAlbanileria.Items[0].Codigo);
 
             // Búsqueda sin tilde "Albanileria" no encuentra nada
             var sinTildeAlbanileria = await repository.GetFilteredAsync(
                 search: "Albanileria",
                 soloActivos: true,
                 cancellationToken: CancellationToken.None);
-            Assert.Empty(sinTildeAlbanileria);
+            Assert.Empty(sinTildeAlbanileria.Items);
         }
 
         [Fact]
@@ -237,16 +247,45 @@ namespace ObraSync.Requisiciones.Tests.Infrastructure
                 search: "Descontinuado",
                 soloActivos: true,
                 cancellationToken: CancellationToken.None);
-            Assert.Empty(soloActivosResultado);
+            Assert.Empty(soloActivosResultado.Items);
 
             // Con soloActivos = false sí debe encontrarlo
             var incluyendoInactivosResultado = await repository.GetFilteredAsync(
                 search: "Descontinuado",
                 soloActivos: false,
                 cancellationToken: CancellationToken.None);
-            Assert.Single(incluyendoInactivosResultado);
-            Assert.Equal("MAT-INA-001", incluyendoInactivosResultado[0].Codigo);
-            Assert.False(incluyendoInactivosResultado[0].Activo);
+            Assert.Single(incluyendoInactivosResultado.Items);
+            Assert.Equal("MAT-INA-001", incluyendoInactivosResultado.Items[0].Codigo);
+            Assert.False(incluyendoInactivosResultado.Items[0].Activo);
+        }
+
+        [Fact]
+        public async Task GetFilteredAsync_ConPaginacion_DebeRetornarPaginaSolicitadaYTotalFiltrado()
+        {
+            await using var context = await CreateSeededDbContextAsync();
+            var repository = new InsumoRepository(context);
+
+            // Total activos: 6. Pagina 1, Tamano 2 -> 2 primeros
+            var p1 = await repository.GetFilteredAsync(
+                search: null,
+                soloActivos: true,
+                paginacion: new ParametrosPagina(Pagina: 1, Tamano: 2));
+
+            Assert.Equal(6, p1.Total);
+            Assert.Equal(2, p1.Items.Count);
+            Assert.Equal("MAT-ARI-001", p1.Items[0].Codigo);
+            Assert.Equal("MAT-ARI-002", p1.Items[1].Codigo);
+
+            // Pagina 3, Tamano 2 -> 2 últimos
+            var p3 = await repository.GetFilteredAsync(
+                search: null,
+                soloActivos: true,
+                paginacion: new ParametrosPagina(Pagina: 3, Tamano: 2));
+
+            Assert.Equal(6, p3.Total);
+            Assert.Equal(2, p3.Items.Count);
+            Assert.Equal("MAT-CEM-001", p3.Items[0].Codigo);
+            Assert.Equal("MAT-CEM-002", p3.Items[1].Codigo);
         }
     }
 }

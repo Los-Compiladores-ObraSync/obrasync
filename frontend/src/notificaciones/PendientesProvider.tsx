@@ -24,6 +24,9 @@ export function PendientesProvider({
   const { usuario } = useAuth()
   const puedeVer = usuario ? ROLES_QUE_VEN_PENDIENTES.includes(usuario.rol) : false
   const [lista, setLista] = useState<RequisicionResponseDto[]>([])
+  // Total que informa el servicio (X-Total-Count, #172): la lista trae como mucho una página,
+  // pero la campana tiene que mostrar cuántas pendientes hay en total.
+  const [total, setTotal] = useState<number | undefined>(undefined)
   const [cargado, setCargado] = useState(false)
   const [huboError, setHuboError] = useState(false)
 
@@ -44,7 +47,8 @@ export function PendientesProvider({
       try {
         const respuesta = await listarRequisiciones({ estado: 'Pendiente' })
         if (cancelado) return
-        setLista(respuesta)
+        setLista(respuesta.items)
+        setTotal(respuesta.total)
         setCargado(true)
         setHuboError(false)
       } catch {
@@ -74,13 +78,13 @@ export function PendientesProvider({
 
   const valor = useMemo(
     () => ({
-      cantidad: puedeVer ? lista.length : 0,
+      cantidad: puedeVer ? (total ?? lista.length) : 0,
       pendientes: puedeVer ? lista : [],
       cargado: puedeVer && cargado,
       huboError: puedeVer && huboError,
       refrescar,
     }),
-    [puedeVer, lista, cargado, huboError, refrescar],
+    [puedeVer, lista, total, cargado, huboError, refrescar],
   )
 
   return <PendientesContext.Provider value={valor}>{children}</PendientesContext.Provider>

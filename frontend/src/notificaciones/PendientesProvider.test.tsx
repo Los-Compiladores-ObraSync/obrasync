@@ -73,7 +73,19 @@ describe('PendientesProvider', () => {
     renderizar('Admin')
 
     await waitFor(() => expect(screen.getByTestId('cantidad')).toHaveTextContent('3'))
-    expect(pedidos[0]).toBe('?estado=Pendiente')
+    expect(pedidos[0]).toBe('?estado=Pendiente&pagina=1&tamano=50')
+  })
+
+  it('la campana cuenta el total que informa el servicio, no solo la página cargada (#172)', async () => {
+    server.use(
+      http.get('*/api/requisiciones', () =>
+        HttpResponse.json([{}, {}], { headers: { 'X-Total-Count': '7' } }),
+      ),
+    )
+    renderizar('Comprador')
+
+    await waitFor(() => expect(screen.getByTestId('cantidad')).toHaveTextContent('7'))
+    expect(screen.getByTestId('lista')).toHaveTextContent('2')
   })
 
   it.each(['Capataz', 'Proveedor'])('el %s no pide nada y ve 0', async (rol) => {

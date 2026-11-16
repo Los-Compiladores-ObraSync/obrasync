@@ -19,7 +19,7 @@ public class GetCotizacionesByLicitacionIdQueryHandler
         _cotizacionRepository = cotizacionRepository ?? throw new ArgumentNullException(nameof(cotizacionRepository));
     }
 
-    public async Task<IReadOnlyList<CotizacionResponseDto>> Handle(
+    public async Task<PaginaDe<CotizacionResponseDto>> Handle(
         GetCotizacionesByLicitacionIdQuery query,
         CancellationToken cancellationToken = default)
     {
@@ -27,6 +27,8 @@ public class GetCotizacionesByLicitacionIdQueryHandler
         {
             throw new ArgumentException("El parámetro licitacionId es obligatorio.");
         }
+
+        var p = query.Paginacion ?? new ParametrosPagina();
 
         var licitacion = await _licitacionRepository.GetByIdAsync(query.LicitacionId, cancellationToken);
         if (licitacion == null)
@@ -37,10 +39,10 @@ public class GetCotizacionesByLicitacionIdQueryHandler
         var cotizaciones = await _cotizacionRepository.GetByLicitacionIdAsync(query.LicitacionId, cancellationToken);
         if (cotizaciones == null || !cotizaciones.Any())
         {
-            return Array.Empty<CotizacionResponseDto>();
+            return new PaginaDe<CotizacionResponseDto>(Array.Empty<CotizacionResponseDto>(), 0);
         }
 
-        // 1. Mapeamos usando el constructor posicional exacto de la entidad Oferta del Dominio
+        // 1. Mapeamos usando el constructor posicional exacto de la entidad Oferta del Dominio (sobre TODAS las cotizaciones)
         var ofertasDomain = cotizaciones.Select(c => new Oferta(
             c.CotizacionId,
             c.ProveedorId,
@@ -60,7 +62,7 @@ public class GetCotizacionesByLicitacionIdQueryHandler
 
         var ponderacion = new PonderacionScoring(0.5m, 0.2m, 0.2m, 0.1m);
 
-        // 2. Ejecutamos el motor de scoring
+        // 2. Ejecutamos el motor de scoring sobre TODAS las ofertas de la licitación
         var resultadosScoring = CalculadorScoring.Calcular(ofertasDomain, itemsRequeridos, ponderacion);
 
         // 3. Regla de negocio de la tarjeta #73: Con menos de 2 cotizaciones NO se marca ganadora a ninguna
@@ -71,37 +73,41 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             .OrderByDescending(x => x.Scoring.Puntaje)
             .ThenBy(x => x.Cotizacion.PlazoEntregaDias)
             .ThenBy(x => x.Cotizacion.FechaCreacion)
+            .ThenBy(x => x.Cotizacion.CotizacionId)
             .ToList();
 
-        Guid? idGanadora = (evaluarGanadora && ordenadasConDesempate.Any()) 
-            ? ordenadasConDesempate.First().Cotizacion.CotizacionId 
+        Guid? idGanadora = (evaluarGanadora && ordenadasConDesempate.Any())
+            ? ordenadasConDesempate.First().Cotizacion.CotizacionId
             : null;
 
-        // 4. Cálculo de costos totales (precio de ítems + flete) y resaltado de la oferta más barata (CU-07, Tarjeta #89)
+        // 4. Cálculo de costos totales (precio de ítems + flete) y resaltado de la oferta más barata (CU-07, Tarjeta #89) sobre TODAS las ofertas
         var cantidadesPorArticulo = licitacion.Items
             .GroupBy(i => i.ArticuloId)
             .ToDictionary(g => g.Key, g => g.First().Cantidad);
 
-        var dtos = cotizaciones.Select(c => 
-        {
-            var scoringItem = resultadosScoring.FirstOrDefault(s => s.CotizacionId == c.CotizacionId);
-            decimal puntaje = scoringItem?.Puntaje ?? 0m;
-            bool esGanadora = idGanadora.HasValue && c.CotizacionId == idGanadora.Value;
+        var dtos = cotizaciones
+            .OrderByDescending(c => c.FechaCreacion)
+            .ThenBy(c => c.CotizacionId)
+            .Select(c =>
+            {
+                var scoringItem = resultadosScoring.FirstOrDefault(s => s.CotizacionId == c.CotizacionId);
+                decimal puntaje = scoringItem?.Puntaje ?? 0m;
+                bool esGanadora = idGanadora.HasValue && c.CotizacionId == idGanadora.Value;
 
-            decimal subtotalItems = c.Items.Sum(i =>
-                cantidadesPorArticulo.TryGetValue(i.ArticuloId, out var cantidad)
-                    ? cantidad * i.PrecioUnitario
-                    : 0m);
-            decimal costoTotal = subtotalItems + c.Flete;
+                decimal subtotalItems = c.Items.Sum(i =>
+                    cantidadesPorArticulo.TryGetValue(i.ArticuloId, out var cantidad)
+                        ? cantidad * i.PrecioUnitario
+                        : 0m);
+                decimal costoTotal = subtotalItems + c.Flete;
 
-            var dto = c.ToDto();
-            dto.SubtotalItems = subtotalItems;
-            dto.CostoTotal = costoTotal;
-            dto.PuntajeTotal = Math.Round(puntaje * 100m, 2);
-            dto.EsGanadora = esGanadora;
+                var dto = c.ToDto();
+                dto.SubtotalItems = subtotalItems;
+                dto.CostoTotal = costoTotal;
+                dto.PuntajeTotal = Math.Round(puntaje * 100m, 2);
+                dto.EsGanadora = esGanadora;
 
-            return dto;
-        }).ToList();
+                return dto;
+            }).ToList();
 
         if (dtos.Count > 0)
         {
@@ -112,6 +118,12 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             }
         }
 
-        return dtos;
+        var total = dtos.Count;
+        var paginaItems = dtos
+            .Skip(p.Saltear)
+            .Take(p.Tamano)
+            .ToList();
+
+        return new PaginaDe<CotizacionResponseDto>(paginaItems, total);
     }
 }

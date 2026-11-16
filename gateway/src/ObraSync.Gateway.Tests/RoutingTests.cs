@@ -21,6 +21,9 @@ public class RoutingTests : IClassFixture<GatewayFactory>
     [InlineData("/api/cotizaciones/prueba", 5003)]
     [InlineData("/api/recepciones/prueba", 5004)]
     [InlineData("/api/presupuestos/prueba", 5004)]
+    [InlineData("/api/asistente/prueba", 5005)]
+    [InlineData("/api/mcp", 5005)]
+    [InlineData("/api/mcp/prueba", 5005)]
     public async Task Cada_ruta_se_reenvia_al_servicio_correcto(string ruta, int puertoEsperado)
     {
         var client = _factory.CreateClient();

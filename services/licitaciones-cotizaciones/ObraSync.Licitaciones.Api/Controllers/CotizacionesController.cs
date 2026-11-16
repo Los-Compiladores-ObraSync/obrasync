@@ -34,12 +34,25 @@ public class CotizacionesController : ControllerBase
     [HttpGet("mias")]
     [Authorize(Roles = "Proveedor,Admin")]
     [ProducesResponseType(typeof(IEnumerable<MiCotizacionResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetMisCotizaciones(
         [FromQuery] Guid? proveedorId = null,
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamano = 50,
         CancellationToken cancellationToken = default)
     {
+        var p = new ParametrosPagina(pagina, tamano);
+        var error = p.Validar();
+        if (error is not null)
+        {
+            return Problem(
+                detail: error,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Paginación inválida");
+        }
+
         Guid proveedorIdConsulta;
 
         if (User.IsInRole("Admin") && proveedorId.HasValue && proveedorId.Value != Guid.Empty)
@@ -58,9 +71,14 @@ public class CotizacionesController : ControllerBase
                 title: "Proveedor no identificado");
         }
 
-        var query = new GetMisCotizacionesQuery(proveedorIdConsulta);
-        var cotizaciones = await _getMisCotizacionesHandler.Handle(query, cancellationToken);
-        return Ok(cotizaciones);
+        var query = new GetMisCotizacionesQuery(proveedorIdConsulta, p);
+        var resultado = await _getMisCotizacionesHandler.Handle(query, cancellationToken);
+
+        Response.Headers["X-Total-Count"] = resultado.Total.ToString();
+        Response.Headers["X-Page"] = p.Pagina.ToString();
+        Response.Headers["X-Page-Size"] = p.Tamano.ToString();
+
+        return Ok(resultado.Items);
     }
 
     /// <summary>
@@ -75,6 +93,8 @@ public class CotizacionesController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetCotizaciones(
         [FromQuery] Guid? licitacionId,
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamano = 50,
         CancellationToken cancellationToken = default)
     {
         if (!licitacionId.HasValue || licitacionId.Value == Guid.Empty)
@@ -85,11 +105,26 @@ public class CotizacionesController : ControllerBase
                 title: "Parámetro licitacionId inválido");
         }
 
+        var p = new ParametrosPagina(pagina, tamano);
+        var error = p.Validar();
+        if (error is not null)
+        {
+            return Problem(
+                detail: error,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Paginación inválida");
+        }
+
         try
         {
-            var query = new GetCotizacionesByLicitacionIdQuery(licitacionId.Value);
-            var cotizaciones = await _getCotizacionesHandler.Handle(query, cancellationToken);
-            return Ok(cotizaciones);
+            var query = new GetCotizacionesByLicitacionIdQuery(licitacionId.Value, p);
+            var resultado = await _getCotizacionesHandler.Handle(query, cancellationToken);
+
+            Response.Headers["X-Total-Count"] = resultado.Total.ToString();
+            Response.Headers["X-Page"] = p.Pagina.ToString();
+            Response.Headers["X-Page-Size"] = p.Tamano.ToString();
+
+            return Ok(resultado.Items);
         }
         catch (KeyNotFoundException ex)
         {

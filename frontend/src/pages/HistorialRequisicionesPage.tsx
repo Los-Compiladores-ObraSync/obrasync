@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/useAuth'
+import { BotonVerMas } from '../componentes/BotonVerMas'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { listarRequisiciones, obtenerObras } from '../requisiciones/requisicionesService'
 import type {
@@ -43,6 +44,14 @@ export function HistorialRequisicionesPage({
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
 
+  // Paginación (#172): el servicio entrega de a 50; "Ver más" pide la página siguiente.
+  const [total, setTotal] = useState<number | undefined>(undefined)
+  const [paginaCargada, setPaginaCargada] = useState(1)
+  const [cargandoMas, setCargandoMas] = useState(false)
+  const [errorMas, setErrorMas] = useState(false)
+  // Sube cada vez que cambian los filtros: descarta un "Ver más" que llega con filtros viejos.
+  const generacionRef = useRef(0)
+
   // Cada vez que cambia "intento" se vuelve a pedir la lista (así funciona "Reintentar")
   const [intento, setIntento] = useState(0)
 
@@ -66,14 +75,21 @@ export function HistorialRequisicionesPage({
   // (parámetros estado y obraId). Si una respuesta vieja llega tarde, "cancelado" la descarta.
   useEffect(() => {
     let cancelado = false
+    generacionRef.current += 1
 
     async function cargar() {
       try {
-        const lista = await listarRequisiciones({
+        const pagina = await listarRequisiciones({
           estado: estadoFiltro || undefined,
           obraId: obraFiltro || undefined,
         })
-        if (!cancelado) setRequisiciones(lista)
+        if (!cancelado) {
+          setRequisiciones(pagina.items)
+          setTotal(pagina.total)
+          setPaginaCargada(1)
+          setCargandoMas(false)
+          setErrorMas(false)
+        }
       } catch {
         if (!cancelado) {
           setErrorCarga('No se pudieron cargar las requisiciones. Intentá nuevamente.')
@@ -93,6 +109,31 @@ export function HistorialRequisicionesPage({
     setErrorCarga(null)
     setCargando(true)
     setIntento((n) => n + 1)
+  }
+
+  async function verMas() {
+    if (cargandoMas) return
+    const generacion = generacionRef.current
+    setCargandoMas(true)
+    setErrorMas(false)
+    try {
+      const pagina = await listarRequisiciones(
+        { estado: estadoFiltro || undefined, obraId: obraFiltro || undefined },
+        paginaCargada + 1,
+      )
+      if (generacion !== generacionRef.current) return
+      // Si entró una requisición nueva mientras tanto, una fila puede repetirse: se descarta.
+      setRequisiciones((actuales) => {
+        const ids = new Set(actuales.map((r) => r.requisicionId))
+        return [...actuales, ...pagina.items.filter((r) => !ids.has(r.requisicionId))]
+      })
+      setTotal(pagina.total)
+      setPaginaCargada((n) => n + 1)
+    } catch {
+      if (generacion === generacionRef.current) setErrorMas(true)
+    } finally {
+      if (generacion === generacionRef.current) setCargandoMas(false)
+    }
   }
 
   // Cada cambio de filtro muestra "Cargando…" hasta que llega la lista nueva.
@@ -222,6 +263,16 @@ export function HistorialRequisicionesPage({
             </li>
           ))}
         </ul>
+      )}
+
+      {!cargando && !errorCarga && (
+        <BotonVerMas
+          cargadas={requisiciones.length}
+          total={total}
+          cargando={cargandoMas}
+          error={errorMas}
+          onVerMas={() => void verMas()}
+        />
       )}
     </section>
   )

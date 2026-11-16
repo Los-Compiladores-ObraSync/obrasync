@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Domain.Entities;
 
@@ -45,41 +46,51 @@ public class LicitacionRepository : ILicitacionRepository
             .FirstOrDefaultAsync(l => l.LicitacionId == id, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Licitacion>> GetFilteredAsync(
+    public async Task<PaginaDe<Licitacion>> GetFilteredAsync(
         Guid? obraId = null,
         string? estado = null,
         string? rolUsuario = null,
+        ParametrosPagina? paginacion = null,
         CancellationToken cancellationToken = default)
     {
-        var dbQuery = _context.Licitaciones
+        var p = paginacion ?? new ParametrosPagina();
+
+        var consultaFiltros = _context.Licitaciones
             .AsNoTracking()
-            .Include(l => l.Items)
             .AsQueryable();
 
         if (obraId.HasValue && obraId.Value != Guid.Empty)
         {
-            dbQuery = dbQuery.Where(l => l.ObraId == obraId.Value);
+            consultaFiltros = consultaFiltros.Where(l => l.ObraId == obraId.Value);
         }
 
         // Regla de negocio: Si el rol es Proveedor, solo puede ver licitaciones en estado Abierta
         if (string.Equals(rolUsuario, "Proveedor", StringComparison.OrdinalIgnoreCase))
         {
-            dbQuery = dbQuery.Where(l => l.Estado == EstadoLicitacion.Abierta);
+            consultaFiltros = consultaFiltros.Where(l => l.Estado == EstadoLicitacion.Abierta);
         }
         else if (!string.IsNullOrWhiteSpace(estado))
         {
             var estadoNormalizado = estado.Trim();
             if (!Enum.TryParse<EstadoLicitacion>(estadoNormalizado, ignoreCase: true, out var estadoEnum))
             {
-                return Array.Empty<Licitacion>();
+                return new PaginaDe<Licitacion>(Array.Empty<Licitacion>(), 0);
             }
 
-            dbQuery = dbQuery.Where(l => l.Estado == estadoEnum);
+            consultaFiltros = consultaFiltros.Where(l => l.Estado == estadoEnum);
         }
 
-        return await dbQuery
+        var total = await consultaFiltros.CountAsync(cancellationToken);
+
+        var items = await consultaFiltros
+            .Include(l => l.Items)
             .OrderByDescending(l => l.FechaCreacion)
+            .ThenBy(l => l.LicitacionId)
+            .Skip(p.Saltear)
+            .Take(p.Tamano)
             .ToListAsync(cancellationToken);
+
+        return new PaginaDe<Licitacion>(items, total);
     }
 
     public Task UpdateAsync(Licitacion licitacion, CancellationToken cancellationToken = default)

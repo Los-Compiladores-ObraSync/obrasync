@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using ObraSync.Requisiciones.Application.DTOs;
 using ObraSync.Requisiciones.Domain.Entities;
 
 namespace ObraSync.Requisiciones.Application.Interfaces
@@ -23,10 +24,11 @@ namespace ObraSync.Requisiciones.Application.Interfaces
             DateTime desdeUtc,
             CancellationToken cancellationToken = default);
 
-        Task<IReadOnlyList<Requisicion>> GetFilteredAsync(
+        Task<PaginaDe<Requisicion>> GetFilteredAsync(
             Guid? obraId = null,
             string? estado = null,
             Guid? solicitanteId = null,
+            ParametrosPagina? paginacion = null,
             CancellationToken cancellationToken = default);
 
         Task<int> GetNextSequenceNumberAsync(

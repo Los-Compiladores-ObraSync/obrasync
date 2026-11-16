@@ -2,7 +2,7 @@ import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { server } from '../mocks/server'
 import { ApiError } from './ApiError'
-import { apiFetch, setToken } from './client'
+import { apiFetch, apiFetchPagina, setToken } from './client'
 
 const URL_PRUEBA = 'http://localhost:5000/api/prueba'
 
@@ -114,5 +114,58 @@ describe('apiFetch', () => {
     const resultado = await apiFetch<undefined>('/api/prueba')
 
     expect(resultado).toBeUndefined()
+  })
+})
+
+describe('apiFetchPagina', () => {
+  beforeEach(() => setToken(null))
+
+  it('devuelve las filas y el total que informa X-Total-Count', async () => {
+    server.use(
+      http.get(URL_PRUEBA, () =>
+        HttpResponse.json([{ id: 1 }, { id: 2 }], { headers: { 'X-Total-Count': '7' } }),
+      ),
+    )
+
+    const pagina = await apiFetchPagina<{ id: number }>('/api/prueba')
+
+    expect(pagina).toEqual({ items: [{ id: 1 }, { id: 2 }], total: 7 })
+  })
+
+  it('deja el total sin definir si el servicio todavía no envía el encabezado', async () => {
+    server.use(http.get(URL_PRUEBA, () => HttpResponse.json([{ id: 1 }])))
+
+    const pagina = await apiFetchPagina<{ id: number }>('/api/prueba')
+
+    expect(pagina.items).toEqual([{ id: 1 }])
+    expect(pagina.total).toBeUndefined()
+  })
+
+  it('ignora un total que no es un número', async () => {
+    server.use(
+      http.get(URL_PRUEBA, () => HttpResponse.json([], { headers: { 'X-Total-Count': 'muchos' } })),
+    )
+
+    const pagina = await apiFetchPagina('/api/prueba')
+
+    expect(pagina.total).toBeUndefined()
+  })
+
+  it('devuelve una lista vacía si la respuesta no es una lista', async () => {
+    server.use(http.get(URL_PRUEBA, () => new HttpResponse(null, { status: 204 })))
+
+    const pagina = await apiFetchPagina('/api/prueba')
+
+    expect(pagina.items).toEqual([])
+  })
+
+  it('lanza ApiError con el ProblemDetails si el servicio responde 400', async () => {
+    server.use(
+      http.get(URL_PRUEBA, () =>
+        HttpResponse.json({ title: 'Paginación inválida', status: 400 }, { status: 400 }),
+      ),
+    )
+
+    await expect(apiFetchPagina('/api/prueba')).rejects.toBeInstanceOf(ApiError)
   })
 })

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using ObraSync.Requisiciones.Application.DTOs;
 using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Domain.Entities;
 
@@ -62,36 +63,46 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Repositories
                 .ToListAsync(cancellationToken);
         }
 
-        public async Task<IReadOnlyList<Requisicion>> GetFilteredAsync(
+        public async Task<PaginaDe<Requisicion>> GetFilteredAsync(
             Guid? obraId = null,
             string? estado = null,
             Guid? solicitanteId = null,
+            ParametrosPagina? paginacion = null,
             CancellationToken cancellationToken = default)
         {
-            var dbQuery = _context.Requisiciones
+            var p = paginacion ?? new ParametrosPagina();
+
+            var consultaFiltros = _context.Requisiciones
                 .AsNoTracking()
-                .Include(r => r.Items)
                 .AsQueryable();
 
             if (obraId.HasValue && obraId.Value != Guid.Empty)
             {
-                dbQuery = dbQuery.Where(r => r.ObraId == obraId.Value);
+                consultaFiltros = consultaFiltros.Where(r => r.ObraId == obraId.Value);
             }
 
             if (!string.IsNullOrWhiteSpace(estado))
             {
                 var estadoNormalizado = estado.Trim();
-                dbQuery = dbQuery.Where(r => r.Estado.ToLower() == estadoNormalizado.ToLower());
+                consultaFiltros = consultaFiltros.Where(r => r.Estado.ToLower() == estadoNormalizado.ToLower());
             }
 
             if (solicitanteId.HasValue && solicitanteId.Value != Guid.Empty)
             {
-                dbQuery = dbQuery.Where(r => r.SolicitanteId == solicitanteId.Value);
+                consultaFiltros = consultaFiltros.Where(r => r.SolicitanteId == solicitanteId.Value);
             }
 
-            return await dbQuery
+            var total = await consultaFiltros.CountAsync(cancellationToken);
+
+            var items = await consultaFiltros
+                .Include(r => r.Items)
                 .OrderByDescending(r => r.FechaCreacion)
+                .ThenBy(r => r.Id)
+                .Skip(p.Saltear)
+                .Take(p.Tamano)
                 .ToListAsync(cancellationToken);
+
+            return new PaginaDe<Requisicion>(items, total);
         }
 
         public async Task<int> GetNextSequenceNumberAsync(

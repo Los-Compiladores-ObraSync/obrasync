@@ -3,7 +3,7 @@
   "info": {
     "title": "ObraSync.Asistente.Api",
     "version": "1.0",
-    "description": "Contrato del chat del asistente de IA (borrador v1, tarjetas #137, #138 y #140). Lo implementa el squad Frontend, Gateway y MCP dentro del proyecto del MCP (#98). Regla de oro: el asistente NUNCA escribe datos. Solo responde y, si corresponde, arma un BORRADOR. La escritura la hace el frontend llamando al endpoint existente (por ejemplo POST /api/requisiciones) con el JWT del usuario cuando éste toca Confirmar (#146)."
+    "description": "Contrato del chat del asistente de IA (borrador v1, tarjetas #137, #138 y #140). Lo implementa el squad Frontend, Gateway y MCP en asistente/ObraSync.Asistente.Api (puerto 5005 en la computadora de cada uno, propuesto: a confirmar con el equipo). Primera versión: solo lee el catálogo (herramienta buscar_insumos); el campo 'borrador' todavía no se completa (tarjeta #100). Regla de oro: el asistente NUNCA escribe datos. Solo responde y, si corresponde, arma un BORRADOR. La escritura la hace el frontend llamando al endpoint existente (por ejemplo POST /api/requisiciones) con el JWT del usuario cuando éste toca Confirmar (#146)."
   },
   "security": [
     {
@@ -30,7 +30,7 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "OK. También responde 200 con un mensaje amable cuando el agente se pasa de sus límites internos (vueltas, herramientas o tiempo) sin poder cerrar la consulta.",
             "content": {
               "application/json": {
                 "schema": {

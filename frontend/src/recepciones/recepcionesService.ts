@@ -1,4 +1,5 @@
-import { apiFetch } from '../api/client'
+import { apiFetch, apiFetchPagina } from '../api/client'
+import { conPaginacion, traerTodas } from '../api/paginacion'
 import type { CrearRecepcionRequest, OrdenPendiente, RecepcionRegistrada } from './recepcionesTipos'
 
 /**
@@ -6,7 +7,10 @@ import type { CrearRecepcionRequest, OrdenPendiente, RecepcionRegistrada } from 
  * Fuente: GET /api/recepciones/ordenes-pendientes (Capataz, Comprador y Admin).
  */
 export function obtenerOrdenesPendientes(): Promise<OrdenPendiente[]> {
-  return apiFetch<OrdenPendiente[]>('/api/recepciones/ordenes-pendientes')
+  // Trae todas las páginas (#172): el Capataz elige la orden entre todas las pendientes.
+  return traerTodas((pagina) =>
+    apiFetchPagina<OrdenPendiente>(conPaginacion('/api/recepciones/ordenes-pendientes', pagina)),
+  )
 }
 
 /**

@@ -27,6 +27,8 @@ jobs:
             proyecto: services/recepcion-presupuesto/ObraSync.Recepcion.Tests/ObraSync.Recepcion.Tests.csproj
           - nombre: API Gateway
             proyecto: gateway/src/ObraSync.Gateway.Tests/ObraSync.Gateway.Tests.csproj
+          - nombre: Asistente de IA
+            proyecto: asistente/ObraSync.Asistente.Tests/ObraSync.Asistente.Tests.csproj
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -57,3 +59,19 @@ jobs:
   docker:
     name: Imagen Docker de ${{ matrix.contexto }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false   # si falla una imagen, igual se construyen las demás para ver todo junto
+      matrix:
+        contexto:
+          - services/usuarios-obras
+          - services/requisiciones-catalogo
+          - services/licitaciones-cotizaciones
+          - services/recepcion-presupuesto
+          - gateway
+          - asistente
+          - frontend
+    steps:
+      - uses: actions/checkout@v4
+      # Cada carpeta tiene su Dockerfile: construir la imagen comprueba que el servicio compila y se empaqueta.
+      - name: Construir la imagen
+        run: docker build "${{ matrix.contexto }}"

@@ -75,6 +75,7 @@ public class ResilienciaDeExtremoAExtremoTests
                     ["requisiciones"] = Requisiciones,
                     ["licitaciones"] = new ServicioDeMentira(),
                     ["recepcion"] = new ServicioDeMentira(),
+                    ["asistente"] = new ServicioDeMentira(),
                 };
                 services.AddSingleton<IForwarderHttpClientFactory>(new ClienteConPollyFactory(_opciones, servicios));
             });

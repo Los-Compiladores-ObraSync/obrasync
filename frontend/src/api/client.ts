@@ -1,5 +1,6 @@
 import { ApiError, type ProblemDetails } from './ApiError'
 import { API_BASE_URL } from './config'
+import type { PaginaDe } from './paginacion'
 
 let token: string | null = null
 let onUnauthorized: (() => void) | null = null
@@ -21,10 +22,15 @@ function newCorrelationId(): string {
   return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`
 }
 
-export async function apiFetch<T>(
+interface RespuestaCruda {
+  datos: unknown
+  encabezados: Headers
+}
+
+async function ejecutar(
   path: string,
-  options: RequestInit = {},
-): Promise<T> {
+  options: RequestInit,
+): Promise<RespuestaCruda> {
   const headers = new Headers(options.headers)
   headers.set('Accept', 'application/json')
   if (options.body && !headers.has('Content-Type')) {
@@ -61,17 +67,46 @@ export async function apiFetch<T>(
   }
 
   if (response.status === 204) {
-    return undefined as T
+    return { datos: undefined, encabezados: response.headers }
   }
   // Leemos como texto y después intentamos JSON: algunos endpoints (ej. POST /api/obras)
   // devuelven un string plano y response.json() fallaría con ese cuerpo.
   const texto = await response.text()
   if (!texto) {
-    return undefined as T
+    return { datos: undefined, encabezados: response.headers }
   }
   try {
-    return JSON.parse(texto) as T
+    return { datos: JSON.parse(texto), encabezados: response.headers }
   } catch {
-    return texto as T
+    return { datos: texto, encabezados: response.headers }
+  }
+}
+
+export async function apiFetch<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const { datos } = await ejecutar(path, options)
+  return datos as T
+}
+
+function leerEntero(valor: string | null): number | undefined {
+  if (valor === null) return undefined
+  const numero = Number.parseInt(valor, 10)
+  return Number.isFinite(numero) && numero >= 0 ? numero : undefined
+}
+
+/**
+ * Igual que apiFetch, pero para listados paginados (#172): devuelve las filas y el total que
+ * informa el servicio en X-Total-Count. Si el encabezado no está, "total" queda sin definir.
+ */
+export async function apiFetchPagina<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<PaginaDe<T>> {
+  const { datos, encabezados } = await ejecutar(path, options)
+  return {
+    items: Array.isArray(datos) ? (datos as T[]) : [],
+    total: leerEntero(encabezados.get('X-Total-Count')),
   }
 }
