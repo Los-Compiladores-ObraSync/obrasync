@@ -70,7 +70,62 @@
             }
           },
           "429": {
-            "description": "Too Many Requests (el asistente está ocupado por el tope de consumo o el límite por usuario; probar de nuevo en un rato)",
+            "description": "Too Many Requests: el asistente está ocupado. Se responde SIN llamar al modelo cuando el consumo del minuto está cerca del tope del grupo (#144), cuando el gateway de IA respondió 429 y el asistente está en pausa, o cuando se superó el límite por usuario del Gateway. Trae el encabezado Retry-After (segundos); no se reintenta en bucle.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Segundos a esperar antes de volver a intentar.",
+                "schema": {
+                  "type": "integer",
+                  "example": 60
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable: el asistente está apagado (interruptor Consumo__Habilitado o sin clave de IA), se agotó el cupo (tope mensual o 403 por cuota del gateway de IA) o el modelo no responde.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/asistente/estado": {
+      "get": {
+        "tags": [
+          "Asistente"
+        ],
+        "summary": "Estado del consumo de tokens del asistente (solo Admin)",
+        "description": "Muestra cuánto del cupo del grupo se gastó en el último minuto y en el mes, y si el asistente está pausado o apagado. No incluye mensajes ni datos de usuarios. El acumulado vive en memoria del servicio: se reinicia si el servicio se reinicia (#144).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoConsumoDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
             "content": {
               "application/json": {
                 "schema": {
@@ -79,8 +134,8 @@
               }
             }
           },
-          "503": {
-            "description": "Service Unavailable (el asistente está apagado o el modelo no responde)",
+          "403": {
+            "description": "Forbidden (solo el rol Admin)",
             "content": {
               "application/json": {
                 "schema": {
@@ -421,6 +476,61 @@
           },
           "unidadMedida": {
             "type": "string"
+          }
+        }
+      },
+      "EstadoConsumoDto": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "habilitado",
+          "sinCupoPorCuota",
+          "enEspera",
+          "tokensUltimoMinuto",
+          "topeMinuto",
+          "tokensMes",
+          "topeMes",
+          "porcentajeMes",
+          "avisoMensualEmitido"
+        ],
+        "properties": {
+          "habilitado": {
+            "type": "boolean",
+            "description": "false si el interruptor de configuración apagó el asistente."
+          },
+          "sinCupoPorCuota": {
+            "type": "boolean",
+            "description": "true si el gateway de IA respondió 403 por cuota: el asistente queda apagado hasta reiniciar el servicio."
+          },
+          "enEspera": {
+            "type": "boolean",
+            "description": "true durante la pausa posterior a un 429 del gateway de IA."
+          },
+          "tokensUltimoMinuto": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "topeMinuto": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Tope por minuto del grupo (10.000 por defecto, dicho por el profe)."
+          },
+          "tokensMes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "topeMes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Tope mensual del grupo (18.750.000 por defecto, dicho por el profe)."
+          },
+          "porcentajeMes": {
+            "type": "number",
+            "format": "double"
+          },
+          "avisoMensualEmitido": {
+            "type": "boolean",
+            "description": "true si ya se avisó en el log que se llegó al 80% del tope mensual."
           }
         }
       }
