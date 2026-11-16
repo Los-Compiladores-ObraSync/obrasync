@@ -188,4 +188,102 @@ public class PlantillasObraEndpointTests : IClassFixture<WebApplicationFactory<P
 
         Assert.Equal(HttpStatusCode.Forbidden, postResponse.StatusCode);
     }
+
+    // ── Tarjeta #182: Paginación en GET /api/plantillas-obra ─────────────────
+
+    [Fact]
+    public async Task GetPlantillas_PrimeraYUltimaPagina_DevuelveCantidadCorrectaYHeaders()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Admin));
+
+        var respTotal = await client.GetAsync("/api/plantillas-obra");
+        var totalSembradas = int.Parse(respTotal.Headers.GetValues("X-Total-Count").Single());
+        Assert.True(totalSembradas >= 3);
+
+        // Primera página con tamano=2
+        var respPag1 = await client.GetAsync("/api/plantillas-obra?pagina=1&tamano=2");
+        Assert.Equal(HttpStatusCode.OK, respPag1.StatusCode);
+        Assert.Equal(totalSembradas.ToString(), respPag1.Headers.GetValues("X-Total-Count").Single());
+        Assert.Equal("1", respPag1.Headers.GetValues("X-Page").Single());
+        Assert.Equal("2", respPag1.Headers.GetValues("X-Page-Size").Single());
+        var pag1 = await respPag1.Content.ReadFromJsonAsync<List<PlantillaObraResponseDto>>();
+        Assert.NotNull(pag1);
+        Assert.Equal(2, pag1.Count);
+
+        // Última página
+        int ultimaPagina = (int)Math.Ceiling(totalSembradas / 2.0);
+        int esperadasEnUltima = totalSembradas - ((ultimaPagina - 1) * 2);
+
+        var respUltima = await client.GetAsync($"/api/plantillas-obra?pagina={ultimaPagina}&tamano=2");
+        Assert.Equal(HttpStatusCode.OK, respUltima.StatusCode);
+        Assert.Equal(totalSembradas.ToString(), respUltima.Headers.GetValues("X-Total-Count").Single());
+        Assert.Equal(ultimaPagina.ToString(), respUltima.Headers.GetValues("X-Page").Single());
+        var pagUltima = await respUltima.Content.ReadFromJsonAsync<List<PlantillaObraResponseDto>>();
+        Assert.NotNull(pagUltima);
+        Assert.Equal(esperadasEnUltima, pagUltima.Count);
+    }
+
+    [Theory]
+    [InlineData(0, 10)]
+    [InlineData(1, 0)]
+    [InlineData(1, 51)]
+    public async Task GetPlantillas_ParametrosFueraDeRango_Retorna400ProblemDetails(int pagina, int tamano)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Admin));
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", "corr-plantillas-182");
+
+        var response = await client.GetAsync($"/api/plantillas-obra?pagina={pagina}&tamano={tamano}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal("Paginación inválida", problem.GetProperty("title").GetString());
+        Assert.Equal("corr-plantillas-182", problem.GetProperty("correlationId").GetString());
+    }
+
+    [Fact]
+    public async Task GetPlantillas_OrdenEstableConMismoNombre_DesempataPorIdSinRepetirNiPerderFilas()
+    {
+        _factory.CreateClient();
+        var idsMismoNombre = new List<Guid>();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+            for (int i = 0; i < 4; i++)
+            {
+                var p = new PlantillaObra
+                {
+                    Id = Guid.NewGuid(),
+                    Nombre = "AAA Plantilla Empate Orden",
+                    Descripcion = $"Variante {i}"
+                };
+                idsMismoNombre.Add(p.Id);
+                context.PlantillasObra.Add(p);
+            }
+            await context.SaveChangesAsync();
+        }
+
+        idsMismoNombre.Sort();
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Admin));
+
+        // Como el nombre empieza con "AAA ", estas 4 plantillas son las primeras del listado ordenado por Nombre
+        var resp1 = await client.GetAsync("/api/plantillas-obra?pagina=1&tamano=2");
+        var pag1 = await resp1.Content.ReadFromJsonAsync<List<PlantillaObraResponseDto>>();
+
+        var resp2 = await client.GetAsync("/api/plantillas-obra?pagina=2&tamano=2");
+        var pag2 = await resp2.Content.ReadFromJsonAsync<List<PlantillaObraResponseDto>>();
+
+        Assert.NotNull(pag1);
+        Assert.NotNull(pag2);
+
+        var idsObtenidos = pag1.Select(x => x.Id).Concat(pag2.Select(x => x.Id)).ToList();
+        Assert.Equal(idsMismoNombre, idsObtenidos);
+    }
 }

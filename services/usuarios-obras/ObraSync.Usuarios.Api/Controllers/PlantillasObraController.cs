@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ObraSync.Usuarios.Application.DTOs;
@@ -23,24 +24,41 @@ namespace ObraSync.Usuarios.Controllers
         }
 
         /// <summary>
-        /// Obtiene todas las plantillas de obra preconfiguradas con sus etapas ordenadas.
+        /// Obtiene las plantillas de obra preconfiguradas con sus etapas ordenadas y paginación (#182).
         /// Roles: Admin, Comprador, Capataz.
         /// </summary>
         [HttpGet]
         [Authorize(Roles = "Admin,Comprador,Capataz")]
-        public async Task<ActionResult<IEnumerable<PlantillaObraResponseDto>>> ObtenerTodas()
+        [ProducesResponseType(typeof(IEnumerable<PlantillaObraResponseDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<IEnumerable<PlantillaObraResponseDto>>> ObtenerTodas(
+            [FromQuery] int pagina = 1,
+            [FromQuery] int tamano = ParametrosPagina.TamanoMaximo)
         {
-            var plantillas = await _context.PlantillasObra
-                .Include(p => p.Etapas)
-                .AsNoTracking()
+            var p = new ParametrosPagina(pagina, tamano);
+            var error = p.Validar();
+            if (error is not null)
+            {
+                return Problem(detail: error, statusCode: StatusCodes.Status400BadRequest, title: "Paginación inválida");
+            }
+
+            var consulta = _context.PlantillasObra.AsNoTracking();
+            var total = await consulta.CountAsync();
+
+            var plantillas = await consulta
+                .Include(pl => pl.Etapas)
+                .OrderBy(pl => pl.Nombre)
+                .ThenBy(pl => pl.Id)
+                .Skip(p.Saltear)
+                .Take(p.Tamano)
                 .ToListAsync();
 
-            var resultado = plantillas.Select(p => new PlantillaObraResponseDto
+            var resultado = plantillas.Select(pl => new PlantillaObraResponseDto
             {
-                Id = p.Id,
-                Nombre = p.Nombre,
-                Descripcion = p.Descripcion,
-                Etapas = p.Etapas
+                Id = pl.Id,
+                Nombre = pl.Nombre,
+                Descripcion = pl.Descripcion,
+                Etapas = pl.Etapas
                     .OrderBy(e => e.Orden)
                     .Select(e => new EtapaPlantillaDto
                     {
@@ -49,6 +67,13 @@ namespace ObraSync.Usuarios.Controllers
                         Orden = e.Orden
                     }).ToList()
             }).ToList();
+
+            if (Response?.Headers is not null)
+            {
+                Response.Headers["X-Total-Count"] = total.ToString();
+                Response.Headers["X-Page"] = p.Pagina.ToString();
+                Response.Headers["X-Page-Size"] = p.Tamano.ToString();
+            }
 
             return Ok(resultado);
         }

@@ -98,9 +98,28 @@ public class AuthController : ControllerBase
 
     [HttpGet("capataces")]
     [Authorize(Roles = $"{UserRoles.Comprador},{UserRoles.Admin}")]
-    public async Task<ActionResult<IEnumerable<CapatazDto>>> GetCapatacesActivos()
+    [ProducesResponseType(typeof(IEnumerable<CapatazDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IEnumerable<CapatazDto>>> GetCapatacesActivos(
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamano = ParametrosPagina.TamanoMaximo)
     {
-        var capataces = await _authService.GetCapatacesActivosAsync();
+        var p = new ParametrosPagina(pagina, tamano);
+        var error = p.Validar();
+        if (error is not null)
+        {
+            return Problem(detail: error, statusCode: StatusCodes.Status400BadRequest, title: "Paginación inválida");
+        }
+
+        var (capataces, total) = await _authService.GetCapatacesActivosPaginadosAsync(p);
+
+        if (Response?.Headers is not null)
+        {
+            Response.Headers["X-Total-Count"] = total.ToString();
+            Response.Headers["X-Page"] = p.Pagina.ToString();
+            Response.Headers["X-Page-Size"] = p.Tamano.ToString();
+        }
+
         return Ok(capataces);
     }
 }
