@@ -117,46 +117,11 @@
   }
 }
 
-.matrizContenedor {
-  width: 100%;
-  overflow-x: auto;
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
-  border: 1px solid var(--borde);
-}
 
-.tabla {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  font-size: 1rem;
-  min-width: 680px;
-}
 
-.tabla th {
-  background: #f1f5f9;
-  color: var(--azul);
-  font-weight: 700;
-  padding: 0.875rem 1rem;
-  border-bottom: 2px solid var(--borde);
-  white-space: nowrap;
-}
 
-.tabla td {
-  padding: 1rem;
-  border-bottom: 1px solid #e2e8f0;
-  vertical-align: middle;
-}
 
-.filaDestacada {
-  background: #fffbeb;
-}
 
-.filaDestacada td {
-  border-top: 2px solid #f59e0b;
-  border-bottom: 2px solid #f59e0b;
-}
 
 .badgeGanadora {
   display: inline-flex;
@@ -172,11 +137,6 @@
   margin-top: 0.25rem;
 }
 
-.proveedorCelda {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
 
 .proveedorId {
   font-family: monospace;
@@ -185,23 +145,12 @@
   color: var(--azul);
 }
 
-.precioTotal {
-  font-weight: 700;
-  font-size: 1.125rem;
-  color: var(--azul);
-}
 
 .puntaje {
   font-weight: 700;
   color: #0369a1;
 }
 
-.botonAdjudicar {
-  min-height: 44px;
-  padding: 0 1rem;
-  font-size: 1rem;
-  white-space: nowrap;
-}
 
 .contenedorConfirmacion {
   display: flex;
@@ -275,4 +224,273 @@
   min-height: 44px;
   padding: 0 1rem;
   background: var(--azul);
+}
+
+/* Cotizaciones recibidas: una tarjeta por oferta, sin scroll lateral en el celular. */
+.listaCotizaciones {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tarjetaCotizacion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1.25rem;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 2px solid var(--borde);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.cotizacionDestacada {
+  background: #fffbeb;
+  border-color: #f59e0b;
+}
+
+.cotizacionEncabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
+.etiquetaProveedor,
+.etiquetaDato {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+.proveedorId {
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 1.0625rem;
+  color: var(--azul);
+}
+
+.precioTotal {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.75rem;
+  line-height: 1.2;
+  color: var(--azul);
+}
+
+.datosCotizacion {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+.datosCotizacion dt {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+.datosCotizacion dd {
+  margin: 0.125rem 0 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.accionCotizacion {
+  margin-top: auto;
+}
+
+.botonAdjudicar {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 1rem;
+  font-size: 1rem;
+}
+
+/* Resumen del pliego (lo que se pidió) arriba de las ofertas. */
+.resumenPliego {
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid var(--borde);
+}
+
+.tituloResumen {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: var(--azul);
+}
+
+.listaPliego {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+}
+
+.datoResumen {
+  margin: 0;
+  color: var(--texto-suave);
+}
+
+/* Marcas "Menor precio", "Flete más bajo", "Entrega más rápida". */
+.marcasComparacion {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.marca {
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  background: #dcfce7;
+  border: 1px solid #16a34a;
+  color: #166534;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+/* "Ver detalle por ítem" y "Cómo se calculó el puntaje": se tienen que ver como algo que se toca
+   (borde, fondo y flecha que gira), no como un título más. */
+.detalleItems {
+  border: 2px solid var(--borde);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.detalleItems + .detalleItems {
+  margin-top: 0.5rem;
+}
+
+.detalleItems summary {
+  list-style: none;
+  cursor: pointer;
+  min-height: 48px;
+  padding: 0 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.detalleItems summary::-webkit-details-marker {
+  display: none;
+}
+
+.detalleItems summary::after {
+  content: '';
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-right: 0.25rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.detalleItems[open] summary {
+  border-bottom: 2px solid var(--borde);
+}
+
+.detalleItems[open] summary::after {
+  transform: rotate(-135deg);
+}
+
+.detalleItems summary:focus-visible {
+  outline: 3px solid var(--azul);
+  outline-offset: 2px;
+}
+
+.detalleItems .listaDetalle {
+  padding: 0.75rem 1rem 1rem;
+}
+
+.listaDetalle {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.listaDetalle li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.lineaPrecio {
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.fechaCotizacion {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--texto-suave);
+}
+
+.bloqueDetalles {
+  display: flex;
+  flex-direction: column;
+}
+
+/* IMPORTANTE: este bloque va al FINAL del archivo. Las reglas base de arriba (.tarjetaCotizacion, .accionCotizacion...)
+   tienen la misma prioridad, y la que está más abajo gana: si esto se mueve antes, la PC vuelve a verse apilada.
+   En pantallas anchas cada oferta es una fila de ancho completo (con una sola oferta una columna
+   angosta dejaba la pantalla vacía): quién, cuánto, los datos y la acción, uno al lado del otro. */
+@media (min-width: 900px) {
+  .tarjetaCotizacion {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(200px, 1fr) minmax(280px, 1.8fr) minmax(180px, 220px);
+    grid-template-areas:
+      'quien precio datos accion'
+      'marcas precio datos accion'
+      'detalle detalle detalle detalle'
+      'fecha fecha fecha fecha';
+    column-gap: 1.5rem;
+    row-gap: 0.75rem;
+    align-items: start;
+  }
+
+  .cotizacionEncabezado {
+    grid-area: quien;
+  }
+
+  .marcasComparacion {
+    grid-area: marcas;
+  }
+
+  .bloquePrecio {
+    grid-area: precio;
+  }
+
+  .datosCotizacion {
+    grid-area: datos;
+  }
+
+  .bloqueDetalles {
+    grid-area: detalle;
+  }
+
+  .fechaCotizacion {
+    grid-area: fecha;
+  }
+
+  .accionCotizacion {
+    grid-area: accion;
+    align-self: center;
+    margin-top: 0;
+  }
 }

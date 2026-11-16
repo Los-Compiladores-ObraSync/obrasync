@@ -3,7 +3,10 @@ import { Link, useSearchParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import {
   calcularPrecioTotalCotizacion,
+  calcularTotalConFlete,
+  desglosarCotizacion,
   formatoPrecio,
+  marcasDeComparacion,
 } from '../licitaciones/cotizacionesCalculos'
 import {
   adjudicarLicitacion,
@@ -15,7 +18,20 @@ import type {
   LicitacionResponseDto,
 } from '../licitaciones/licitacionesTipos'
 import { fechaLarga } from '../requisiciones/formatoFecha'
+import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './LicitacionesComprasPage.module.css'
+
+const CRITERIOS = [
+  { clave: 'precio', etiqueta: 'Precio' },
+  { clave: 'flete', etiqueta: 'Flete' },
+  { clave: 'plazo', etiqueta: 'Plazo de entrega' },
+  { clave: 'calificacion', etiqueta: 'Calificación del proveedor' },
+] as const
+
+/** 12,5 / 8 / 92,25: hasta dos decimales, con coma. */
+function formatoNumero(valor: number): string {
+  return valor.toLocaleString('es-AR', { maximumFractionDigits: 2 })
+}
 
 function mensajeDeErrorAdjudicar(err: unknown): string {
   if (err instanceof ApiError) {
@@ -53,6 +69,10 @@ export function LicitacionesComprasPage() {
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
 
   const peticionEnVueloRef = useRef(false)
+  // Al elegir una licitación, la pantalla baja sola a sus cotizaciones y el foco queda en el título
+  // (si no, en el celular el bloque aparece muy abajo y no se nota que pasó algo).
+  const tituloCotizacionesRef = useRef<HTMLHeadingElement>(null)
+  const irACotizacionesRef = useRef(false)
 
   // Cargar lista de licitaciones
   useEffect(() => {
@@ -125,6 +145,21 @@ export function LicitacionesComprasPage() {
     }
   }, [licitacionIdParam, intentoCotizaciones])
 
+  function irATituloDeCotizaciones() {
+    const titulo = tituloCotizacionesRef.current
+    if (!titulo) return
+    const sinAnimacion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
+    titulo.scrollIntoView?.({ behavior: sinAnimacion ? 'auto' : 'smooth', block: 'start' })
+    titulo.focus({ preventScroll: true })
+  }
+
+  // Cuando la licitación elegida ya está en pantalla, se baja a sus cotizaciones (solo si fue un toque del usuario).
+  useEffect(() => {
+    if (!irACotizacionesRef.current || !licitacionSeleccionada) return
+    irACotizacionesRef.current = false
+    irATituloDeCotizaciones()
+  }, [licitacionSeleccionada])
+
   function reintentarLicitaciones() {
     setErrorLicitaciones(null)
     setCargandoLicitaciones(true)
@@ -140,6 +175,12 @@ export function LicitacionesComprasPage() {
   function seleccionarLicitacion(id: string) {
     setMensajeExito(null)
     setErrorAccion(null)
+    if (id === licitacionIdParam) {
+      // Ya estaba elegida: no cambia nada en la URL, así que se baja directamente.
+      irATituloDeCotizaciones()
+      return
+    }
+    irACotizacionesRef.current = true
     setSearchParams({ licitacionId: id })
   }
 
@@ -177,9 +218,12 @@ export function LicitacionesComprasPage() {
   }
 
   const esLicitacionAdjudicada = licitacionSeleccionada?.estado === 'Adjudicada'
+  const marcasPorCotizacion = licitacionSeleccionada
+    ? marcasDeComparacion(cotizaciones, licitacionSeleccionada)
+    : new Map<string, string[]>()
 
   return (
-    <section className={styles.contenedor}>
+    <section className={`${styles.contenedor} pantalla-ancha`}>
       <Link to="/compras" className={styles.volver}>
         ← Volver a compras
       </Link>
@@ -270,7 +314,7 @@ export function LicitacionesComprasPage() {
       {licitacionSeleccionada && (
         <div className={styles.seccionCotizaciones}>
           <div className={styles.encabezadoMatriz}>
-            <h2>
+            <h2 ref={tituloCotizacionesRef} tabIndex={-1}>
               Cotizaciones para {licitacionSeleccionada.numeroRequisicion ?? 'la licitación'}
             </h2>
             {esLicitacionAdjudicada && (
@@ -279,6 +323,31 @@ export function LicitacionesComprasPage() {
               </span>
             )}
           </div>
+
+          <section className={styles.resumenPliego} aria-label="Resumen del pliego">
+            <h3 className={styles.tituloResumen}>Qué se pidió</h3>
+            <ul className={styles.listaPliego}>
+              {licitacionSeleccionada.items.map((material) => (
+                <li key={material.articuloId}>
+                  {cantidadConUnidad(material.cantidad, material.unidadMedida)} de{' '}
+                  {material.descripcion}
+                </li>
+              ))}
+            </ul>
+            <p className={styles.datoResumen}>
+              Cotizan hasta el {fechaLarga(licitacionSeleccionada.fechaLimiteCotizacion)}
+              {!cargandoCotizaciones && !errorCotizaciones && (
+                <>
+                  {' · '}
+                  <strong>
+                    {cotizaciones.length === 1
+                      ? '1 oferta recibida'
+                      : `${cotizaciones.length} ofertas recibidas`}
+                  </strong>
+                </>
+              )}
+            </p>
+          </section>
 
           {cargandoCotizaciones && <p role="status">Cargando cotizaciones…</p>}
 
@@ -302,99 +371,166 @@ export function LicitacionesComprasPage() {
           )}
 
           {!cargandoCotizaciones && !errorCotizaciones && cotizaciones.length > 0 && (
-            <div className={styles.matrizContenedor}>
-              <table
-                className={styles.tabla}
-                aria-label={`Matriz de cotizaciones para ${
-                  licitacionSeleccionada.numeroRequisicion ?? 'licitación'
-                }`}
-              >
-                <thead>
-                  <tr>
-                    <th scope="col">Proveedor</th>
-                    <th scope="col">Precio total</th>
-                    <th scope="col">Flete</th>
-                    <th scope="col">Plazo de entrega</th>
-                    <th scope="col">Puntaje</th>
-                    <th scope="col">Acción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cotizaciones.map((cot) => {
-                    const precioTotal = calcularPrecioTotalCotizacion(cot, licitacionSeleccionada)
-                    const proveedorAbrev = cot.proveedorId.slice(0, 8)
-                    const estaConfirmando = confirmandoCotizacionId === cot.cotizacionId
-                    const estaAdjudicando = adjudicandoCotizacionId === cot.cotizacionId
-                    const hayOperacionEnVuelo = adjudicandoCotizacionId !== null
+            <ul
+              className={styles.listaCotizaciones}
+              aria-label={`Cotizaciones recibidas para ${
+                licitacionSeleccionada.numeroRequisicion ?? 'licitación'
+              }`}
+            >
+              {cotizaciones.map((cot) => {
+                // Si el servicio ya calculó los importes (contrato), se usan esos; si no, se calculan acá.
+                const precioTotal =
+                  cot.subtotalItems ?? calcularPrecioTotalCotizacion(cot, licitacionSeleccionada)
+                const totalConFlete =
+                  cot.costoTotal ?? calcularTotalConFlete(cot, licitacionSeleccionada)
+                const marcas = marcasPorCotizacion.get(cot.cotizacionId) ?? []
+                const lineas = desglosarCotizacion(cot, licitacionSeleccionada)
+                const proveedorAbrev = cot.proveedorId.slice(0, 8)
+                // Si el servicio informa el nombre se muestra; si no, el comienzo del identificador.
+                const nombreProveedor = cot.proveedorNombre?.trim() || proveedorAbrev
+                const estaConfirmando = confirmandoCotizacionId === cot.cotizacionId
+                const estaAdjudicando = adjudicandoCotizacionId === cot.cotizacionId
+                const hayOperacionEnVuelo = adjudicandoCotizacionId !== null
 
-                    return (
-                      <tr
-                        key={cot.cotizacionId}
-                        className={cot.esGanadora ? styles.filaDestacada : undefined}
-                      >
-                        <td>
-                          <div className={styles.proveedorCelda}>
-                            <span className={styles.proveedorId} title={cot.proveedorId}>
-                              {proveedorAbrev}
+                return (
+                  <li
+                    key={cot.cotizacionId}
+                    className={`${styles.tarjetaCotizacion} ${
+                      cot.esGanadora ? styles.cotizacionDestacada : ''
+                    }`}
+                  >
+                    <div className={styles.cotizacionEncabezado}>
+                      <span className={styles.etiquetaProveedor}>Proveedor</span>
+                      <span className={styles.proveedorId} title={cot.proveedorId}>
+                        {nombreProveedor}
+                      </span>
+                      {cot.esGanadora && (
+                        <span className={styles.badgeGanadora}>★ Oferta destacada</span>
+                      )}
+                    </div>
+                    {marcas.length > 0 && (
+                      <ul className={styles.marcasComparacion} aria-label="Esta oferta se destaca en">
+                        {marcas.map((marca) => (
+                          <li key={marca} className={styles.marca}>
+                            {marca}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className={styles.bloquePrecio}>
+                      <p className={styles.etiquetaDato}>Precio total</p>
+                      <p className={styles.precioTotal}>{formatoPrecio(precioTotal)}</p>
+                    </div>
+                    <dl className={styles.datosCotizacion}>
+                      <div>
+                        <dt>Total con flete</dt>
+                        <dd>{formatoPrecio(totalConFlete)}</dd>
+                      </div>
+                      <div>
+                        <dt>Flete</dt>
+                        <dd>{cot.flete ? formatoPrecio(cot.flete) : '$ 0'}</dd>
+                      </div>
+                      <div>
+                        <dt>Plazo de entrega</dt>
+                        <dd>{cot.plazoEntregaDias ? `${cot.plazoEntregaDias} días` : 'Inmediato'}</dd>
+                      </div>
+                      <div>
+                        <dt>Puntaje</dt>
+                        <dd className={styles.puntaje}>{cot.puntajeTotal} pts</dd>
+                      </div>
+                      {cot.calificacionProveedor != null && (
+                        <div>
+                          <dt>Calificación del proveedor</dt>
+                          <dd>{formatoNumero(cot.calificacionProveedor)}</dd>
+                        </div>
+                      )}
+                    </dl>
+                    <div className={styles.bloqueDetalles}>
+                    <details className={styles.detalleItems}>
+                      <summary>Ver detalle por ítem</summary>
+                      <ul className={styles.listaDetalle}>
+                        {lineas.map((linea) => (
+                          <li key={linea.articuloId}>
+                            <span>
+                              {cantidadConUnidad(linea.cantidad, linea.unidadMedida)} de{' '}
+                              {linea.descripcion}
                             </span>
-                            {cot.esGanadora && (
-                              <span className={styles.badgeGanadora}>★ Oferta destacada</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className={styles.precioTotal}>{formatoPrecio(precioTotal)}</td>
-                        <td>{cot.flete ? formatoPrecio(cot.flete) : '$ 0'}</td>
-                        <td>
-                          {cot.plazoEntregaDias ? `${cot.plazoEntregaDias} días` : 'Inmediato'}
-                        </td>
-                        <td className={styles.puntaje}>{cot.puntajeTotal} pts</td>
-                        <td>
-                          {estaConfirmando ? (
-                            <div className={styles.contenedorConfirmacion}>
-                              <p className={styles.textoConfirmacion}>
-                                ¿Confirmás la adjudicación a este proveedor?
-                              </p>
-                              <div className={styles.accionesConfirmacion}>
-                                <button
-                                  type="button"
-                                  className={styles.botonConfirmar}
-                                  disabled={hayOperacionEnVuelo}
-                                  onClick={() => void handleConfirmarAdjudicacion(cot)}
-                                >
-                                  {estaAdjudicando ? 'Adjudicando…' : 'Confirmar adjudicación'}
-                                </button>
-                                <button
-                                  type="button"
-                                  className={styles.botonCancelar}
-                                  disabled={hayOperacionEnVuelo}
-                                  onClick={() => setConfirmandoCotizacionId(null)}
-                                >
-                                  Cancelar
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              className={styles.botonAdjudicar}
-                              disabled={hayOperacionEnVuelo || esLicitacionAdjudicada}
-                              onClick={() => {
-                                setErrorAccion(null)
-                                setMensajeExito(null)
-                                setConfirmandoCotizacionId(cot.cotizacionId)
-                              }}
-                              aria-label={`Adjudicar a proveedor ${proveedorAbrev}`}
-                            >
-                              {esLicitacionAdjudicada ? 'Adjudicada' : 'Adjudicar'}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                            <span className={styles.lineaPrecio}>
+                              {linea.precioUnitario === undefined
+                                ? 'No cotizó este material'
+                                : `${formatoPrecio(linea.precioUnitario)} c/u = ${formatoPrecio(linea.subtotal)}`}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                      {cot.desglosePuntaje && (
+                        <details className={styles.detalleItems}>
+                          <summary>Cómo se calculó el puntaje</summary>
+                          <ul className={styles.listaDetalle}>
+                            {CRITERIOS.map(({ clave, etiqueta }) => (
+                              <li key={clave}>
+                                <span>{etiqueta}</span>
+                                <span className={styles.lineaPrecio}>
+                                  {formatoNumero(cot.desglosePuntaje![clave])} pts
+                                  {cot.ponderacionesScoring
+                                    ? ` · peso ${Math.round(cot.ponderacionesScoring[clave] * 100)} %`
+                                    : ''}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </div>
+                    <p className={styles.fechaCotizacion}>
+                      Cotizó el {fechaLarga(cot.fechaCreacion)}
+                    </p>
+                    <div className={styles.accionCotizacion}>
+                    {estaConfirmando ? (
+                      <div className={styles.contenedorConfirmacion}>
+                        <p className={styles.textoConfirmacion}>
+                          ¿Confirmás la adjudicación a este proveedor?
+                        </p>
+                        <div className={styles.accionesConfirmacion}>
+                          <button
+                            type="button"
+                            className={styles.botonConfirmar}
+                            disabled={hayOperacionEnVuelo}
+                            onClick={() => void handleConfirmarAdjudicacion(cot)}
+                          >
+                            {estaAdjudicando ? 'Adjudicando…' : 'Confirmar adjudicación'}
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.botonCancelar}
+                            disabled={hayOperacionEnVuelo}
+                            onClick={() => setConfirmandoCotizacionId(null)}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.botonAdjudicar}
+                        disabled={hayOperacionEnVuelo || esLicitacionAdjudicada}
+                        onClick={() => {
+                          setErrorAccion(null)
+                          setMensajeExito(null)
+                          setConfirmandoCotizacionId(cot.cotizacionId)
+                        }}
+                        aria-label={`Adjudicar a proveedor ${nombreProveedor}`}
+                      >
+                        {esLicitacionAdjudicada ? 'Adjudicada' : 'Adjudicar'}
+                      </button>
+                    )}
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
           )}
         </div>
       )}

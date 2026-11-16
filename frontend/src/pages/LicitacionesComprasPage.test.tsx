@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
 import { MemoryRouter, Route, Routes } from 'react-router'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { reiniciarLicitacionesMock } from '../mocks/handlers'
 import { server } from '../mocks/server'
 import { LicitacionesComprasPage } from './LicitacionesComprasPage'
@@ -340,5 +340,146 @@ describe('LicitacionesComprasPage', () => {
     ).toBeInTheDocument()
 
     expect(llamadas).toBe(1)
+  })
+
+  it('al elegir una licitación baja a sus cotizaciones y deja el foco en el título', async () => {
+    const user = userEvent.setup()
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    renderPagina()
+
+    const botones = await screen.findAllByRole('button', { name: 'Ver cotizaciones' })
+    await user.click(botones[0])
+
+    const titulo = await screen.findByRole('heading', { level: 2, name: /^Cotizaciones para / })
+    expect(titulo).toHaveFocus()
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+  })
+
+  it('si la licitación llega elegida desde la URL no se mueve la pantalla sola', async () => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+
+    await screen.findByRole('heading', { level: 2, name: /^Cotizaciones para / })
+
+    expect(scrollIntoView).not.toHaveBeenCalled()
+  })
+
+  it('muestra cada cotización como una tarjeta con precio total, flete, plazo, puntaje y su botón Adjudicar', async () => {
+    renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+
+    const lista = await screen.findByRole('list', { name: /^Cotizaciones recibidas para / })
+    // Solo las tarjetas (hijas directas de la lista): adentro hay otras listas, de marcas y de desglose.
+    const tarjetas = Array.from(lista.children) as HTMLElement[]
+
+    expect(tarjetas.length).toBeGreaterThan(0)
+    for (const tarjeta of tarjetas) {
+      expect(within(tarjeta).getByText('Precio total')).toBeInTheDocument()
+      expect(within(tarjeta).getByText('Flete')).toBeInTheDocument()
+      expect(within(tarjeta).getByText('Plazo de entrega')).toBeInTheDocument()
+      expect(within(tarjeta).getByText('Puntaje')).toBeInTheDocument()
+      expect(
+        within(tarjeta).getByRole('button', { name: /^Adjudicar a proveedor / }),
+      ).toBeInTheDocument()
+    }
+  })
+
+  it('arriba de las ofertas resume qué se pidió, hasta cuándo se cotiza y cuántas ofertas llegaron', async () => {
+    renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+
+    const resumen = await screen.findByRole('region', { name: 'Resumen del pliego' })
+
+    expect(within(resumen).getByText(/80 bolsas de Cemento Portland Especial 50kg/)).toBeInTheDocument()
+    expect(within(resumen).getByText(/15 metros cúbicos \(m³\) de Arena Fina a Granel/)).toBeInTheDocument()
+    expect(within(resumen).getByText(/Cotizan hasta el 20 de noviembre de 2026/)).toBeInTheDocument()
+    expect(await within(resumen).findByText('2 ofertas recibidas')).toBeInTheDocument()
+  })
+
+  it('marca la mejor oferta en precio, flete y plazo y no marca a la otra', async () => {
+    renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+
+    const lista = await screen.findByRole('list', { name: /^Cotizaciones recibidas para / })
+    const [primera, segunda] = Array.from(lista.children) as HTMLElement[]
+
+    for (const marca of ['Más barata', 'Flete más bajo', 'Entrega más rápida']) {
+      expect(within(primera).getByText(marca)).toBeInTheDocument()
+      expect(within(segunda).queryByText(marca)).not.toBeInTheDocument()
+    }
+  })
+
+  it('cada oferta muestra el total con flete y la fecha en que se cotizó', async () => {
+    renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+
+    const lista = await screen.findByRole('list', { name: /^Cotizaciones recibidas para / })
+
+    // 850.000 de materiales + 15.000 de flete de la primera oferta.
+    expect(within(lista).getByText('$ 865.000')).toBeInTheDocument()
+    expect(within(lista).getByText('Cotizó el 22 de octubre de 2026')).toBeInTheDocument()
+    expect(within(lista).getByText('Cotizó el 23 de octubre de 2026')).toBeInTheDocument()
+  })
+
+  it('el desglose por ítem muestra cantidad, precio unitario y subtotal de cada material', async () => {
+    const user = userEvent.setup()
+    renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+
+    const lista = await screen.findByRole('list', { name: /^Cotizaciones recibidas para / })
+    await user.click(within(lista).getAllByText('Ver detalle por ítem')[0])
+
+    expect(within(lista).getAllByText('$ 8.000 c/u = $ 640.000').length).toBeGreaterThan(0)
+    expect(within(lista).getAllByText('$ 14.000 c/u = $ 210.000').length).toBeGreaterThan(0)
+  })
+
+  describe('datos que el servicio puede sumar al contrato (nombre, calificación y desglose)', () => {
+    const COTIZACION_COMPLETA = {
+      cotizacionId: 'c9999999-0000-0000-0000-000000000009',
+      licitacionId: LIC_ABIERTA_ID,
+      proveedorId: 'a1b2c3d4-0000-0000-0000-000000000001',
+      proveedorNombre: 'Corralón San Martín',
+      calificacionProveedor: 4.5,
+      flete: 10000,
+      plazoEntregaDias: 3,
+      fechaCreacion: '2026-10-22T10:00:00Z',
+      items: [{ articuloId: 'c1c2c3c4-0000-0000-0000-000000000001', precioUnitario: 8000 }],
+      puntajeTotal: 80,
+      esGanadora: false,
+      desglosePuntaje: { precio: 40, flete: 15, plazo: 15, calificacion: 10 },
+      ponderacionesScoring: { precio: 0.5, flete: 0.2, plazo: 0.2, calificacion: 0.1 },
+    }
+
+    it('muestra el nombre del proveedor, su calificación y cómo se calculó el puntaje', async () => {
+      const user = userEvent.setup()
+      server.use(http.get('*/api/cotizaciones', () => HttpResponse.json([COTIZACION_COMPLETA])))
+      renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+
+      const lista = await screen.findByRole('list', { name: /^Cotizaciones recibidas para / })
+      expect(within(lista).getByText('Corralón San Martín')).toBeInTheDocument()
+      // Una vez como dato de la tarjeta y otra como criterio del desglose.
+      expect(within(lista).getAllByText('Calificación del proveedor')).toHaveLength(2)
+      expect(within(lista).getByText('4,5')).toBeInTheDocument()
+      expect(
+        within(lista).getByRole('button', { name: 'Adjudicar a proveedor Corralón San Martín' }),
+      ).toBeInTheDocument()
+
+      await user.click(within(lista).getByText('Cómo se calculó el puntaje'))
+      expect(within(lista).getByText('40 pts · peso 50 %')).toBeInTheDocument()
+      expect(within(lista).getByText('10 pts · peso 10 %')).toBeInTheDocument()
+    })
+
+    it('sin esos datos muestra el inicio del identificador y no inventa calificación ni desglose', async () => {
+      renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+
+      const lista = await screen.findByRole('list', { name: /^Cotizaciones recibidas para / })
+
+      expect(within(lista).getByText('f7a8b9c0')).toBeInTheDocument()
+      expect(within(lista).queryByText('Calificación del proveedor')).not.toBeInTheDocument()
+      expect(within(lista).queryByText('Cómo se calculó el puntaje')).not.toBeInTheDocument()
+    })
+  })
+
+  it('usa el ancho grande de la PC (pantalla-ancha), como las demás pantallas con listas', () => {
+    const { container } = renderPagina()
+
+    expect(container.querySelector('section.pantalla-ancha')).not.toBeNull()
   })
 })
