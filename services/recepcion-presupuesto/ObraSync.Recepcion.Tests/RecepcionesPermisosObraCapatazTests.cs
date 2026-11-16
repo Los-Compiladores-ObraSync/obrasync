@@ -455,6 +455,88 @@ public class RecepcionesPermisosObraCapatazTests : IClassFixture<RecepcionApiFac
         Assert.Contains(compradorResp, o => o.OrdenCompraId == oc2);
     }
 
+    [Fact]
+    public async Task GetRecepcionPorId_CapatazObraAjena_Devuelve403ProblemDetails()
+    {
+        var obraAsignada = Guid.NewGuid();
+        var obraAjena = Guid.NewGuid();
+        var (oc, _, art) = await CrearOrdenCompra(obraAjena);
+        var recepcion = await CrearRecepcionEnDb(obraAjena, oc, art);
+
+        var factory = CrearFactoryConValidador(new StubObraAsignacionValidator(obraAsignada));
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", RecepcionApiFactory.CreateToken(role: "Capataz"));
+
+        var response = await client.GetAsync($"/api/recepciones/{recepcion.Id}");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(403, doc.RootElement.GetProperty("status").GetInt32());
+        Assert.Equal("Obra no asignada", doc.RootElement.GetProperty("title").GetString());
+        Assert.Contains("La obra no está asignada al capataz autenticado", doc.RootElement.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task GetRecepcionPorId_CapatazObraAsignada_Devuelve200Ok()
+    {
+        var obraAsignada = Guid.NewGuid();
+        var (oc, _, art) = await CrearOrdenCompra(obraAsignada);
+        var recepcion = await CrearRecepcionEnDb(obraAsignada, oc, art);
+
+        var factory = CrearFactoryConValidador(new StubObraAsignacionValidator(obraAsignada));
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", RecepcionApiFactory.CreateToken(role: "Capataz"));
+
+        var response = await client.GetAsync($"/api/recepciones/{recepcion.Id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetRecepcionPorId_CapatazUsuariosCaido_Devuelve503ProblemDetails()
+    {
+        var obraId = Guid.NewGuid();
+        var (oc, _, art) = await CrearOrdenCompra(obraId);
+        var recepcion = await CrearRecepcionEnDb(obraId, oc, art);
+
+        var factory = CrearFactoryConValidador(new ValidadorQueNoPuedeVerificar());
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", RecepcionApiFactory.CreateToken(role: "Capataz"));
+
+        var response = await client.GetAsync($"/api/recepciones/{recepcion.Id}");
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(503, doc.RootElement.GetProperty("status").GetInt32());
+        Assert.Equal("Servicio no disponible", doc.RootElement.GetProperty("title").GetString());
+        Assert.Contains("No se pudo verificar que la obra de la recepción esté asignada al capataz", doc.RootElement.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task GetRecepcionPorId_AdminObraCualquiera_Devuelve200Ok()
+    {
+        var obraAsignada = Guid.NewGuid();
+        var obraDeAdmin = Guid.NewGuid();
+        var (oc, _, art) = await CrearOrdenCompra(obraDeAdmin);
+        var recepcion = await CrearRecepcionEnDb(obraDeAdmin, oc, art);
+
+        var factory = CrearFactoryConValidador(new StubObraAsignacionValidator(obraAsignada));
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", RecepcionApiFactory.CreateToken(role: "Admin"));
+
+        var response = await client.GetAsync($"/api/recepciones/{recepcion.Id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     private sealed class StubObraAsignacionValidator : IObraAsignacionValidator
     {
         private readonly HashSet<Guid> _obrasAsignadas;

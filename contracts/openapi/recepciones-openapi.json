@@ -178,7 +178,7 @@
             "description": "No se proporcionó un token válido."
           },
           "403": {
-            "description": "Rol no autorizado."
+            "description": "Rol no autorizado, o la recepción pertenece a una obra no asignada al Capataz."
           },
           "404": {
             "description": "La recepción no existe.",
@@ -189,6 +189,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "No se pudo verificar la obra asignada porque Usuarios y Obras no respondió."
           }
         }
       }
