@@ -48,6 +48,25 @@ export interface CotizacionResponseDto {
   items: CrearCotizacionItemDto[]
   puntajeTotal: number
   esGanadora: boolean
+  /** Calculados por el servicio (contrato: CotizacionResponseDto). Si no vienen, la pantalla los calcula. */
+  subtotalItems?: number
+  costoTotal?: number
+  esMasBarata?: boolean
+  /** PROPUESTA de contrato (pendiente de Licitaciones): si no vienen, la pantalla no muestra esos datos. */
+  proveedorNombre?: string | null
+  calificacionProveedor?: number | null
+  /** Puntos (0 a 100) que aportó cada criterio al puntajeTotal; la suma da puntajeTotal. */
+  desglosePuntaje?: CriteriosScoringDto | null
+  /** Peso de cada criterio (0 a 1) con el que se calculó el puntaje. */
+  ponderacionesScoring?: CriteriosScoringDto | null
+}
+
+/** Los cuatro criterios del scoring (PROPUESTA de contrato, pendiente de implementar en Licitaciones). */
+export interface CriteriosScoringDto {
+  precio: number
+  flete: number
+  plazo: number
+  calificacion: number
 }
 
 export interface AdjudicarLicitacionRequestDto {

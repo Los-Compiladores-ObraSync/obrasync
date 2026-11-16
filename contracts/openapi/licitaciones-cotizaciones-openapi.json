@@ -789,7 +789,40 @@
           "esGanadora": {
             "type": "boolean",
             "description": "Indica si la cotización obtuvo el mayor puntaje y fue marcada como ganadora."
+          },
+          "proveedorNombre": {
+            "type": "string",
+            "nullable": true,
+            "description": "PROPUESTA (pendiente de acordar e implementar por el squad de Licitaciones). Nombre del proveedor tal como figuraba al cotizar (el JWT trae el claim 'name'), para que Compras vea quién ofertó sin buscar un GUID. Opcional: si falta, el frontend muestra el comienzo de proveedorId."
+          },
+          "calificacionProveedor": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "PROPUESTA (pendiente; relacionada con #88 y #197). Calificación del proveedor que se usó en el scoring. La escala la define Licitaciones al implementar #88. null si el proveedor no tiene calificación."
+          },
+          "desglosePuntaje": {
+            "nullable": true,
+            "allOf": [{ "$ref": "#/components/schemas/CriteriosScoringDto" }],
+            "description": "PROPUESTA (pendiente). Puntos (0 a 100) que aportó cada criterio al puntajeTotal. La suma de los cuatro da puntajeTotal."
+          },
+          "ponderacionesScoring": {
+            "nullable": true,
+            "allOf": [{ "$ref": "#/components/schemas/CriteriosScoringDto" }],
+            "description": "PROPUESTA (pendiente; relacionada con #88). Peso (0 a 1) de cada criterio con el que se calculó el puntaje. Hoy están fijos en el servicio (0,5 / 0,2 / 0,2 / 0,1)."
           }
+        },
+        "additionalProperties": false
+      },
+      "CriteriosScoringDto": {
+        "type": "object",
+        "required": ["precio", "flete", "plazo", "calificacion"],
+        "description": "Un valor por cada criterio del scoring multivariable (PROPUESTA, ver CotizacionResponseDto.desglosePuntaje).",
+        "properties": {
+          "precio": { "type": "number", "format": "double" },
+          "flete": { "type": "number", "format": "double" },
+          "plazo": { "type": "number", "format": "double" },
+          "calificacion": { "type": "number", "format": "double" }
         },
         "additionalProperties": false
       },
