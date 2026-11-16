@@ -6,6 +6,7 @@ using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Commands;
 using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Queries;
+using ObraSync.Licitaciones.Domain.Scoring;
 
 namespace ObraSync.Licitaciones.Api.Controllers;
 
@@ -95,6 +96,10 @@ public class CotizacionesController : ControllerBase
         [FromQuery] Guid? licitacionId,
         [FromQuery] int pagina = 1,
         [FromQuery] int tamano = 50,
+        [FromQuery] decimal pesoPrecio = 0.5m,
+        [FromQuery] decimal pesoFlete = 0.2m,
+        [FromQuery] decimal pesoPlazo = 0.2m,
+        [FromQuery] decimal pesoCalificacion = 0.1m,
         CancellationToken cancellationToken = default)
     {
         if (!licitacionId.HasValue || licitacionId.Value == Guid.Empty)
@@ -117,7 +122,8 @@ public class CotizacionesController : ControllerBase
 
         try
         {
-            var query = new GetCotizacionesByLicitacionIdQuery(licitacionId.Value, p);
+            var ponderacion = new PonderacionScoring(pesoPrecio, pesoFlete, pesoPlazo, pesoCalificacion);
+            var query = new GetCotizacionesByLicitacionIdQuery(licitacionId.Value, p, ponderacion);
             var resultado = await _getCotizacionesHandler.Handle(query, cancellationToken);
 
             Response.Headers["X-Total-Count"] = resultado.Total.ToString();

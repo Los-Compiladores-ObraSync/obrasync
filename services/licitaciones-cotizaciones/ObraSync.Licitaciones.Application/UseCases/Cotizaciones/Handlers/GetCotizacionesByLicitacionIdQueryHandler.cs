@@ -60,7 +60,7 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             i.Cantidad
         )).ToList();
 
-        var ponderacion = new PonderacionScoring(0.5m, 0.2m, 0.2m, 0.1m);
+        var ponderacion = query.Ponderacion ?? new PonderacionScoring(0.5m, 0.2m, 0.2m, 0.1m);
 
         // 2. Ejecutamos el motor de scoring sobre TODAS las ofertas de la licitación
         var resultadosScoring = CalculadorScoring.Calcular(ofertasDomain, itemsRequeridos, ponderacion);
