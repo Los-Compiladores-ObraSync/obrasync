@@ -379,6 +379,40 @@ describe('AsistenteChatPage', () => {
     expect(container.querySelector('script')).toBeNull()
   })
 
+  it('muestra como TEXTO los nombres de la obra y de los insumos del borrador (datos del servidor) (#174)', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.post(RUTA_CHAT, () =>
+        HttpResponse.json({
+          respuesta: 'Armé el borrador. Revisalo y tocá Confirmar.',
+          borrador: {
+            accion: 'crearRequisicion',
+            titulo: 'Nueva requisición',
+            resumen: {
+              obra: '<script>alert(1)</script> Obra',
+              etapa: null,
+              items: [{ descripcion: '<img src=x onerror=alert(2)> Cemento', cantidad: 1, unidadMedida: 'BOLSA' }],
+            },
+            requisicion: {
+              obraId: 'aaaaaaaa-0000-0000-0000-000000000002',
+              etapa: null,
+              observaciones: null,
+              items: [{ articuloId: ARTICULO_CEMENTO_ID, cantidad: 1 }],
+            },
+          },
+        }),
+      ),
+    )
+    const { container } = renderPagina()
+
+    await escribirYEnviar(user, 'necesito cemento')
+
+    expect(await screen.findByText(/<script>alert\(1\)<\/script> Obra/)).toBeInTheDocument()
+    expect(screen.getByText(/<img src=x onerror=alert\(2\)> Cemento/)).toBeInTheDocument()
+    expect(container.querySelector('img')).toBeNull()
+    expect(container.querySelector('script')).toBeNull()
+  })
+
   it.each([
     [429, /ocupado/],
     [503, /no está disponible/],
