@@ -108,6 +108,8 @@ Cómo funciona:
 - El `Dockerfile` compila la app con Node y la sirve con nginx (imagen `nginx-unprivileged`, escucha en el 8080 dentro del contenedor).
 - nginx redirige las llamadas a `/api/` al API Gateway (`gateway:8080`), igual que el proxy de Vite en desarrollo, así que el navegador siempre habla con el mismo origen.
 - nginx no cachea `index.html` ni `sw.js` (para que la PWA se actualice) y sí cachea los archivos de `/assets/`.
+- nginx manda cabeceras de seguridad (#199): `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` y una `Content-Security-Policy` que solo deja cargar lo del mismo origen (más `nominatim.openstreetmap.org` para comprobar direcciones de obras). Están en `nginx-cabeceras-seguridad.conf` y se incluyen en cada `location` que tiene su propio `add_header` (si no, nginx las pierde). Para comprobarlas con el sistema levantado: `curl -sI http://localhost:5173/`, `curl -sI http://localhost:5173/sw.js` y `curl -sI http://localhost:5173/assets/<archivo>.js` tienen que mostrar las cuatro. Después abrí la app en el navegador, mirá que la consola no muestre errores de "Content Security Policy" y que el service worker siga registrado.
+- Tiempo límite de los pedidos (#199): `apiFetch` corta a los 15 s (60 s el asistente) y muestra el error "No pudimos conectarnos, reintentá." (`ApiError` con `status` 0).
 - Hace falta un archivo `.env` en la raíz, copiado de `.env.example`, con tus propios valores. El `.env` no se sube al repositorio.
 
 Pendiente de acuerdo del equipo: el uso de nginx y el puerto 5173 son provisionales (el puerto del frontend todavía no está definido).

@@ -10,5 +10,7 @@ RUN npm run build
 # Etapa 2: servir el resultado con nginx, sin usuario root.
 FROM nginxinc/nginx-unprivileged:stable-alpine AS final
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Cabeceras de seguridad (#199): nginx.conf las incluye desde esta ruta.
+COPY nginx-cabeceras-seguridad.conf /etc/nginx/snippets/cabeceras-seguridad.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 8080
