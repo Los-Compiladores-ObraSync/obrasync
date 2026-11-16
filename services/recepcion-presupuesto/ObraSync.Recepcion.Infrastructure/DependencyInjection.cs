@@ -25,6 +25,14 @@ public static class DependencyInjection
         services.AddScoped<IOrdenCompraRepository, OrdenCompraRepository>();
         services.AddScoped<IRecepcionEventPublisher, Messaging.MassTransitRecepcionEventPublisher>();
 
+        // Resiliencia con Polly v8 para llamadas HTTP salientes (#103)
+        var resilienciaOptions = configuration
+            .GetSection(ResilienciaHttpOptions.SectionName)
+            .Get<ResilienciaHttpOptions>() ?? new ResilienciaHttpOptions();
+
+        services.AddSingleton(resilienciaOptions);
+        services.AddSingleton(sp => PipelineResilienciaHttp.Crear(sp.GetRequiredService<ResilienciaHttpOptions>()));
+
         // Validación de pertenencia de obra para Capataz (#189, #155, #178)
         var usuariosObrasBaseUrl = configuration["UsuariosObras:BaseUrl"];
 

@@ -17,13 +17,16 @@ public class HttpObraAsignacionValidatorTests
 {
     private const string BaseUrl = "http://usuarios-obras-api:8080";
 
-    private static HttpObraAsignacionValidator CrearValidador(FakeHandler handler)
+    private static HttpObraAsignacionValidator CrearValidador(FakeHandler handler, ResilienciaHttpOptions? opciones = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["UsuariosObras:BaseUrl"] = BaseUrl })
             .Build();
 
-        return new HttpObraAsignacionValidator(configuration, new HttpClient(handler));
+        var opts = opciones ?? new ResilienciaHttpOptions { EsperaBaseMs = 1 };
+        var pipeline = PipelineResilienciaHttp.Crear(opts);
+
+        return new HttpObraAsignacionValidator(configuration, new HttpClient(handler), pipeline: pipeline);
     }
 
     private static HttpResponseMessage ListaDeObras(params Guid[] ids)
