@@ -92,6 +92,15 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             .GroupBy(i => i.ArticuloId)
             .ToDictionary(g => g.Key, g => g.First().Cantidad);
 
+        // Preparamos el DTO de ponderaciones fijas aplicadas en el scoring
+        var ponderacionesDto = new CriteriosScoringDto
+        {
+            Precio = ponderacion.Precio,
+            Flete = ponderacion.Flete,
+            Plazo = ponderacion.Plazo,
+            Calificacion = ponderacion.Calificacion
+        };
+
         var dtos = cotizaciones
             .OrderByDescending(c => c.FechaCreacion)
             .ThenBy(c => c.CotizacionId)
@@ -107,11 +116,28 @@ public class GetCotizacionesByLicitacionIdQueryHandler
                         : 0m);
                 decimal costoTotal = subtotalItems + c.Flete;
 
+                // Desglose proporcional de puntaje por criterio basado en el puntaje total obtenido
+                CriteriosScoringDto? desgloseDto = null;
+                if (scoringItem != null)
+                {
+                    desgloseDto = new CriteriosScoringDto
+                    {
+                        Precio = puntaje * ponderacion.Precio,
+                        Flete = puntaje * ponderacion.Flete,
+                        Plazo = puntaje * ponderacion.Plazo,
+                        Calificacion = puntaje * ponderacion.Calificacion
+                    };
+                }
+
                 var dto = c.ToDto();
                 dto.SubtotalItems = subtotalItems;
                 dto.CostoTotal = costoTotal;
                 dto.PuntajeTotal = Math.Round(puntaje * 100m, 2);
                 dto.EsGanadora = esGanadora;
+                dto.ProveedorNombre = null;             // Opcional: ajustar si la entidad incorpora el nombre
+                dto.CalificacionProveedor = null;       // Opcional: escalar de 1 a 5 si aplica
+                dto.DesglosePuntaje = desgloseDto;
+                dto.PonderacionesScoring = ponderacionesDto;
 
                 return dto;
             }).ToList();
