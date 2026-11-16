@@ -59,6 +59,16 @@ public class FlujoIntegracionRecepcionTests : IClassFixture<RecepcionApiFactory>
         return context;
     }
 
+    private ConsumeContext<OrdenCompraDespachadaEvent> CrearConsumeContextDespacho(
+        OrdenCompraDespachadaEvent evento,
+        CancellationToken cancellationToken = default)
+    {
+        var context = Substitute.For<ConsumeContext<OrdenCompraDespachadaEvent>>();
+        context.Message.Returns(evento);
+        context.CancellationToken.Returns(cancellationToken);
+        return context;
+    }
+
     [Fact]
     public async Task FlujoCompleto_OrdenCompraEmitida_HastaRecepcionTotal_VerificaRemanentesYEventos()
     {
@@ -130,9 +140,33 @@ public class FlujoIntegracionRecepcionTests : IClassFixture<RecepcionApiFactory>
             Assert.Equal(85000m, partidaActualizada.MontoDisponible);
         }
 
-        // ── 2. Consulta de Órdenes Pendientes vía API (Capataz) ──
+        // ── 2. Antes del despacho NO aparece en órdenes pendientes ──
         var capatazId = Guid.NewGuid();
         var client = CrearCliente("Capataz", capatazId);
+
+        var pendientesAntesDespacho = await (await client.GetAsync($"/api/recepciones/ordenes-pendientes?obraId={obraId}"))
+            .Content.ReadFromJsonAsync<List<OrdenPendienteDto>>();
+        Assert.NotNull(pendientesAntesDespacho);
+        Assert.DoesNotContain(pendientesAntesDespacho, o => o.OrdenCompraId == ordenCompraId);
+
+        // ── 2b. Consumir OrdenCompraDespachadaEvent y luego consultar Órdenes Pendientes ──
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+            var repo = new OrdenCompraRepository(db);
+            var dispatchConsumer = new OrdenCompraDespachadaConsumer(
+                db, repo, NullLogger<OrdenCompraDespachadaConsumer>.Instance);
+
+            var eventoDespacho = new OrdenCompraDespachadaEvent(
+                EventId: Guid.NewGuid(),
+                OccurredAt: DateTime.UtcNow,
+                CorrelationId: Guid.NewGuid(),
+                OrdenCompraId: ordenCompraId,
+                ObraId: obraId,
+                FechaDespacho: DateTime.UtcNow);
+
+            await dispatchConsumer.Consume(CrearConsumeContextDespacho(eventoDespacho));
+        }
 
         var respuestaPendientes = await client.GetAsync($"/api/recepciones/ordenes-pendientes?obraId={obraId}");
         Assert.Equal(HttpStatusCode.OK, respuestaPendientes.StatusCode);
@@ -334,7 +368,8 @@ public class FlujoIntegracionRecepcionTests : IClassFixture<RecepcionApiFactory>
         {
             var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
             var item = OrdenCompraItem.Crear(articuloId, 100m, "u", 50m, "Hierro");
-            var oc = OrdenCompra.Crear(ordenCompraId, obraId, Guid.NewGuid(), 5000m, new[] { item });
+            var oc = OrdenCompra.Crear(ordenCompraId, obraId, Guid.NewGuid(), 5000m, new[] { item },
+                fechaDespacho: DateTime.UtcNow);
             db.OrdenesCompra.Add(oc);
             await db.SaveChangesAsync();
         }
@@ -445,7 +480,8 @@ public class FlujoIntegracionRecepcionTests : IClassFixture<RecepcionApiFactory>
             var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
 
             var item = OrdenCompraItem.Crear(articuloId, 100m, "u", 10m, "Ladrillos");
-            var oc = OrdenCompra.Crear(ordenCompraId, obraId, Guid.NewGuid(), 1000m, new[] { item });
+            var oc = OrdenCompra.Crear(ordenCompraId, obraId, Guid.NewGuid(), 1000m, new[] { item },
+                fechaDespacho: DateTime.UtcNow);
             db.OrdenesCompra.Add(oc);
 
             // Simular recepción parcial previa guardada

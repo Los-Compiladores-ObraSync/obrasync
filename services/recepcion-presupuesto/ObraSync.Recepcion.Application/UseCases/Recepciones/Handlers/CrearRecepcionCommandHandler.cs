@@ -94,6 +94,11 @@ public class CrearRecepcionCommandHandler
             throw new RecepcionConflictoException("La orden de compra se encuentra bloqueada por desvío presupuestario y no permite recepciones.");
         }
 
+        if (!ordenCompra.EstaDespachada)
+        {
+            throw new RecepcionConflictoException("La orden de compra todavía no fue despachada");
+        }
+
         bool yaRecibida = await _context.Recepciones
             .AnyAsync(
                 r => r.OrdenCompraId == command.OrdenCompraId &&

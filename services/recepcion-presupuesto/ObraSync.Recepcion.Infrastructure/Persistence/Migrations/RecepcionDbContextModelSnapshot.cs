@@ -261,6 +261,9 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<DateTime?>("FechaDespacho")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("LiberadaEn")
                         .HasColumnType("datetime2");
 
@@ -294,6 +297,8 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("FechaDespacho");
 
                     b.HasIndex("ObraId");
 

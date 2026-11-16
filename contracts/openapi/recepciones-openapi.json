@@ -180,7 +180,7 @@
             "description": "No se pudo verificar la obra asignada porque Usuarios y Obras no respondió."
           },
           "409": {
-            "description": "La orden de compra ya fue recibida por completo o el número de remito está repetido para esa OC.",
+            "description": "La orden de compra está bloqueada por desvío presupuestario, todavía no fue despachada, ya fue recibida por completo o el número de remito está repetido para esa OC.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -255,7 +255,7 @@
           "Recepciones"
         ],
         "summary": "Consultar órdenes de compra pendientes",
-        "description": "Obtiene las órdenes de compra que aún no tienen una recepción completa, con cálculo acumulado de cantidades recibidas. Permite filtrar opcionalmente por obra. Roles permitidos: Capataz, Comprador y Admin.",
+        "description": "Obtiene las órdenes de compra activas y ya despachadas (OrdenCompraDespachadaEvent procesado) que aún no tienen una recepción completa, con cálculo acumulado de cantidades recibidas. Permite filtrar opcionalmente por obra y sinPartida. Roles permitidos: Capataz, Comprador y Admin.",
         "security": [
           {
             "bearerAuth": []

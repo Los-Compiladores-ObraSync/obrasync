@@ -38,7 +38,8 @@ public class CrearRecepcionEndpointTests : IClassFixture<RecepcionApiFactory>
             obraId,
             Guid.NewGuid(),
             1000,
-            new List<OrdenCompraItem> { articulo });
+            new List<OrdenCompraItem> { articulo },
+            fechaDespacho: DateTime.UtcNow);
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
@@ -359,7 +360,8 @@ public class CrearRecepcionEndpointTests : IClassFixture<RecepcionApiFactory>
             obraId,
             Guid.NewGuid(),
             2000,
-            new List<OrdenCompraItem> { articulo1, articulo2 });
+            new List<OrdenCompraItem> { articulo1, articulo2 },
+            fechaDespacho: DateTime.UtcNow);
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -483,5 +485,43 @@ public class CrearRecepcionEndpointTests : IClassFixture<RecepcionApiFactory>
             .AnyAsync(r => r.OrdenCompraId == ordenId);
 
         Assert.False(seGuardo);
+    }
+
+    [Fact]
+    public async Task CrearRecepcion_OrdenNoDespachada_Devuelve409ConflictConProblemDetailsYCorrelationId()
+    {
+        var ordenCompraId = Guid.NewGuid();
+        var obraId = Guid.NewGuid();
+        var articuloId = Guid.NewGuid();
+        var correlationId = Guid.NewGuid().ToString();
+
+        var articulo = OrdenCompraItem.Crear(articuloId, 100, "UNIDAD", 10, "Barras de hierro");
+        var ordenSinDespachar = OrdenCompra.Crear(
+            ordenCompraId,
+            obraId,
+            Guid.NewGuid(),
+            1000,
+            new List<OrdenCompraItem> { articulo }); // fechaDespacho = null
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+            db.OrdenesCompra.Add(ordenSinDespachar);
+            await db.SaveChangesAsync();
+        }
+
+        using var client = CrearClienteConToken();
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
+
+        var solicitud = CrearSolicitud(ordenCompraId, obraId, articuloId);
+        var respuesta = await client.PostAsJsonAsync("/api/recepciones", solicitud);
+
+        Assert.Equal(HttpStatusCode.Conflict, respuesta.StatusCode);
+        Assert.Equal("application/problem+json", respuesta.Content.Headers.ContentType?.MediaType);
+
+        using var doc = System.Text.Json.JsonDocument.Parse(await respuesta.Content.ReadAsStringAsync());
+        Assert.Equal(409, doc.RootElement.GetProperty("status").GetInt32());
+        Assert.Equal("La orden de compra todavía no fue despachada", doc.RootElement.GetProperty("detail").GetString());
+        Assert.Equal(correlationId, doc.RootElement.GetProperty("correlationId").GetString());
     }
 }

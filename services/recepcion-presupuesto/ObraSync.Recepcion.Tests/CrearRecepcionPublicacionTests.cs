@@ -25,7 +25,8 @@ public class CrearRecepcionPublicacionTests
         var obraId = Guid.NewGuid();
         var articuloId = Guid.NewGuid();
         var oc = OrdenCompra.Crear(Guid.NewGuid(), obraId, Guid.NewGuid(), 1000,
-            new List<OrdenCompraItem> { OrdenCompraItem.Crear(articuloId, 100, "UNIDAD", 10, "Hierro") });
+            new List<OrdenCompraItem> { OrdenCompraItem.Crear(articuloId, 100, "UNIDAD", 10, "Hierro") },
+            fechaDespacho: DateTime.UtcNow);
         db.OrdenesCompra.Add(oc);
         db.SaveChanges();
 

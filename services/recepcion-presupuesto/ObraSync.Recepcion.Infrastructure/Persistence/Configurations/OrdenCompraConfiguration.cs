@@ -43,9 +43,12 @@ public class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCompra>
             .IsRequired()
             .HasDefaultValue(false);
 
+        builder.Property(o => o.FechaDespacho);
+
         // Índice no único para optimizar búsquedas por Obra
         builder.HasIndex(o => o.ObraId);
         builder.HasIndex(o => o.SinPartidaPresupuestaria);
+        builder.HasIndex(o => o.FechaDespacho);
 
         // Relación 1 a N con Items en cascada
         builder.HasMany(o => o.Items)

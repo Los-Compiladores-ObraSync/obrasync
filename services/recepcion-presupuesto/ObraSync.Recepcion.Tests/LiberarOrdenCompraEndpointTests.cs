@@ -59,7 +59,8 @@ public class LiberarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactory
             items: new[] { item },
             etapa: "Estructura",
             estado: estado,
-            motivoBloqueo: estado == EstadoOrdenCompra.Bloqueada ? "Supera la partida asignada (#95)" : null);
+            motivoBloqueo: estado == EstadoOrdenCompra.Bloqueada ? "Supera la partida asignada (#95)" : null,
+            fechaDespacho: DateTime.UtcNow);
 
         db.OrdenesCompra.Add(oc);
         await db.SaveChangesAsync();

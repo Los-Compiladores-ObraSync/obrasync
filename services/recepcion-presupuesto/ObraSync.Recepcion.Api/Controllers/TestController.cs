@@ -78,17 +78,82 @@ public class TestController : ControllerBase
         try
         {
             await _publishEndpoint.Publish(@event, cancellationToken);
+
+            if (request.MarcarComoDespachada)
+            {
+                var despachadaEvent = new OrdenCompraDespachadaEvent(
+                    EventId: Guid.NewGuid(),
+                    OccurredAt: DateTime.UtcNow,
+                    CorrelationId: @event.CorrelationId,
+                    OrdenCompraId: request.OrdenCompraId,
+                    ObraId: request.ObraId,
+                    FechaDespacho: DateTime.UtcNow);
+
+                await _publishEndpoint.Publish(despachadaEvent, cancellationToken);
+            }
+
             if (_dbContext != null)
             {
                 await _dbContext.SaveChangesAsync(cancellationToken);
             }
 
-            _logger.LogInformation("Evento OrdenCompraEmitida publicado. EventId: {EventId}, OrdenCompraId: {OrdenCompraId}", eventId, request.OrdenCompraId);
+            _logger.LogInformation(
+                "Evento OrdenCompraEmitida publicado. EventId: {EventId}, OrdenCompraId: {OrdenCompraId}, MarcarComoDespachada: {MarcarComoDespachada}",
+                eventId, request.OrdenCompraId, request.MarcarComoDespachada);
             return Ok(new { eventId, message = "Evento publicado correctamente" });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al publicar evento OrdenCompraEmitida. EventId: {EventId}", eventId);
+            return StatusCode(500, new { error = "No se pudo publicar el evento. Revisá los logs del servicio." });
+        }
+    }
+
+    [HttpPost("publish-orden-despachada")]
+    public async Task<IActionResult> PublishOrdenDespachada(
+        [FromBody] PublishOrdenDespachadaRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (_environment != null && !_environment.IsDevelopment() && !_environment.IsEnvironment("Testing"))
+        {
+            return NotFound();
+        }
+
+        if (request == null || request.OrdenCompraId == Guid.Empty || request.ObraId == Guid.Empty)
+        {
+            _logger.LogWarning("Solicitud de testing inválida: OrdenCompraId u ObraId vacío");
+            return BadRequest(new { error = "OrdenCompraId y ObraId son obligatorios" });
+        }
+
+        var eventId = request.EventId == Guid.Empty ? Guid.NewGuid() : request.EventId;
+        var fechaDespacho = request.FechaDespacho.HasValue
+            ? DateTime.SpecifyKind(request.FechaDespacho.Value, DateTimeKind.Utc)
+            : DateTime.UtcNow;
+
+        var @event = new OrdenCompraDespachadaEvent(
+            EventId: eventId,
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: request.CorrelationId ?? eventId,
+            OrdenCompraId: request.OrdenCompraId,
+            ObraId: request.ObraId,
+            FechaDespacho: fechaDespacho);
+
+        try
+        {
+            await _publishEndpoint.Publish(@event, cancellationToken);
+            if (_dbContext != null)
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+
+            _logger.LogInformation(
+                "Evento OrdenCompraDespachada publicado. EventId: {EventId}, OrdenCompraId: {OrdenCompraId}",
+                eventId, request.OrdenCompraId);
+            return Ok(new { eventId, message = "Evento OrdenCompraDespachada publicado correctamente" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al publicar evento OrdenCompraDespachada. EventId: {EventId}", eventId);
             return StatusCode(500, new { error = "No se pudo publicar el evento. Revisá los logs del servicio." });
         }
     }
@@ -105,7 +170,17 @@ public class PublishOrdenCompraRequest
     public Guid? RequisicionId { get; set; }
     public string? Etapa { get; set; }
     public decimal MontoTotal { get; set; }
+    public bool MarcarComoDespachada { get; set; } = true;
     public List<PublishOrdenCompraItemRequest> Items { get; set; } = [];
+}
+
+public class PublishOrdenDespachadaRequest
+{
+    public Guid EventId { get; set; } = Guid.Empty;
+    public Guid OrdenCompraId { get; set; }
+    public Guid ObraId { get; set; }
+    public Guid? CorrelationId { get; set; }
+    public DateTime? FechaDespacho { get; set; }
 }
 
 public class PublishOrdenCompraItemRequest

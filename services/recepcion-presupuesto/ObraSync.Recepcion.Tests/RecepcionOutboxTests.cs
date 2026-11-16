@@ -28,7 +28,8 @@ public class RecepcionOutboxTests
         var obraId = Guid.NewGuid();
         var articuloId = Guid.NewGuid();
         var item = OrdenCompraItem.Crear(articuloId, 50m, "UNIDAD", 100m, "Hierro 10mm");
-        var oc = OrdenCompra.Crear(Guid.NewGuid(), obraId, Guid.NewGuid(), 5000m, new List<OrdenCompraItem> { item });
+        var oc = OrdenCompra.Crear(Guid.NewGuid(), obraId, Guid.NewGuid(), 5000m, new List<OrdenCompraItem> { item },
+            fechaDespacho: DateTime.UtcNow);
 
         db.OrdenesCompra.Add(oc);
         db.SaveChanges();
