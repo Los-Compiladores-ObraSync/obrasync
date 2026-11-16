@@ -338,7 +338,7 @@
             "description": "El rol del usuario no tiene permisos de escritura."
           },
           "409": {
-            "description": "Conflicto: ya existe una partida con ese código para la obra.",
+            "description": "Conflicto: ya existe una partida con ese código o para esa etapa en la obra.",
             "content": {
               "application/problem+json": {
                 "schema": {

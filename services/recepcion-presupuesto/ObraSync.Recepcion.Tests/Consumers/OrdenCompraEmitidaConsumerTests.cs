@@ -844,6 +844,145 @@ public class OrdenCompraEmitidaConsumerTests
         var partida = await db.PartidasPresupuestarias.SingleAsync(p => p.Id == partidaId);
         Assert.Equal(25_000m, partida.MontoComprometido);
     }
+
+    [Fact]
+    public async Task CasoP_DosOrdenesSimultaneasMismaPartida_PrimeraCompromete_SegundaLanzaConcurrenciaYEnReintentoQuedaBloqueada()
+    {
+        // Arrange (#195): Partida con $100.000 asignados y $0 comprometidos.
+        // Dos órdenes de $60.000 compiten al mismo tiempo: individualmente caben ($60k <= $100k),
+        // pero juntas superan la partida ($120k > $100k).
+        var dbName = Guid.NewGuid().ToString();
+        var obraId = Guid.NewGuid();
+        var partidaId = Guid.NewGuid();
+
+        using (var dbSetup = CreateDbContext(dbName))
+        {
+            dbSetup.PartidasPresupuestarias.Add(new PartidaPresupuestaria
+            {
+                Id = partidaId,
+                ObraId = obraId,
+                Etapa = "Estructura",
+                CodigoPartida = "EST-01",
+                Descripcion = "Hormigón",
+                MontoAsignado = 100_000m,
+                MontoComprometido = 0m
+            });
+            await dbSetup.SaveChangesAsync();
+        }
+
+        var eventoOc1 = new OrdenCompraEmitidaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: Guid.NewGuid(),
+            LicitacionId: Guid.NewGuid(),
+            RequisicionId: Guid.NewGuid(),
+            ObraId: obraId,
+            ProveedorId: Guid.NewGuid(),
+            MontoTotal: 60_000m,
+            Items: new List<OrdenCompraEmitidaItemEvent>
+            {
+                new(Guid.NewGuid(), 60m, "M3", 1000m, "Hormigón OC 1")
+            },
+            Etapa: "Estructura");
+
+        var eventoOc2 = new OrdenCompraEmitidaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: Guid.NewGuid(),
+            LicitacionId: Guid.NewGuid(),
+            RequisicionId: Guid.NewGuid(),
+            ObraId: obraId,
+            ProveedorId: Guid.NewGuid(),
+            MontoTotal: 60_000m,
+            Items: new List<OrdenCompraEmitidaItemEvent>
+            {
+                new(Guid.NewGuid(), 60m, "M3", 1000m, "Hormigón OC 2")
+            },
+            Etapa: "Estructura");
+
+        using var db1 = CreateDbContext(dbName);
+        var repo1 = new OrdenCompraRepository(db1);
+        var logger1 = new TestLogger<OrdenCompraEmitidaConsumer>();
+        var consumer1 = new OrdenCompraEmitidaConsumer(db1, repo1, logger1);
+        var context1 = CreateConsumeContext(eventoOc1);
+
+        var optionsDb2 = new DbContextOptionsBuilder<RecepcionDbContext>()
+            .UseInMemoryDatabase(dbName)
+            .Options;
+
+        // Justo después de que el consumidor 2 leyó MontoComprometido = 0 y evaluó que cabía,
+        // antes de confirmar su SaveChangesAsync, el consumidor 1 confirma su transacción y avanza el RowVersion.
+        using var db2 = new ConcurrenciaIntercaladaDbContext(
+            optionsDb2,
+            antesDeGuardarAsync: () => consumer1.Consume(context1));
+
+        var repo2 = new OrdenCompraRepository(db2);
+        var logger2 = new TestLogger<OrdenCompraEmitidaConsumer>();
+        var consumer2 = new OrdenCompraEmitidaConsumer(db2, repo2, logger2);
+        var context2Intento1 = CreateConsumeContext(eventoOc2);
+
+        // Act 1: El primer intento de la OC 2 detecta el cambio de RowVersion y lanza DbUpdateConcurrencyException
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => consumer2.Consume(context2Intento1));
+        Assert.Contains(logger2.Logs, l => l.LogLevel == LogLevel.Warning && l.Message.Contains("Conflicto de concurrencia"));
+
+        // Act 2: MassTransit reintenta el mensaje de la OC 2 en un DbContext limpio
+        using var db3 = CreateDbContext(dbName);
+        var repo3 = new OrdenCompraRepository(db3);
+        var logger3 = new TestLogger<OrdenCompraEmitidaConsumer>();
+        var consumer3 = new OrdenCompraEmitidaConsumer(db3, repo3, logger3);
+        var context2Reintento = CreateConsumeContext(eventoOc2);
+
+        await consumer3.Consume(context2Reintento);
+
+        // Assert:
+        // 1. La OC 1 quedó Activa y comprometió $60.000
+        using var dbVerif = CreateDbContext(dbName);
+        var oc1EnBd = await dbVerif.OrdenesCompra.SingleAsync(o => o.Id == eventoOc1.OrdenCompraId);
+        Assert.Equal(EstadoOrdenCompra.Activa, oc1EnBd.Estado);
+
+        // 2. La OC 2 quedó Bloqueada en el reintento y NO sumó al MontoComprometido
+        var oc2EnBd = await dbVerif.OrdenesCompra.SingleAsync(o => o.Id == eventoOc2.OrdenCompraId);
+        Assert.Equal(EstadoOrdenCompra.Bloqueada, oc2EnBd.Estado);
+
+        var partidaFinal = await dbVerif.PartidasPresupuestarias.SingleAsync(p => p.Id == partidaId);
+        Assert.Equal(60_000m, partidaFinal.MontoComprometido);
+
+        // 3. Se publicó el evento de auditoría OrdenCompraBloqueadaEvent para la OC 2
+        await context2Reintento.Received(1).Publish(
+            Arg.Is<OrdenCompraBloqueadaEvent>(e =>
+                e.OrdenCompraId == eventoOc2.OrdenCompraId &&
+                e.MontoComprometidoActual == 60_000m &&
+                e.MontoProyectado == 120_000m &&
+                e.Exceso == 20_000m),
+            Arg.Any<CancellationToken>());
+    }
+
+    private sealed class ConcurrenciaIntercaladaDbContext : RecepcionDbContext
+    {
+        private readonly Func<Task> _antesDeGuardarAsync;
+        private bool _intercaladoEjecutado;
+
+        public ConcurrenciaIntercaladaDbContext(
+            DbContextOptions<RecepcionDbContext> options,
+            Func<Task> antesDeGuardarAsync)
+            : base(options)
+        {
+            _antesDeGuardarAsync = antesDeGuardarAsync;
+        }
+
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            if (!_intercaladoEjecutado)
+            {
+                _intercaladoEjecutado = true;
+                await _antesDeGuardarAsync();
+            }
+
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+    }
 }
 
 public class TestLogger<T> : ILogger<T>

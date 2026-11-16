@@ -369,12 +369,24 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ObraId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ObraId");
+
+                    b.HasIndex("ObraId", "CodigoPartida")
+                        .IsUnique();
+
+                    b.HasIndex("ObraId", "Etapa")
+                        .IsUnique();
 
                     b.ToTable("PartidasPresupuestarias", (string)null);
                 });

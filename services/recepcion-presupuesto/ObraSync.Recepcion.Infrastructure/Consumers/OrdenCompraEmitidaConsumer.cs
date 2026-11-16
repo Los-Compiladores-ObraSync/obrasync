@@ -203,6 +203,14 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
         {
             await _db.SaveChangesAsync(context.CancellationToken);
         }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Conflicto de concurrencia al comprometer la partida presupuestaria para OrdenCompra {OrdenCompraId} (Evento {EventId}). Se relanza para reintentar con el saldo actualizado (#195).",
+                msg.OrdenCompraId, msg.EventId);
+            throw;
+        }
         catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
         {
             _logger.LogInformation(
@@ -282,14 +290,14 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
         {
             var etapaNormalizada = etapa.Trim().ToLower();
             return await _db.PartidasPresupuestarias
-                .Where(p => p.ObraId == obraId && p.Etapa != null && p.Etapa.ToLower() == etapaNormalizada)
-                .OrderByDescending(p => p.CreatedAt)
-                .FirstOrDefaultAsync(cancellationToken);
+                .FirstOrDefaultAsync(
+                    p => p.ObraId == obraId && p.Etapa != null && p.Etapa.ToLower() == etapaNormalizada,
+                    cancellationToken);
         }
 
         return await _db.PartidasPresupuestarias
-            .Where(p => p.ObraId == obraId && p.Etapa == null)
-            .OrderByDescending(p => p.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
+            .FirstOrDefaultAsync(
+                p => p.ObraId == obraId && p.Etapa == null,
+                cancellationToken);
     }
 }
