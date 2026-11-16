@@ -7,7 +7,7 @@ public sealed record MensajeHistorial(string Rol, string Texto);
 
 /// <summary>Lo que devuelve el agente: siempre un ok o un error con código estable.</summary>
 public sealed record RespuestaAgente(bool Ok, string Texto, string? Error, int Iteraciones, int Herramientas, int Tokens,
-    BorradorRequisicion? Borrador = null);
+    BorradorRequisicion? Borrador = null, BorradorAprobacion? Aprobacion = null);
 
 /// <summary>
 /// El "arnés" (harness): el bucle que le pregunta al modelo, ejecuta las herramientas que pide
@@ -39,11 +39,23 @@ public sealed class Agente
 
     private readonly IModeloChat _modelo;
     private readonly HerramientasCatalogo _herramientas;
+    private readonly HerramientasCompras? _compras;
+    private readonly IContextoDePeticion? _contexto;
 
-    public Agente(IModeloChat modelo, HerramientasCatalogo herramientas)
+    /// <summary>
+    /// "compras" y "contexto" son opcionales: sin contexto se atiende como Capataz (el comportamiento de la primera versión).
+    /// En la aplicación real el contenedor de dependencias los entrega siempre.
+    /// </summary>
+    public Agente(
+        IModeloChat modelo,
+        HerramientasCatalogo herramientas,
+        HerramientasCompras? compras = null,
+        IContextoDePeticion? contexto = null)
     {
         _modelo = modelo;
         _herramientas = herramientas;
+        _compras = compras;
+        _contexto = contexto;
     }
 
     public async Task<RespuestaAgente> ResponderAsync(
@@ -54,12 +66,17 @@ public sealed class Agente
         if (pregunta.Length > MaxCaracteresEntrada)
             return Falla("entrada_demasiado_larga", 0, 0, 0);
 
+        // Cada rol tiene su perfil: sus instrucciones y sus herramientas. Un rol sin perfil no llega al modelo.
+        var perfil = PerfilAsistente.Para(_contexto is null ? PerfilAsistente.Capataz : _contexto.Rol);
+        if (perfil is null)
+            return Falla("rol_sin_perfil", 0, 0, 0);
+
         using var limite = CancellationTokenSource.CreateLinkedTokenSource(ct);
         limite.CancelAfter(TiempoTotal);
 
         var mensajes = new JsonArray
         {
-            new JsonObject { ["role"] = "system", ["content"] = Instrucciones }
+            new JsonObject { ["role"] = "system", ["content"] = perfil.Instrucciones }
         };
 
         // El historial lo manda el cliente (el servidor no guarda conversaciones). Se acota igual por seguridad.
@@ -82,9 +99,10 @@ public sealed class Agente
 
         mensajes.Add(new JsonObject { ["role"] = "user", ["content"] = pregunta });
 
-        var defs = HerramientasCatalogo.Definiciones();
+        var defs = DefinicionesDe(perfil);
         int llamadas = 0, tokens = 0, iteracion = 0;
         BorradorRequisicion? borrador = null;
+        BorradorAprobacion? aprobacion = null;
 
         try
         {
@@ -99,9 +117,9 @@ public sealed class Agente
                 if (pedidos is null || pedidos.Count == 0)
                 {
                     var texto = r.Mensaje["content"]?.GetValue<string>() ?? "";
-                    if (string.IsNullOrWhiteSpace(texto) && borrador is not null)
+                    if (string.IsNullOrWhiteSpace(texto) && (borrador is not null || aprobacion is not null))
                         texto = "Armé el borrador. Revisalo y, si está bien, tocá Confirmar.";
-                    return new RespuestaAgente(true, texto, null, iteracion, llamadas, tokens, borrador);
+                    return new RespuestaAgente(true, texto, null, iteracion, llamadas, tokens, borrador, aprobacion);
                 }
 
                 // Hay que devolver el mensaje del modelo tal cual antes de las respuestas de herramienta.
@@ -118,9 +136,11 @@ public sealed class Agente
                         return Falla("demasiadas_herramientas", iteracion, llamadas, tokens);
                     llamadas++;
 
-                    var res = await _herramientas.EjecutarAsync(nombre, args, limite.Token);
+                    var res = await EjecutarAsync(perfil, nombre, args, limite.Token);
                     if (res.Borrador is not null)
                         borrador = res.Borrador;
+                    if (res.Aprobacion is not null)
+                        aprobacion = res.Aprobacion;
                     mensajes.Add(new JsonObject
                     {
                         ["role"] = "tool",
@@ -140,6 +160,39 @@ public sealed class Agente
         }
 
         return Falla("demasiadas_iteraciones", MaxIteraciones, llamadas, tokens);
+    }
+
+    /// <summary>Solo se le muestran al modelo las herramientas de su perfil.</summary>
+    private static JsonArray DefinicionesDe(PerfilAsistente perfil)
+    {
+        var defs = new JsonArray();
+        foreach (var d in HerramientasCatalogo.Definiciones().Concat(HerramientasCompras.Definiciones()))
+        {
+            var nombre = d?["function"]?["name"]?.GetValue<string>();
+            if (nombre is not null && perfil.Herramientas.Contains(nombre))
+                defs.Add(d!.DeepClone());
+        }
+        return defs;
+    }
+
+    /// <summary>
+    /// Defensa extra: aunque el modelo pida una herramienta que no se le mostró, si no es de su perfil no se ejecuta.
+    /// (El permiso real igual lo valida cada API con el JWT.)
+    /// </summary>
+    private Task<ResultadoHerramienta> EjecutarAsync(PerfilAsistente perfil, string nombre, string argumentos, CancellationToken ct)
+    {
+        var esDeCatalogo = nombre is HerramientasCatalogo.BuscarInsumos or HerramientasCatalogo.ArmarBorrador;
+        var esDeCompras = HerramientasCompras.Nombres.Contains(nombre);
+
+        if (!esDeCatalogo && !esDeCompras)
+            return Task.FromResult(ResultadoHerramienta.Error("herramienta_desconocida"));
+        if (!perfil.Herramientas.Contains(nombre))
+            return Task.FromResult(ResultadoHerramienta.Error("herramienta_no_permitida"));
+        if (esDeCompras)
+            return _compras is null
+                ? Task.FromResult(ResultadoHerramienta.Error("herramienta_no_disponible"))
+                : _compras.EjecutarAsync(nombre, argumentos, ct);
+        return _herramientas.EjecutarAsync(nombre, argumentos, ct);
     }
 
     private static RespuestaAgente Falla(string codigo, int iteraciones, int llamadas, int tokens) =>

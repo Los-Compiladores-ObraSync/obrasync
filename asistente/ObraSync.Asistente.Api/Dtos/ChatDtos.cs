@@ -11,5 +11,7 @@ public sealed record ChatRequestDto(string? Mensaje, List<ChatMensajeDto>? Histo
 /// <summary>
 /// Lo que devuelve el asistente. "Borrador" viene cuando armó una requisición para confirmar.
 /// Su presencia NO significa que se haya creado nada: la escritura la hace el frontend al Confirmar.
+/// "Aprobacion" viene cuando el Comprador pidió aprobar una requisición Pendiente: tampoco aprueba nada hasta que confirma.
 /// </summary>
-public sealed record ChatResponseDto(string Respuesta, BorradorRequisicion? Borrador, int? TokensUsados);
+public sealed record ChatResponseDto(
+    string Respuesta, BorradorRequisicion? Borrador, int? TokensUsados, BorradorAprobacion? Aprobacion = null);

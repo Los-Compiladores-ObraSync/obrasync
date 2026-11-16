@@ -48,6 +48,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IContextoDePeticion, ContextoDePeticionHttp>();
 builder.Services.AddScoped<HerramientasCatalogo>();
+builder.Services.AddScoped<HerramientasCompras>();
 builder.Services.AddScoped<Agente>();
 
 // Infrastructure: cliente del gateway de IA y buscador del catálogo (vía API Gateway).

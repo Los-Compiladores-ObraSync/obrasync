@@ -30,7 +30,8 @@ public class AsistenteEndpointTests : IClassFixture<WebApplicationFactory<Progra
         _fabrica = fabrica.WithWebHostBuilder(b => b.UseSetting("Jwt:Secret", Secreto));
     }
 
-    private HttpClient Cliente(IModeloChat modelo, IBuscadorInsumos? buscador = null, IBuscadorObras? obras = null)
+    private HttpClient Cliente(IModeloChat modelo, IBuscadorInsumos? buscador = null, IBuscadorObras? obras = null,
+        IConsultorRequisiciones? requisiciones = null)
     {
         var cliente = _fabrica.WithWebHostBuilder(b => b.ConfigureServices(s =>
         {
@@ -40,6 +41,8 @@ public class AsistenteEndpointTests : IClassFixture<WebApplicationFactory<Progra
             s.AddScoped(_ => buscador ?? new BuscadorFalso());
             s.RemoveAll<IBuscadorObras>();
             s.AddScoped(_ => obras ?? new ObrasFalsas());
+            s.RemoveAll<IConsultorRequisiciones>();
+            s.AddScoped(_ => requisiciones ?? new ConsultorFalso());
         })).CreateClient();
         return cliente;
     }
@@ -84,15 +87,13 @@ public class AsistenteEndpointTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Empty(modelo.Pedidos);
     }
 
-    [Theory]
-    [InlineData("Proveedor")]
-    [InlineData("Comprador")]
-    public async Task Un_rol_sin_perfil_de_asistente_recibe_403_y_no_se_llama_al_modelo(string rol)
+    [Fact]
+    public async Task Un_rol_sin_perfil_de_asistente_recibe_403_y_no_se_llama_al_modelo()
     {
         var modelo = new ModeloFalso();
         var cliente = Cliente(modelo);
 
-        var r = await cliente.SendAsync(Pedido(CrearToken(rol), new { mensaje = "hola" }));
+        var r = await cliente.SendAsync(Pedido(CrearToken("Proveedor"), new { mensaje = "hola" }));
 
         Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
         Assert.Empty(modelo.Pedidos);
@@ -100,8 +101,9 @@ public class AsistenteEndpointTests : IClassFixture<WebApplicationFactory<Progra
 
     [Theory]
     [InlineData("Capataz")]
+    [InlineData("Comprador")]
     [InlineData("Admin")]
-    public async Task Capataz_y_Admin_reciben_la_respuesta_del_asistente(string rol)
+    public async Task Capataz_Comprador_y_Admin_reciben_la_respuesta_del_asistente(string rol)
     {
         var modelo = new ModeloFalso(_ => Respuestas.Final("Hola, ¿en qué te ayudo?", tokens: 42));
         var cliente = Cliente(modelo);
@@ -114,6 +116,31 @@ public class AsistenteEndpointTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Equal(42, json.GetProperty("tokensUsados").GetInt32());
         // Un saludo no arma ningún borrador (y el asistente nunca crea nada por su cuenta).
         Assert.Equal(JsonValueKind.Null, json.GetProperty("borrador").ValueKind);
+    }
+
+
+    [Fact]
+    public async Task El_Comprador_recibe_el_borrador_de_aprobacion_con_la_forma_del_contrato()
+    {
+        var modelo = new ModeloFalso(
+            _ => Respuestas.PideHerramienta(
+                "{\"requisicionId\":\"" + ConsultorFalso.IdPendiente + "\"}", nombre: "preparar_aprobacion_requisicion"),
+            _ => Respuestas.Final("Revisá el resumen y tocá Confirmar."));
+        var cliente = Cliente(modelo);
+
+        var r = await cliente.SendAsync(Pedido(CrearToken("Comprador"), new { mensaje = "aprobá la REQ-0001" }));
+
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        var json = JsonDocument.Parse(await r.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal(JsonValueKind.Null, json.GetProperty("borrador").ValueKind);
+        var a = json.GetProperty("aprobacion");
+        Assert.Equal("aprobarRequisicion", a.GetProperty("accion").GetString());
+        Assert.Equal(ConsultorFalso.IdPendiente.ToString(), a.GetProperty("requisicionId").GetString());
+        Assert.Equal("Aprobar requisición REQ-0001", a.GetProperty("titulo").GetString());
+        var resumen = a.GetProperty("resumen");
+        Assert.Equal("REQ-0001", resumen.GetProperty("numero").GetString());
+        Assert.Equal("Torre Central", resumen.GetProperty("obra").GetString());
+        Assert.Equal(2, resumen.GetProperty("items").GetArrayLength());
     }
 
     [Fact]

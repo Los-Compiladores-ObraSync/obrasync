@@ -72,6 +72,7 @@ function App() {
                 <Route path="obras/nueva" element={<NuevaObraPage />} />
                 <Route path="obras/:id/editar" element={<EditarObraPage />} />
                 <Route path="requisiciones" element={<AprobarRequisicionesPage />} />
+                <Route path="asistente" element={<AsistenteChatPage portal="compras" />} />
                 <Route path="licitaciones" element={<LicitacionesComprasPage />} />
                 <Route
                   path="requisiciones/historial"

@@ -15,7 +15,7 @@ llamando a `POST /api/requisiciones` con el JWT del usuario y una `Idempotency-K
 El borrador no se guarda en ninguna base.
 
 - Contrato: `contracts/openapi/asistente-openapi.json` (`POST /api/asistente/chat`, por el Gateway).
-- Roles con acceso en esta versión: Capataz y Admin (el resto recibe 403 y no se llama al modelo).
+- Roles con acceso: Capataz (arma borradores de requisición), Comprador (consulta requisiciones, solo lectura) y Admin (ambos). El resto (Proveedor) recibe 403 y no se llama al modelo.
 - Herramientas (todas de lectura, vía Gateway, con el JWT del usuario):
   - `buscar_insumos`: busca en el catálogo real.
   - `armar_borrador_requisicion`: recibe obra, etapa y materiales por NOMBRE; el servicio resuelve la obra
@@ -31,7 +31,7 @@ El borrador no se guarda en ninguna base.
 - Paquete: `ModelContextProtocol.AspNetCore` **2.4.0** (versión fija; última estable al 15/11/2026, compatible con .NET 8).
   Para actualizarlo hay que acordarlo con el equipo y revisar las notas de la versión.
 - Modo sin sesiones (`Stateless`): cada pedido es independiente.
-- Autenticación: el cliente manda `Authorization: Bearer <JWT>` en cada pedido. Solo Capataz y Admin (el resto recibe 403).
+- Autenticación: el cliente manda `Authorization: Bearer <JWT>` en cada pedido. Capataz, Comprador y Admin (el resto recibe 403).
   Las herramientas consultan al Gateway con ESE token, nunca con una cuenta propia: cada cliente ve lo que su rol permite.
 - Herramientas: las mismas dos de arriba, marcadas como solo lectura. No necesita el modelo de IA ni la clave de Azure.
 - Probarlo a mano con un cliente MCP de prueba, por ejemplo MCP Inspector (`npx @modelcontextprotocol/inspector`):
