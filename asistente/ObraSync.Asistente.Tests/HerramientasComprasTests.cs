@@ -39,6 +39,9 @@ public class HerramientasComprasTests
         Assert.Equal(2, datos["total"]!.GetValue<int>());
         var lista = datos["requisiciones"]!.AsArray();
         Assert.Equal(2, lista.Count);
+        // Se mostraron todas: el modelo no tiene nada que avisar.
+        Assert.Equal(2, datos["mostradas"]!.GetValue<int>());
+        Assert.False(datos["hayMas"]!.GetValue<bool>());
         Assert.Equal("REQ-0001", lista[0]!["numero"]!.GetValue<string>());
         Assert.Equal("Pendiente", lista[0]!["estado"]!.GetValue<string>());
         Assert.Equal("Torre Central", lista[0]!["obra"]!.GetValue<string>());
@@ -113,6 +116,9 @@ public class HerramientasComprasTests
         Assert.Equal(5, datos["requisiciones"]!.AsArray().Count);
         // El total real se informa igual: así el modelo puede decir "hay 9 pendientes, te muestro las 5 últimas".
         Assert.Equal(9, datos["total"]!.GetValue<int>());
+        // Y se lo decimos con un dato explícito, para que avise que hay más de las que muestra.
+        Assert.Equal(5, datos["mostradas"]!.GetValue<int>());
+        Assert.True(datos["hayMas"]!.GetValue<bool>());
     }
 
     [Fact]

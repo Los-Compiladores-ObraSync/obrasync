@@ -48,7 +48,8 @@ public sealed class HerramientasCompras
                 ["name"] = ListarRequisiciones,
                 ["description"] =
                     "Lista las requisiciones de materiales más nuevas (máximo 5) y dice cuántas hay en total. " +
-                    "Se puede filtrar por estado. Solo lectura.",
+                    "Se puede filtrar por estado. Si hayMas es true, hay más requisiciones que las que devolvió: " +
+                    "decile a la persona cuántas hay en total, que le mostrás las más nuevas y que puede pedirte un estado en particular. Solo lectura.",
                 ["parameters"] = new JsonObject
                 {
                     ["type"] = "object",
@@ -154,10 +155,14 @@ public sealed class HerramientasCompras
         foreach (var r in resultado.Requisiciones!.Take(MaxRequisiciones))
             lista.Add(ResumenJson(r, nombresDeObras));
 
+        var total = resultado.Total ?? resultado.Requisiciones!.Count;
         var datos = new JsonObject
         {
             ["ok"] = true,
-            ["total"] = resultado.Total ?? resultado.Requisiciones!.Count,
+            ["total"] = total,
+            // El modelo no tiene que adivinar si falta alguna: se lo decimos con un dato.
+            ["mostradas"] = lista.Count,
+            ["hayMas"] = total > lista.Count,
             ["requisiciones"] = lista
         };
         return ResultadoHerramienta.Bien(datos);

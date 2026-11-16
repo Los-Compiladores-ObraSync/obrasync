@@ -33,7 +33,7 @@ public class PerfilesPorRolTests
         new ContextoFalso { Rol = rol });
 
     [Theory]
-    [InlineData("Capataz", new[] { "buscar_insumos", "armar_borrador_requisicion" })]
+    [InlineData("Capataz", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion" })]
     [InlineData("Comprador", new[] { "listar_requisiciones", "ver_requisicion", "preparar_aprobacion_requisicion" })]
     [InlineData("Admin", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "preparar_aprobacion_requisicion" })]
     public async Task Cada_rol_ve_solo_las_herramientas_de_su_perfil(string rol, string[] esperadas)
@@ -75,7 +75,9 @@ public class PerfilesPorRolTests
 
         await agente.ResponderAsync("hola");
 
-        Assert.Equal(new[] { "buscar_insumos", "armar_borrador_requisicion" }, modelo.NombresOfrecidos());
+        Assert.Equal(
+            new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion" }.OrderBy(x => x),
+            modelo.NombresOfrecidos().OrderBy(x => x));
     }
 
     [Theory]
@@ -91,6 +93,38 @@ public class PerfilesPorRolTests
         Assert.False(r.Ok);
         Assert.Equal("rol_sin_perfil", r.Error);
         Assert.Empty(modelo.Pedidos);
+    }
+
+    [Fact]
+    public async Task El_Capataz_puede_consultar_sus_requisiciones_y_el_modelo_recibe_el_resultado()
+    {
+        var consultor = new ConsultorFalso();
+        var modelo = new ModeloFalso(
+            _ => Respuestas.PideHerramienta("{\"estado\":\"Pendiente\"}", nombre: "listar_requisiciones"),
+            _ => Respuestas.Final("Tenés 2 requisiciones pendientes."));
+
+        var r = await ArmarAgente(modelo, "Capataz", consultor).ResponderAsync("¿en qué quedó mi requisición?");
+
+        Assert.True(r.Ok);
+        Assert.Equal(1, consultor.LlamadasLista);
+        Assert.Equal("Pendiente", consultor.UltimoEstado);
+        Assert.Contains("REQ-0001", modelo.Pedidos[1].Last()!["content"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task El_Capataz_no_puede_preparar_una_aprobacion_aunque_pueda_consultar()
+    {
+        var consultor = new ConsultorFalso();
+        var modelo = new ModeloFalso(
+            _ => Respuestas.PideHerramienta("{\"requisicionId\":\"" + ConsultorFalso.IdPendiente + "\"}", nombre: "preparar_aprobacion_requisicion"),
+            _ => Respuestas.Final("No puedo."));
+
+        var r = await ArmarAgente(modelo, "Capataz", consultor).ResponderAsync("aprobá mi requisición");
+
+        Assert.True(r.Ok);
+        Assert.Equal(0, consultor.LlamadasDetalle);
+        Assert.Contains("herramienta_no_permitida", modelo.Pedidos[1].Last()!["content"]!.GetValue<string>());
+        Assert.Null(r.Aprobacion);
     }
 
     [Fact]
@@ -113,8 +147,6 @@ public class PerfilesPorRolTests
     [Theory]
     [InlineData("Comprador", "buscar_insumos")]
     [InlineData("Comprador", "armar_borrador_requisicion")]
-    [InlineData("Capataz", "listar_requisiciones")]
-    [InlineData("Capataz", "ver_requisicion")]
     [InlineData("Capataz", "preparar_aprobacion_requisicion")]
     public async Task Si_el_modelo_pide_una_herramienta_que_no_es_de_su_perfil_no_se_ejecuta(string rol, string herramienta)
     {
