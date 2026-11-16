@@ -453,6 +453,99 @@
           "409": { "$ref": "#/components/responses/Conflict" }
         }
       }
+    },
+    "/api/ordenes-compra": {
+      "get": {
+        "tags": ["OrdenesCompra"],
+        "summary": "Listar órdenes de compra con su estado de despacho (Roles: Comprador, Admin)",
+        "description": "Permite a un Comprador o Administrador consultar las órdenes de compra emitidas con paginación estándar, incluyendo su estado actual y si fueron despachadas.",
+        "parameters": [
+          {
+            "name": "pagina",
+            "in": "query",
+            "description": "Número de página (1 en adelante).",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+          },
+          {
+            "name": "tamano",
+            "in": "query",
+            "description": "Cantidad de elementos por página (entre 1 y 50).",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 50 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total de elementos que coinciden con el filtro",
+                "schema": { "type": "integer" }
+              },
+              "X-Page": {
+                "description": "Página actual",
+                "schema": { "type": "integer" }
+              },
+              "X-Page-Size": {
+                "description": "Tamaño de página aplicado",
+                "schema": { "type": "integer" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/OrdenCompraListadoDto" }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/ordenes-compra/{id}/despachar": {
+      "post": {
+        "tags": ["OrdenesCompra"],
+        "summary": "Marcar una orden de compra como despachada (Roles: Comprador, Admin)",
+        "description": "Permite a un Comprador o Administrador marcar una orden de compra como despachada, registrando la fecha de despacho UTC y publicando OrdenCompraDespachadaEvent. Devuelve 404 si no existe o 409 si ya estaba despachada.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identificador único (GUID) de la orden de compra.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Orden de compra marcada como despachada exitosamente.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OrdenCompraListadoDto" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": {
+            "description": "Conflict (La orden de compra ya fue despachada)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -792,6 +885,66 @@
             "type": "string",
             "enum": ["Enviada", "Gano", "NoGano", "LicitacionCerrada"],
             "description": "Estado de resultado para el portal de proveedores: 'Enviada' si la licitación sigue Abierta, 'Gano' si fue Adjudicada a esta cotización, 'NoGano' si fue Adjudicada a otra oferta, o 'LicitacionCerrada' si cerró sin adjudicarse."
+          }
+        },
+        "additionalProperties": false
+      },
+      "OrdenCompraListadoDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "licitacionId",
+          "cotizacionId",
+          "obraId",
+          "proveedorId",
+          "estado",
+          "fechaEmision",
+          "fueDespachada"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la orden de compra."
+          },
+          "licitacionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la licitación adjudicada."
+          },
+          "cotizacionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la cotización ganadora."
+          },
+          "obraId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la obra asociada a la orden de compra."
+          },
+          "proveedorId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del proveedor adjudicado."
+          },
+          "estado": {
+            "type": "string",
+            "description": "Estado actual de la orden de compra (ej: Emitida, Despachada)."
+          },
+          "fechaEmision": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha y hora de emisión de la orden de compra (en UTC)."
+          },
+          "fueDespachada": {
+            "type": "boolean",
+            "description": "Indica si la orden de compra ya fue marcada como despachada."
+          },
+          "fechaDespacho": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fecha y hora en que se marcó el despacho de la orden de compra (en UTC), o null si todavía no fue despachada."
           }
         },
         "additionalProperties": false
