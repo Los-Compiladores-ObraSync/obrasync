@@ -853,7 +853,7 @@
             }
           },
           "409": {
-            "description": "Conflict (La requisición ya fue aprobada o rechazada previamente)",
+            "description": "Conflict (La requisición ya fue aprobada o rechazada previamente, o fue modificada concurrentemente por otro usuario)",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1015,7 +1015,7 @@
             }
           },
           "409": {
-            "description": "Conflict (La requisición no se encuentra en estado Pendiente)",
+            "description": "Conflict (La requisición no se encuentra en estado Pendiente o fue modificada concurrentemente por otro usuario)",
             "content": {
               "text/plain": {
                 "schema": {

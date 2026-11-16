@@ -72,6 +72,9 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Configurations
             builder.Property(r => r.FechaRechazo)
                 .HasConversion(nullableUtcDateTimeConverter);
 
+            builder.Property(r => r.RowVersion)
+                .IsRowVersion();
+
             builder.HasMany(r => r.Items)
                 .WithOne()
                 .HasForeignKey(i => i.RequisicionId)
