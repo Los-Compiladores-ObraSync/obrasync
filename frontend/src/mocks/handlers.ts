@@ -220,6 +220,16 @@ function crearRequisicionesMock() {
       fechaRechazo: '2026-10-18T12:00:00Z' as string | null,
       items: [{ articuloId: MOCK_CATALOGO[2].articuloId, descripcion: MOCK_CATALOGO[2].descripcion, cantidad: 40, unidadMedida: MOCK_CATALOGO[2].unidadMedida }],
     },
+    {
+      requisicionId: 'd1d2d3d4-0000-0000-0000-000000000013',
+      numeroRequisicion: 'REQ-2026-0013', obraId: OBRA_MOCK_ID, etapa: 'Fundaciones',
+      solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000001', aprobadorId: null as string | null,
+      rechazadorId: 'a1b2c3d4-0000-0000-0000-000000000002' as string | null,
+      estado: 'Rechazada', observaciones: 'Revisar la cantidad', motivoRechazo: 'Falta justificar el volumen',
+      fechaCreacion: '2026-10-20T12:00:00Z', fechaAprobacion: null as string | null,
+      fechaRechazo: '2026-10-21T12:00:00Z' as string | null,
+      items: [{ articuloId: MOCK_CATALOGO[0].articuloId, descripcion: MOCK_CATALOGO[0].descripcion, cantidad: 25, unidadMedida: MOCK_CATALOGO[0].unidadMedida }],
+    },
   ]
 }
 
@@ -1003,6 +1013,32 @@ export const handlers: RequestHandler[] = [
         { status: 404 },
       )
     }
+    return HttpResponse.json(req, { status: 200 })
+  }),
+
+  // Contrato: PUT /api/requisiciones/{id} â†’ 200 | 403 | 404 | 409 ProblemDetails
+  http.put('*/api/requisiciones/:id', async ({ params, request }) => {
+    const req = requisicionesMock.find((r) => r.requisicionId === params.id)
+    if (!req) return HttpResponse.json({ title: 'No encontrada', status: 404 }, { status: 404 })
+    if (req.solicitanteId !== 'a1b2c3d4-0000-0000-0000-000000000001') {
+      return HttpResponse.json({ title: 'Acceso denegado', status: 403 }, { status: 403 })
+    }
+    if (req.estado !== 'Rechazada') {
+      return HttpResponse.json({ title: 'Conflicto de estado', status: 409 }, { status: 409 })
+    }
+    const body = await request.json() as { etapa?: string | null; observaciones?: string | null; items: { articuloId: string; cantidad: number }[] }
+    if (!Array.isArray(body.items) || body.items.length === 0 || body.items.some((item) => !item.articuloId || !Number.isFinite(item.cantidad) || item.cantidad <= 0)) {
+      return HttpResponse.json({ title: 'Datos inválidos', status: 400, detail: 'Los ítems y cantidades deben ser válidos.' }, { status: 400 })
+    }
+    req.etapa = body.etapa ?? req.etapa
+    req.observaciones = body.observaciones ?? null
+    req.items = body.items.map((item) => {
+      const insumo = MOCK_CATALOGO.find((catalogo) => catalogo.articuloId === item.articuloId)
+      return { articuloId: item.articuloId, descripcion: insumo?.descripcion ?? item.articuloId, cantidad: item.cantidad, unidadMedida: insumo?.unidadMedida ?? '' }
+    })
+    req.estado = 'Pendiente'
+    req.motivoRechazo = null
+    req.fechaRechazo = null
     return HttpResponse.json(req, { status: 200 })
   }),
 

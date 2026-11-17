@@ -73,6 +73,18 @@ describe('HistorialRequisicionesPage', () => {
     expect(screen.queryByText('REQ-2026-0010')).not.toBeInTheDocument()
   })
 
+  it('el enlace de edición aparece únicamente en rechazadas propias y muestra el motivo', async () => {
+    renderPagina(capataz)
+    const rechazada = await screen.findByText('REQ-2026-0013')
+    const tarjetaRechazada = rechazada.closest('li')!
+    expect(within(tarjetaRechazada).getByText(/Falta justificar el volumen/)).toBeInTheDocument()
+    expect(within(tarjetaRechazada).getByRole('link', { name: 'Editar y reenviar' })).toBeInTheDocument()
+    const pendiente = await screen.findByText('REQ-2026-0011')
+    expect(within(pendiente.closest('li')!).queryByRole('link', { name: 'Editar y reenviar' })).not.toBeInTheDocument()
+    const aprobada = screen.getByText('REQ-2026-0009')
+    expect(within(aprobada.closest('li')!).queryByRole('link', { name: 'Editar y reenviar' })).not.toBeInTheDocument()
+  })
+
   it('el Capataz sin requisiciones ve un mensaje a su medida', async () => {
     server.use(http.get('*/api/requisiciones', () => HttpResponse.json([])))
     renderPagina(capataz)
@@ -282,10 +294,10 @@ describe('HistorialRequisicionesPage - filtros', () => {
     renderPagina(capataz)
     await screen.findByText('REQ-2026-0011')
 
-    // La única rechazada (REQ-2026-0010) la pidió otra persona.
+    // La 0010 la pidió otra persona; la 0013 propia sí debe aparecer.
     await user.selectOptions(screen.getByLabelText('Estado'), 'Rechazada')
 
-    expect(await screen.findByText('No hay requisiciones con esos filtros.')).toBeInTheDocument()
+    expect(await screen.findByText('REQ-2026-0013')).toBeInTheDocument()
     expect(screen.queryByText('REQ-2026-0010')).not.toBeInTheDocument()
   })
 })

@@ -132,6 +132,12 @@
   outline-offset: 2px;
 }
 
+.accionRechazo {
+  position: relative;
+  z-index: 1;
+  align-self: flex-start;
+}
+
 .dato {
   margin: 0;
   font-size: 1.0625rem;

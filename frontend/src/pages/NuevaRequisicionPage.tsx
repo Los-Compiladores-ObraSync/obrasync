@@ -1,13 +1,15 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { BotonVerMas } from '../componentes/BotonVerMas'
 import { ESPERA_BUSQUEDA_MS } from '../requisiciones/configuracionBusqueda'
 import {
   crearRequisicion,
+  editarYReenviarRequisicion,
   generarIdempotencyKey,
   obtenerInsumosCatalogo,
   obtenerObras,
+  obtenerRequisicion,
 } from '../requisiciones/requisicionesService'
 import type {
   InsumoCatalogo,
@@ -57,18 +59,21 @@ function sumarInsumos(actuales: InsumoCatalogo[], nuevos: InsumoCatalogo[]): Ins
   return [...actuales, ...nuevos.filter((ins) => !ids.has(ins.articuloId))]
 }
 
-function mensajeDeErrorApi(err: unknown): string {
+function mensajeDeErrorApi(err: unknown, editando = false): string {
   if (err instanceof ApiError) {
     if (err.status === 400) {
       return err.detail ?? 'Hay datos inválidos en la requisición. Revisá el formulario.'
     }
     if (err.status === 403) {
-      return 'No tenés permiso para crear requisiciones.'
+      return editando
+        ? 'La requisición no pertenece al Capataz o no tenés permiso para editarla.'
+        : 'No tenés permiso para crear requisiciones.'
     }
     if (err.status === 404) {
       return err.detail ?? 'La obra o algún artículo ya no existe. Recargá la página e intentá de nuevo.'
     }
     if (err.status === 409) {
+      if (editando) return 'La requisición ya no está en estado Rechazada y no puede editarse.'
       return err.detail ?? 'La requisición entra en conflicto con el estado actual. Revisá los datos.'
     }
   }
@@ -76,6 +81,10 @@ function mensajeDeErrorApi(err: unknown): string {
 }
 
 export function NuevaRequisicionPage() {
+  const [params] = useSearchParams()
+  const requisicionIdEdicion = params.get('editar')
+  const rutaHistorial = params.get('volver') || '/obra/requisiciones'
+  const [cargandoEdicion, setCargandoEdicion] = useState(!!requisicionIdEdicion)
   const [obras, setObras] = useState<ObraResumen[]>([])
   // Catálogo sin búsqueda: llega de a una página (#172) y "Ver más" pide la siguiente.
   const [catalogo, setCatalogo] = useState<InsumoCatalogo[]>([])
@@ -155,6 +164,42 @@ export function NuevaRequisicionPage() {
       cancelado = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!requisicionIdEdicion) return
+    let cancelado = false
+    obtenerRequisicion(requisicionIdEdicion)
+      .then((requisicion) => {
+        if (cancelado) return
+        if (requisicion.estado !== 'Rechazada') {
+          setErrorCarga('La requisición ya no está en estado Rechazada y no puede editarse.')
+        } else {
+          setObraId(requisicion.obraId)
+          setEtapa(requisicion.etapa ?? '')
+          setObservaciones(requisicion.observaciones ?? '')
+          setItems(requisicion.items.map((item, index) => ({
+            id: index + 1,
+            articuloId: item.articuloId,
+            cantidad: String(item.cantidad),
+          })))
+          siguienteFilaId.current = requisicion.items.length + 1
+          setVistos((actuales) => ({
+            ...actuales,
+            ...Object.fromEntries(requisicion.items.map((item) => [item.articuloId, {
+              articuloId: item.articuloId, codigo: item.articuloId, descripcion: item.descripcion,
+              unidadMedida: item.unidadMedida, moneda: '', activo: true,
+            } satisfies InsumoCatalogo])),
+          }))
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelado) setErrorCarga(err instanceof ApiError && err.status === 403
+          ? 'La requisición no pertenece al Capataz o no tenés permiso para editarla.'
+          : 'No se pudo cargar la requisición para editarla.')
+      })
+      .finally(() => { if (!cancelado) setCargandoEdicion(false) })
+    return () => { cancelado = true }
+  }, [requisicionIdEdicion])
 
   // Búsqueda de insumos (#57): se le pregunta al servidor con ?search=. Con el
   // buscador vacío no se pide nada: se usa el catálogo completo ya cargado.
@@ -357,21 +402,25 @@ export function NuevaRequisicionPage() {
     setEnviando(true)
 
     try {
-      const creada = await crearRequisicion(
-        {
-          obraId,
-          etapa: etapa.trim(),
-          observaciones: observaciones.trim() || null,
-          items: items.map((it) => ({
-            articuloId: it.articuloId,
-            cantidad: Number(it.cantidad),
-          })),
-        },
-        idempotencyKeyRef.current,
-      )
+      const itemsDto = items.map((it) => ({
+        articuloId: it.articuloId,
+        cantidad: Number(it.cantidad),
+      }))
+      const creada = requisicionIdEdicion
+        ? await editarYReenviarRequisicion(requisicionIdEdicion, {
+            etapa: etapa.trim(),
+            observaciones: observaciones.trim() || null,
+            items: itemsDto,
+          })
+        : await crearRequisicion({
+            obraId,
+            etapa: etapa.trim(),
+            observaciones: observaciones.trim() || null,
+            items: itemsDto,
+          }, idempotencyKeyRef.current)
       setRequisicionCreada(creada)
     } catch (err) {
-      setApiError(mensajeDeErrorApi(err))
+      setApiError(mensajeDeErrorApi(err, !!requisicionIdEdicion))
     } finally {
       enviandoRef.current = false
       setEnviando(false)
@@ -395,7 +444,7 @@ export function NuevaRequisicionPage() {
     return conError ? `${styles.input} ${styles.inputInvalido}` : styles.input
   }
 
-  if (cargandoInicial) {
+  if (cargandoInicial || cargandoEdicion) {
     return (
       <section className={styles.contenedor}>
         <p role="status">Cargando…</p>
@@ -467,6 +516,11 @@ export function NuevaRequisicionPage() {
           </div>
 
           <div className={styles.accionesExito}>
+            {requisicionIdEdicion && (
+              <Link to={rutaHistorial} className={styles.enlaceBoton}>
+                Volver al historial
+              </Link>
+            )}
             <button
               type="button"
               className={styles.secundario}
@@ -474,9 +528,7 @@ export function NuevaRequisicionPage() {
             >
               Cargar otra requisición
             </button>
-            <Link to="/" className={styles.enlaceBoton}>
-              Volver al inicio
-            </Link>
+            {!requisicionIdEdicion && <Link to="/" className={styles.enlaceBoton}>Volver al inicio</Link>}
           </div>
         </div>
       </section>
@@ -488,7 +540,7 @@ export function NuevaRequisicionPage() {
       <Link to="/" className={styles.volver}>
         ← Volver al inicio
       </Link>
-      <h1>Nueva requisición</h1>
+      <h1>{requisicionIdEdicion ? 'Editar y reenviar requisición' : 'Nueva requisición'}</h1>
 
       <form className={styles.formulario} onSubmit={handleSubmit} noValidate>
         {apiError && (
@@ -826,7 +878,7 @@ export function NuevaRequisicionPage() {
         </div>
 
         <button type="submit" className={styles.boton} disabled={enviando}>
-          {enviando ? 'Enviando…' : 'Enviar requisición'}
+          {enviando ? 'Enviando…' : requisicionIdEdicion ? 'Guardar y reenviar' : 'Enviar requisición'}
         </button>
       </form>
     </section>
