@@ -59,6 +59,8 @@ public class Cotizacion
     public Guid CotizacionId { get; set; }
     public Guid LicitacionId { get; set; }
     public Guid ProveedorId { get; set; }
+    /// <summary>Nombre del proveedor tal como figuraba al cotizar (#206). Null si no se conoce: no se inventa.</summary>
+    public string? ProveedorNombre { get; set; }
     public decimal Flete { get; set; }
     public int PlazoEntregaDias { get; set; }
     public DateTime FechaCreacion { get; set; }
@@ -110,6 +112,11 @@ public class MagicLink
 
     public Guid LicitacionId { get; set; }
     public Guid ProveedorId { get; set; }
+    /// <summary>
+    /// Nombre del proveedor que escribió quien generó el enlace (#206). El Magic Link no tiene JWT, así que es la única fuente
+    /// del nombre cuando el proveedor cotiza por este camino. Opcional.
+    /// </summary>
+    public string? ProveedorNombre { get; set; }
     public DateTime FechaDeVencimiento { get; set; }
     public DateTime? FechaDeUso { get; set; }
 

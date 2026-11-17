@@ -116,4 +116,36 @@ public class CalculadorScoringTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new PonderacionScoring(-1, 1, 1));
         Assert.Throws<ArgumentException>(() => new PonderacionScoring(0, 0, 0));
     }
+
+    [Fact]
+    public void El_aporte_de_cada_criterio_suma_exactamente_el_puntaje()
+    {
+        var a = CrearOferta(100m, 500m, 10, 3m);
+        var b = CrearOferta(130m, 200m, 4, 5m);
+        var c = CrearOferta(115m, 350m, 7, 1m);
+
+        var resultado = CalculadorScoring.Calcular(new[] { a, b, c }, UnItem, new PonderacionScoring(0.5m, 0.2m, 0.2m, 0.1m));
+
+        Assert.All(resultado, r =>
+        {
+            Assert.NotNull(r.Aporte);
+            var suma = r.Aporte!.Precio + r.Aporte.Flete + r.Aporte.Plazo + r.Aporte.Calificacion;
+            Assert.Equal(r.Puntaje, suma);
+        });
+    }
+
+    [Fact]
+    public void Un_criterio_sin_peso_no_aporta_nada()
+    {
+        var barata = CrearOferta(100m, 0m, 10);
+        var cara = CrearOferta(120m, 0m, 2);
+
+        var resultado = CalculadorScoring.Calcular(new[] { barata, cara }, UnItem, new PonderacionScoring(1, 0, 0));
+
+        var ganadora = resultado[0];
+        Assert.Equal(1m, ganadora.Aporte!.Precio);
+        Assert.Equal(0m, ganadora.Aporte.Flete);
+        Assert.Equal(0m, ganadora.Aporte.Plazo);
+        Assert.Equal(0m, ganadora.Aporte.Calificacion);
+    }
 }

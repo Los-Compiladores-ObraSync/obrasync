@@ -12,6 +12,7 @@ public static class CotizacionMappingExtensions
             CotizacionId = cotizacion.CotizacionId,
             LicitacionId = cotizacion.LicitacionId,
             ProveedorId = cotizacion.ProveedorId,
+            ProveedorNombre = cotizacion.ProveedorNombre,
             Flete = cotizacion.Flete,
             PlazoEntregaDias = cotizacion.PlazoEntregaDias,
             FechaCreacion = DateTime.SpecifyKind(cotizacion.FechaCreacion, DateTimeKind.Utc),

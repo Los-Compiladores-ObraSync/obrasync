@@ -11,5 +11,6 @@ public interface ICotizacionValidadorService
         decimal flete,
         int plazoEntregaDias,
         IReadOnlyList<CrearCotizacionItemDto>? items,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        string? proveedorNombre = null);
 }

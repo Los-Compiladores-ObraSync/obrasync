@@ -71,6 +71,7 @@ public class LicitacionesDbContext : DbContext
             e.HasIndex(x => x.LicitacionId);
             e.HasIndex(x => new { x.LicitacionId, x.ProveedorId }).IsUnique();
             e.Property(x => x.Flete).HasPrecision(18, 2);
+            e.Property(x => x.ProveedorNombre).HasMaxLength(200);
             e.Property(x => x.FechaCreacion).HasConversion(utcDateTimeConverter);
 
             e.HasOne<Licitacion>()
@@ -132,6 +133,7 @@ public class LicitacionesDbContext : DbContext
                 .HasMaxLength(64)
                 .IsRequired();
             e.Ignore(x => x.TokenHash);
+            e.Property(x => x.ProveedorNombre).HasMaxLength(200);
         });
     
     }

@@ -66,7 +66,8 @@ public class CotizarConMagicLinkCommandHandler : IRequestHandler<CotizarConMagic
             request.Flete,
             request.PlazoEntregaDias,
             itemsMapeados,
-            cancellationToken);
+            cancellationToken,
+            magicLink.ProveedorNombre);
 
         // 4. Consumo atómico del enlace (UPDATE condicional: FechaDeUso == null && FechaDeVencimiento > ahoraUtc)
         var consumido = await _magicLinkRepository.TryConsumirAtomicoAsync(

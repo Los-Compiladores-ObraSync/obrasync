@@ -15,4 +15,10 @@ public record Oferta(
     int PlazoEntregaDias,
     decimal? Calificacion = null);
 
-public record ResultadoScoring(Guid CotizacionId, Guid ProveedorId, decimal PrecioTotal, decimal Puntaje);
+/// <summary>
+/// Cuánto aportó cada criterio al puntaje de una oferta (0 a 1): peso × valor normalizado ÷ suma de pesos.
+/// Los cuatro suman exactamente el Puntaje (#206).
+/// </summary>
+public record AporteScoring(decimal Precio, decimal Flete, decimal Plazo, decimal Calificacion);
+
+public record ResultadoScoring(Guid CotizacionId, Guid ProveedorId, decimal PrecioTotal, decimal Puntaje, AporteScoring? Aporte = null);
