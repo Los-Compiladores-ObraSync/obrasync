@@ -19,4 +19,5 @@ public class CotizacionResponseDto
     public bool EsGanadora { get; set; }
     public CriteriosScoringDto? DesglosePuntaje { get; set; }      // NUEVO (#206)
     public CriteriosScoringDto? PonderacionesScoring { get; set; } // NUEVO (#206)
+    public DesgloseScoringDto? DesgloseScoring { get; set; }       // NUEVO (#197)
 }

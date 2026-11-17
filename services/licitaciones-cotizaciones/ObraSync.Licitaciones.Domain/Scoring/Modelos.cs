@@ -21,4 +21,15 @@ public record Oferta(
 /// </summary>
 public record AporteScoring(decimal Precio, decimal Flete, decimal Plazo, decimal Calificacion);
 
-public record ResultadoScoring(Guid CotizacionId, Guid ProveedorId, decimal PrecioTotal, decimal Puntaje, AporteScoring? Aporte = null);
+/// <summary>
+/// Puntaje normalizado (0 a 1) obtenido en cada criterio individual antes de multiplicar por su peso (#197).
+/// </summary>
+public record PuntajesCriterioScoring(decimal Precio, decimal Flete, decimal Plazo, decimal Calificacion);
+
+public record ResultadoScoring(
+    Guid CotizacionId,
+    Guid ProveedorId,
+    decimal PrecioTotal,
+    decimal Puntaje,
+    AporteScoring? Aporte = null,
+    PuntajesCriterioScoring? PuntajesCriterio = null);

@@ -24,7 +24,7 @@ public class CalculadorScoringTests
 
         Assert.Equal(barata.CotizacionId, resultado[0].CotizacionId);
         Assert.Equal(1m, resultado[0].Puntaje);
-        Assert.Equal(0m, resultado[1].Puntaje);
+        Assert.Equal(100m / 120m, resultado[1].Puntaje);
     }
 
     [Fact]

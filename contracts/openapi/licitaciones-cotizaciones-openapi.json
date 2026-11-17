@@ -854,8 +854,38 @@
           "ponderacionesScoring": {
             "nullable": true,
             "allOf": [{ "$ref": "#/components/schemas/CriteriosScoringDto" }],
-            "description": "Peso (0 a 1) de cada criterio con el que se calculó el puntaje. Hoy están fijos en el servicio (0,5 / 0,2 / 0,2 / 0,1); cuando #88 y #197 los vuelvan configurables, este campo muestra los que se usaron."
+            "description": "Peso de cada criterio con el que se calculó el puntaje (#197 / #206)."
+          },
+          "desgloseScoring": {
+            "nullable": true,
+            "allOf": [{ "$ref": "#/components/schemas/DesgloseScoringDto" }],
+            "description": "Desagregación detallada por criterio (puntajes normalizados 0 a 100 respecto a la mejor oferta y pesos configurados aplicados, #197)."
           }
+        },
+        "additionalProperties": false
+      },
+      "DesgloseScoringDto": {
+        "type": "object",
+        "required": [
+          "puntajePrecio",
+          "puntajePlazo",
+          "puntajeFlete",
+          "puntajeCalificacion",
+          "pesoPrecio",
+          "pesoPlazo",
+          "pesoFlete",
+          "pesoCalificacion"
+        ],
+        "description": "Puntaje individual obtenido en cada criterio (escala 0 a 100) y peso configurado aplicado (#197).",
+        "properties": {
+          "puntajePrecio": { "type": "number", "format": "double" },
+          "puntajePlazo": { "type": "number", "format": "double" },
+          "puntajeFlete": { "type": "number", "format": "double" },
+          "puntajeCalificacion": { "type": "number", "format": "double" },
+          "pesoPrecio": { "type": "number", "format": "double" },
+          "pesoPlazo": { "type": "number", "format": "double" },
+          "pesoFlete": { "type": "number", "format": "double" },
+          "pesoCalificacion": { "type": "number", "format": "double" }
         },
         "additionalProperties": false
       },

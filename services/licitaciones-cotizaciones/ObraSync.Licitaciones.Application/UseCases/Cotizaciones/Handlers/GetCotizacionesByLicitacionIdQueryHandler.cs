@@ -1,6 +1,8 @@
+using Microsoft.Extensions.Configuration;
 using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.Mappings;
+using ObraSync.Licitaciones.Application.Services;
 using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Queries;
 using ObraSync.Licitaciones.Domain.Scoring;
 
@@ -10,13 +12,18 @@ public class GetCotizacionesByLicitacionIdQueryHandler
 {
     private readonly ILicitacionRepository _licitacionRepository;
     private readonly ICotizacionRepository _cotizacionRepository;
+    private readonly ScoringOptions _scoringOptions;
 
     public GetCotizacionesByLicitacionIdQueryHandler(
         ILicitacionRepository licitacionRepository,
-        ICotizacionRepository cotizacionRepository)
+        ICotizacionRepository cotizacionRepository,
+        IConfiguration? configuration = null,
+        ScoringOptions? scoringOptions = null)
     {
         _licitacionRepository = licitacionRepository ?? throw new ArgumentNullException(nameof(licitacionRepository));
         _cotizacionRepository = cotizacionRepository ?? throw new ArgumentNullException(nameof(cotizacionRepository));
+        _scoringOptions = scoringOptions ?? configuration.ReadAndValidateScoringOptions();
+        _scoringOptions.Validar();
     }
 
     public async Task<PaginaDe<CotizacionResponseDto>> Handle(
@@ -42,7 +49,7 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             return new PaginaDe<CotizacionResponseDto>(Array.Empty<CotizacionResponseDto>(), 0);
         }
 
-        // Solo las cotizaciones completas (con ítems válidos > 0 y sin cobertura parcial) compiten por el scoring y EsGanadora (#186 / #190)
+        // Solo las cotizaciones completas (con ítems válidos > 0 y sin cobertura parcial) compiten por el scoring y EsGanadora (#186 / #190 / #197)
         var cotizacionesCompletas = cotizaciones
             .Where(c =>
                 c.Items != null &&
@@ -70,15 +77,15 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             i.Cantidad
         )).ToList();
 
-        var ponderacion = new PonderacionScoring(0.5m, 0.2m, 0.2m, 0.1m);
+        var ponderacion = _scoringOptions.ToPonderacion();
 
         // 2. Ejecutamos el motor de scoring sobre las ofertas completas de la licitación
         var resultadosScoring = ofertasDomain.Count > 0
-            ? CalculadorScoring.Calcular(ofertasDomain, itemsRequeridos, ponderacion)
+            ? CalculadorScoring.Calcular(ofertasDomain, itemsRequeridos, ponderacion, _scoringOptions.ModoNormalizacion)
             : Array.Empty<ResultadoScoring>();
 
-        // 3. Regla de negocio de la tarjeta #73: Con menos de 2 cotizaciones completas NO se marca ganadora a ninguna
-        bool evaluarGanadora = cotizacionesCompletas.Count >= 2;
+        // 3. Regla de negocio de la tarjeta #73 + #197: Con menos de 2 cotizaciones válidas que entren al scoring NO se marca ganadora a ninguna
+        bool evaluarGanadora = resultadosScoring.Count >= 2;
 
         var ordenadasConDesempate = resultadosScoring
             .Join(cotizacionesCompletas, s => s.CotizacionId, c => c.CotizacionId, (s, c) => new { Scoring = s, Cotizacion = c })
@@ -97,7 +104,7 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             .GroupBy(i => i.ArticuloId)
             .ToDictionary(g => g.Key, g => g.First().Cantidad);
 
-        // Preparamos el DTO de ponderaciones fijas aplicadas en el scoring
+        // Preparamos el DTO de ponderaciones aplicadas en el scoring (#197 + #206)
         var ponderacionesDto = new CriteriosScoringDto
         {
             Precio = ponderacion.Precio,
@@ -134,6 +141,20 @@ public class GetCotizacionesByLicitacionIdQueryHandler
                     ? DesglosarPuntos(aporte)
                     : null;
 
+                DesgloseScoringDto? desgloseScoringDto = scoringItem?.PuntajesCriterio is { } pc
+                    ? new DesgloseScoringDto
+                    {
+                        PuntajePrecio = Math.Round(pc.Precio * 100m, 2),
+                        PuntajePlazo = Math.Round(pc.Plazo * 100m, 2),
+                        PuntajeFlete = Math.Round(pc.Flete * 100m, 2),
+                        PuntajeCalificacion = Math.Round(pc.Calificacion * 100m, 2),
+                        PesoPrecio = ponderacion.Precio,
+                        PesoPlazo = ponderacion.Plazo,
+                        PesoFlete = ponderacion.Flete,
+                        PesoCalificacion = ponderacion.Calificacion
+                    }
+                    : null;
+
                 dto.SubtotalItems = subtotalItems;
                 dto.CostoTotal = costoTotal;
                 dto.CoberturaParcial = c.Items.Any(i => i.CoberturaParcial);
@@ -142,6 +163,7 @@ public class GetCotizacionesByLicitacionIdQueryHandler
                 dto.CalificacionProveedor = null;
                 dto.DesglosePuntaje = desgloseDto;
                 dto.PonderacionesScoring = ponderacionesDto;
+                dto.DesgloseScoring = desgloseScoringDto;
 
                 return dto;
             }).ToList();
