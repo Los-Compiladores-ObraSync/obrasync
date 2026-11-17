@@ -5,6 +5,7 @@ import {
   aprobarRequisicion,
   crearRequisicion,
   generarIdempotencyKey,
+  rechazarRequisicion,
 } from '../requisiciones/requisicionesService'
 import { fechaAIso } from '../obras/validacionObra'
 import { hoyComoTexto } from '../obras/fechaEnPalabras'
@@ -29,9 +30,9 @@ interface MensajeChat {
   /** Mensaje armado por la propia pantalla (no lo dijo el modelo): no se reenvía como historial. */
   local?: boolean
   /** Muestra "qué querés hacer ahora" debajo del mensaje (después de confirmar o cancelar un borrador). */
-  siguientesPasos?: 'creada' | 'descartada' | 'aprobada' | 'recibida'
+  siguientesPasos?: 'creada' | 'descartada' | 'aprobada' | 'rechazada' | 'recibida'
   borrador?: BorradorRequisicionDto
-  /** Borrador de aprobación (portal de Compras, #141). */
+  /** Borrador de aprobar o rechazar una requisición (portal de Compras, #141 y #149). */
   aprobacion?: BorradorAprobacionDto
   /** Borrador de recepción total (portal de obra, #147). */
   recepcion?: BorradorRecepcionDto
@@ -67,7 +68,7 @@ const CAPACIDADES_OBRA = [
   },
 ]
 
-/** Lo que el asistente sabe hacer en el portal de Compras (#141): consultar y aprobar con confirmación. */
+/** Lo que el asistente sabe hacer en el portal de Compras (#141 y #149): consultar, aprobar y rechazar con confirmación. */
 const CAPACIDADES_COMPRAS = [
   {
     titulo: 'Ver requisiciones pendientes',
@@ -79,6 +80,12 @@ const CAPACIDADES_COMPRAS = [
     titulo: 'Aprobar una requisición',
     descripcion: 'Te armo la aprobación para que la revises y la confirmes.',
     mensaje: 'Quiero aprobar una requisición',
+    disponible: true,
+  },
+  {
+    titulo: 'Rechazar una requisición',
+    descripcion: 'Te armo el rechazo con tu motivo para que lo revises y lo confirmes.',
+    mensaje: 'Quiero rechazar una requisición',
     disponible: true,
   },
 ]
@@ -99,7 +106,7 @@ function mensajeDeErrorDelAsistente(err: unknown, portal: PortalAsistente): stri
     }
     if (err.status === 503) {
       return portal === 'compras'
-        ? 'El asistente no está disponible ahora. Podés aprobar desde la pantalla de requisiciones.'
+        ? 'El asistente no está disponible ahora. Podés aprobar o rechazar desde la pantalla de requisiciones.'
         : 'El asistente no está disponible ahora. Podés cargar la requisición con el formulario.'
     }
   }
@@ -222,15 +229,28 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
   }
 
   async function confirmarAprobacion(mensaje: MensajeChat) {
-    if (!mensaje.aprobacion) {
+    const borrador = mensaje.aprobacion
+    if (!borrador) {
       return
     }
     // Si falla (por ejemplo un 409 porque ya la resolvió otra persona), el error lo muestra la tarjeta y se puede reintentar o cancelar.
-    const aprobada = await aprobarRequisicion(mensaje.aprobacion.requisicionId)
+    if (borrador.accion === 'rechazarRequisicion') {
+      // El motivo es el mismo que la persona vio en la tarjeta. Si faltara, el servidor responde 400 y la tarjeta lo explica.
+      const rechazada = await rechazarRequisicion(borrador.requisicionId, borrador.motivo ?? '')
+      actualizarMensaje(mensaje.id, { estado: 'confirmada' })
+      agregarMensaje({
+        rol: 'asistente',
+        texto: `Listo, rechacé la requisición ${rechazada.numeroRequisicion ?? borrador.resumen.numero}.`,
+        local: true,
+        siguientesPasos: 'rechazada',
+      })
+      return
+    }
+    const aprobada = await aprobarRequisicion(borrador.requisicionId)
     actualizarMensaje(mensaje.id, { estado: 'confirmada' })
     agregarMensaje({
       rol: 'asistente',
-      texto: `Listo, aprobé la requisición ${aprobada.numeroRequisicion ?? mensaje.aprobacion.resumen.numero}.`,
+      texto: `Listo, aprobé la requisición ${aprobada.numeroRequisicion ?? borrador.resumen.numero}.`,
       local: true,
       siguientesPasos: 'aprobada',
     })
@@ -269,7 +289,10 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
     actualizarMensaje(mensaje.id, { estado: 'cancelada' })
     agregarMensaje({
       rol: 'asistente',
-      texto: 'Listo, no aprobé nada. La requisición sigue pendiente.',
+      texto:
+        mensaje.aprobacion?.accion === 'rechazarRequisicion'
+          ? 'Listo, no rechacé nada. La requisición sigue pendiente.'
+          : 'Listo, no aprobé nada. La requisición sigue pendiente.',
       local: true,
       siguientesPasos: 'descartada',
     })
@@ -422,11 +445,12 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
                   </ConfirmacionAccion>
                 )}
                 {mensaje.aprobacion && mensaje.estado === 'pendiente' && (
-                  // Aprobar dispara el proceso de licitación: se muestra reforzada y con el nombre del botón claro.
+                  // Aprobar dispara el proceso de licitación y rechazar cierra la requisición: las dos se muestran
+                  // reforzadas y con el nombre del botón claro.
                   <ConfirmacionAccion
                     titulo={mensaje.aprobacion.titulo}
                     reforzada
-                    textoConfirmar="Aprobar"
+                    textoConfirmar={mensaje.aprobacion.accion === 'rechazarRequisicion' ? 'Rechazar' : 'Aprobar'}
                     onConfirmar={() => confirmarAprobacion(mensaje)}
                     onCancelar={() => cancelarAprobacion(mensaje)}
                   >
@@ -436,6 +460,9 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
                     )}
                     {mensaje.aprobacion.resumen.etapa && (
                       <p className={styles.dato}>Etapa: {mensaje.aprobacion.resumen.etapa}</p>
+                    )}
+                    {mensaje.aprobacion.accion === 'rechazarRequisicion' && mensaje.aprobacion.motivo && (
+                      <p className={styles.dato}>Motivo: {mensaje.aprobacion.motivo}</p>
                     )}
                     <ul className={styles.items}>
                       {mensaje.aprobacion.resumen.items.map((item, i) => (

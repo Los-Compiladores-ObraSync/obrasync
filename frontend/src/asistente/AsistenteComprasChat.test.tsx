@@ -217,3 +217,180 @@ describe('AsistenteChatPage en el portal de Compras', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('pantalla de requisiciones'))
   })
 })
+
+// Rechazar una requisición (#149): mismo patrón que aprobar, pero la tarjeta muestra el motivo y al confirmar
+// se llama a POST /api/requisiciones/{id}/rechazar con { motivo }. El asistente nunca rechaza por su cuenta.
+
+const RUTA_RECHAZAR = '*/api/requisiciones/:id/rechazar'
+const MOTIVO = 'Faltan las cantidades de arena'
+
+const BORRADOR_RECHAZO = {
+  respuesta: 'Armé el rechazo de la REQ-2026-0042. Revisalo y tocá Rechazar.',
+  borrador: null,
+  aprobacion: {
+    ...BORRADOR_APROBACION.aprobacion,
+    accion: 'rechazarRequisicion',
+    titulo: 'Rechazar requisición REQ-2026-0042',
+    motivo: MOTIVO,
+  },
+  tokensUsados: 10,
+}
+
+async function pedirRechazo(user: ReturnType<typeof userEvent.setup>, borrador: typeof BORRADOR_RECHAZO = BORRADOR_RECHAZO) {
+  server.use(http.post(RUTA_CHAT, () => HttpResponse.json(borrador)))
+  await user.type(screen.getByLabelText('Escribí tu mensaje'), 'rechazá la REQ-2026-0042, faltan las cantidades')
+  await user.click(screen.getByRole('button', { name: 'Enviar' }))
+}
+
+/** Cuenta los POST /rechazar y guarda el cuerpo que llegó. Responde 200 salvo que se le pida otro estado. */
+function espiarRechazo(estado = 200, detalle = 'Solo se pueden rechazar requisiciones pendientes.') {
+  const visto = { llamadas: 0, id: null as string | null, cuerpo: null as unknown }
+  server.use(
+    http.post(RUTA_RECHAZAR, async ({ params, request }) => {
+      visto.llamadas += 1
+      visto.id = String(params.id)
+      visto.cuerpo = await request.json()
+      if (estado !== 200) {
+        return HttpResponse.json({ title: 'Error', status: estado, detail: detalle }, { status: estado })
+      }
+      return HttpResponse.json(
+        { requisicionId: ID_REQUISICION, numeroRequisicion: 'REQ-2026-0042', estado: 'Rechazada', items: [] },
+        { status: 200 },
+      )
+    }),
+  )
+  return visto
+}
+
+describe('Rechazar una requisición desde el chat de Compras (#149)', () => {
+  it('ofrece rechazar entre lo que sabe hacer', () => {
+    renderCompras()
+
+    expect(screen.getByRole('button', { name: /Rechazar una requisición/ })).toBeEnabled()
+  })
+
+  it('arma la tarjeta con el motivo y NO rechaza hasta que se toca Rechazar', async () => {
+    const user = userEvent.setup()
+    const visto = espiarRechazo()
+    renderCompras()
+
+    await pedirRechazo(user)
+
+    expect(await screen.findByText('Rechazar requisición REQ-2026-0042')).toBeInTheDocument()
+    expect(screen.getByText('Requisición: REQ-2026-0042')).toBeInTheDocument()
+    expect(screen.getByText(`Motivo: ${MOTIVO}`)).toBeInTheDocument()
+    expect(screen.getByText(/20 bolsa · Cemento Portland 50 kg/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Rechazar' })).toBeEnabled()
+    // Es una acción que no se puede deshacer: la tarjeta lo avisa.
+    expect(screen.getByText(/no se puede deshacer/)).toBeInTheDocument()
+    expect(visto.llamadas).toBe(0)
+  })
+
+  it('al tocar Rechazar llama a POST /rechazar una vez, con el id y el motivo del borrador', async () => {
+    const user = userEvent.setup()
+    const visto = espiarRechazo()
+    const aprobar = espiarAprobacion()
+    renderCompras()
+    await pedirRechazo(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Rechazar' }))
+
+    expect(await screen.findByText('Listo, rechacé la requisición REQ-2026-0042.')).toBeInTheDocument()
+    expect(visto.llamadas).toBe(1)
+    expect(visto.id).toBe(ID_REQUISICION)
+    expect(visto.cuerpo).toEqual({ motivo: MOTIVO })
+    // No se aprobó nada por error.
+    expect(aprobar.llamadas).toBe(0)
+    // La tarjeta desaparece: no se puede rechazar dos veces.
+    expect(screen.queryByRole('button', { name: 'Rechazar' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ver otras pendientes' })).toBeInTheDocument()
+  })
+
+  it('un doble toque en Rechazar manda la acción una sola vez', async () => {
+    const user = userEvent.setup()
+    const visto = espiarRechazo()
+    renderCompras()
+    await pedirRechazo(user)
+
+    await user.dblClick(await screen.findByRole('button', { name: 'Rechazar' }))
+
+    expect(await screen.findByText(/Listo, rechacé/)).toBeInTheDocument()
+    expect(visto.llamadas).toBe(1)
+  })
+
+  it('al cancelar no se rechaza nada y la requisición sigue pendiente', async () => {
+    const user = userEvent.setup()
+    const visto = espiarRechazo()
+    renderCompras()
+    await pedirRechazo(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Cancelar' }))
+
+    expect(await screen.findByText(/no rechacé nada/)).toBeInTheDocument()
+    expect(visto.llamadas).toBe(0)
+    expect(screen.queryByRole('button', { name: 'Rechazar' })).not.toBeInTheDocument()
+  })
+
+  it('si ya no está pendiente (409) lo explica, no dice que la rechazó y deja reintentar o cancelar', async () => {
+    const user = userEvent.setup()
+    const visto = espiarRechazo(409)
+    renderCompras()
+    await pedirRechazo(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Rechazar' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Solo se pueden rechazar requisiciones pendientes.')
+    expect(screen.queryByText(/Listo, rechacé/)).not.toBeInTheDocument()
+    expect(visto.llamadas).toBe(1)
+    expect(screen.getByRole('button', { name: 'Rechazar' })).toBeEnabled()
+  })
+
+  it('si el servidor rechaza el motivo (400) muestra su explicación', async () => {
+    const user = userEvent.setup()
+    espiarRechazo(400, 'El motivo de rechazo es obligatorio y no puede superar los 500 caracteres.')
+    renderCompras()
+    await pedirRechazo(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Rechazar' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('El motivo de rechazo es obligatorio')
+    expect(screen.queryByText(/Listo, rechacé/)).not.toBeInTheDocument()
+  })
+
+  it('un usuario sin permiso (403) lo ve en la tarjeta', async () => {
+    const user = userEvent.setup()
+    espiarRechazo(403)
+    renderCompras()
+    await pedirRechazo(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Rechazar' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No tenés permiso para hacer esto.')
+  })
+
+  it('muestra el motivo como TEXTO, nunca como HTML (#174)', async () => {
+    const user = userEvent.setup()
+    espiarRechazo()
+    const { container } = renderCompras()
+
+    await pedirRechazo(user, {
+      ...BORRADOR_RECHAZO,
+      aprobacion: { ...BORRADOR_RECHAZO.aprobacion, motivo: '<img src=x onerror=alert(1)> precio alto' },
+    })
+
+    expect(await screen.findByText(/<img src=x onerror=alert\(1\)> precio alto/)).toBeInTheDocument()
+    expect(container.querySelector('img')).toBeNull()
+  })
+
+  it('una aprobación sigue mostrando Aprobar y sin motivo', async () => {
+    const user = userEvent.setup()
+    espiarAprobacion()
+    renderCompras()
+
+    await pedirAprobacion(user)
+
+    expect(await screen.findByRole('button', { name: 'Aprobar' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Rechazar' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Motivo:/)).not.toBeInTheDocument()
+  })
+})

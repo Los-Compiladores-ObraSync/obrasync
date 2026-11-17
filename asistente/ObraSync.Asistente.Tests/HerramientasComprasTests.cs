@@ -16,12 +16,14 @@ public class HerramientasComprasTests
     private static JsonObject Datos(ResultadoHerramienta r) => (JsonObject)r.Datos;
 
     [Fact]
-    public void Las_definiciones_son_las_tres_y_el_estado_es_una_lista_cerrada()
+    public void Las_definiciones_son_las_cuatro_y_el_estado_es_una_lista_cerrada()
     {
         var defs = HerramientasCompras.Definiciones();
 
         var nombres = defs.Select(d => d!["function"]!["name"]!.GetValue<string>()).ToList();
-        Assert.Equal(new[] { "listar_requisiciones", "ver_requisicion", "preparar_aprobacion_requisicion" }, nombres);
+        Assert.Equal(
+            new[] { "listar_requisiciones", "ver_requisicion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion" },
+            nombres);
         var estados = defs[0]!["function"]!["parameters"]!["properties"]!["estado"]!["enum"]!.AsArray()
             .Select(n => n!.GetValue<string>());
         Assert.Equal(HerramientasCompras.Estados, estados);
@@ -292,6 +294,151 @@ public class HerramientasComprasTests
 
         var r = await h.EjecutarAsync(
             HerramientasCompras.PrepararAprobacion, $"{{\"requisicionId\":\"{Guid.NewGuid()}\"}}", default);
+
+        Assert.False(r.Ok);
+        Assert.Null(r.Aprobacion);
+        Assert.Equal("requisicion_no_encontrada", Datos(r)["error"]!.GetValue<string>());
+    }
+
+    // ---- Rechazar una requisición (#149): igual que aprobar, solo ARMA el borrador y lleva el motivo.
+
+    private static string ArgsRechazo(Guid id, string motivo) =>
+        new JsonObject { ["requisicionId"] = id.ToString(), ["motivo"] = motivo }.ToJsonString();
+
+    [Fact]
+    public async Task Preparar_rechazo_de_una_pendiente_arma_el_borrador_con_el_motivo_sin_rechazar_nada()
+    {
+        var (h, consultor, _) = Armar();
+
+        var r = await h.EjecutarAsync(
+            HerramientasCompras.PrepararRechazo, ArgsRechazo(ConsultorFalso.IdPendiente, "  Falta el presupuesto de la etapa.  "), default);
+
+        Assert.True(r.Ok);
+        var b = r.Aprobacion!;
+        Assert.Equal("rechazarRequisicion", b.Accion);
+        Assert.Equal("Rechazar requisición REQ-0001", b.Titulo);
+        Assert.Equal(ConsultorFalso.IdPendiente, b.RequisicionId);
+        // El motivo viaja sin los espacios de los bordes: es lo que se va a mandar al confirmar.
+        Assert.Equal("Falta el presupuesto de la etapa.", b.Motivo);
+        Assert.Equal("Torre Central", b.Resumen.Obra);
+        Assert.Equal(2, b.Resumen.Items.Count);
+        // La requisición se vuelve a leer para confirmar el estado.
+        Assert.Equal(1, consultor.LlamadasDetalle);
+        Assert.True(Datos(r)["borradorListo"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public async Task El_borrador_de_aprobacion_sigue_sin_motivo()
+    {
+        var (h, _, _) = Armar();
+
+        var r = await h.EjecutarAsync(
+            HerramientasCompras.PrepararAprobacion, $"{{\"requisicionId\":\"{ConsultorFalso.IdPendiente}\"}}", default);
+
+        Assert.Equal("aprobarRequisicion", r.Aprobacion!.Accion);
+        Assert.Null(r.Aprobacion.Motivo);
+    }
+
+    [Theory]
+    [InlineData("{\"requisicionId\":\"{ID}\"}")]
+    [InlineData("{\"requisicionId\":\"{ID}\",\"motivo\":null}")]
+    [InlineData("{\"requisicionId\":\"{ID}\",\"motivo\":\"\"}")]
+    [InlineData("{\"requisicionId\":\"{ID}\",\"motivo\":\"    \"}")]
+    [InlineData("{\"requisicionId\":\"{ID}\",\"motivo\":\"\\n\\t\"}")]
+    public async Task Preparar_rechazo_sin_motivo_no_llama_a_la_API(string argumentos)
+    {
+        var (h, consultor, _) = Armar();
+
+        var r = await h.EjecutarAsync(
+            HerramientasCompras.PrepararRechazo, argumentos.Replace("{ID}", ConsultorFalso.IdPendiente.ToString()), default);
+
+        Assert.False(r.Ok);
+        Assert.Null(r.Aprobacion);
+        Assert.Equal("motivo_requerido", Datos(r)["error"]!.GetValue<string>());
+        Assert.Equal(0, consultor.LlamadasDetalle);
+    }
+
+    [Fact]
+    public async Task Preparar_rechazo_con_un_motivo_de_mas_de_500_caracteres_no_llama_a_la_API()
+    {
+        var (h, consultor, _) = Armar();
+
+        var r = await h.EjecutarAsync(
+            HerramientasCompras.PrepararRechazo, ArgsRechazo(ConsultorFalso.IdPendiente, new string('a', HerramientasCompras.MaxMotivo + 1)), default);
+
+        Assert.False(r.Ok);
+        Assert.Null(r.Aprobacion);
+        Assert.Equal("motivo_demasiado_largo", Datos(r)["error"]!.GetValue<string>());
+        Assert.Equal(0, consultor.LlamadasDetalle);
+    }
+
+    [Fact]
+    public async Task Preparar_rechazo_acepta_un_motivo_de_exactamente_500_caracteres()
+    {
+        var (h, _, _) = Armar();
+        var motivo = new string('a', HerramientasCompras.MaxMotivo);
+
+        var r = await h.EjecutarAsync(HerramientasCompras.PrepararRechazo, ArgsRechazo(ConsultorFalso.IdPendiente, motivo), default);
+
+        Assert.True(r.Ok);
+        Assert.Equal(motivo, r.Aprobacion!.Motivo);
+    }
+
+    [Fact]
+    public async Task Preparar_rechazo_cambia_los_caracteres_de_control_del_motivo_por_espacios()
+    {
+        var (h, _, _) = Armar();
+
+        var r = await h.EjecutarAsync(
+            HerramientasCompras.PrepararRechazo, ArgsRechazo(ConsultorFalso.IdPendiente, "Precio\nalto\u0007 por bolsa"), default);
+
+        Assert.True(r.Ok);
+        Assert.Equal("Precio alto  por bolsa", r.Aprobacion!.Motivo);
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"requisicionId\":\"REQ-0001\",\"motivo\":\"No\"}")]
+    [InlineData("{\"requisicionId\":\"00000000-0000-0000-0000-000000000000\",\"motivo\":\"No\"}")]
+    [InlineData("no es json")]
+    public async Task Preparar_rechazo_con_un_id_invalido_no_llama_a_la_API(string argumentos)
+    {
+        var (h, consultor, _) = Armar();
+
+        var r = await h.EjecutarAsync(HerramientasCompras.PrepararRechazo, argumentos, default);
+
+        Assert.False(r.Ok);
+        Assert.Null(r.Aprobacion);
+        Assert.Equal(0, consultor.LlamadasDetalle);
+    }
+
+    [Theory]
+    [InlineData("Aprobada")]
+    [InlineData("Rechazada")]
+    public async Task Preparar_rechazo_de_una_que_no_esta_pendiente_no_arma_borrador(string estado)
+    {
+        var (h, consultor, _) = Armar();
+        var yaResuelta = ConsultorFalso.Pendiente with { Estado = estado };
+        consultor.ResultadoDetalle = ResultadoRequisicion.Bien(
+            new RequisicionDetalle(yaResuelta, null, null, new[] { new ItemRequisicion("Arena", 1, "M3") }));
+
+        var r = await h.EjecutarAsync(
+            HerramientasCompras.PrepararRechazo, ArgsRechazo(ConsultorFalso.IdPendiente, "No corresponde"), default);
+
+        Assert.False(r.Ok);
+        Assert.Null(r.Aprobacion);
+        Assert.Equal("requisicion_no_pendiente", Datos(r)["error"]!.GetValue<string>());
+        Assert.Equal(estado, Datos(r)["estado"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Preparar_rechazo_de_una_que_no_existe_devuelve_error_estable()
+    {
+        var (h, consultor, _) = Armar();
+        consultor.ResultadoDetalle = ResultadoRequisicion.Falla("requisicion_no_encontrada");
+
+        var r = await h.EjecutarAsync(
+            HerramientasCompras.PrepararRechazo, ArgsRechazo(Guid.NewGuid(), "No corresponde"), default);
 
         Assert.False(r.Ok);
         Assert.Null(r.Aprobacion);
