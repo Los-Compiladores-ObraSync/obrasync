@@ -195,6 +195,7 @@ public class OrdenCompraTests
         Assert.Equal(EstadoOrdenCompra.Activa, oc.Estado);
         Assert.False(oc.EstaBloqueada);
         Assert.Null(oc.MotivoBloqueo);
+        Assert.Null(oc.FechaBloqueo);
     }
 
     [Fact]
@@ -202,13 +203,37 @@ public class OrdenCompraTests
     {
         var item = OrdenCompraItem.Crear(Guid.NewGuid(), 5m, "UNIDAD", 100m);
         var oc = OrdenCompra.Crear(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 500m, new[] { item });
+        var antes = DateTime.UtcNow;
 
         oc.BloquearPorDesvioPresupuestario("Supera presupuesto de etapa Estructura (#94, #95)");
 
         Assert.Equal(EstadoOrdenCompra.Bloqueada, oc.Estado);
         Assert.True(oc.EstaBloqueada);
         Assert.Equal("Supera presupuesto de etapa Estructura (#94, #95)", oc.MotivoBloqueo);
+        Assert.NotNull(oc.FechaBloqueo);
+        Assert.Equal(DateTimeKind.Utc, oc.FechaBloqueo!.Value.Kind);
+        Assert.True(oc.FechaBloqueo >= antes);
         Assert.NotNull(oc.UpdatedAt);
+    }
+
+    [Fact]
+    public void Crear_ConEstadoBloqueada_AsignaFechaBloqueoEnUtc()
+    {
+        var item = OrdenCompraItem.Crear(Guid.NewGuid(), 5m, "UNIDAD", 100m);
+        var antes = DateTime.UtcNow;
+        var oc = OrdenCompra.Crear(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            500m,
+            new[] { item },
+            estado: EstadoOrdenCompra.Bloqueada,
+            motivoBloqueo: "Supera partida");
+
+        Assert.True(oc.EstaBloqueada);
+        Assert.NotNull(oc.FechaBloqueo);
+        Assert.Equal(DateTimeKind.Utc, oc.FechaBloqueo!.Value.Kind);
+        Assert.True(oc.FechaBloqueo >= antes);
     }
 
     [Fact]

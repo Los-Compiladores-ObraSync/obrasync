@@ -32,6 +32,8 @@ public class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCompra>
         builder.Property(o => o.MotivoBloqueo)
             .HasMaxLength(500);
 
+        builder.Property(o => o.FechaBloqueo);
+
         builder.Property(o => o.LiberadaPorUsuarioId);
 
         builder.Property(o => o.LiberadaEn);
@@ -45,8 +47,10 @@ public class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCompra>
 
         builder.Property(o => o.FechaDespacho);
 
-        // Índice no único para optimizar búsquedas por Obra
+        // Índices para optimizar búsquedas y listados paginados por obra/estado/fecha (#204, #210)
         builder.HasIndex(o => o.ObraId);
+        builder.HasIndex(o => o.Estado);
+        builder.HasIndex(o => o.FechaBloqueo);
         builder.HasIndex(o => o.SinPartidaPresupuestaria);
         builder.HasIndex(o => o.FechaDespacho);
 

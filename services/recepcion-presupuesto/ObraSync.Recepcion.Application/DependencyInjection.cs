@@ -12,6 +12,7 @@ public static class DependencyInjection
         services.AddScoped<ObtenerRecepcionesQueryHandler>();
         services.AddScoped<ObtenerRecepcionPorIdQueryHandler>();
         services.AddScoped<ObtenerOrdenesPendientesQueryHandler>();
+        services.AddScoped<ObtenerOrdenesBloqueadasQueryHandler>();
         services.AddScoped<LiberarOrdenCompraCommandHandler>();
 
         // Partidas presupuestarias (#93, #154)

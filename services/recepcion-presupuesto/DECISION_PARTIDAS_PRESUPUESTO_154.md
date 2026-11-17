@@ -94,3 +94,19 @@ $$\text{Monto Asignado} \xrightarrow[\text{al emitir OC}]{\text{Compromiso}} \te
 | **#96** | Cami | Endpoint `POST /api/recepciones/ordenes/{id}/liberar` para rol `Admin`; al liberar suma el monto a `MontoComprometido`. |
 | **#90 / #91** | Ramiro | Entregas parciales actualizan `MontoEjecutado` por lo recibido y mantienen el remanente en `MontoComprometido`. |
 | **#92** | Joaquín | Bloquea liquidación de saldo no recepcionado. |
+| **#210** | Squad Recepción | Expone `GET /api/recepciones/ordenes-bloqueadas` y confirma por escrito las tres definiciones de fórmula presupuestaria (Sección 4). |
+
+---
+
+## 4. Confirmación de Fórmula Presupuestaria y Decisiones (#210)
+
+En el marco de la tarjeta **#210** se confirman explícitamente las tres preguntas sobre la fórmula de presupuesto de `PartidaPresupuestaria`:
+
+1. **`montoDisponible = montoAsignado - montoComprometido`: ¿`montoEjecutado` va aparte y no se descuenta?**
+   * **Confirmado (Sí).** `MontoComprometido` ya representa el total reservado por todas las órdenes de compra activas o liberadas contra la partida (incluyendo aquellas que luego se recepcionan). `MontoEjecutado` registra el avance físico real devengado al recibir mercadería y **va aparte**: no se descuenta de `MontoDisponible` ni se resta de `MontoComprometido` en recepciones normales para evitar descontar dos veces el mismo gasto y para que `EvaluadorDesvioPresupuestario` siga contabilizando las órdenes ya emitidas contra el tope `MontoAsignado`.
+2. **Hoy `EjecutarMonto` no se llama fuera de las pruebas: ¿`montoEjecutado` se actualiza al confirmar una recepción? ¿En qué tarjeta?**
+   * **Confirmado (Sí, en `CrearRecepcionCommandHandler`, asignado a las tarjetas #90 / #91).** Al confirmar una recepción física, `CrearRecepcionCommandHandler` debe invocar `partida.EjecutarMonto(montoRecibido)` calculado como $\sum (\text{item.CantidadRecibida} \times \text{item.PrecioUnitario})$ contra la partida emparejada de `(ObraId, Etapa)`. Dado que hasta el Sprint 2 (`#77`) solo existía recepción total y las tarjetas **#90** (*Registrar una recepción parcial*) y **#91** (*Calcular el saldo pendiente y encadenar remanentes*) de Sprint 3 implementan el ciclo completo de entregas en `CrearRecepcionCommandHandler`, su invocación efectiva en producción corresponde a **#90 / #91** (tal como se definió en la Sección 3).
+3. **Al liberar una OC bloqueada se suma su monto al comprometido sin tope: ¿`montoDisponible` puede quedar negativo a propósito?**
+   * **Confirmado (Sí, es intencional).** Cuando un usuario `Admin` autoriza excepcionalmente una orden bloqueada (`POST /api/recepciones/ordenes/{id}/liberar`, `#96`), `LiberarOrdenCompraCommandHandler` ejecuta `partida.ComprometerMonto(ordenCompra.MontoTotal)` sin tope. Como consecuencia deliberada, `MontoDisponible = MontoAsignado - MontoComprometido` puede quedar negativo para:
+     * visibilizar exactamente el desvío presupuestario autorizado en el tablero de control (`#97`, indicador *Excedida*), y
+     * garantizar que futuras órdenes de compra de esa partida sigan detectando el exceso en `EvaluadorDesvioPresupuestario` mientras no se amplíe `MontoAsignado`.

@@ -361,13 +361,113 @@
         }
       }
     },
+    "/api/recepciones/ordenes-bloqueadas": {
+      "get": {
+        "tags": [
+          "Recepciones"
+        ],
+        "summary": "Consultar órdenes de compra bloqueadas por desvío presupuestario (#210)",
+        "description": "Obtiene las órdenes de compra actualmente en estado Bloqueada por superar la partida presupuestaria asignada (#95, #210). Cada elemento expone los datos del desvío presupuestario equivalentes a OrdenCompraBloqueadaEvent evaluados contra el estado actual de la partida emparejada, junto con partidaId y fechaBloqueo (UTC). Permite filtrar opcionalmente por obraId y soporta paginación con pagina, tamano y encabezados X-Total-Count, X-Page y X-Page-Size (#172, #185). Roles permitidos: Comprador y Admin (Capataz y Proveedor reciben 403 Forbidden).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "obraId",
+            "in": "query",
+            "description": "Identificador opcional de la obra para filtrar las órdenes bloqueadas.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pagina",
+            "in": "query",
+            "description": "Número de página (1 en adelante).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "tamano",
+            "in": "query",
+            "description": "Cantidad de elementos por página (entre 1 y 50).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista paginada de órdenes de compra actualmente bloqueadas.",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total de elementos que coinciden con el filtro",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Page": {
+                "description": "Página actual",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Page-Size": {
+                "description": "Tamaño de página aplicado",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrdenBloqueadaDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paginación inválida (pagina < 1 o tamano fuera del rango 1..50).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No se proporcionó un token válido."
+          },
+          "403": {
+            "description": "El usuario no tiene el rol Comprador o Admin (Capataz y Proveedor no están autorizados)."
+          }
+        }
+      }
+    },
     "/api/recepciones/ordenes/{id}/liberar": {
       "post": {
         "tags": [
           "Recepciones"
         ],
         "summary": "Autorizar y liberar una orden de compra bloqueada por desvío presupuestario (#96)",
-        "description": "Exclusivo para el rol Admin. Libera una orden de compra en estado Bloqueada pasándola a Activa, registra quién (claim sub del JWT) y cuándo (UTC) autorizó la liberación, y compromete el monto de la orden en la partida presupuestaria correspondiente (#154).",
+        "description": "Exclusivo para el rol Admin. Libera una orden de compra en estado Bloqueada pasándola a Activa, registra quién (claim sub del JWT) y cuándo (UTC) autorizó la liberación, y suma su monto sin tope a montoComprometido de la partida presupuestaria correspondiente (#154, #210). Como consecuencia intencional, montoDisponible puede quedar negativo para reflejar el desvío autorizado y mantener el bloqueo preventivo sobre futuras órdenes de esa partida.",
         "security": [
           {
             "bearerAuth": []
@@ -1092,6 +1192,7 @@
       },
       "PartidaPresupuestariaDto": {
         "type": "object",
+        "description": "Partida presupuestaria con sus montos contables (#93, #154, #210). Fórmula confirmada: montoDisponible = montoAsignado - montoComprometido. montoEjecutado representa el gasto físico devengado por recepciones (planificado para actualizarse mediante EjecutarMonto en CrearRecepcionCommandHandler en las tarjetas #90/#91) y no se descuenta de montoDisponible para evitar doble descuento. Al liberar una orden bloqueada (#96), su monto se suma sin tope a montoComprometido, por lo que montoDisponible puede quedar negativo intencionalmente.",
         "properties": {
           "id": {
             "type": "string",
@@ -1115,13 +1216,16 @@
             "type": "number"
           },
           "montoComprometido": {
-            "type": "number"
+            "type": "number",
+            "description": "Total reservado por órdenes de compra activas o liberadas contra la partida."
           },
           "montoEjecutado": {
-            "type": "number"
+            "type": "number",
+            "description": "Gasto real devengado al confirmar recepciones físicas (va aparte de montoComprometido y no se descuenta de montoDisponible; se actualizará en CrearRecepcionCommandHandler en #90/#91)."
           },
           "montoDisponible": {
-            "type": "number"
+            "type": "number",
+            "description": "Calculado como montoAsignado - montoComprometido. Puede ser negativo si un Admin liberó una orden bloqueada (#96, #210)."
           },
           "moneda": {
             "type": "string"
@@ -1129,6 +1233,62 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "OrdenBloqueadaDto": {
+        "type": "object",
+        "description": "Orden de compra bloqueada por desvío presupuestario (#210). Replica los datos de negocio de OrdenCompraBloqueadaEvent y suma partidaId y fechaBloqueo.",
+        "properties": {
+          "ordenCompraId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la orden de compra bloqueada."
+          },
+          "obraId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador de la obra destino."
+          },
+          "partidaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Identificador de la partida presupuestaria emparejada (null si no existe partida actualmente)."
+          },
+          "etapa": {
+            "type": "string",
+            "nullable": true,
+            "description": "Etapa de la obra a la que pertenece la orden de compra."
+          },
+          "montoOrdenCompra": {
+            "type": "number",
+            "description": "Monto total de la orden de compra bloqueada."
+          },
+          "montoAsignadoPartida": {
+            "type": "number",
+            "description": "Monto total asignado en la partida presupuestaria emparejada."
+          },
+          "montoComprometidoActual": {
+            "type": "number",
+            "description": "Monto comprometido actual acumulado en la partida presupuestaria."
+          },
+          "montoProyectado": {
+            "type": "number",
+            "description": "Suma de montoComprometidoActual más montoOrdenCompra."
+          },
+          "exceso": {
+            "type": "number",
+            "description": "Diferencia en que montoProyectado supera a montoAsignadoPartida (0 si no hay exceso)."
+          },
+          "motivo": {
+            "type": "string",
+            "description": "Motivo del bloqueo por desvío presupuestario."
+          },
+          "fechaBloqueo": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha y hora en UTC en que la orden de compra fue bloqueada."
           }
         }
       },

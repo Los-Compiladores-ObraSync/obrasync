@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using ObraSync.Recepcion.Application.DTOs;
+using ObraSync.Recepcion.Domain.Common;
 using RecepcionEntity = ObraSync.Recepcion.Domain.Entities.Recepcion;
 using DetalleRecepcionEntity = ObraSync.Recepcion.Domain.Entities.DetalleRecepcion;
 
@@ -23,11 +24,11 @@ public static class RecepcionMappings
             OrdenCompraId = entidad.OrdenCompraId,
             RecepcionadoPorUsuarioId = entidad.RecepcionadoPorUsuarioId,
             NumeroRemito = entidad.NumeroRemito,
-            FechaRecepcion = ToUtc(entidad.FechaRecepcion),
+            FechaRecepcion = FechaUtc.Normalizar(entidad.FechaRecepcion),
             Estado = entidad.Estado,
             Observaciones = entidad.Observaciones,
-            CreatedAt = ToUtc(entidad.CreatedAt),
-            UpdatedAt = entidad.UpdatedAt.HasValue ? ToUtc(entidad.UpdatedAt.Value) : null,
+            CreatedAt = FechaUtc.Normalizar(entidad.CreatedAt),
+            UpdatedAt = FechaUtc.Normalizar(entidad.UpdatedAt),
             Detalles = entidad.Detalles.Select(d => d.ToDto()).ToList()
         };
     }
@@ -47,18 +48,8 @@ public static class RecepcionMappings
             UnidadMedida = entidad.UnidadMedida,
             Conforme = entidad.Conforme,
             Observacion = entidad.Observacion,
-            CreatedAt = ToUtc(entidad.CreatedAt),
-            UpdatedAt = entidad.UpdatedAt.HasValue ? ToUtc(entidad.UpdatedAt.Value) : null
-        };
-    }
-
-    private static DateTime ToUtc(DateTime valor)
-    {
-        return valor.Kind switch
-        {
-            DateTimeKind.Unspecified => DateTime.SpecifyKind(valor, DateTimeKind.Utc),
-            DateTimeKind.Local => valor.ToUniversalTime(),
-            _ => valor
+            CreatedAt = FechaUtc.Normalizar(entidad.CreatedAt),
+            UpdatedAt = FechaUtc.Normalizar(entidad.UpdatedAt)
         };
     }
 }
