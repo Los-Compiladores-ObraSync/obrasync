@@ -8,6 +8,9 @@ namespace ObraSync.Asistente.Application;
 ///  - listar_licitaciones: las licitaciones más nuevas, con su estado, y cuántas hay en total.
 ///  - ver_licitacion: el detalle de una (materiales a cotizar, fecha límite).
 ///  - listar_cotizaciones: las ofertas de una licitación, con el puntaje y los costos que calcula el backend.
+///  - preparar_adjudicacion (#149): ARMA el borrador para adjudicar UNA oferta de una licitación Abierta. No adjudica nada:
+///    el frontend llama a POST /api/licitaciones/{id}/adjudicar, con el JWT del Comprador, cuando él toca Confirmar.
+///    Adjudicar es IRREVERSIBLE (emite la Orden de Compra), por eso la oferta la elige la PERSONA, nunca el modelo.
 /// REGLA: el modelo NO hace cuentas ni calcula puntajes. Cada cifra (puntaje, costo total, flete, plazo) sale de lo que
 /// devuelve la API y se le pasa tal cual; las instrucciones del perfil le piden copiarlas.
 /// Igual que HerramientasCompras, validan los argumentos ANTES de llamar a la API y devuelven errores estables.
@@ -19,16 +22,24 @@ public sealed class HerramientasLicitaciones
     public const string ListarLicitaciones = "listar_licitaciones";
     public const string VerLicitacion = "ver_licitacion";
     public const string ListarCotizaciones = "listar_cotizaciones";
+    public const string PrepararAdjudicacion = "preparar_adjudicacion";
 
     /// <summary>El modelo no necesita ver 50 licitaciones ni 50 ofertas: se piden ya acotadas (cuida el cupo de tokens).</summary>
     public const int MaxLicitaciones = 5;
     public const int MaxCotizaciones = 10;
     public const int MaxTextoLibre = 200;
 
+    /// <summary>
+    /// Al preparar una adjudicación se leen todas las ofertas posibles (el máximo de la API) para encontrar la elegida y saber si hay
+    /// otra con mayor puntaje. Esa lectura no se le pasa al modelo, así que no gasta tokens.
+    /// </summary>
+    public const int MaxCotizacionesAlPreparar = 50;
+
     /// <summary>Estados que maneja Licitaciones (compara sin distinguir mayúsculas).</summary>
     public static readonly IReadOnlyList<string> Estados = new[] { "Abierta", "Cerrada", "Adjudicada" };
 
-    public static readonly IReadOnlyList<string> Nombres = new[] { ListarLicitaciones, VerLicitacion, ListarCotizaciones };
+    public static readonly IReadOnlyList<string> Nombres =
+        new[] { ListarLicitaciones, VerLicitacion, ListarCotizaciones, PrepararAdjudicacion };
 
     private readonly IConsultorLicitaciones _licitaciones;
     private readonly IBuscadorObras _obras;
@@ -116,6 +127,38 @@ public sealed class HerramientasLicitaciones
                     ["required"] = new JsonArray("licitacionId")
                 }
             }
+        },
+        new JsonObject
+        {
+            ["type"] = "function",
+            ["function"] = new JsonObject
+            {
+                ["name"] = PrepararAdjudicacion,
+                ["description"] =
+                    "Arma el BORRADOR para adjudicar UNA oferta de una licitación que está Abierta. No adjudica nada: la persona revisa el resumen y toca Confirmar. " +
+                    "ADJUDICAR NO SE PUEDE DESHACER: al confirmar se emite la Orden de Compra. " +
+                    "La oferta la elige la persona: usá el cotizacionId de la que ella dijo. Si dice 'la mejor', usá la que tiene esGanadora en true y aclarale cuál es. " +
+                    "Si no te dijo cuál, preguntáselo y no elijas vos. " +
+                    "Se pide con el licitacionId (de listar_licitaciones) y el cotizacionId (de listar_cotizaciones).",
+                ["parameters"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["licitacionId"] = new JsonObject
+                        {
+                            ["type"] = "string",
+                            ["description"] = "Identificador (GUID) de la licitación Abierta."
+                        },
+                        ["cotizacionId"] = new JsonObject
+                        {
+                            ["type"] = "string",
+                            ["description"] = "Identificador (GUID) de la oferta elegida, tal como lo devolvió listar_cotizaciones."
+                        }
+                    },
+                    ["required"] = new JsonArray("licitacionId", "cotizacionId")
+                }
+            }
         }
     };
 
@@ -126,6 +169,7 @@ public sealed class HerramientasLicitaciones
             ListarLicitaciones => ListarAsync(argumentosJson, ct),
             VerLicitacion => VerAsync(argumentosJson, ct),
             ListarCotizaciones => ListarCotizacionesAsync(argumentosJson, ct),
+            PrepararAdjudicacion => PrepararAdjudicacionAsync(argumentosJson, ct),
             _ => Task.FromResult(ResultadoHerramienta.Error("herramienta_desconocida"))
         };
 
@@ -229,6 +273,78 @@ public sealed class HerramientasLicitaciones
             ["cotizaciones"] = lista
         };
         return ResultadoHerramienta.Bien(datos);
+    }
+
+    private async Task<ResultadoHerramienta> PrepararAdjudicacionAsync(string argumentosJson, CancellationToken ct)
+    {
+        // Todo se valida ANTES de llamar a la API, y el estado se vuelve a leer: lo decide la API, no lo que recuerde el modelo.
+        if (!TryLeerArgumentos(argumentosJson, out var args))
+            return ResultadoHerramienta.Error("argumentos_invalidos");
+        if (!TryLeerGuid(args["licitacionId"], out var licitacionId) || !TryLeerGuid(args["cotizacionId"], out var cotizacionId))
+            return ResultadoHerramienta.Error("argumentos_invalidos");
+
+        var leida = await _licitaciones.ObtenerAsync(licitacionId, ct);
+        if (leida.Error is not null)
+            return ResultadoHerramienta.Error(leida.Error);
+
+        var licitacion = leida.Licitacion!;
+        // Solo se adjudica una licitación Abierta: la API responde 409 si ya está adjudicada o cerrada.
+        if (!string.Equals(licitacion.Resumen.Estado, "Abierta", StringComparison.OrdinalIgnoreCase))
+            return ResultadoHerramienta.ErrorConDetalle("licitacion_no_abierta", "estado", licitacion.Resumen.Estado);
+
+        var ofertas = await _licitaciones.ListarCotizacionesAsync(licitacionId, MaxCotizacionesAlPreparar, ct);
+        if (ofertas.Error is not null)
+            return ResultadoHerramienta.Error(ofertas.Error);
+
+        var todas = ofertas.Cotizaciones!;
+        // La oferta tiene que ser de ESTA licitación: si el modelo mezcla ids, no hay borrador.
+        var elegida = todas.FirstOrDefault(c => c.Id == cotizacionId);
+        if (elegida is null)
+            return ResultadoHerramienta.Error("cotizacion_no_encontrada");
+        // Una oferta sin precios completos no se puede adjudicar (no entra en el scoring).
+        if (elegida.SubtotalItems <= 0 || elegida.CostoTotal <= 0)
+            return ResultadoHerramienta.Error("cotizacion_incompleta");
+
+        var hayOtraConMayorPuntaje = todas.Any(c => c.EsGanadora && c.Id != elegida.Id);
+
+        var nombresDeObras = await NombresDeObrasAsync(ct);
+        nombresDeObras.TryGetValue(licitacion.Resumen.ObraId, out var obra);
+
+        var items = licitacion.Items
+            .Select(i => new AdjudicacionItem(Acotar(i.Descripcion) ?? "", i.Cantidad, Acotar(i.UnidadMedida) ?? ""))
+            .ToList();
+        var numero = Acotar(licitacion.Resumen.NumeroRequisicion);
+        var proveedorCodigo = elegida.ProveedorId.ToString("N")[..8];
+        var resumen = new AdjudicacionResumen(
+            numero, obra, Acotar(elegida.ProveedorNombre), proveedorCodigo,
+            elegida.SubtotalItems, elegida.Flete, elegida.CostoTotal, elegida.PlazoEntregaDias, elegida.PuntajeTotal,
+            elegida.EsGanadora, hayOtraConMayorPuntaje, items);
+        var borrador = new BorradorAdjudicacion(
+            BorradorAdjudicacion.AccionAdjudicarCotizacion,
+            numero is null ? "Adjudicar la licitación" : $"Adjudicar la licitación de la requisición {numero}",
+            licitacionId, elegida.Id, resumen);
+
+        // El modelo ve solo un resumen corto; el borrador completo viaja aparte, en la respuesta.
+        var datos = new JsonObject
+        {
+            ["ok"] = true,
+            ["borradorListo"] = true,
+            ["irreversible"] = true,
+            ["numeroRequisicion"] = numero,
+            ["proveedorNombre"] = resumen.ProveedorNombre,
+            ["proveedorCodigo"] = proveedorCodigo,
+            ["costoTotal"] = elegida.CostoTotal,
+            ["esGanadora"] = elegida.EsGanadora,
+            ["hayOfertaConMayorPuntaje"] = hayOtraConMayorPuntaje
+        };
+        return new ResultadoHerramienta(true, datos, Adjudicacion: borrador);
+    }
+
+    private static bool TryLeerGuid(JsonNode? nodo, out Guid id)
+    {
+        id = Guid.Empty;
+        var texto = LeerTexto(nodo);
+        return !string.IsNullOrWhiteSpace(texto) && Guid.TryParse(texto.Trim(), out id) && id != Guid.Empty;
     }
 
     private static JsonObject CotizacionJson(CotizacionResumen c) => new()

@@ -7,7 +7,8 @@ import {
   generarIdempotencyKey,
   rechazarRequisicion,
 } from '../requisiciones/requisicionesService'
-import { publicarLicitacion } from '../licitaciones/licitacionesService'
+import { adjudicarLicitacion, publicarLicitacion } from '../licitaciones/licitacionesService'
+import { formatoPrecio } from '../licitaciones/cotizacionesCalculos'
 import { fechaLocalEnDias, finDelDiaEnUtc } from '../licitaciones/plazoCotizacion'
 import { fechaAIso } from '../obras/validacionObra'
 import { hoyComoTexto } from '../obras/fechaEnPalabras'
@@ -16,6 +17,7 @@ import { fechaLarga } from '../requisiciones/formatoFecha'
 import { enviarMensajeAlAsistente } from './asistenteService'
 import {
   MAX_CARACTERES_MENSAJE,
+  type BorradorAdjudicacionDto,
   type BorradorAprobacionDto,
   type BorradorRecepcionDto,
   type BorradorRequisicionDto,
@@ -33,13 +35,15 @@ interface MensajeChat {
   /** Mensaje armado por la propia pantalla (no lo dijo el modelo): no se reenvía como historial. */
   local?: boolean
   /** Muestra "qué querés hacer ahora" debajo del mensaje (después de confirmar o cancelar un borrador). */
-  siguientesPasos?: 'creada' | 'descartada' | 'aprobada' | 'rechazada' | 'publicada' | 'recibida'
+  siguientesPasos?: 'creada' | 'descartada' | 'aprobada' | 'rechazada' | 'publicada' | 'adjudicada' | 'recibida'
   borrador?: BorradorRequisicionDto
   /** Borrador de aprobar, rechazar o publicar la licitación de una requisición (portal de Compras, #141 y #149). */
   aprobacion?: BorradorAprobacionDto
   /** Solo al publicar: "YYYY-MM-DD" local hasta el que cotizan los proveedores. Se fija UNA vez, cuando llega el borrador,
    *  para que la fecha que la persona ve en la tarjeta sea la misma que se envía aunque confirme más tarde. */
   fechaLimiteLocal?: string
+  /** Borrador de adjudicar una oferta (portal de Compras, #149). Irreversible: emite la Orden de Compra. */
+  adjudicacion?: BorradorAdjudicacionDto
   /** Borrador de recepción total (portal de obra, #147). */
   recepcion?: BorradorRecepcionDto
   /** Una sola clave por borrador: si el usuario confirma dos veces, el servidor no duplica la requisición. */
@@ -74,7 +78,7 @@ const CAPACIDADES_OBRA = [
   },
 ]
 
-/** Lo que el asistente sabe hacer en el portal de Compras (#141 y #149): consultar, aprobar, rechazar y publicar con confirmación. */
+/** Lo que el asistente sabe hacer en el portal de Compras (#141, #148 y #149): consultar, comparar ofertas, aprobar, rechazar, publicar y adjudicar con confirmación. */
 const CAPACIDADES_COMPRAS = [
   {
     titulo: 'Ver requisiciones pendientes',
@@ -98,6 +102,18 @@ const CAPACIDADES_COMPRAS = [
     titulo: 'Publicar una licitación',
     descripcion: 'Armo la publicación de una requisición aprobada, para que los proveedores coticen. Vos la confirmás.',
     mensaje: 'Quiero publicar una licitación',
+    disponible: true,
+  },
+  {
+    titulo: 'Comparar ofertas',
+    descripcion: 'Te cuento qué ofertas llegaron a una licitación y cuál conviene. Solo consulto, no cambio nada.',
+    mensaje: 'Quiero comparar las ofertas de una licitación',
+    disponible: true, // #148
+  },
+  {
+    titulo: 'Adjudicar una oferta',
+    descripcion: 'Te armo la adjudicación de la oferta que elijas. Es irreversible: se emite la Orden de Compra, y solo la hacés vos al confirmar.',
+    mensaje: 'Quiero adjudicar una oferta',
     disponible: true,
   },
 ]
@@ -133,6 +149,17 @@ function fechaLimiteDelBorrador(borrador: BorradorAprobacionDto | null | undefin
     return undefined
   }
   return fechaLocalEnDias(borrador.diasParaCotizar)
+}
+
+/** El proveedor para la tarjeta: el nombre, o su código si Licitaciones todavía no lo devuelve (#206). */
+function proveedorEnTarjeta(borrador: BorradorAdjudicacionDto): string {
+  return borrador.resumen.proveedorNombre?.trim() || `código ${borrador.resumen.proveedorCodigo} (nombre no disponible)`
+}
+
+/** La oferta como se nombra en una frase: "la oferta de Ferretería Sur" o "la oferta del proveedor con código a1a1a1a1". */
+function ofertaEnFrase(borrador: BorradorAdjudicacionDto): string {
+  const nombre = borrador.resumen.proveedorNombre?.trim()
+  return nombre ? `la oferta de ${nombre}` : `la oferta del proveedor con código ${borrador.resumen.proveedorCodigo}`
 }
 
 function formatoCantidad(cantidad: number): string {
@@ -223,8 +250,12 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
         aprobacion: respuesta.aprobacion ?? undefined,
         fechaLimiteLocal: fechaLimiteDelBorrador(respuesta.aprobacion),
         recepcion: respuesta.recepcion ?? undefined,
+        adjudicacion: respuesta.adjudicacion ?? undefined,
         claveIdempotencia: respuesta.borrador ? generarIdempotencyKey() : undefined,
-        estado: respuesta.borrador || respuesta.aprobacion || respuesta.recepcion ? 'pendiente' : undefined,
+        estado:
+          respuesta.borrador || respuesta.aprobacion || respuesta.recepcion || respuesta.adjudicacion
+            ? 'pendiente'
+            : undefined,
       })
     } catch (err) {
       setError(mensajeDeErrorDelAsistente(err, portal))
@@ -294,6 +325,33 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
       texto: `Listo, aprobé la requisición ${aprobada.numeroRequisicion ?? borrador.resumen.numero}.`,
       local: true,
       siguientesPasos: 'aprobada',
+    })
+  }
+
+  async function confirmarAdjudicacion(mensaje: MensajeChat) {
+    const borrador = mensaje.adjudicacion
+    if (!borrador) {
+      return
+    }
+    // Si falla (409: ya está adjudicada; 404: la oferta o la licitación ya no existe; 400: la oferta no es de esa licitación),
+    // el error lo muestra la tarjeta con la explicación del servidor y NO se dice que se adjudicó.
+    await adjudicarLicitacion(borrador.licitacionId, borrador.cotizacionId)
+    actualizarMensaje(mensaje.id, { estado: 'confirmada' })
+    agregarMensaje({
+      rol: 'asistente',
+      texto: `Listo, adjudiqué ${ofertaEnFrase(borrador)}. Se emitió la Orden de Compra por ${formatoPrecio(borrador.resumen.costoTotal)}.`,
+      local: true,
+      siguientesPasos: 'adjudicada',
+    })
+  }
+
+  function cancelarAdjudicacion(mensaje: MensajeChat) {
+    actualizarMensaje(mensaje.id, { estado: 'cancelada' })
+    agregarMensaje({
+      rol: 'asistente',
+      texto: 'Listo, no adjudiqué nada. La licitación sigue abierta.',
+      local: true,
+      siguientesPasos: 'descartada',
     })
   }
 
@@ -485,6 +543,50 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
                       ))}
                     </ul>
                     <p className={styles.dato}>Se registra como recibido completo y conforme.</p>
+                  </ConfirmacionAccion>
+                )}
+                {mensaje.adjudicacion && mensaje.estado === 'pendiente' && (
+                  // Adjudicar emite la Orden de Compra y no se puede deshacer: tarjeta reforzada, con el total bien visible.
+                  <ConfirmacionAccion
+                    titulo={mensaje.adjudicacion.titulo}
+                    reforzada
+                    textoConfirmar="Adjudicar"
+                    onConfirmar={() => confirmarAdjudicacion(mensaje)}
+                    onCancelar={() => cancelarAdjudicacion(mensaje)}
+                  >
+                    <p className={styles.dato}>Proveedor: {proveedorEnTarjeta(mensaje.adjudicacion)}</p>
+                    {mensaje.adjudicacion.resumen.numeroRequisicion && (
+                      <p className={styles.dato}>Requisición: {mensaje.adjudicacion.resumen.numeroRequisicion}</p>
+                    )}
+                    {mensaje.adjudicacion.resumen.obra && (
+                      <p className={styles.dato}>Obra: {mensaje.adjudicacion.resumen.obra}</p>
+                    )}
+                    <p className={styles.dato}>
+                      Total de la Orden de Compra: {formatoPrecio(mensaje.adjudicacion.resumen.costoTotal)}
+                    </p>
+                    <p className={styles.dato}>
+                      Materiales {formatoPrecio(mensaje.adjudicacion.resumen.precioMateriales)} + flete{' '}
+                      {formatoPrecio(mensaje.adjudicacion.resumen.flete)}
+                    </p>
+                    {mensaje.adjudicacion.resumen.plazoEntregaDias != null && (
+                      <p className={styles.dato}>Plazo de entrega: {mensaje.adjudicacion.resumen.plazoEntregaDias} días</p>
+                    )}
+                    <p className={styles.dato}>
+                      Puntaje: {formatoCantidad(mensaje.adjudicacion.resumen.puntajeTotal)}
+                      {mensaje.adjudicacion.resumen.esGanadora ? ' (la de mayor puntaje)' : ''}
+                    </p>
+                    {mensaje.adjudicacion.resumen.hayOfertaConMayorPuntaje && (
+                      <p role="note" className={styles.dato}>
+                        Atención: esta oferta no es la de mayor puntaje.
+                      </p>
+                    )}
+                    <ul className={styles.items}>
+                      {mensaje.adjudicacion.resumen.items.map((item, i) => (
+                        <li key={`${i}-${item.descripcion}`}>
+                          {formatoCantidad(item.cantidad)} {item.unidadMedida.toLowerCase()} · {item.descripcion}
+                        </li>
+                      ))}
+                    </ul>
                   </ConfirmacionAccion>
                 )}
                 {mensaje.aprobacion &&

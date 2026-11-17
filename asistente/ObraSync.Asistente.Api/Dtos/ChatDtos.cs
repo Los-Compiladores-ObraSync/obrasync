@@ -13,10 +13,11 @@ public sealed record ChatRequestDto(string? Mensaje, List<ChatMensajeDto>? Histo
 /// Su presencia NO significa que se haya creado nada: la escritura la hace el frontend al Confirmar.
 /// "Aprobacion" viene cuando el Comprador pidió aprobar una requisición Pendiente: tampoco aprueba nada hasta que confirma.
 /// "Recepcion" viene cuando el Capataz pidió registrar lo que llegó (#147): tampoco registra nada hasta que confirma.
+/// "Adjudicacion" viene cuando el Comprador pidió adjudicar una oferta (#149): tampoco adjudica ni emite la Orden de Compra hasta que confirma.
 /// </summary>
 public sealed record ChatResponseDto(
     string Respuesta, BorradorRequisicion? Borrador, int? TokensUsados, BorradorAprobacion? Aprobacion = null,
-    BorradorRecepcion? Recepcion = null);
+    BorradorRecepcion? Recepcion = null, BorradorAdjudicacion? Adjudicacion = null);
 
 /// <summary>
 /// Lo que se leyó de la foto de un remito (#209). Cada campo es null si no se pudo leer: es una SUGERENCIA para

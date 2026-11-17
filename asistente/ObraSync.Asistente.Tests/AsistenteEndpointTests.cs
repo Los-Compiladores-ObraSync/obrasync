@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -31,7 +32,7 @@ public class AsistenteEndpointTests : IClassFixture<WebApplicationFactory<Progra
     }
 
     private HttpClient Cliente(IModeloChat modelo, IBuscadorInsumos? buscador = null, IBuscadorObras? obras = null,
-        IConsultorRequisiciones? requisiciones = null)
+        IConsultorRequisiciones? requisiciones = null, IConsultorLicitaciones? licitaciones = null)
     {
         var cliente = _fabrica.WithWebHostBuilder(b => b.ConfigureServices(s =>
         {
@@ -43,6 +44,8 @@ public class AsistenteEndpointTests : IClassFixture<WebApplicationFactory<Progra
             s.AddScoped(_ => obras ?? new ObrasFalsas());
             s.RemoveAll<IConsultorRequisiciones>();
             s.AddScoped(_ => requisiciones ?? new ConsultorFalso());
+            s.RemoveAll<IConsultorLicitaciones>();
+            s.AddScoped(_ => licitaciones ?? new ConsultorLicitacionesFalso());
         })).CreateClient();
         return cliente;
     }
@@ -141,6 +144,50 @@ public class AsistenteEndpointTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Equal("REQ-0001", resumen.GetProperty("numero").GetString());
         Assert.Equal("Torre Central", resumen.GetProperty("obra").GetString());
         Assert.Equal(2, resumen.GetProperty("items").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task El_Comprador_recibe_el_borrador_de_adjudicacion_con_la_forma_del_contrato()
+    {
+        var modelo = new ModeloFalso(
+            _ => Respuestas.PideHerramienta(
+                "{\"licitacionId\":\"" + ConsultorLicitacionesFalso.IdLicitacion + "\",\"cotizacionId\":\"" +
+                ConsultorLicitacionesFalso.IdCotizacionA + "\"}", nombre: "preparar_adjudicacion"),
+            _ => Respuestas.Final("Revisá el resumen. Adjudicar no se puede deshacer."));
+        var cliente = Cliente(modelo);
+
+        var r = await cliente.SendAsync(Pedido(CrearToken("Comprador"), new { mensaje = "adjudicá la de Ferretería Sur" }));
+
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        var json = JsonDocument.Parse(await r.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal(JsonValueKind.Null, json.GetProperty("borrador").ValueKind);
+        Assert.Equal(JsonValueKind.Null, json.GetProperty("aprobacion").ValueKind);
+        var a = json.GetProperty("adjudicacion");
+        Assert.Equal("adjudicarCotizacion", a.GetProperty("accion").GetString());
+        Assert.Equal(ConsultorLicitacionesFalso.IdLicitacion.ToString(), a.GetProperty("licitacionId").GetString());
+        Assert.Equal(ConsultorLicitacionesFalso.IdCotizacionA.ToString(), a.GetProperty("cotizacionId").GetString());
+        Assert.Equal("Adjudicar la licitación de la requisición REQ-0002", a.GetProperty("titulo").GetString());
+        var resumen = a.GetProperty("resumen");
+        Assert.Equal("Ferretería Sur", resumen.GetProperty("proveedorNombre").GetString());
+        Assert.Equal("a1a1a1a1", resumen.GetProperty("proveedorCodigo").GetString());
+        Assert.Equal(95000m, resumen.GetProperty("costoTotal").GetDecimal());
+        Assert.Equal(5000m, resumen.GetProperty("flete").GetDecimal());
+        Assert.Equal(82.5m, resumen.GetProperty("puntajeTotal").GetDecimal());
+        Assert.True(resumen.GetProperty("esGanadora").GetBoolean());
+        Assert.False(resumen.GetProperty("hayOfertaConMayorPuntaje").GetBoolean());
+        Assert.Equal(2, resumen.GetProperty("items").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Un_Proveedor_no_tiene_asistente_ni_puede_adjudicar()
+    {
+        var modelo = new ModeloFalso();
+        var cliente = Cliente(modelo);
+
+        var r = await cliente.SendAsync(Pedido(CrearToken("Proveedor"), new { mensaje = "adjudicá la mía" }));
+
+        Assert.NotEqual(HttpStatusCode.OK, r.StatusCode);
+        Assert.Empty(modelo.Pedidos);
     }
 
     [Fact]
@@ -329,10 +376,9 @@ public class AsistenteEndpointTests : IClassFixture<WebApplicationFactory<Progra
     [Fact]
     public async Task Si_el_agente_se_pasa_de_sus_limites_responde_200_con_un_mensaje_amable()
     {
-        var modelo = new ModeloFalso(
-            _ => Respuestas.PideHerramienta("{\"texto\":\"a\"}"),
-            _ => Respuestas.PideHerramienta("{\"texto\":\"b\"}"),
-            _ => Respuestas.PideHerramienta("{\"texto\":\"c\"}"));
+        var modelo = new ModeloFalso(Enumerable.Range(0, Agente.MaxLlamadasHerramienta + 1)
+            .Select<int, Func<JsonArray, RespuestaModelo>>(_ => __ => Respuestas.PideHerramienta("{\"texto\":\"a\"}"))
+            .ToArray());
         var cliente = Cliente(modelo);
 
         var r = await cliente.SendAsync(Pedido(CrearToken("Capataz"), new { mensaje = "hola" }));

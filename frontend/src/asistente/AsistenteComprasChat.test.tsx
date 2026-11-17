@@ -583,3 +583,263 @@ describe('Publicar una licitación desde el chat de Compras (#149)', () => {
     expect(visto.llamadas).toBe(0)
   })
 })
+
+// ---------- Adjudicar una oferta desde el chat de Compras (#149) ----------
+// Adjudicar es IRREVERSIBLE: emite la Orden de Compra. El asistente solo arma la tarjeta reforzada; únicamente el botón
+// Adjudicar llama a POST /api/licitaciones/{id}/adjudicar con { cotizacionId }.
+
+const RUTA_ADJUDICAR = '*/api/licitaciones/:id/adjudicar'
+const ID_LICITACION = 'e1e2e3e4-0000-0000-0000-000000000009'
+const ID_COTIZACION = 'f1f2f3f4-0000-0000-0000-00000000000a'
+
+const BORRADOR_ADJUDICACION = {
+  respuesta: 'Armé la adjudicación. Adjudicar no se puede deshacer: revisala y tocá Adjudicar.',
+  borrador: null,
+  aprobacion: null,
+  adjudicacion: {
+    accion: 'adjudicarCotizacion',
+    titulo: 'Adjudicar la licitación de la requisición REQ-2026-0042',
+    licitacionId: ID_LICITACION,
+    cotizacionId: ID_COTIZACION,
+    resumen: {
+      numeroRequisicion: 'REQ-2026-0042',
+      obra: 'Torre Central',
+      proveedorNombre: 'Ferretería Sur' as string | null,
+      proveedorCodigo: 'a1a1a1a1',
+      precioMateriales: 90000,
+      flete: 5000,
+      costoTotal: 95000,
+      plazoEntregaDias: 3,
+      puntajeTotal: 82.5,
+      esGanadora: true,
+      hayOfertaConMayorPuntaje: false,
+      items: [{ descripcion: 'Cemento Portland 50 kg', cantidad: 20, unidadMedida: 'BOLSA' }],
+    },
+  },
+  tokensUsados: 10,
+}
+
+type BorradorAdjudicacionDePrueba = typeof BORRADOR_ADJUDICACION
+
+function conResumen(cambios: Partial<BorradorAdjudicacionDePrueba['adjudicacion']['resumen']>): BorradorAdjudicacionDePrueba {
+  return {
+    ...BORRADOR_ADJUDICACION,
+    adjudicacion: {
+      ...BORRADOR_ADJUDICACION.adjudicacion,
+      resumen: { ...BORRADOR_ADJUDICACION.adjudicacion.resumen, ...cambios },
+    },
+  }
+}
+
+async function pedirAdjudicacion(
+  user: ReturnType<typeof userEvent.setup>,
+  borrador: BorradorAdjudicacionDePrueba = BORRADOR_ADJUDICACION,
+) {
+  server.use(http.post(RUTA_CHAT, () => HttpResponse.json(borrador)))
+  await user.type(screen.getByLabelText('Escribí tu mensaje'), 'adjudicá la oferta de Ferretería Sur')
+  await user.click(screen.getByRole('button', { name: 'Enviar' }))
+}
+
+/** Cuenta los POST /adjudicar y guarda el id de la licitación y el cuerpo. Responde 200 salvo que se le pida otro estado. */
+function espiarAdjudicacion(estado = 200, detalle = 'La licitación ya se encuentra adjudicada o cerrada.') {
+  const visto = { llamadas: 0, licitacionId: null as string | null, cuerpo: null as null | { cotizacionId: string } }
+  server.use(
+    http.post(RUTA_ADJUDICAR, async ({ params, request }) => {
+      visto.llamadas += 1
+      visto.licitacionId = String(params.id)
+      visto.cuerpo = (await request.json()) as { cotizacionId: string }
+      if (estado !== 200) {
+        return HttpResponse.json({ title: 'Error', status: estado, detail: detalle }, { status: estado })
+      }
+      return HttpResponse.json(
+        {
+          id: 'c0c0c0c0-0000-0000-0000-000000000001',
+          licitacionId: ID_LICITACION,
+          cotizacionId: ID_COTIZACION,
+          estado: 'Emitida',
+          fechaEmision: new Date().toISOString(),
+        },
+        { status: 200 },
+      )
+    }),
+  )
+  return visto
+}
+
+describe('Adjudicar una oferta desde el chat de Compras (#149)', () => {
+  it('ofrece comparar ofertas y adjudicar entre lo que sabe hacer', () => {
+    renderCompras()
+
+    expect(screen.getByRole('button', { name: /Comparar ofertas/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Adjudicar una oferta/ })).toBeEnabled()
+  })
+
+  it('arma la tarjeta reforzada con proveedor, total y desglose, y NO adjudica hasta tocar Adjudicar', async () => {
+    const user = userEvent.setup()
+    const visto = espiarAdjudicacion()
+    renderCompras()
+
+    await pedirAdjudicacion(user)
+
+    expect(await screen.findByText('Adjudicar la licitación de la requisición REQ-2026-0042')).toBeInTheDocument()
+    expect(screen.getByText('Proveedor: Ferretería Sur')).toBeInTheDocument()
+    expect(screen.getByText('Requisición: REQ-2026-0042')).toBeInTheDocument()
+    expect(screen.getByText('Obra: Torre Central')).toBeInTheDocument()
+    expect(screen.getByText('Total de la Orden de Compra: $ 95.000')).toBeInTheDocument()
+    expect(screen.getByText(/Materiales \$ 90\.000 \+ flete\s+\$ 5\.000/)).toBeInTheDocument()
+    expect(screen.getByText('Plazo de entrega: 3 días')).toBeInTheDocument()
+    expect(screen.getByText(/Puntaje: 82,5 \(la de mayor puntaje\)/)).toBeInTheDocument()
+    expect(screen.getByText(/20 bolsa · Cemento Portland 50 kg/)).toBeInTheDocument()
+    // Es irreversible: la tarjeta lo avisa.
+    expect(screen.getByText('Esta acción no se puede deshacer. Revisá bien los datos.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Adjudicar' })).toBeEnabled()
+    expect(screen.queryByText(/Atención: esta oferta no es la de mayor puntaje/)).not.toBeInTheDocument()
+    expect(visto.llamadas).toBe(0)
+  })
+
+  it('al tocar Adjudicar llama una sola vez a POST /adjudicar con el cotizacionId del borrador y lo confirma', async () => {
+    const user = userEvent.setup()
+    const visto = espiarAdjudicacion()
+    const aprobar = espiarAprobacion()
+    const rechazar = espiarRechazo()
+    const publicar = espiarPublicacion()
+    renderCompras()
+    await pedirAdjudicacion(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Adjudicar' }))
+
+    expect(
+      await screen.findByText('Listo, adjudiqué la oferta de Ferretería Sur. Se emitió la Orden de Compra por $ 95.000.'),
+    ).toBeInTheDocument()
+    expect(visto.llamadas).toBe(1)
+    expect(visto.licitacionId).toBe(ID_LICITACION)
+    expect(visto.cuerpo).toEqual({ cotizacionId: ID_COTIZACION })
+    // No se aprobó, rechazó ni publicó nada por error.
+    expect(aprobar.llamadas).toBe(0)
+    expect(rechazar.llamadas).toBe(0)
+    expect(publicar.llamadas).toBe(0)
+    // La tarjeta desaparece: no se puede adjudicar dos veces.
+    expect(screen.queryByRole('button', { name: 'Adjudicar' })).not.toBeInTheDocument()
+  })
+
+  it('un doble toque en Adjudicar manda la acción una sola vez', async () => {
+    const user = userEvent.setup()
+    const visto = espiarAdjudicacion()
+    renderCompras()
+    await pedirAdjudicacion(user)
+
+    await user.dblClick(await screen.findByRole('button', { name: 'Adjudicar' }))
+
+    expect(await screen.findByText(/Listo, adjudiqué/)).toBeInTheDocument()
+    expect(visto.llamadas).toBe(1)
+  })
+
+  it('al cancelar no se adjudica nada', async () => {
+    const user = userEvent.setup()
+    const visto = espiarAdjudicacion()
+    renderCompras()
+    await pedirAdjudicacion(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Cancelar' }))
+
+    expect(await screen.findByText('Listo, no adjudiqué nada. La licitación sigue abierta.')).toBeInTheDocument()
+    expect(visto.llamadas).toBe(0)
+    expect(screen.queryByRole('button', { name: 'Adjudicar' })).not.toBeInTheDocument()
+  })
+
+  it('si la oferta no es la de mayor puntaje, la tarjeta lo avisa', async () => {
+    const user = userEvent.setup()
+    renderCompras()
+
+    await pedirAdjudicacion(user, conResumen({ esGanadora: false, hayOfertaConMayorPuntaje: true, puntajeTotal: 61.25 }))
+
+    expect(await screen.findByText('Atención: esta oferta no es la de mayor puntaje.')).toBeInTheDocument()
+    expect(screen.getByText('Puntaje: 61,25')).toBeInTheDocument()
+    expect(screen.queryByText(/la de mayor puntaje\)/)).not.toBeInTheDocument()
+  })
+
+  it('sin nombre de proveedor muestra el código y lo dice, sin inventar un nombre', async () => {
+    const user = userEvent.setup()
+    const visto = espiarAdjudicacion()
+    renderCompras()
+    await pedirAdjudicacion(user, conResumen({ proveedorNombre: null }))
+
+    expect(await screen.findByText('Proveedor: código a1a1a1a1 (nombre no disponible)')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Adjudicar' }))
+
+    expect(
+      await screen.findByText(/Listo, adjudiqué la oferta del proveedor con código a1a1a1a1\./),
+    ).toBeInTheDocument()
+    expect(visto.llamadas).toBe(1)
+  })
+
+  it('si la licitación ya está adjudicada (409) lo explica y NO dice que adjudicó', async () => {
+    const user = userEvent.setup()
+    const visto = espiarAdjudicacion(409)
+    renderCompras()
+    await pedirAdjudicacion(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Adjudicar' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('La licitación ya se encuentra adjudicada o cerrada.')
+    expect(screen.queryByText(/Listo, adjudiqué/)).not.toBeInTheDocument()
+    expect(visto.llamadas).toBe(1)
+    // La persona puede cancelar o reintentar: la tarjeta sigue.
+    expect(screen.getByRole('button', { name: 'Adjudicar' })).toBeEnabled()
+  })
+
+  it('si la oferta o la licitación ya no existe (404) muestra la explicación del servidor', async () => {
+    const user = userEvent.setup()
+    espiarAdjudicacion(404, 'No se encontró la cotización.')
+    renderCompras()
+    await pedirAdjudicacion(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Adjudicar' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se encontró la cotización.')
+    expect(screen.queryByText(/Listo, adjudiqué/)).not.toBeInTheDocument()
+  })
+
+  it('si la oferta no es de esa licitación (400) muestra la explicación del servidor', async () => {
+    const user = userEvent.setup()
+    espiarAdjudicacion(400, 'La cotización no pertenece a la licitación especificada.')
+    renderCompras()
+    await pedirAdjudicacion(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Adjudicar' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('La cotización no pertenece a la licitación')
+    expect(screen.queryByText(/Listo, adjudiqué/)).not.toBeInTheDocument()
+  })
+
+  it('un usuario sin permiso (403) lo ve en la tarjeta', async () => {
+    const user = userEvent.setup()
+    espiarAdjudicacion(403)
+    renderCompras()
+    await pedirAdjudicacion(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Adjudicar' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No tenés permiso para hacer esto.')
+    expect(screen.queryByText(/Listo, adjudiqué/)).not.toBeInTheDocument()
+  })
+
+  it('una respuesta sin borrador de adjudicación (solo texto) no ofrece ninguna tarjeta ni escribe nada', async () => {
+    const user = userEvent.setup()
+    const visto = espiarAdjudicacion()
+    renderCompras()
+
+    server.use(
+      http.post(RUTA_CHAT, () =>
+        HttpResponse.json({ respuesta: 'La mejor oferta es la de Ferretería Sur, con 82,5 puntos.', borrador: null }),
+      ),
+    )
+    await user.type(screen.getByLabelText('Escribí tu mensaje'), 'comparame las ofertas')
+    await user.click(screen.getByRole('button', { name: 'Enviar' }))
+
+    expect(await screen.findByText(/La mejor oferta es la de Ferretería Sur/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Adjudicar' })).not.toBeInTheDocument()
+    expect(visto.llamadas).toBe(0)
+  })
+})

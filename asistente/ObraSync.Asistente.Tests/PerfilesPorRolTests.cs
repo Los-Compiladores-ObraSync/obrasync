@@ -39,8 +39,8 @@ public class PerfilesPorRolTests
 
     [Theory]
     [InlineData("Capataz", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion" })]
-    [InlineData("Comprador", new[] { "listar_requisiciones", "ver_requisicion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion", "preparar_publicacion_licitacion", "listar_licitaciones", "ver_licitacion", "listar_cotizaciones" })]
-    [InlineData("Admin", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion", "preparar_publicacion_licitacion", "listar_licitaciones", "ver_licitacion", "listar_cotizaciones" })]
+    [InlineData("Comprador", new[] { "listar_requisiciones", "ver_requisicion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion", "preparar_publicacion_licitacion", "listar_licitaciones", "ver_licitacion", "listar_cotizaciones", "preparar_adjudicacion" })]
+    [InlineData("Admin", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion", "preparar_publicacion_licitacion", "listar_licitaciones", "ver_licitacion", "listar_cotizaciones", "preparar_adjudicacion" })]
     public async Task Cada_rol_ve_solo_las_herramientas_de_su_perfil(string rol, string[] esperadas)
     {
         var modelo = new ModeloQueAnotaHerramientas(Respuestas.Final("Hola"));
@@ -160,6 +160,7 @@ public class PerfilesPorRolTests
     [InlineData("Capataz", "listar_licitaciones")]
     [InlineData("Capataz", "ver_licitacion")]
     [InlineData("Capataz", "listar_cotizaciones")]
+    [InlineData("Capataz", "preparar_adjudicacion")]
     public async Task Si_el_modelo_pide_una_herramienta_que_no_es_de_su_perfil_no_se_ejecuta(string rol, string herramienta)
     {
         var consultor = new ConsultorFalso();
@@ -376,5 +377,80 @@ public class PerfilesPorRolTests
         Assert.Contains("listar_cotizaciones", sistema);
         Assert.Contains("nunca hagas cuentas", sistema);
         Assert.Contains("no inventes reputación", sistema);
+    }
+
+    [Fact]
+    public async Task El_Comprador_adjudica_en_un_mismo_pedido_con_tres_herramientas_y_la_respuesta_trae_el_borrador()
+    {
+        var licitaciones = new ConsultorLicitacionesFalso();
+        var modelo = new ModeloFalso(
+            _ => Respuestas.PideHerramienta("{\"estado\":\"Abierta\"}", nombre: "listar_licitaciones"),
+            _ => Respuestas.PideHerramienta(
+                "{\"licitacionId\":\"" + ConsultorLicitacionesFalso.IdLicitacion + "\"}", nombre: "listar_cotizaciones"),
+            _ => Respuestas.PideHerramienta(
+                "{\"licitacionId\":\"" + ConsultorLicitacionesFalso.IdLicitacion + "\",\"cotizacionId\":\"" +
+                ConsultorLicitacionesFalso.IdCotizacionA + "\"}", nombre: "preparar_adjudicacion"),
+            _ => Respuestas.Final("Revisá el resumen: adjudicar no se puede deshacer. Si está bien, tocá Confirmar."));
+
+        var r = await ArmarAgente(modelo, "Comprador", licitaciones: licitaciones)
+            .ResponderAsync("adjudicá la oferta de Ferretería Sur de la licitación del galpón");
+
+        Assert.True(r.Ok);
+        Assert.Equal(3, r.Herramientas);
+        Assert.NotNull(r.Adjudicacion);
+        Assert.Equal("adjudicarCotizacion", r.Adjudicacion!.Accion);
+        Assert.Equal(ConsultorLicitacionesFalso.IdCotizacionA, r.Adjudicacion.CotizacionId);
+        Assert.Null(r.Aprobacion);
+        Assert.Null(r.Borrador);
+        // Nada se escribió: el consultor solo tiene operaciones de lectura.
+        Assert.Equal(2, licitaciones.LlamadasOfertas);
+        Assert.Equal(1, licitaciones.LlamadasDetalle);
+    }
+
+    [Fact]
+    public async Task Si_el_modelo_no_arma_texto_despues_de_preparar_la_adjudicacion_se_pone_el_aviso_de_siempre()
+    {
+        var modelo = new ModeloFalso(
+            _ => Respuestas.PideHerramienta(
+                "{\"licitacionId\":\"" + ConsultorLicitacionesFalso.IdLicitacion + "\",\"cotizacionId\":\"" +
+                ConsultorLicitacionesFalso.IdCotizacionA + "\"}", nombre: "preparar_adjudicacion"),
+            _ => Respuestas.Final(""));
+
+        var r = await ArmarAgente(modelo, "Comprador").ResponderAsync("adjudicá la de Ferretería Sur");
+
+        Assert.True(r.Ok);
+        Assert.NotNull(r.Adjudicacion);
+        Assert.Contains("Confirmar", r.Texto);
+    }
+
+    [Fact]
+    public async Task Un_Capataz_no_puede_preparar_una_adjudicacion()
+    {
+        var licitaciones = new ConsultorLicitacionesFalso();
+        var modelo = new ModeloFalso(
+            _ => Respuestas.PideHerramienta(
+                "{\"licitacionId\":\"" + ConsultorLicitacionesFalso.IdLicitacion + "\",\"cotizacionId\":\"" +
+                ConsultorLicitacionesFalso.IdCotizacionA + "\"}", nombre: "preparar_adjudicacion"),
+            _ => Respuestas.Final("No puedo."));
+
+        var r = await ArmarAgente(modelo, "Capataz", licitaciones: licitaciones).ResponderAsync("adjudicá la oferta");
+
+        Assert.True(r.Ok);
+        Assert.Null(r.Adjudicacion);
+        Assert.Equal(0, licitaciones.LlamadasDetalle);
+        Assert.Contains("herramienta_no_permitida", modelo.Pedidos[1].Last()!["content"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Las_instrucciones_de_Compras_dicen_que_adjudicar_es_irreversible_y_que_elige_la_persona()
+    {
+        var modelo = new ModeloQueAnotaHerramientas(Respuestas.Final("Hola"));
+
+        await ArmarAgente(modelo, "Comprador").ResponderAsync("hola");
+
+        var sistema = modelo.Sistema[0];
+        Assert.Contains("preparar_adjudicacion", sistema);
+        Assert.Contains("NO SE PUEDE DESHACER", sistema);
+        Assert.Contains("nunca elijas vos", sistema);
     }
 }
