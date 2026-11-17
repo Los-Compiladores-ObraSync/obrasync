@@ -423,7 +423,7 @@ describe('App - campana de notificaciones', () => {
     renderApp('/compras/requisiciones')
 
     await screen.findByRole('button', { name: 'Notificaciones: 2 sin leer' })
-    await usuario.click(screen.getByRole('button', { name: 'Aprobar REQ-2026-0011' }))
+    await usuario.click(await screen.findByRole('button', { name: 'Aprobar REQ-2026-0011' }))
 
     expect(
       await screen.findByRole('button', { name: 'Notificaciones: 1 sin leer' }),

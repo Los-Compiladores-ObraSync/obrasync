@@ -1,0 +1,411 @@
+/* ── PresupuestoPage — mobile-first ─────────────────────────────────────────
+   Tablero de desvíos y control presupuestario (#97).
+   Usa variables globales de diseño (--azul, --borde, --texto, --texto-suave).
+─────────────────────────────────────────────────────────────────────────── */
+
+.contenedor {
+  width: 100%;
+}
+
+.volver {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px; /* Área de toque accesible */
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--azul);
+  text-decoration: none;
+  margin-bottom: 0.5rem;
+}
+
+.titulo {
+  margin: 0 0 0.5rem;
+  font-size: 1.75rem;
+}
+
+.intro {
+  margin: 0 0 1.5rem;
+  color: var(--texto-suave);
+  font-size: 1.0625rem;
+}
+
+.exito {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background-color: #f0fdf4;
+  border: 2px solid #86efac;
+  color: #166534;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.errorApi {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background-color: #fef2f2;
+  border: 2px solid #fca5a5;
+  color: #991b1b;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* ── Sección de Órdenes Bloqueadas (#97) ─────────────────────────────────── */
+.seccionBloqueadas {
+  margin-bottom: 2rem;
+  padding: 1.25rem;
+  border-radius: 12px;
+  background-color: #fff7ed;
+  border: 2px solid #fed7aa;
+}
+
+.tituloBloqueadas {
+  margin: 0 0 1rem;
+  font-size: 1.375rem;
+  color: #9a3412;
+  font-weight: 700;
+}
+
+.listaBloqueadas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tarjetaBloqueada {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border-radius: 10px;
+  background-color: #ffffff;
+  border: 1px solid #fed7aa;
+  border-left: 6px solid #ea580c;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+
+.textoExceso {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #c2410c;
+}
+
+.datoBloqueada {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--texto);
+}
+
+.motivoBloqueo {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--texto-suave);
+  font-style: italic;
+}
+
+.grillaBloqueada {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background-color: #fffaf5;
+  margin-top: 0.25rem;
+}
+
+.botonLiberar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  background-color: var(--azul);
+  color: #ffffff;
+  border: none;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+.botonLiberar:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.botonLiberar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.avisoComprador {
+  margin: 0.5rem 0 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--texto-suave);
+}
+
+.contenedorConfirmacion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #fed7aa;
+}
+
+.labelMotivo {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.textareaMotivo {
+  width: 100%;
+  min-height: 80px;
+  padding: 0.625rem;
+  border: 2px solid var(--borde);
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.textareaMotivo:focus {
+  outline: none;
+  border-color: var(--azul);
+}
+
+.contador {
+  font-size: 0.8125rem;
+  color: var(--texto-suave);
+  text-align: right;
+}
+
+.accionesConfirmacion {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.botonConfirmarLiberacion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  background-color: #15803d;
+  color: #ffffff;
+  border: none;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.botonConfirmarLiberacion:hover:not(:disabled) {
+  background-color: #166534;
+}
+
+.botonConfirmarLiberacion:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.botonCancelar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  background-color: transparent;
+  color: var(--texto);
+  border: 2px solid var(--borde);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.botonCancelar:hover:not(:disabled) {
+  background-color: #f1f5f9;
+}
+
+/* ── Selector de Obra y Tablero de Desvíos ──────────────────────────────── */
+.selectorGrupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.selectorLabel {
+  font-weight: 700;
+  font-size: 1.0625rem;
+}
+
+.selectObra {
+  width: 100%;
+  max-width: 450px;
+  min-height: 44px;
+  padding: 0.625rem 0.875rem;
+  font-size: 1.0625rem;
+  border: 2px solid var(--borde);
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: var(--texto);
+}
+
+.selectObra:focus {
+  outline: none;
+  border-color: var(--azul);
+}
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .lista {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border: 0;
+  border-left: 6px solid #10b981; /* Verde cuando está en regla */
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.tarjetaExcedida {
+  border-left-color: #dc2626; /* Rojo alertando desvío presupuestario */
+  background: #fffafa;
+}
+
+.cabeceraTarjeta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.etapaTitulo {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.etiquetaExcedida {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #f87171;
+}
+
+.codigo {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--texto-suave);
+  font-weight: 600;
+}
+
+.descripcion {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--texto);
+}
+
+.grillaMontos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  margin-top: 0.25rem;
+}
+
+.montoFila {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9375rem;
+}
+
+.montoLabel {
+  color: var(--texto-suave);
+}
+
+.montoValor {
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.diferenciaFila {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1rem;
+  font-weight: 700;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.valorExcedido {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.botonReintentar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  border: 2px solid var(--azul);
+  background-color: transparent;
+  color: var(--azul);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.botonReintentar:hover {
+  background-color: rgba(30, 58, 138, 0.05);
+}
+
+.estadoMensaje {
+  margin: 1.5rem 0;
+  font-size: 1.0625rem;
+  color: var(--texto-suave);
+}

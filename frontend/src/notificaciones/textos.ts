@@ -5,3 +5,13 @@ export function textoPendientes(cantidad: number): string {
     ? 'Tenés 1 requisición para aprobar'
     : `Tenés ${cantidad} requisiciones para aprobar`
 }
+
+/** Texto del aviso de órdenes de compra bloqueadas por presupuesto (#97).
+ *  Contempla singular y plural. */
+export function textoOrdenesBloqueadas(cantidad: number): string {
+  return cantidad === 1
+    ? '1 orden de compra bloqueada por presupuesto'
+    : `${cantidad} órdenes de compra bloqueadas por presupuesto`
+}
+
+export const textoBloqueadas = textoOrdenesBloqueadas

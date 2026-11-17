@@ -48,7 +48,7 @@ describe('CampanaNotificaciones - resaltada', () => {
         render(<CampanaNotificaciones cantidad={ 7} resaltada />)
 
         expect(
-            screen.getByRole('button', { name: 'Atención: 7 requisiciones pendientes' }),
+            screen.getByRole('button', { name: 'Atención: 7 avisos pendientes' }),
         ).toBeInTheDocument()
         expect(screen.getByText('7')).toBeInTheDocument()
     })
