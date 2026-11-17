@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
@@ -841,5 +841,54 @@ describe('Adjudicar una oferta desde el chat de Compras (#149)', () => {
     expect(await screen.findByText(/La mejor oferta es la de Ferretería Sur/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Adjudicar' })).not.toBeInTheDocument()
     expect(visto.llamadas).toBe(0)
+  })
+
+  describe('botón "Comparar ofertas" (#148)', () => {
+    it('no aparece en la pantalla de inicio como botón fijo: ahí está la lista de capacidades', () => {
+      renderCompras()
+
+      expect(screen.queryByRole('group', { name: 'Acciones rápidas' })).not.toBeInTheDocument()
+      // en el inicio hay un solo botón con ese nombre: el de la lista de capacidades
+      expect(screen.getAllByRole('button', { name: /Comparar ofertas/ })).toHaveLength(1)
+    })
+
+    it('una vez empezada la charla queda a mano y pide la comparación al asistente', async () => {
+      const user = userEvent.setup()
+      const mensajes: string[] = []
+      server.use(
+        http.post(RUTA_CHAT, async ({ request }) => {
+          const cuerpo = (await request.json()) as { mensaje: string }
+          mensajes.push(cuerpo.mensaje)
+          return HttpResponse.json({ respuesta: 'Hay dos ofertas.', borrador: null, tokensUsados: 5 })
+        }),
+      )
+      renderCompras()
+
+      await user.type(screen.getByLabelText('Escribí tu mensaje'), 'hola')
+      await user.click(screen.getByRole('button', { name: 'Enviar' }))
+      await screen.findByText('Hay dos ofertas.')
+
+      const grupo = screen.getByRole('group', { name: 'Acciones rápidas' })
+      await user.click(within(grupo).getByRole('button', { name: 'Comparar ofertas' }))
+
+      await waitFor(() => expect(mensajes).toHaveLength(2))
+      expect(mensajes[1]).toBe('Comparame las ofertas de la última licitación abierta')
+    })
+
+    it('no aparece en el portal de obra', async () => {
+      const user = userEvent.setup()
+      server.use(http.post(RUTA_CHAT, () => HttpResponse.json({ respuesta: 'Hola.', borrador: null, tokensUsados: 1 })))
+      render(
+        <MemoryRouter>
+          <AsistenteChatPage portal="obra" />
+        </MemoryRouter>,
+      )
+
+      await user.type(screen.getByLabelText('Escribí tu mensaje'), 'hola')
+      await user.click(screen.getByRole('button', { name: 'Enviar' }))
+      await screen.findByText('Hola.')
+
+      expect(screen.queryByRole('group', { name: 'Acciones rápidas' })).not.toBeInTheDocument()
+    })
   })
 })

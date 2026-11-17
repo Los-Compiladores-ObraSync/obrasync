@@ -298,6 +298,14 @@
   margin-top: 0.75rem;
 }
 
+/* Botones fijos arriba del campo de texto (portal de Compras). */
+.accionesRapidas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
 .siguientePaso {
   display: inline-flex;
   align-items: center;

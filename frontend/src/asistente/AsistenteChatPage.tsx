@@ -78,6 +78,11 @@ const CAPACIDADES_OBRA = [
   },
 ]
 
+/** Lo que dice el botón "Comparar ofertas": es el mismo pedido desde la pantalla de inicio y desde el botón fijo del chat.
+ *  Pide la última licitación abierta para que el asistente responda de una: si preguntara "¿cuál?", cada vuelta extra gasta
+ *  del cupo de IA, que es compartido por todo el grupo. Para otra licitación, la persona la pide escribiendo. */
+const MENSAJE_COMPARAR_OFERTAS = 'Comparame las ofertas de la última licitación abierta'
+
 /** Lo que el asistente sabe hacer en el portal de Compras (#141, #148 y #149): consultar, comparar ofertas, aprobar, rechazar, publicar y adjudicar con confirmación. */
 const CAPACIDADES_COMPRAS = [
   {
@@ -107,7 +112,7 @@ const CAPACIDADES_COMPRAS = [
   {
     titulo: 'Comparar ofertas',
     descripcion: 'Te cuento qué ofertas llegaron a una licitación y cuál conviene. Solo consulto, no cambio nada.',
-    mensaje: 'Quiero comparar las ofertas de una licitación',
+    mensaje: MENSAJE_COMPARAR_OFERTAS,
     disponible: true, // #148
   },
   {
@@ -660,6 +665,20 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
       </div>
 
       <div className={styles.pie}>
+        {/* Una vez empezada la charla ya no se ve la pantalla de inicio: este botón deja a mano la comparación de ofertas.
+            Solo manda un mensaje al asistente (que consulta, no cambia nada), igual que escribirlo. */}
+        {portal === 'compras' && !conversacionNueva && (
+          <div className={styles.accionesRapidas} role="group" aria-label="Acciones rápidas">
+            <button
+              type="button"
+              className={styles.siguientePaso}
+              disabled={pensando}
+              onClick={() => void enviarTexto(MENSAJE_COMPARAR_OFERTAS)}
+            >
+              Comparar ofertas
+            </button>
+          </div>
+        )}
         <form className={styles.compositor} onSubmit={enviar}>
           {/* La etiqueta se lee con lector de pantalla, pero no ocupa lugar: el placeholder ya dice qué escribir. */}
           <label htmlFor="mensaje-asistente" className={styles.soloLectores}>
