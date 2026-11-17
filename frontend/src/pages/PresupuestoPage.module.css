@@ -1,0 +1,209 @@
+/* ── PresupuestoPage — mobile-first ─────────────────────────────────────────
+   Tablero de desvíos y control presupuestario (#97).
+   Usa variables globales de diseño (--azul, --borde, --texto, --texto-suave).
+─────────────────────────────────────────────────────────────────────────── */
+
+.contenedor {
+  width: 100%;
+}
+
+.volver {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px; /* Área de toque accesible */
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--azul);
+  text-decoration: none;
+  margin-bottom: 0.5rem;
+}
+
+.titulo {
+  margin: 0 0 0.5rem;
+  font-size: 1.75rem;
+}
+
+.intro {
+  margin: 0 0 1.5rem;
+  color: var(--texto-suave);
+  font-size: 1.0625rem;
+}
+
+.selectorGrupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.selectorLabel {
+  font-weight: 700;
+  font-size: 1.0625rem;
+}
+
+.selectObra {
+  width: 100%;
+  max-width: 450px;
+  min-height: 44px;
+  padding: 0.625rem 0.875rem;
+  font-size: 1.0625rem;
+  border: 2px solid var(--borde);
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: var(--texto);
+}
+
+.selectObra:focus {
+  outline: none;
+  border-color: var(--azul);
+}
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .lista {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border: 0;
+  border-left: 6px solid #10b981; /* Verde cuando está en regla */
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.tarjetaExcedida {
+  border-left-color: #dc2626; /* Rojo alertando desvío presupuestario */
+  background: #fffafa;
+}
+
+.cabeceraTarjeta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.etapaTitulo {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.etiquetaExcedida {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #f87171;
+}
+
+.codigo {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--texto-suave);
+  font-weight: 600;
+}
+
+.descripcion {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--texto);
+}
+
+.grillaMontos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  margin-top: 0.25rem;
+}
+
+.montoFila {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9375rem;
+}
+
+.montoLabel {
+  color: var(--texto-suave);
+}
+
+.montoValor {
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.diferenciaFila {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1rem;
+  font-weight: 700;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.valorExcedido {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.errorApi {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background-color: #fef2f2;
+  border: 2px solid #fca5a5;
+  color: #991b1b;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.botonReintentar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  border: 2px solid var(--azul);
+  background-color: transparent;
+  color: var(--azul);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.botonReintentar:hover {
+  background-color: rgba(30, 58, 138, 0.05);
+}
+
+.estadoMensaje {
+  margin: 1.5rem 0;
+  font-size: 1.0625rem;
+  color: var(--texto-suave);
+}
