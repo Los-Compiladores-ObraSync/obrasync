@@ -1373,4 +1373,249 @@ export const handlers: RequestHandler[] = [
 
     return HttpResponse.json(ordenCompra, { status: 200 })
   }),
+
+  // ── Presupuesto y Control Presupuestario (#97) ─────────────────────────────
+  // Contrato: GET /api/presupuestos/partidas?obraId=&etapa=&pagina=&tamano= → 200 PartidaPresupuestariaDto[]
+  http.get('*/api/presupuestos/partidas', ({ request }) => {
+    const url = new URL(request.url)
+    const obraId = url.searchParams.get('obraId')
+    const etapa = url.searchParams.get('etapa')
+    const filtradas = partidasMock.filter((p) => {
+      if (obraId && p.obraId !== obraId) return false
+      if (etapa && p.etapa !== etapa) return false
+      return true
+    })
+    return responderPaginado(request, filtradas)
+  }),
+
+  // PROPUESTO, NO ESTÁ EN EL CONTRATO (#97):
+  // GET /api/recepciones/ordenes-bloqueadas → 200 OrdenCompraBloqueadaDto[]
+  http.get('*/api/recepciones/ordenes-bloqueadas', () => {
+    return HttpResponse.json(ordenesBloqueadasMock, { status: 200 })
+  }),
+
+  // Contrato: POST /api/recepciones/ordenes/{id}/liberar → 200 | 400 | 401 | 403 | 404 | 409
+  http.post('*/api/recepciones/ordenes/:id/liberar', async ({ params, request }) => {
+    if (!request.headers.get('Authorization')) {
+      return HttpResponse.json(
+        {
+          type: 'https://tools.ietf.org/html/rfc7235#section-3.1',
+          title: 'No autenticado',
+          status: 401,
+          detail: 'Se requiere un token JWT valido para acceder a este recurso.',
+        },
+        { status: 401 },
+      )
+    }
+
+    if (!esUsuarioAdmin(request)) {
+      return HttpResponse.json(
+        {
+          type: 'https://tools.ietf.org/html/rfc7231#section-6.5.3',
+          title: 'Acceso denegado',
+          status: 403,
+          detail: 'El usuario no tiene el rol Admin requerido para autorizar y liberar órdenes de compra.',
+        },
+        { status: 403 },
+      )
+    }
+
+    const id = String(params.id)
+    if (id === ID_ORDEN_PRUEBA_404 || id === 'oc-inexistente-404') {
+      return HttpResponse.json(
+        {
+          type: 'https://tools.ietf.org/html/rfc7231#section-6.5.4',
+          title: 'No encontrado',
+          status: 404,
+          detail: 'La orden de compra no existe.',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (
+      id === ID_ORDEN_PRUEBA_409 ||
+      id === 'oc-no-bloqueada-409' ||
+      ordenesLiberadasMockIds.has(id)
+    ) {
+      return HttpResponse.json(
+        {
+          type: 'https://tools.ietf.org/html/rfc7231#section-6.5.8',
+          title: 'Conflicto',
+          status: 409,
+          detail: 'La orden de compra no se encuentra en estado Bloqueada.',
+        },
+        { status: 409 },
+      )
+    }
+
+    let body: { motivo?: string | null } = {}
+    try {
+      body = (await request.json()) as { motivo?: string | null }
+    } catch {
+      // cuerpo opcional
+    }
+
+    if (body.motivo && body.motivo.length > 500) {
+      return HttpResponse.json(
+        {
+          type: 'https://tools.ietf.org/html/rfc7231#section-6.5.1',
+          title: 'Datos de solicitud inválidos',
+          status: 400,
+          detail: 'El motivo no puede superar los 500 caracteres.',
+        },
+        { status: 400 },
+      )
+    }
+
+    const orden = ordenesBloqueadasMock.find((o) => o.ordenCompraId === id)
+    if (!orden) {
+      return HttpResponse.json(
+        {
+          type: 'https://tools.ietf.org/html/rfc7231#section-6.5.4',
+          title: 'No encontrado',
+          status: 404,
+          detail: 'La orden de compra no existe.',
+        },
+        { status: 404 },
+      )
+    }
+
+    ordenesLiberadasMockIds.add(id)
+    ordenesBloqueadasMock = ordenesBloqueadasMock.filter((o) => o.ordenCompraId !== id)
+
+    const partida = partidasMock.find((p) => p.etapa === orden.etapa && p.obraId === orden.obraId)
+    const montoComprometidoPartida = partida
+      ? partida.montoComprometido + orden.montoOrdenCompra
+      : orden.montoComprometidoActual + orden.montoOrdenCompra
+
+    if (partida) {
+      partida.montoComprometido = montoComprometidoPartida
+      partida.montoDisponible = partida.montoAsignado - partida.montoComprometido
+    }
+
+    return HttpResponse.json(
+      {
+        ordenCompraId: id,
+        obraId: orden.obraId,
+        estado: 1, // 1 = Activa
+        liberadaPorUsuarioId: 'a1b2c3d4-0000-0000-0000-000000000004',
+        liberadaEn: new Date().toISOString(),
+        motivoLiberacion: body.motivo ?? null,
+        montoTotal: orden.montoOrdenCompra,
+        partidaPresupuestariaId: partida?.id ?? null,
+        montoComprometidoPartida,
+      },
+      { status: 200 },
+    )
+  }),
 ]
+
+// ── Estado simulado de Presupuesto y Órdenes Bloqueadas (#97) ───────────────
+export const ID_ORDEN_PRUEBA_404 = '00000000-0000-0000-0000-000000000404'
+export const ID_ORDEN_PRUEBA_409 = '00000000-0000-0000-0000-000000000409'
+export const ORDEN_BLOQUEADA_1_ID = 'e1e2e3e4-0000-0000-0000-0000000000b1'
+export const ORDEN_BLOQUEADA_2_ID = 'e1e2e3e4-0000-0000-0000-0000000000b2'
+
+export const MOCK_TOKEN_ADMIN =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' +
+  '.eyJzdWIiOiJhMWIyYzNkNC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDQiLCJlbWFpbCI6ImFkbWluQG9icmFzeW5jLmNvbSIsIm5hbWUiOiJBZG1pbiBPYnJhU3luYyIsInJvbCI6IkFkbWluIn0' +
+  '.MOCK_FIRMA_NO_VALIDA'
+
+function crearPartidasMock() {
+  return [
+    {
+      id: 'p1p2p3p4-0000-0000-0000-000000000001',
+      obraId: 'b1b2c3d4-0000-0000-0000-0000000000a1', // Torre Alvear
+      etapa: 'Estructura',
+      codigoPartida: 'EST-001',
+      descripcion: 'Hormigón armado y estructuras',
+      montoAsignado: 10000000,
+      montoComprometido: 6000000,
+      montoEjecutado: 4000000,
+      montoDisponible: 4000000, // Disponible positivo
+      moneda: 'ARS',
+      createdAt: '2026-10-01T08:00:00Z',
+    },
+    {
+      id: 'p1p2p3p4-0000-0000-0000-000000000002',
+      obraId: 'b1b2c3d4-0000-0000-0000-0000000000a1', // Torre Alvear
+      etapa: 'Albañilería',
+      codigoPartida: 'ALB-001',
+      descripcion: 'Mampostería y tabiques',
+      montoAsignado: 5000000,
+      montoComprometido: 6200000,
+      montoEjecutado: 3000000,
+      montoDisponible: -1200000, // Disponible negativo (desvío)
+      moneda: 'ARS',
+      createdAt: '2026-10-01T08:00:00Z',
+    },
+  ]
+}
+
+function crearOrdenesBloqueadasMock() {
+  return [
+    {
+      ordenCompraId: ORDEN_BLOQUEADA_1_ID,
+      obraId: 'b1b2c3d4-0000-0000-0000-0000000000a1',
+      etapa: 'Albañilería',
+      montoOrdenCompra: 2200000,
+      montoAsignadoPartida: 5000000,
+      montoComprometidoActual: 4000000,
+      montoProyectado: 6200000,
+      exceso: 1200000,
+      motivo: 'La orden de compra por $ 2.200.000,00 supera la partida de Albañilería (exceso de $ 1.200.000,00)',
+    },
+    {
+      ordenCompraId: ORDEN_BLOQUEADA_2_ID,
+      obraId: 'b1b2c3d4-0000-0000-0000-0000000000a1',
+      etapa: 'Estructura',
+      montoOrdenCompra: 5500000,
+      montoAsignadoPartida: 10000000,
+      montoComprometidoActual: 6000000,
+      montoProyectado: 11500000,
+      exceso: 1500000,
+      motivo: 'La orden de compra por $ 5.500.000,00 supera la partida de Estructura (exceso de $ 1.500.000,00)',
+    },
+  ]
+}
+
+let partidasMock = crearPartidasMock()
+let ordenesBloqueadasMock = crearOrdenesBloqueadasMock()
+let ordenesLiberadasMockIds = new Set<string>()
+
+export function reiniciarPresupuestoMock() {
+  partidasMock = crearPartidasMock()
+  ordenesBloqueadasMock = crearOrdenesBloqueadasMock()
+  ordenesLiberadasMockIds = new Set<string>()
+}
+
+function esUsuarioAdmin(request: Request): boolean {
+  const auth = request.headers.get('Authorization')
+  if (!auth) return false
+  const token = auth.replace(/^Bearer\s+/i, '').trim()
+  if (/admin/i.test(token)) return true
+  try {
+    const parts = token.split('.')
+    if (parts.length >= 2) {
+      const json = atob(parts[1])
+      const payload = JSON.parse(json)
+      if (payload.rol === 'Admin' || payload.role === 'Admin') return true
+    }
+  } catch {
+    // ignorar error de parseo
+  }
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('obrasync_session')
+      if (raw) {
+        const sesion = JSON.parse(raw)
+        if (sesion?.usuario?.rol === 'Admin') return true
+      }
+    }
+  } catch {
+    // ignorar
+  }
+  return false
+}
+
