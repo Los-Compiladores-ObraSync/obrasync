@@ -137,16 +137,17 @@ public class CrearRecepcionCommandHandler
             throw new ArgumentException("No se puede incluir un mismo artículo más de una vez.");
         }
 
-        var detallesPrevios = await _context.Recepciones
+        var recibidosPrevios = await _context.Recepciones
             .AsNoTracking()
             .Where(r => r.OrdenCompraId == command.OrdenCompraId &&
                         r.Estado != EstadoRecepcion.Rechazada)
-            .SelectMany(r => r.Detalles)
+            .SelectMany(r => r.Detalles.Select(d => new { d.ArticuloId, d.CantidadRecibida }))
+            .GroupBy(d => d.ArticuloId)
+            .Select(g => new { ArticuloId = g.Key, Total = g.Sum(d => d.CantidadRecibida) })
             .ToListAsync(cancellationToken);
 
-        var recibidoPrevioPorArticulo = detallesPrevios
-            .GroupBy(d => d.ArticuloId)
-            .ToDictionary(g => g.Key, g => g.Sum(d => d.CantidadRecibida));
+        var recibidoPrevioPorArticulo = recibidosPrevios
+            .ToDictionary(x => x.ArticuloId, x => x.Total);
 
         var recepcion = new RecepcionEntity
         {
@@ -219,20 +220,12 @@ public class CrearRecepcionCommandHandler
             throw new ArgumentException("La recepción debe registrar una cantidad recibida mayor a cero en al menos un material.");
         }
 
-        _ = recepcion.CalcularEstadoSegunCantidades();
+        var cantidadesTotalesOrden = ordenCompra.Items
+            .ToDictionary(i => i.ArticuloId, i => i.Cantidad);
 
-        bool ordenCompleta = ordenCompra.Items.All(item =>
-        {
-            decimal previo = recibidoPrevioPorArticulo.GetValueOrDefault(item.ArticuloId, 0m);
-            decimal actual = recepcion.Detalles
-                .Where(d => d.ArticuloId == item.ArticuloId)
-                .Sum(d => d.CantidadRecibida);
-            return previo + actual == item.Cantidad;
-        });
-
-        EstadoRecepcion estadoFinal = ordenCompleta
-            ? EstadoRecepcion.Completa
-            : EstadoRecepcion.Parcial;
+        EstadoRecepcion estadoFinal = recepcion.CalcularEstadoSegunCantidadesAcumuladas(
+            cantidadesTotalesOrden,
+            recibidoPrevioPorArticulo);
 
         recepcion.CambiarEstado(estadoFinal);
 
