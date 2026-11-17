@@ -56,6 +56,7 @@ public sealed class Agente
     private readonly HerramientasCatalogo _herramientas;
     private readonly HerramientasCompras? _compras;
     private readonly HerramientasRecepcion? _recepciones;
+    private readonly HerramientasLicitaciones? _licitaciones;
     private readonly IContextoDePeticion? _contexto;
     private readonly IControlConsumo? _consumo;
 
@@ -69,12 +70,14 @@ public sealed class Agente
         HerramientasCompras? compras = null,
         IContextoDePeticion? contexto = null,
         IControlConsumo? consumo = null,
-        HerramientasRecepcion? recepciones = null)
+        HerramientasRecepcion? recepciones = null,
+        HerramientasLicitaciones? licitaciones = null)
     {
         _modelo = modelo;
         _herramientas = herramientas;
         _compras = compras;
         _recepciones = recepciones;
+        _licitaciones = licitaciones;
         _contexto = contexto;
         _consumo = consumo;
     }
@@ -232,7 +235,7 @@ public sealed class Agente
     private static JsonArray DefinicionesDe(PerfilAsistente perfil)
     {
         var defs = new JsonArray();
-        foreach (var d in HerramientasCatalogo.Definiciones().Concat(HerramientasCompras.Definiciones()).Concat(HerramientasRecepcion.Definiciones()))
+        foreach (var d in HerramientasCatalogo.Definiciones().Concat(HerramientasCompras.Definiciones()).Concat(HerramientasRecepcion.Definiciones()).Concat(HerramientasLicitaciones.Definiciones()))
         {
             var nombre = d?["function"]?["name"]?.GetValue<string>();
             if (nombre is not null && perfil.Herramientas.Contains(nombre))
@@ -250,11 +253,16 @@ public sealed class Agente
         var esDeCatalogo = nombre is HerramientasCatalogo.BuscarInsumos or HerramientasCatalogo.ArmarBorrador;
         var esDeCompras = HerramientasCompras.Nombres.Contains(nombre);
         var esDeRecepcion = HerramientasRecepcion.Nombres.Contains(nombre);
+        var esDeLicitaciones = HerramientasLicitaciones.Nombres.Contains(nombre);
 
-        if (!esDeCatalogo && !esDeCompras && !esDeRecepcion)
+        if (!esDeCatalogo && !esDeCompras && !esDeRecepcion && !esDeLicitaciones)
             return Task.FromResult(ResultadoHerramienta.Error("herramienta_desconocida"));
         if (!perfil.Herramientas.Contains(nombre))
             return Task.FromResult(ResultadoHerramienta.Error("herramienta_no_permitida"));
+        if (esDeLicitaciones)
+            return _licitaciones is null
+                ? Task.FromResult(ResultadoHerramienta.Error("herramienta_no_disponible"))
+                : _licitaciones.EjecutarAsync(nombre, argumentos, ct);
         if (esDeRecepcion)
             return _recepciones is null
                 ? Task.FromResult(ResultadoHerramienta.Error("herramienta_no_disponible"))
