@@ -1227,8 +1227,8 @@ public class CotizacionesEndpointTests : IClassFixture<WebApplicationFactory<Pro
         {
             var d = c.DesglosePuntaje!;
             Assert.Equal(c.PuntajeTotal, d.Precio + d.Flete + d.Plazo + d.Calificacion);
-            // Sin calificaciones todas valen 0 y empatan: el scoring le da el máximo del criterio (peso 0.1 = 10 puntos) a todas por igual.
-            Assert.Equal(10m, d.Calificacion);
+            // #197: Sin fuente de calificación, PesoCalificacion es 0 por defecto para no regalar 10 puntos de peso muerto.
+            Assert.Equal(0m, d.Calificacion);
         });
         // El desglose ya no es "puntaje × peso": con pesos distintos y ofertas distintas no puede ser proporcional al total.
         Assert.Contains(lista, c => c.DesglosePuntaje!.Precio != Math.Round(c.PuntajeTotal * 0.5m, 2));

@@ -42,6 +42,7 @@ builder.Services.AddDbContext<LicitacionesDbContext>(options =>
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(CrearCotizacionCommandHandler).Assembly));
 
 // Servicios, Repositorios y Handlers de Aplicación
+builder.Services.AddScoped(sp => sp.GetRequiredService<IConfiguration>().ReadAndValidateScoringOptions());
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ILicitacionRepository, LicitacionRepository>();
 builder.Services.AddScoped<ILicitacionService, LicitacionService>();
@@ -223,6 +224,9 @@ builder.Services
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+// Validar configuración de pesos de Scoring al arrancar (#197)
+app.Configuration.ReadAndValidateScoringOptions();
 
 // Aplica las migraciones al arrancar (en Docker la base nace vacía).
 // Solo si hay cadena de conexión, para no romper las pruebas del /health.
