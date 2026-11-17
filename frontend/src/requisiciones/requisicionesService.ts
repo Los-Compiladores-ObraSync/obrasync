@@ -3,6 +3,7 @@ import { conPaginacion, traerTodas, type PaginaDe } from '../api/paginacion'
 import type {
   InsumoCatalogo,
   CrearRequisicionRequestDto,
+  EditarRequisicionRequestDto,
   RequisicionResponseDto,
   ObraResumen,
 } from './requisicionesTipos'
@@ -82,6 +83,17 @@ export function listarRequisiciones(
  */
 export function obtenerRequisicion(id: string): Promise<RequisicionResponseDto> {
   return apiFetch<RequisicionResponseDto>(`/api/requisiciones/${encodeURIComponent(id)}`)
+}
+
+/** PUT /api/requisiciones/{id}: edita y reenvía una requisición rechazada. */
+export function editarYReenviarRequisicion(
+  id: string,
+  dto: EditarRequisicionRequestDto,
+): Promise<RequisicionResponseDto> {
+  return apiFetch<RequisicionResponseDto>(`/api/requisiciones/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(dto),
+  })
 }
 
 /**

@@ -27,6 +27,12 @@ export interface CrearRequisicionRequestDto {
   items: CrearRequisicionItemDto[]
 }
 
+export interface EditarRequisicionRequestDto {
+  etapa?: string | null
+  observaciones?: string | null
+  items: CrearRequisicionItemDto[]
+}
+
 export interface RequisicionItemDto {
   articuloId: string
   descripcion: string
@@ -51,6 +57,7 @@ export interface RequisicionResponseDto {
   fechaAprobacion?: string | null
   fechaRechazo?: string | null
   items: RequisicionItemDto[]
+  historialRechazos?: { id: string; rechazadorId?: string | null; motivo: string; fechaRechazo: string }[]
 }
 
 export interface EtapaObraResumen {

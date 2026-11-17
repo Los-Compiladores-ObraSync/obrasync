@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setToken } from '../api/client'
 import { STORAGE_KEY } from '../auth/sessionContext'
+import { reiniciarRequisicionesMock } from '../mocks/handlers'
 import { server } from '../mocks/server'
 import { ESPERA_BUSQUEDA_MS } from '../requisiciones/configuracionBusqueda'
 import { NuevaRequisicionPage } from './NuevaRequisicionPage'
@@ -15,6 +16,15 @@ const ARTICULO_CEMENTO_ID = 'c1c2c3c4-0000-0000-0000-000000000001'
 function renderPagina() {
   return render(
     <MemoryRouter>
+      <NuevaRequisicionPage />
+    </MemoryRouter>,
+  )
+}
+
+const RECHAZADA_ID = 'd1d2d3d4-0000-0000-0000-000000000013'
+function renderEdicion() {
+  return render(
+    <MemoryRouter initialEntries={[`/obra/requisicion/nueva?editar=${RECHAZADA_ID}&volver=%2Fobra%2Frequisiciones`]}>
       <NuevaRequisicionPage />
     </MemoryRouter>,
   )
@@ -38,8 +48,51 @@ function iniciarSesionCapataz() {
 
 describe('NuevaRequisicionPage', () => {
   beforeEach(() => {
+    reiniciarRequisicionesMock()
     localStorage.clear()
     setToken(null)
+  })
+
+  it('precarga y reenvía la requisición rechazada con los campos del contrato y muestra el éxito', async () => {
+    iniciarSesionCapataz()
+    const user = userEvent.setup()
+    let payload: unknown
+    server.use(http.put('*/api/requisiciones/:id', async ({ request }) => {
+      payload = await request.json()
+      return HttpResponse.json({
+        requisicionId: RECHAZADA_ID, numeroRequisicion: 'REQ-2026-0013', obraId: OBRA_ID,
+        etapa: 'Fundaciones', solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000001',
+        estado: 'Pendiente', observaciones: 'Revisar la cantidad', fechaCreacion: '2026-10-20T12:00:00Z',
+        items: [{ articuloId: ARTICULO_CEMENTO_ID, descripcion: 'Cemento Portland Especial 50kg', cantidad: 31, unidadMedida: 'BOLSA' }],
+      })
+    }))
+    renderEdicion()
+    expect(await screen.findByRole('heading', { name: 'Editar y reenviar requisición' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Obra')).toHaveValue(OBRA_ID)
+    expect(screen.getByLabelText('Etapa de la obra')).toHaveValue('Fundaciones')
+    expect(screen.getByLabelText('Observaciones (opcional)')).toHaveValue('Revisar la cantidad')
+    expect(screen.getByLabelText('Insumo #1')).toHaveValue(ARTICULO_CEMENTO_ID)
+    expect(screen.getByLabelText('Cantidad')).toHaveValue(25)
+    await user.clear(screen.getByLabelText('Cantidad'))
+    await user.type(screen.getByLabelText('Cantidad'), '31')
+    await user.click(screen.getByRole('button', { name: 'Guardar y reenviar' }))
+    expect(await screen.findByRole('heading', { name: 'Requisición enviada con éxito' })).toBeInTheDocument()
+    expect(screen.getByText('REQ-2026-0013')).toBeInTheDocument()
+    expect(payload).toEqual({ etapa: 'Fundaciones', observaciones: 'Revisar la cantidad', items: [{ articuloId: ARTICULO_CEMENTO_ID, cantidad: 31 }] })
+    expect(screen.getByRole('link', { name: 'Volver al historial' })).toHaveAttribute('href', '/obra/requisiciones')
+  })
+
+  it.each([
+    [403, 'La requisición no pertenece al Capataz o no tenés permiso para editarla.'],
+    [409, 'La requisición ya no está en estado Rechazada y no puede editarse.'],
+  ])('informa claramente el error %s al reenviar', async (status, mensaje) => {
+    iniciarSesionCapataz()
+    server.use(http.put('*/api/requisiciones/:id', () => HttpResponse.json({ title: 'Error', status }, { status })))
+    const user = userEvent.setup()
+    renderEdicion()
+    await screen.findByRole('heading', { name: 'Editar y reenviar requisición' })
+    await user.click(screen.getByRole('button', { name: 'Guardar y reenviar' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(mensaje)
   })
 
   it('Caso demo CU-02: carga requisición de 80 bolsas de cemento para "Estructura" y muestra confirmación con "Aprobación Pendiente"', async () => {

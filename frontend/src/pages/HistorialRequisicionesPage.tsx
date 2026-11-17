@@ -260,6 +260,14 @@ export function HistorialRequisicionesPage({
                 {req.etapa ? ` · Etapa: ${req.etapa}` : ''}
               </p>
               <p className={styles.dato}>Creada el {fechaLarga(req.fechaCreacion)}</p>
+              {esCapataz && req.estado === 'Rechazada' && (
+                <>
+                  <p className={styles.dato}>Motivo del rechazo: {req.motivoRechazo ?? 'Sin motivo informado'}</p>
+                  <Link className={`${styles.volver} ${styles.accionRechazo}`} to={`/obra/requisicion/nueva?editar=${encodeURIComponent(req.requisicionId)}&volver=${encodeURIComponent(pathname + search)}`}>
+                    Editar y reenviar
+                  </Link>
+                </>
+              )}
             </li>
           ))}
         </ul>
