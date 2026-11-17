@@ -815,7 +815,7 @@
           "ponderacionesScoring": {
             "nullable": true,
             "allOf": [{ "$ref": "#/components/schemas/CriteriosScoringDto" }],
-            "description": "PROPUESTA (pendiente; relacionada con #88). Peso (0 a 1) de cada criterio con el que se calculó el puntaje. Hoy están fijos en el servicio (0,5 / 0,2 / 0,2 / 0,1)."
+            "description": "Peso (0 a 1) de cada criterio con el que se calculó el puntaje. Hoy están fijos en el servicio (0,5 / 0,2 / 0,2 / 0,1); cuando #88 y #197 los vuelvan configurables, este campo muestra los que se usaron."
           }
         },
         "additionalProperties": false
