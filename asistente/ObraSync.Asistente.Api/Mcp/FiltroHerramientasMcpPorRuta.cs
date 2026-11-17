@@ -29,6 +29,12 @@ public static class FiltroHerramientasMcpPorRuta
                     .Where(herramienta => herramienta.Name == HerramientasPresupuestos.ConsultarPartidas)
                     .ToList();
             }
+            else
+            {
+                resultado.Tools = resultado.Tools
+                    .Where(herramienta => herramienta.Name != HerramientasPresupuestos.ConsultarPartidas)
+                    .ToList();
+            }
 
             return resultado;
         });
@@ -38,7 +44,9 @@ public static class FiltroHerramientasMcpPorRuta
             var ruta = ClasificarRuta(contexto.Services);
             if (ruta == RutaMcp.Desconocida ||
                 (ruta == RutaMcp.Presupuestos &&
-                 contexto.Params.Name != HerramientasPresupuestos.ConsultarPartidas))
+                 contexto.Params.Name != HerramientasPresupuestos.ConsultarPartidas) ||
+                (ruta == RutaMcp.Original &&
+                 contexto.Params.Name == HerramientasPresupuestos.ConsultarPartidas))
             {
                 return new CallToolResult
                 {
