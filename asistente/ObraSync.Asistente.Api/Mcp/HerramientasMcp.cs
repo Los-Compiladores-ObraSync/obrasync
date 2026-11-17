@@ -20,8 +20,24 @@ public sealed record ItemPedidoMcp(string Insumo, double Cantidad);
 public sealed class HerramientasMcp
 {
     private readonly HerramientasCatalogo _herramientas;
+    private readonly HerramientasPresupuestos _presupuestos;
 
-    public HerramientasMcp(HerramientasCatalogo herramientas) => _herramientas = herramientas;
+    public HerramientasMcp(HerramientasCatalogo herramientas, HerramientasPresupuestos presupuestos)
+    {
+        _herramientas = herramientas;
+        _presupuestos = presupuestos;
+    }
+
+    [McpServerTool(Name = HerramientasPresupuestos.ConsultarPartidas, ReadOnly = true)]
+    [Description("Consulta partidas presupuestarias de una obra, opcionalmente filtradas por etapa. Devuelve montos asignado, comprometido, ejecutado y disponible. Solo lectura.")]
+    public async Task<string> ConsultarPartidasPresupuestarias(
+        [Description("Identificador GUID de la obra.")] string obraId,
+        [Description("Nombre de etapa opcional para filtrar, por ejemplo: Estructura.")] string etapa = "",
+        CancellationToken cancellationToken = default)
+    {
+        var resultado = await _presupuestos.ConsultarAsync(obraId, etapa, cancellationToken);
+        return resultado.Datos.ToJsonString();
+    }
 
     [McpServerTool(Name = HerramientasCatalogo.BuscarInsumos, ReadOnly = true)]
     [Description("Busca insumos de construcción en el catálogo de ObraSync por texto (nombre o código). Solo lectura.")]
