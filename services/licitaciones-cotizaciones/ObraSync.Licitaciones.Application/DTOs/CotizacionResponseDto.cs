@@ -11,6 +11,7 @@ public class CotizacionResponseDto
     public decimal Flete { get; set; }
     public decimal CostoTotal { get; set; }
     public bool EsMasBarata { get; set; }
+    public bool CoberturaParcial { get; set; }           // NUEVO (#190)
     public int PlazoEntregaDias { get; set; }
     public DateTime FechaCreacion { get; set; }
     public IReadOnlyList<CrearCotizacionItemDto> Items { get; set; } = Array.Empty<CrearCotizacionItemDto>();

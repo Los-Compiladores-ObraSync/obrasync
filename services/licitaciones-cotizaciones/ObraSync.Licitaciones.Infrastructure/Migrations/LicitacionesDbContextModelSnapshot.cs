@@ -237,12 +237,23 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                     b.Property<Guid>("ArticuloId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("CantidadOfrecida")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<bool>("CoberturaParcial")
+                        .HasColumnType("bit");
+
                     b.Property<Guid>("CotizacionId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("PrecioUnitario")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("PresentacionOfrecida")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
 

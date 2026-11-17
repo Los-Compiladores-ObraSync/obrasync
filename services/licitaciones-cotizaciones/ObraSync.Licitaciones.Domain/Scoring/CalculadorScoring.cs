@@ -49,7 +49,7 @@ public static class CalculadorScoring
             .ToList();
     }
 
-    // Suma precioUnitario x cantidad de cada ítem del pliego. Null si falta cotizar alguno.
+    // Suma precioUnitario x cantidad (o cantidadOfrecida si cotizó presentación alternativa, #190) de cada ítem del pliego. Null si falta cotizar alguno.
     private static decimal? PrecioTotal(Oferta oferta, IReadOnlyList<ItemRequerido> requeridos)
     {
         decimal total = 0;
@@ -57,7 +57,8 @@ public static class CalculadorScoring
         {
             var item = oferta.Items.FirstOrDefault(i => i.ArticuloId == requerido.ArticuloId);
             if (item is null) return null;
-            total += item.PrecioUnitario * requerido.Cantidad;
+            var cantidadEfectiva = item.CantidadOfrecida is > 0 ? item.CantidadOfrecida.Value : requerido.Cantidad;
+            total += item.PrecioUnitario * cantidadEfectiva;
         }
         return total;
     }

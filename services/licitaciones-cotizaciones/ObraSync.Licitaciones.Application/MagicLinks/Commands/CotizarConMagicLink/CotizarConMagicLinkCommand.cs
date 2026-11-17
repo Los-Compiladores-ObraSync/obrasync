@@ -13,7 +13,10 @@ public record CotizarConMagicLinkCommand(
 public record CotizacionItemDto(
     Guid LicitacionItemId = default,
     decimal PrecioUnitario = 0m,
-    Guid ArticuloId = default)
+    Guid ArticuloId = default,
+    string? PresentacionOfrecida = null,
+    decimal? CantidadOfrecida = null,
+    bool? CoberturaParcial = null)
 {
     public Guid IdentificadorEfectivo => ArticuloId != Guid.Empty ? ArticuloId : LicitacionItemId;
 }

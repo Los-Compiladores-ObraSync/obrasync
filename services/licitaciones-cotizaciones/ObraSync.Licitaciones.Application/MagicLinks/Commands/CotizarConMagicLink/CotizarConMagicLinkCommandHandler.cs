@@ -50,13 +50,16 @@ public class CotizarConMagicLinkCommandHandler : IRequestHandler<CotizarConMagic
             throw new ArgumentException("El enlace de cotización ya expiró.");
         }
 
-        // 3. Reusar la validación compartida de #71 ANTES de consumir el enlace:
+        // 3. Reusar la validación compartida de #71 y #190 ANTES de consumir el enlace:
         // Si los ítems están vacíos, incompletos o inválidos, se rechaza con 400 sin quemar el Magic Link.
         var itemsMapeados = request.Items?
             .Select(i => new CrearCotizacionItemDto
             {
                 ArticuloId = i != null ? i.IdentificadorEfectivo : Guid.Empty,
-                PrecioUnitario = i?.PrecioUnitario ?? 0m
+                PrecioUnitario = i?.PrecioUnitario ?? 0m,
+                PresentacionOfrecida = i?.PresentacionOfrecida,
+                CantidadOfrecida = i?.CantidadOfrecida,
+                CoberturaParcial = i?.CoberturaParcial ?? false
             })
             .ToList();
 

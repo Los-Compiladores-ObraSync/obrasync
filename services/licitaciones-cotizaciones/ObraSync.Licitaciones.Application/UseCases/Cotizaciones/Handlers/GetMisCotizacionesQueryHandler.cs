@@ -73,10 +73,26 @@ public class GetMisCotizacionesQueryHandler
                     .ToDictionary(g => g.Key, g => g.First().Cantidad)
                 : new Dictionary<Guid, decimal>();
 
-            decimal subtotalItems = cotizacion.Items.Sum(i =>
-                cantidadesPorArticulo.TryGetValue(i.ArticuloId, out var cantidad)
-                    ? cantidad * i.PrecioUnitario
-                    : 0m);
+            var itemsDto = cotizacion.Items
+                .Select(i =>
+                {
+                    var cantPliego = cantidadesPorArticulo.TryGetValue(i.ArticuloId, out var cantidad)
+                        ? cantidad
+                        : 0m;
+                    var subtotalItem = i.CalcularSubtotal(cantPliego);
+                    return new CrearCotizacionItemDto
+                    {
+                        ArticuloId = i.ArticuloId,
+                        PrecioUnitario = i.PrecioUnitario,
+                        PresentacionOfrecida = i.PresentacionOfrecida,
+                        CantidadOfrecida = i.CantidadOfrecida,
+                        SubtotalItem = subtotalItem,
+                        CoberturaParcial = i.CoberturaParcial
+                    };
+                })
+                .ToList();
+
+            decimal subtotalItems = itemsDto.Sum(i => i.SubtotalItem);
             decimal costoTotal = subtotalItems + cotizacion.Flete;
 
             var estadoLicitacionEnum = licitacion?.Estado ?? EstadoLicitacion.Abierta;
@@ -106,15 +122,10 @@ public class GetMisCotizacionesQueryHandler
                 SubtotalItems = subtotalItems,
                 Flete = cotizacion.Flete,
                 CostoTotal = costoTotal,
+                CoberturaParcial = cotizacion.Items.Any(i => i.CoberturaParcial),
                 PlazoEntregaDias = cotizacion.PlazoEntregaDias,
                 FechaCreacion = DateTime.SpecifyKind(cotizacion.FechaCreacion, DateTimeKind.Utc),
-                Items = cotizacion.Items
-                    .Select(i => new CrearCotizacionItemDto
-                    {
-                        ArticuloId = i.ArticuloId,
-                        PrecioUnitario = i.PrecioUnitario
-                    })
-                    .ToList(),
+                Items = itemsDto,
                 EsGanadora = esGanadora,
                 EstadoResultado = estadoResultado
             });

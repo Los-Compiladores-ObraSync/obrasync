@@ -14,13 +14,17 @@ public static class CotizacionMappingExtensions
             ProveedorId = cotizacion.ProveedorId,
             ProveedorNombre = cotizacion.ProveedorNombre,
             Flete = cotizacion.Flete,
+            CoberturaParcial = cotizacion.Items.Any(i => i.CoberturaParcial),
             PlazoEntregaDias = cotizacion.PlazoEntregaDias,
             FechaCreacion = DateTime.SpecifyKind(cotizacion.FechaCreacion, DateTimeKind.Utc),
             Items = cotizacion.Items
                 .Select(i => new CrearCotizacionItemDto
                 {
                     ArticuloId = i.ArticuloId,
-                    PrecioUnitario = i.PrecioUnitario
+                    PrecioUnitario = i.PrecioUnitario,
+                    PresentacionOfrecida = i.PresentacionOfrecida,
+                    CantidadOfrecida = i.CantidadOfrecida,
+                    CoberturaParcial = i.CoberturaParcial
                 })
                 .ToList()
         };
