@@ -23,6 +23,7 @@ public class RecepcionesController : ControllerBase
     private readonly ObtenerRecepcionesQueryHandler _obtenerRecepcionesHandler;
     private readonly ObtenerRecepcionPorIdQueryHandler _obtenerPorIdHandler;
     private readonly ObtenerOrdenesPendientesQueryHandler _obtenerOrdenesPendientesHandler;
+    private readonly ObtenerOrdenesBloqueadasQueryHandler? _obtenerOrdenesBloqueadasHandler;
     private readonly LiberarOrdenCompraCommandHandler? _liberarOrdenHandler;
     private readonly IObraAsignacionValidator? _obraAsignacionValidator;
 
@@ -33,7 +34,8 @@ public class RecepcionesController : ControllerBase
         ObtenerRecepcionPorIdQueryHandler obtenerPorIdHandler,
         ObtenerOrdenesPendientesQueryHandler obtenerOrdenesPendientesHandler,
         IObraAsignacionValidator? obraAsignacionValidator = null,
-        LiberarOrdenCompraCommandHandler? liberarOrdenHandler = null)
+        LiberarOrdenCompraCommandHandler? liberarOrdenHandler = null,
+        ObtenerOrdenesBloqueadasQueryHandler? obtenerOrdenesBloqueadasHandler = null)
     {
         _crearHandler = crearHandler;
         _obtenerRecepcionesHandler = obtenerRecepcionesHandler;
@@ -41,6 +43,7 @@ public class RecepcionesController : ControllerBase
         _obtenerOrdenesPendientesHandler = obtenerOrdenesPendientesHandler;
         _obraAsignacionValidator = obraAsignacionValidator;
         _liberarOrdenHandler = liberarOrdenHandler;
+        _obtenerOrdenesBloqueadasHandler = obtenerOrdenesBloqueadasHandler;
     }
 
     public RecepcionesController(
@@ -57,7 +60,8 @@ public class RecepcionesController : ControllerBase
             new ObtenerRecepcionPorIdQueryHandler(context),
             new ObtenerOrdenesPendientesQueryHandler(context),
             obraAsignacionValidator,
-            new LiberarOrdenCompraCommandHandler(context))
+            new LiberarOrdenCompraCommandHandler(context),
+            new ObtenerOrdenesBloqueadasQueryHandler(context))
     {
     }
 
@@ -303,6 +307,39 @@ public class RecepcionesController : ControllerBase
         bool? sinPartida,
         CancellationToken cancellationToken) =>
         ObtenerOrdenesPendientes(obraId, sinPartida, 1, ParametrosPagina.TamanoMaximo, cancellationToken);
+
+    /// <summary>
+    /// Obtiene las órdenes de compra actualmente bloqueadas por desvío presupuestario (#210).
+    /// Soporta filtro opcional por ObraId y paginación con pagina y tamano (#185).
+    /// Roles permitidos: Comprador, Admin.
+    /// </summary>
+    [Authorize(Roles = "Comprador,Admin")]
+    [HttpGet("ordenes-bloqueadas")]
+    public async Task<IActionResult> ObtenerOrdenesBloqueadas(
+        [FromQuery] Guid? obraId = null,
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamano = ParametrosPagina.TamanoMaximo,
+        CancellationToken cancellationToken = default)
+    {
+        if (_obtenerOrdenesBloqueadasHandler is null)
+        {
+            throw new InvalidOperationException("ObtenerOrdenesBloqueadasQueryHandler no está configurado.");
+        }
+
+        var p = new ParametrosPagina(pagina, tamano);
+        var error = p.Validar();
+        if (error is not null)
+        {
+            return Problem(detail: error, statusCode: StatusCodes.Status400BadRequest, title: "Paginación inválida");
+        }
+
+        var resultado = await _obtenerOrdenesBloqueadasHandler.Handle(
+            new ObtenerOrdenesBloqueadasQuery(obraId, p),
+            cancellationToken);
+
+        SetPaginationHeaders(resultado.Total, p);
+        return Ok(resultado.Items.ToList());
+    }
 
     /// <summary>
     /// Registra una recepción total de materiales contra una orden de compra (#189: valida pertenencia de obra para Capataz).

@@ -15,9 +15,10 @@ public class OrdenCompra : BaseEntity
     public decimal MontoTotal { get; set; }
     public string? Etapa { get; set; }
 
-    // Control de estado de la orden de compra (#94, #95, #96, #154)
+    // Control de estado de la orden de compra (#94, #95, #96, #154, #210)
     public EstadoOrdenCompra Estado { get; set; } = EstadoOrdenCompra.Activa;
     public string? MotivoBloqueo { get; set; }
+    public DateTime? FechaBloqueo { get; private set; }
 
     // Auditoría de autorización al liberar una OC bloqueada (#96): quién (sub del token) y cuándo (UTC)
     public Guid? LiberadaPorUsuarioId { get; private set; }
@@ -49,7 +50,8 @@ public class OrdenCompra : BaseEntity
         EstadoOrdenCompra estado = EstadoOrdenCompra.Activa,
         string? motivoBloqueo = null,
         bool sinPartidaPresupuestaria = false,
-        DateTime? fechaDespacho = null)
+        DateTime? fechaDespacho = null,
+        DateTime? fechaBloqueo = null)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("El identificador de la orden de compra no puede estar vacío.", nameof(id));
@@ -83,6 +85,10 @@ public class OrdenCompra : BaseEntity
         if (!string.IsNullOrWhiteSpace(etapa) && etapa.Trim().Length > 200)
             throw new ArgumentException("La etapa no puede superar los 200 caracteres.", nameof(etapa));
 
+        var ahora = DateTime.UtcNow;
+        var fechaBloqueoNormalizada = FechaUtc.Normalizar(fechaBloqueo)
+            ?? (estado == EstadoOrdenCompra.Bloqueada ? ahora : null);
+
         var oc = new OrdenCompra
         {
             Id = id,
@@ -92,9 +98,10 @@ public class OrdenCompra : BaseEntity
             Etapa = string.IsNullOrWhiteSpace(etapa) ? null : etapa.Trim(),
             Estado = estado,
             MotivoBloqueo = string.IsNullOrWhiteSpace(motivoBloqueo) ? null : motivoBloqueo.Trim(),
+            FechaBloqueo = fechaBloqueoNormalizada,
             SinPartidaPresupuestaria = sinPartidaPresupuestaria,
-            FechaDespacho = fechaDespacho.HasValue ? DateTime.SpecifyKind(fechaDespacho.Value, DateTimeKind.Utc) : null,
-            CreatedAt = DateTime.UtcNow
+            FechaDespacho = FechaUtc.Normalizar(fechaDespacho),
+            CreatedAt = ahora
         };
 
         foreach (var item in listaItems)
@@ -107,13 +114,15 @@ public class OrdenCompra : BaseEntity
     }
 
     /// <summary>
-    /// Bloquea preventivamente la orden de compra al superar la partida presupuestaria de la etapa (#94, #95).
+    /// Bloquea preventivamente la orden de compra al superar la partida presupuestaria de la etapa (#94, #95, #210).
     /// </summary>
     public void BloquearPorDesvioPresupuestario(string? motivo = null)
     {
+        var ahora = DateTime.UtcNow;
         Estado = EstadoOrdenCompra.Bloqueada;
         MotivoBloqueo = string.IsNullOrWhiteSpace(motivo) ? null : motivo.Trim();
-        UpdatedAt = DateTime.UtcNow;
+        FechaBloqueo = ahora;
+        UpdatedAt = ahora;
     }
 
     /// <summary>
@@ -195,7 +204,7 @@ public class OrdenCompra : BaseEntity
         }
 
         var ahora = DateTime.UtcNow;
-        FechaDespacho = DateTime.SpecifyKind(fechaDespachoUtc, DateTimeKind.Utc);
+        FechaDespacho = FechaUtc.Normalizar(fechaDespachoUtc);
         UpdatedAt = ahora;
     }
 }
