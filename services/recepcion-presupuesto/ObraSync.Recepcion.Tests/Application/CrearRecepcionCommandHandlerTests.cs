@@ -492,4 +492,196 @@ public class CrearRecepcionCommandHandlerTests
         Assert.Equal("La orden de compra todavía no fue despachada", ex.Message);
         Assert.Equal(0, await db.Recepciones.CountAsync());
     }
+
+    [Fact]
+    public async Task Handle_EntregaParcialSeguidaDeSaldo_PrimeraParcialSegundaCompleta()
+    {
+        using var db = CreateInMemoryContext();
+        var (oc, obraId, articuloId) = SembrarOrdenCompra(db, cantidad: 100m);
+        var publisher = Substitute.For<IRecepcionEventPublisher>();
+        var handler = new CrearRecepcionCommandHandler(db, publisher, NullLogger<CrearRecepcionCommandHandler>.Instance);
+
+        // 1. Primera entrega: 75 de 100 -> Parcial
+        var cmd1 = CrearComandoValido(
+            obraId, oc.Id, articuloId,
+            numeroRemito: "REM-PARC-1",
+            cantidadEsperada: 100m,
+            cantidadRecibida: 75m);
+
+        var res1 = await handler.Handle(cmd1, CancellationToken.None);
+        Assert.Equal(EstadoRecepcion.Parcial, res1.Estado);
+        Assert.Equal(75m, res1.Detalles.Single().CantidadRecibida);
+        Assert.Equal(100m, res1.Detalles.Single().CantidadEsperada);
+
+        // 2. Segunda entrega: 25 de 100 (usando cantidadEsperada = saldo pendiente 25) -> Completa
+        var cmd2 = CrearComandoValido(
+            obraId, oc.Id, articuloId,
+            numeroRemito: "REM-PARC-2",
+            cantidadEsperada: 25m,
+            cantidadRecibida: 25m);
+
+        var res2 = await handler.Handle(cmd2, CancellationToken.None);
+        Assert.Equal(EstadoRecepcion.Completa, res2.Estado);
+        Assert.Equal(25m, res2.Detalles.Single().CantidadRecibida);
+        Assert.Equal(100m, res2.Detalles.Single().CantidadEsperada);
+
+        await publisher.Received(2).PublishRecepcionConfirmadaAsync(
+            Arg.Any<RecepcionEntity>(),
+            Arg.Any<Guid>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_TerceraRecepcionTrasCompletarPorParciales_LanzaRecepcionConflictoException()
+    {
+        using var db = CreateInMemoryContext();
+        var (oc, obraId, articuloId) = SembrarOrdenCompra(db, cantidad: 100m);
+        var publisher = Substitute.For<IRecepcionEventPublisher>();
+        var handler = new CrearRecepcionCommandHandler(db, publisher, NullLogger<CrearRecepcionCommandHandler>.Instance);
+
+        await handler.Handle(
+            CrearComandoValido(obraId, oc.Id, articuloId, numeroRemito: "REM-1", cantidadEsperada: 100m, cantidadRecibida: 75m),
+            CancellationToken.None);
+
+        await handler.Handle(
+            CrearComandoValido(obraId, oc.Id, articuloId, numeroRemito: "REM-2", cantidadEsperada: 100m, cantidadRecibida: 25m),
+            CancellationToken.None);
+
+        var ex = await Assert.ThrowsAsync<RecepcionConflictoException>(() =>
+            handler.Handle(
+                CrearComandoValido(obraId, oc.Id, articuloId, numeroRemito: "REM-3", cantidadEsperada: 100m, cantidadRecibida: 10m),
+                CancellationToken.None));
+
+        Assert.Equal("La orden de compra ya fue recibida por completo.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Handle_ExcesoAcumuladoEnSegundaEntrega_LanzaArgumentExceptionSinGuardarNiPublicarSegundoEvento()
+    {
+        using var db = CreateInMemoryContext();
+        var (oc, obraId, articuloId) = SembrarOrdenCompra(db, cantidad: 100m);
+        var publisher = Substitute.For<IRecepcionEventPublisher>();
+        var handler = new CrearRecepcionCommandHandler(db, publisher, NullLogger<CrearRecepcionCommandHandler>.Instance);
+
+        await handler.Handle(
+            CrearComandoValido(obraId, oc.Id, articuloId, numeroRemito: "REM-1", cantidadEsperada: 100m, cantidadRecibida: 75m),
+            CancellationToken.None);
+
+        // Segunda entrega con 30 (75 + 30 = 105 > 100)
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            handler.Handle(
+                CrearComandoValido(obraId, oc.Id, articuloId, numeroRemito: "REM-2", cantidadEsperada: 100m, cantidadRecibida: 30m),
+                CancellationToken.None));
+
+        Assert.Equal("La cantidad recibida acumulada supera la cantidad pedida en la orden de compra.", ex.Message);
+        Assert.Equal(1, await db.Recepciones.CountAsync());
+        await publisher.Received(1).PublishRecepcionConfirmadaAsync(
+            Arg.Any<RecepcionEntity>(),
+            Arg.Any<Guid>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_DosArticulos_CompletadoEnDosEntregas_PersisteCantidadEsperadaDeOC()
+    {
+        using var db = CreateInMemoryContext();
+        var obraId = Guid.NewGuid();
+        var art1 = Guid.NewGuid();
+        var art2 = Guid.NewGuid();
+
+        var oc = OrdenCompra.Crear(
+            Guid.NewGuid(),
+            obraId,
+            Guid.NewGuid(),
+            2000m,
+            new List<OrdenCompraItem>
+            {
+                OrdenCompraItem.Crear(art1, 100m, "UN", 10m, "Hierro"),
+                OrdenCompraItem.Crear(art2, 50m, "UN", 20m, "Cemento")
+            },
+            fechaDespacho: DateTime.UtcNow);
+        db.OrdenesCompra.Add(oc);
+        await db.SaveChangesAsync();
+
+        var publisher = Substitute.For<IRecepcionEventPublisher>();
+        var handler = new CrearRecepcionCommandHandler(db, publisher, NullLogger<CrearRecepcionCommandHandler>.Instance);
+
+        // Entrega 1: 100/100 de art1 y 20/50 de art2 -> Parcial
+        var cmd1 = new CrearRecepcionCommand(
+            ObraId: obraId,
+            OrdenCompraId: oc.Id,
+            UsuarioId: Guid.NewGuid(),
+            NumeroRemito: "REM-M1",
+            FechaRecepcion: DateTime.UtcNow,
+            Observaciones: null,
+            Detalles: new List<CrearDetalleRecepcionRequest>
+            {
+                new() { ArticuloId = art1, DescripcionArticulo = "Hierro", CantidadEsperada = 100m, CantidadRecibida = 100m, UnidadMedida = "UN", Conforme = true },
+                new() { ArticuloId = art2, DescripcionArticulo = "Cemento", CantidadEsperada = 50m, CantidadRecibida = 20m, UnidadMedida = "UN", Conforme = true }
+            });
+
+        var res1 = await handler.Handle(cmd1, CancellationToken.None);
+        Assert.Equal(EstadoRecepcion.Parcial, res1.Estado);
+
+        // Entrega 2: 0 de art1 y 30 de art2 -> Completa
+        var cmd2 = new CrearRecepcionCommand(
+            ObraId: obraId,
+            OrdenCompraId: oc.Id,
+            UsuarioId: Guid.NewGuid(),
+            NumeroRemito: "REM-M2",
+            FechaRecepcion: DateTime.UtcNow,
+            Observaciones: null,
+            Detalles: new List<CrearDetalleRecepcionRequest>
+            {
+                new() { ArticuloId = art1, DescripcionArticulo = "Hierro", CantidadEsperada = 100m, CantidadRecibida = 0m, UnidadMedida = "UN", Conforme = true },
+                new() { ArticuloId = art2, DescripcionArticulo = "Cemento", CantidadEsperada = 30m, CantidadRecibida = 30m, UnidadMedida = "UN", Conforme = true }
+            });
+
+        var res2 = await handler.Handle(cmd2, CancellationToken.None);
+        Assert.Equal(EstadoRecepcion.Completa, res2.Estado);
+        Assert.Equal(100m, res2.Detalles.Single(d => d.ArticuloId == art1).CantidadEsperada);
+        Assert.Equal(50m, res2.Detalles.Single(d => d.ArticuloId == art2).CantidadEsperada);
+    }
+
+    [Fact]
+    public async Task Handle_TodosLosItemsConCantidadRecibidaCero_LanzaArgumentException()
+    {
+        using var db = CreateInMemoryContext();
+        var (oc, obraId, articuloId) = SembrarOrdenCompra(db, cantidad: 100m);
+        var publisher = Substitute.For<IRecepcionEventPublisher>();
+        var handler = new CrearRecepcionCommandHandler(db, publisher, NullLogger<CrearRecepcionCommandHandler>.Instance);
+
+        var cmd = CrearComandoValido(
+            obraId, oc.Id, articuloId,
+            numeroRemito: "REM-CERO",
+            cantidadEsperada: 100m,
+            cantidadRecibida: 0m);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            handler.Handle(cmd, CancellationToken.None));
+
+        Assert.Equal(0, await db.Recepciones.CountAsync());
+        await publisher.DidNotReceiveWithAnyArgs().PublishRecepcionConfirmadaAsync(default!, default, default);
+    }
+
+    [Fact]
+    public async Task Handle_CantidadRecibidaNegativa_LanzaArgumentException()
+    {
+        using var db = CreateInMemoryContext();
+        var (oc, obraId, articuloId) = SembrarOrdenCompra(db, cantidad: 100m);
+        var publisher = Substitute.For<IRecepcionEventPublisher>();
+        var handler = new CrearRecepcionCommandHandler(db, publisher, NullLogger<CrearRecepcionCommandHandler>.Instance);
+
+        var cmd = CrearComandoValido(
+            obraId, oc.Id, articuloId,
+            numeroRemito: "REM-NEG",
+            cantidadEsperada: 100m,
+            cantidadRecibida: -5m);
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            handler.Handle(cmd, CancellationToken.None));
+
+        Assert.Equal("La cantidad recibida no puede ser negativa.", ex.Message);
+        Assert.Equal(0, await db.Recepciones.CountAsync());
+    }
 }

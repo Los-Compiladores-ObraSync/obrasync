@@ -96,4 +96,32 @@ public class Recepcion : BaseEntity
 
         return EstadoRecepcion.Parcial;
     }
+
+    /// <summary>
+    /// Calcula el estado considerando el acumulado de la orden de compra.
+    /// Devuelve Completa si (cantidadesRecibidasPrevias[art] + CantidadRecibida de esta recepción)
+    /// es igual a cantidadesTotalesOrden[art] para todos los ítems; en caso contrario, Parcial.
+    /// </summary>
+    public EstadoRecepcion CalcularEstadoSegunCantidadesAcumuladas(
+        IReadOnlyDictionary<Guid, decimal> cantidadesTotalesOrden,
+        IReadOnlyDictionary<Guid, decimal> cantidadesRecibidasPrevias)
+    {
+        if (cantidadesTotalesOrden is null)
+            throw new ArgumentNullException(nameof(cantidadesTotalesOrden));
+        if (cantidadesRecibidasPrevias is null)
+            throw new ArgumentNullException(nameof(cantidadesRecibidasPrevias));
+
+        foreach (var (articuloId, cantidadTotal) in cantidadesTotalesOrden)
+        {
+            decimal previo = cantidadesRecibidasPrevias.GetValueOrDefault(articuloId, 0m);
+            decimal actual = Detalles
+                .Where(d => d.ArticuloId == articuloId)
+                .Sum(d => d.CantidadRecibida);
+
+            if (previo + actual < cantidadTotal)
+                return EstadoRecepcion.Parcial;
+        }
+
+        return EstadoRecepcion.Completa;
+    }
 }

@@ -137,6 +137,18 @@ public class CrearRecepcionCommandHandler
             throw new ArgumentException("No se puede incluir un mismo artículo más de una vez.");
         }
 
+        var recibidosPrevios = await _context.Recepciones
+            .AsNoTracking()
+            .Where(r => r.OrdenCompraId == command.OrdenCompraId &&
+                        r.Estado != EstadoRecepcion.Rechazada)
+            .SelectMany(r => r.Detalles.Select(d => new { d.ArticuloId, d.CantidadRecibida }))
+            .GroupBy(d => d.ArticuloId)
+            .Select(g => new { ArticuloId = g.Key, Total = g.Sum(d => d.CantidadRecibida) })
+            .ToListAsync(cancellationToken);
+
+        var recibidoPrevioPorArticulo = recibidosPrevios
+            .ToDictionary(x => x.ArticuloId, x => x.Total);
+
         var recepcion = new RecepcionEntity
         {
             Id = Guid.NewGuid(),
@@ -159,14 +171,23 @@ public class CrearRecepcionCommandHandler
                 throw new ArgumentException("Uno de los artículos no pertenece a la orden de compra.");
             }
 
-            if (detalleRequest.CantidadEsperada != articuloComprado.Cantidad)
+            decimal recibidoPrevio = recibidoPrevioPorArticulo.GetValueOrDefault(detalleRequest.ArticuloId, 0m);
+            decimal cantidadPendiente = articuloComprado.Cantidad - recibidoPrevio;
+
+            if (detalleRequest.CantidadEsperada != articuloComprado.Cantidad &&
+                detalleRequest.CantidadEsperada != cantidadPendiente)
             {
                 throw new ArgumentException("La cantidad esperada no coincide con la orden de compra.");
             }
 
-            if (detalleRequest.CantidadRecibida != articuloComprado.Cantidad)
+            if (detalleRequest.CantidadRecibida < 0)
             {
-                throw new ArgumentException("En este sprint solo se permiten recepciones totales. Las recepciones parciales se implementarán en la tarjeta #90.");
+                throw new ArgumentException("La cantidad recibida no puede ser negativa.");
+            }
+
+            if (recibidoPrevio + detalleRequest.CantidadRecibida > articuloComprado.Cantidad)
+            {
+                throw new ArgumentException("La cantidad recibida acumulada supera la cantidad pedida en la orden de compra.");
             }
 
             if (string.IsNullOrWhiteSpace(detalleRequest.DescripcionArticulo) ||
@@ -194,8 +215,19 @@ public class CrearRecepcionCommandHandler
             recepcion.Detalles.Add(detalle);
         }
 
-        EstadoRecepcion estado = recepcion.CalcularEstadoSegunCantidades();
-        recepcion.CambiarEstado(estado);
+        if (recepcion.Detalles.Sum(d => d.CantidadRecibida) <= 0)
+        {
+            throw new ArgumentException("La recepción debe registrar una cantidad recibida mayor a cero en al menos un material.");
+        }
+
+        var cantidadesTotalesOrden = ordenCompra.Items
+            .ToDictionary(i => i.ArticuloId, i => i.Cantidad);
+
+        EstadoRecepcion estadoFinal = recepcion.CalcularEstadoSegunCantidadesAcumuladas(
+            cantidadesTotalesOrden,
+            recibidoPrevioPorArticulo);
+
+        recepcion.CambiarEstado(estadoFinal);
 
         _context.Recepciones.Add(recepcion);
 

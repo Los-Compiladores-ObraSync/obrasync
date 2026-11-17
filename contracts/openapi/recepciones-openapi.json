@@ -132,8 +132,8 @@
         "tags": [
           "Recepciones"
         ],
-        "summary": "Registrar una recepción total de materiales",
-        "description": "Registra una recepción completa contra una orden de compra existente. Todas las cantidades recibidas deben coincidir con las compradas. Las entregas parciales se rechazan en este sprint. El usuario receptor se obtiene del claim sub del JWT. Solo pueden registrar recepciones los roles Capataz y Admin.",
+        "summary": "Registrar una recepción total o parcial de materiales",
+        "description": "Registra una recepción total o parcial contra una orden de compra despachada y activa, calculando el estado Parcial (2) o Completa (3) según si las cantidades recibidas acumuladas cubren la totalidad de la OC (#90). Rechaza con 400 si la cantidad recibida acumulada por ítem supera lo pedido en la OC o si la recepción tiene todas las cantidades recibidas en 0. El usuario receptor se obtiene del claim sub del JWT. Solo pueden registrar recepciones los roles Capataz y Admin.",
         "security": [
           {
             "bearerAuth": []
@@ -151,7 +151,7 @@
         },
         "responses": {
           "201": {
-            "description": "Recepción completa registrada correctamente.",
+            "description": "Recepción (total o parcial) registrada correctamente.",
             "content": {
               "application/json": {
                 "schema": {
@@ -161,7 +161,7 @@
             }
           },
           "400": {
-            "description": "Datos inválidos, orden de compra inexistente, artículo ajeno a la OC, cantidades incorrectas o entrega parcial.",
+            "description": "Datos inválidos, orden de compra inexistente, artículo ajeno a la OC, cantidades negativas o en cero total, cantidad esperada inválida o cantidad recibida acumulada que supera lo pedido en la OC.",
             "content": {
               "application/problem+json": {
                 "schema": {
