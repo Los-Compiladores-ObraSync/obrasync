@@ -44,7 +44,7 @@ El borrador no se guarda en ninguna base.
 tiene entidades ni base de datos.
 
 ## Límites del agente (para no gastar de más: el cupo es compartido por todo el grupo)
-500 caracteres por mensaje · historial de 10 mensajes · 3 vueltas · 2 llamadas a herramientas · 300 tokens de
+500 caracteres por mensaje · historial de 10 mensajes · 4 vueltas · 3 llamadas a herramientas · 300 tokens de
 salida · 45 s en total. Un `429` del proveedor se devuelve tal cual, sin reintentos.
 
 ## Configuración (variables de entorno, nunca en el código ni en el repo)

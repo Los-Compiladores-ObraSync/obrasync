@@ -116,26 +116,19 @@ public class GetCotizacionesByLicitacionIdQueryHandler
                         : 0m);
                 decimal costoTotal = subtotalItems + c.Flete;
 
-                // Desglose proporcional de puntaje por criterio basado en el puntaje total obtenido
-                CriteriosScoringDto? desgloseDto = null;
-                if (scoringItem != null)
-                {
-                    desgloseDto = new CriteriosScoringDto
-                    {
-                        Precio = puntaje * ponderacion.Precio,
-                        Flete = puntaje * ponderacion.Flete,
-                        Plazo = puntaje * ponderacion.Plazo,
-                        Calificacion = puntaje * ponderacion.Calificacion
-                    };
-                }
+                // Desglose REAL (#206): cuántos puntos (0 a 100) aportó cada criterio. Los cuatro suman puntajeTotal.
+                CriteriosScoringDto? desgloseDto = scoringItem?.Aporte is { } aporte
+                    ? DesglosarPuntos(aporte)
+                    : null;
 
                 var dto = c.ToDto();
                 dto.SubtotalItems = subtotalItems;
                 dto.CostoTotal = costoTotal;
                 dto.PuntajeTotal = Math.Round(puntaje * 100m, 2);
                 dto.EsGanadora = esGanadora;
-                dto.ProveedorNombre = null;             // Opcional: ajustar si la entidad incorpora el nombre
-                dto.CalificacionProveedor = null;       // Opcional: escalar de 1 a 5 si aplica
+                // El nombre ya viene en el dto (c.ToDto()): lo guardó la cotización al crearse. Si no se conocía, queda null.
+                // Todavía no hay de dónde sacar una calificación (1 a 5): sigue en null y el scoring la trata como 0 para todos.
+                dto.CalificacionProveedor = null;
                 dto.DesglosePuntaje = desgloseDto;
                 dto.PonderacionesScoring = ponderacionesDto;
 
@@ -162,5 +155,32 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             .ToList();
 
         return new PaginaDe<CotizacionResponseDto>(paginaItems, total);
+    }
+
+    /// <summary>
+    /// Pasa los aportes (0 a 1) a puntos (0 a 100) con 2 decimales, igual que puntajeTotal. Para que la suma de los cuatro dé
+    /// EXACTAMENTE puntajeTotal, la diferencia por redondeo se le suma al criterio que más aportó.
+    /// </summary>
+    internal static CriteriosScoringDto DesglosarPuntos(AporteScoring aporte)
+    {
+        var puntos = new[] { aporte.Precio, aporte.Flete, aporte.Plazo, aporte.Calificacion }
+            .Select(a => Math.Round(a * 100m, 2))
+            .ToArray();
+        var total = Math.Round((aporte.Precio + aporte.Flete + aporte.Plazo + aporte.Calificacion) * 100m, 2);
+
+        var diferencia = total - puntos.Sum();
+        if (diferencia != 0m)
+        {
+            var mayor = Array.IndexOf(puntos, puntos.Max());
+            puntos[mayor] += diferencia;
+        }
+
+        return new CriteriosScoringDto
+        {
+            Precio = puntos[0],
+            Flete = puntos[1],
+            Plazo = puntos[2],
+            Calificacion = puntos[3]
+        };
     }
 }

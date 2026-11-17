@@ -258,3 +258,63 @@ internal sealed class ExtractorRemitoFalso : IExtractorRemito
         return Task.FromResult(Resultado);
     }
 }
+
+
+/// <summary>Licitaciones y cotizaciones falsas en memoria (como las vería un Comprador). Se puede cambiar el resultado y contar las llamadas.</summary>
+internal sealed class ConsultorLicitacionesFalso : IConsultorLicitaciones
+{
+    public static readonly Guid IdLicitacion = Guid.Parse("eeeeeeee-0000-0000-0000-000000000001");
+    public static readonly Guid IdCotizacionA = Guid.Parse("ffffffff-0000-0000-0000-00000000000a");
+    public static readonly Guid IdCotizacionB = Guid.Parse("ffffffff-0000-0000-0000-00000000000b");
+    public static readonly Guid IdProveedorA = Guid.Parse("a1a1a1a1-0000-0000-0000-000000000001");
+    public static readonly Guid IdProveedorB = Guid.Parse("b2b2b2b2-0000-0000-0000-000000000002");
+
+    public static LicitacionResumen Abierta { get; } = new(
+        IdLicitacion, ConsultorFalso.IdAprobada, "REQ-0002", ObrasFalsas.IdGalpon, "Abierta",
+        new DateTime(2026, 11, 20, 2, 59, 0, DateTimeKind.Utc), 2);
+
+    /// <summary>La "A" tiene mejor puntaje pero es más cara que la "B".</summary>
+    public static CotizacionResumen OfertaA { get; } = new(
+        IdCotizacionA, IdProveedorA, "Ferretería Sur", 90000m, 5000m, 95000m, 3, 82.5m, true, false, null);
+
+    public static CotizacionResumen OfertaB { get; } = new(
+        IdCotizacionB, IdProveedorB, null, 80000m, 8000m, 88000m, 6, 61.25m, false, true, 4m);
+
+    public ResultadoListaLicitaciones ResultadoLista { get; set; } = ResultadoListaLicitaciones.Bien(new[] { Abierta }, 1);
+
+    public ResultadoLicitacion ResultadoDetalle { get; set; } = ResultadoLicitacion.Bien(new LicitacionDetalle(
+        Abierta, new[] { new ItemPliego("Cemento Portland 50 kg", 20, "BOLSA"), new ItemPliego("Arena gruesa", 3, "M3") }));
+
+    // La API devuelve las más nuevas primero: acá la "B" viene antes que la "A" para probar que la herramienta ordena por puntaje.
+    public ResultadoCotizaciones ResultadoOfertas { get; set; } = ResultadoCotizaciones.Bien(new[] { OfertaB, OfertaA }, 2);
+
+    public int LlamadasLista { get; private set; }
+    public int LlamadasDetalle { get; private set; }
+    public int LlamadasOfertas { get; private set; }
+    public string? UltimoEstado { get; private set; }
+    public int UltimoMaximo { get; private set; }
+    public Guid? UltimoId { get; private set; }
+
+    public Task<ResultadoListaLicitaciones> ListarAsync(string? estado, int maximo, CancellationToken ct)
+    {
+        LlamadasLista++;
+        UltimoEstado = estado;
+        UltimoMaximo = maximo;
+        return Task.FromResult(ResultadoLista);
+    }
+
+    public Task<ResultadoLicitacion> ObtenerAsync(Guid id, CancellationToken ct)
+    {
+        LlamadasDetalle++;
+        UltimoId = id;
+        return Task.FromResult(ResultadoDetalle);
+    }
+
+    public Task<ResultadoCotizaciones> ListarCotizacionesAsync(Guid licitacionId, int maximo, CancellationToken ct)
+    {
+        LlamadasOfertas++;
+        UltimoId = licitacionId;
+        UltimoMaximo = maximo;
+        return Task.FromResult(ResultadoOfertas);
+    }
+}

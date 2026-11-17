@@ -182,7 +182,10 @@ public class CotizacionesController : ControllerBase
                 request.ProveedorId,
                 request.Flete,
                 request.PlazoEntregaDias,
-                request.Items);
+                request.Items,
+                // El nombre sale del JWT solo cuando la cotización es del propio usuario. Si un Admin carga la oferta de otro
+                // proveedor, el claim "name" sería el del Admin: se deja en null antes que mostrar un nombre equivocado.
+                request.ProveedorId == usuarioIdToken ? User.FindFirstValue("name") : null);
 
             var creada = await _crearCotizacionHandler.Handle(command, cancellationToken);
 

@@ -343,6 +343,15 @@
               }
             ],
             "description": "Presente solo cuando el Capataz pidió registrar lo que llegó (#147). Su existencia NO significa que se haya registrado nada: el frontend llama a POST /api/recepciones cuando el usuario toca Confirmar."
+          },
+          "adjudicacion": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BorradorAdjudicacionDto"
+              }
+            ],
+            "description": "Presente solo cuando el Comprador pidió adjudicar una oferta de una licitación Abierta (#149). Su existencia NO significa que se haya adjudicado ni emitido ninguna Orden de Compra: el frontend llama a POST /api/licitaciones/{licitacionId}/adjudicar cuando el usuario toca Confirmar. Es una acción irreversible."
           }
         }
       },
@@ -744,6 +753,117 @@
           },
           "unidadMedida": {
             "type": "string"
+          }
+        }
+      },
+      "BorradorAdjudicacionDto": {
+        "type": "object",
+        "required": [
+          "accion",
+          "titulo",
+          "licitacionId",
+          "cotizacionId",
+          "resumen"
+        ],
+        "additionalProperties": false,
+        "description": "Borrador de adjudicar (#149) UNA oferta de UNA licitación Abierta. El frontend llama a POST /api/licitaciones/{licitacionId}/adjudicar con { cotizacionId } y el JWT del usuario cuando el usuario toca Confirmar. ADJUDICAR ES IRREVERSIBLE: emite la Orden de Compra y el evento OrdenCompraEmitidaEvent, por eso la tarjeta se muestra reforzada. La oferta la elige la persona, nunca el modelo. Adjudicar dos veces responde 409. El borrador NO se guarda en ninguna base.",
+        "properties": {
+          "accion": {
+            "type": "string",
+            "enum": [
+              "adjudicarCotizacion"
+            ],
+            "description": "Qué escritura representa el borrador."
+          },
+          "titulo": {
+            "type": "string",
+            "description": "Título corto para la tarjeta de confirmación."
+          },
+          "licitacionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cotizacionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "La oferta elegida; es el cotizacionId que va en el cuerpo de POST /api/licitaciones/{licitacionId}/adjudicar."
+          },
+          "resumen": {
+            "$ref": "#/components/schemas/ResumenAdjudicacionDto"
+          }
+        }
+      },
+      "ResumenAdjudicacionDto": {
+        "type": "object",
+        "required": [
+          "proveedorCodigo",
+          "precioMateriales",
+          "flete",
+          "costoTotal",
+          "puntajeTotal",
+          "esGanadora",
+          "hayOfertaConMayorPuntaje",
+          "items"
+        ],
+        "additionalProperties": false,
+        "description": "Lo que se muestra en la tarjeta de confirmación. Todas las cifras salen de la respuesta de la API de Licitaciones (GET /api/cotizaciones), nunca del modelo.",
+        "properties": {
+          "numeroRequisicion": {
+            "type": "string",
+            "nullable": true,
+            "description": "Número de la requisición de origen (por ejemplo REQ-2026-0001)."
+          },
+          "obra": {
+            "type": "string",
+            "nullable": true
+          },
+          "proveedorNombre": {
+            "type": "string",
+            "nullable": true,
+            "description": "Nombre del proveedor, o null si Licitaciones todavía no lo devuelve (ver #206)."
+          },
+          "proveedorCodigo": {
+            "type": "string",
+            "description": "Primeros 8 caracteres del proveedorId, para identificar al proveedor cuando no hay nombre."
+          },
+          "precioMateriales": {
+            "type": "number",
+            "format": "double",
+            "description": "Subtotal de los ítems (subtotalItems de la cotización)."
+          },
+          "flete": {
+            "type": "number",
+            "format": "double"
+          },
+          "costoTotal": {
+            "type": "number",
+            "format": "double",
+            "description": "Precio de los materiales más el flete, tal como lo calcula el backend. Es el monto de la Orden de Compra."
+          },
+          "plazoEntregaDias": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "puntajeTotal": {
+            "type": "number",
+            "format": "double",
+            "description": "Puntaje que calculó el backend."
+          },
+          "esGanadora": {
+            "type": "boolean",
+            "description": "true si la oferta elegida es la de mayor puntaje (la que el backend marcó como ganadora)."
+          },
+          "hayOfertaConMayorPuntaje": {
+            "type": "boolean",
+            "description": "true si la oferta elegida NO es la ganadora y hay otra que sí lo es: la tarjeta se lo avisa a la persona. Elegir otra es válido, pero tiene que saberlo."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResumenItemAprobacionDto"
+            },
+            "description": "Materiales del pliego que se van a comprar."
           }
         }
       },

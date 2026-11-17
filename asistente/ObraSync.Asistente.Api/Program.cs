@@ -52,6 +52,7 @@ builder.Services.AddScoped<IContextoDePeticion, ContextoDePeticionHttp>();
 builder.Services.AddScoped<HerramientasCatalogo>();
 builder.Services.AddScoped<HerramientasCompras>();
 builder.Services.AddScoped<HerramientasRecepcion>();
+builder.Services.AddScoped<HerramientasLicitaciones>();
 builder.Services.AddScoped<Agente>();
 // Lectura de remitos por foto (#209): usa el mismo control de consumo que el chat (el cupo es de todo el grupo).
 builder.Services.AddScoped<ServicioLecturaRemito>(sp => new ServicioLecturaRemito(

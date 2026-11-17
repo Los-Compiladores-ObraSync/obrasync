@@ -24,7 +24,8 @@ public class CotizacionValidadorService : ICotizacionValidadorService
         decimal flete,
         int plazoEntregaDias,
         IReadOnlyList<CrearCotizacionItemDto>? items,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? proveedorNombre = null)
     {
         if (licitacionId == Guid.Empty)
         {
@@ -131,6 +132,7 @@ public class CotizacionValidadorService : ICotizacionValidadorService
             CotizacionId = cotizacionId,
             LicitacionId = licitacionId,
             ProveedorId = proveedorId,
+            ProveedorNombre = NombreProveedor.Limpiar(proveedorNombre),
             Flete = flete,
             PlazoEntregaDias = plazoEntregaDias,
             FechaCreacion = DateTime.UtcNow,

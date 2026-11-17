@@ -41,7 +41,7 @@ public class MagicLinksController : ControllerBase
 
         try
         {
-            var command = new GenerarMagicLinkCommand(licitacionId, dto.ProveedorId);
+            var command = new GenerarMagicLinkCommand(licitacionId, dto.ProveedorId, dto.ProveedorNombre);
             var resultado = await _mediator.Send(command, cancellationToken);
             return Ok(resultado);
         }
@@ -122,7 +122,7 @@ public class MagicLinksController : ControllerBase
     }
 }
 
-public record GenerarMagicLinkRequestDto(Guid ProveedorId);
+public record GenerarMagicLinkRequestDto(Guid ProveedorId, string? ProveedorNombre = null);
 
 public record CotizarConMagicLinkRequestDto(
     List<CotizacionItemDto>? Items,

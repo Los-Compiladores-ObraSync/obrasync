@@ -34,14 +34,16 @@ public static class CalculadorScoring
         return completas
             .Select(c =>
             {
-                var suma =
-                    ponderacion.Precio * MenorEsMejor(c.Precio, precios) +
-                    ponderacion.Flete * MenorEsMejor(c.Oferta.Flete, fletes) +
-                    ponderacion.Plazo * MenorEsMejor(c.Oferta.PlazoEntregaDias, plazos) +
-                    ponderacion.Calificacion * MayorEsMejor(c.Oferta.Calificacion ?? 0m, calificaciones);
+                var aporte = new AporteScoring(
+                    ponderacion.Precio * MenorEsMejor(c.Precio, precios) / ponderacion.Total,
+                    ponderacion.Flete * MenorEsMejor(c.Oferta.Flete, fletes) / ponderacion.Total,
+                    ponderacion.Plazo * MenorEsMejor(c.Oferta.PlazoEntregaDias, plazos) / ponderacion.Total,
+                    ponderacion.Calificacion * MayorEsMejor(c.Oferta.Calificacion ?? 0m, calificaciones) / ponderacion.Total);
 
+                // El puntaje es la suma de los aportes: el desglose y el total no pueden discrepar.
                 return new ResultadoScoring(
-                    c.Oferta.CotizacionId, c.Oferta.ProveedorId, c.Precio, suma / ponderacion.Total);
+                    c.Oferta.CotizacionId, c.Oferta.ProveedorId, c.Precio,
+                    aporte.Precio + aporte.Flete + aporte.Plazo + aporte.Calificacion, aporte);
             })
             .OrderByDescending(r => r.Puntaje)
             .ToList();

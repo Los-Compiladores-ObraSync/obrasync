@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using MediatR;
 using Microsoft.Extensions.Configuration;
 using ObraSync.Licitaciones.Application.Interfaces;
+using ObraSync.Licitaciones.Application.Services;
 using ObraSync.Licitaciones.Domain.Entities;
 
 namespace ObraSync.Licitaciones.Application.MagicLinks.Commands.GenerarMagicLink;
@@ -82,6 +83,7 @@ public class GenerarMagicLinkCommandHandler : IRequestHandler<GenerarMagicLinkCo
             Hash = hashAlmacenado,
             LicitacionId = request.LicitacionId,
             ProveedorId = request.ProveedorId,
+            ProveedorNombre = NombreProveedor.Limpiar(request.ProveedorNombre),
             FechaDeVencimiento = fechaDeVencimientoUtc,
             FechaDeUso = null
         };

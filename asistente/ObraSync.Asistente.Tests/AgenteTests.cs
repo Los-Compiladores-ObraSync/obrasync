@@ -75,10 +75,10 @@ public class AgenteTests
     [Fact]
     public async Task Un_modelo_que_insiste_con_herramientas_se_corta_por_presupuesto()
     {
-        var modelo = new ModeloFalso(
-            _ => Respuestas.PideHerramienta("{\"texto\":\"a\"}", 1),
-            _ => Respuestas.PideHerramienta("{\"texto\":\"b\"}", 1),
-            _ => Respuestas.PideHerramienta("{\"texto\":\"c\"}", 1));
+        // Pide una herramienta más de las permitidas: el arnés corta aunque cambie el tope.
+        var modelo = new ModeloFalso(Enumerable.Range(0, Agente.MaxLlamadasHerramienta + 1)
+            .Select<int, Func<JsonArray, RespuestaModelo>>(_ => __ => Respuestas.PideHerramienta("{\"texto\":\"a\"}", 1))
+            .ToArray());
 
         var r = await Armar(modelo).ResponderAsync("hola");
 

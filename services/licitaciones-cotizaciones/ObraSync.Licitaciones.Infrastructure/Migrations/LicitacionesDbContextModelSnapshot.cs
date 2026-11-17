@@ -214,6 +214,10 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                     b.Property<Guid>("ProveedorId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ProveedorNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.HasKey("CotizacionId");
 
                     b.HasIndex("LicitacionId");
@@ -344,6 +348,10 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
 
                     b.Property<Guid>("ProveedorId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProveedorNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()

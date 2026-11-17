@@ -27,18 +27,20 @@ public class PerfilesPorRolTests
     }
 
     private static Agente ArmarAgente(
-        IModeloChat modelo, string? rol, ConsultorFalso? consultor = null, ConsultorRecepcionesFalso? recepciones = null) => new(
+        IModeloChat modelo, string? rol, ConsultorFalso? consultor = null, ConsultorRecepcionesFalso? recepciones = null,
+        ConsultorLicitacionesFalso? licitaciones = null) => new(
         modelo,
         new HerramientasCatalogo(new BuscadorFalso(), new ObrasFalsas()),
         new HerramientasCompras(consultor ?? new ConsultorFalso(), new ObrasFalsas()),
         new ContextoFalso { Rol = rol },
         null,
-        new HerramientasRecepcion(recepciones ?? new ConsultorRecepcionesFalso(), new ObrasFalsas()));
+        new HerramientasRecepcion(recepciones ?? new ConsultorRecepcionesFalso(), new ObrasFalsas()),
+        new HerramientasLicitaciones(licitaciones ?? new ConsultorLicitacionesFalso(), new ObrasFalsas()));
 
     [Theory]
     [InlineData("Capataz", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion" })]
-    [InlineData("Comprador", new[] { "listar_requisiciones", "ver_requisicion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion", "preparar_publicacion_licitacion" })]
-    [InlineData("Admin", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion", "preparar_publicacion_licitacion" })]
+    [InlineData("Comprador", new[] { "listar_requisiciones", "ver_requisicion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion", "preparar_publicacion_licitacion", "listar_licitaciones", "ver_licitacion", "listar_cotizaciones", "preparar_adjudicacion" })]
+    [InlineData("Admin", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion", "preparar_publicacion_licitacion", "listar_licitaciones", "ver_licitacion", "listar_cotizaciones", "preparar_adjudicacion" })]
     public async Task Cada_rol_ve_solo_las_herramientas_de_su_perfil(string rol, string[] esperadas)
     {
         var modelo = new ModeloQueAnotaHerramientas(Respuestas.Final("Hola"));
@@ -155,6 +157,10 @@ public class PerfilesPorRolTests
     [InlineData("Capataz", "preparar_aprobacion_requisicion")]
     [InlineData("Capataz", "preparar_rechazo_requisicion")]
     [InlineData("Capataz", "preparar_publicacion_licitacion")]
+    [InlineData("Capataz", "listar_licitaciones")]
+    [InlineData("Capataz", "ver_licitacion")]
+    [InlineData("Capataz", "listar_cotizaciones")]
+    [InlineData("Capataz", "preparar_adjudicacion")]
     public async Task Si_el_modelo_pide_una_herramienta_que_no_es_de_su_perfil_no_se_ejecuta(string rol, string herramienta)
     {
         var consultor = new ConsultorFalso();
@@ -296,5 +302,155 @@ public class PerfilesPorRolTests
         Assert.Null(r.Borrador);
         // Nada se escribió: el consultor solo tiene operaciones de lectura.
         Assert.Equal(1, consultor.LlamadasDetalle);
+    }
+
+    [Fact]
+    public async Task El_Comprador_compara_ofertas_con_dos_herramientas_y_el_modelo_recibe_las_cifras_del_backend()
+    {
+        var licitaciones = new ConsultorLicitacionesFalso();
+        var modelo = new ModeloFalso(
+            _ => Respuestas.PideHerramienta("{\"estado\":\"Abierta\"}", nombre: "listar_licitaciones"),
+            _ => Respuestas.PideHerramienta(
+                "{\"licitacionId\":\"" + ConsultorLicitacionesFalso.IdLicitacion + "\"}", nombre: "listar_cotizaciones"),
+            _ => Respuestas.Final("La mejor es Ferretería Sur, con 82.5 puntos."));
+
+        var r = await ArmarAgente(modelo, "Comprador", licitaciones: licitaciones)
+            .ResponderAsync("comparame las ofertas de la licitación del galpón");
+
+        // Alcanza con 2 herramientas y 3 vueltas al modelo: el límite del arnés no se toca.
+        Assert.True(r.Ok);
+        Assert.Equal(2, r.Herramientas);
+        Assert.Equal(1, licitaciones.LlamadasLista);
+        Assert.Equal(1, licitaciones.LlamadasOfertas);
+        Assert.Equal("Abierta", licitaciones.UltimoEstado);
+        var deLaTool = modelo.Pedidos[2].Last()!["content"]!.GetValue<string>();
+        Assert.Contains("82.5", deLaTool);
+        Assert.Contains("95000", deLaTool);
+        // Es solo lectura: no hay ningún borrador.
+        Assert.Null(r.Aprobacion);
+        Assert.Null(r.Borrador);
+        Assert.Null(r.Recepcion);
+    }
+
+    [Fact]
+    public async Task El_Comprador_pregunta_por_una_licitacion_que_no_existe_y_el_modelo_recibe_el_error()
+    {
+        var licitaciones = new ConsultorLicitacionesFalso
+        {
+            ResultadoOfertas = ResultadoCotizaciones.Falla("licitacion_no_encontrada")
+        };
+        var modelo = new ModeloFalso(
+            _ => Respuestas.PideHerramienta(
+                "{\"licitacionId\":\"" + Guid.NewGuid() + "\"}", nombre: "listar_cotizaciones"),
+            _ => Respuestas.Final("No encontré esa licitación."));
+
+        var r = await ArmarAgente(modelo, "Comprador", licitaciones: licitaciones).ResponderAsync("comparame las ofertas");
+
+        Assert.True(r.Ok);
+        Assert.Contains("licitacion_no_encontrada", modelo.Pedidos[1].Last()!["content"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Un_Capataz_que_pide_comparar_ofertas_recibe_herramienta_no_permitida_y_no_se_consulta_nada()
+    {
+        var licitaciones = new ConsultorLicitacionesFalso();
+        var modelo = new ModeloFalso(
+            _ => Respuestas.PideHerramienta(
+                "{\"licitacionId\":\"" + ConsultorLicitacionesFalso.IdLicitacion + "\"}", nombre: "listar_cotizaciones"),
+            _ => Respuestas.Final("No puedo."));
+
+        var r = await ArmarAgente(modelo, "Capataz", licitaciones: licitaciones).ResponderAsync("comparame las ofertas del hierro");
+
+        Assert.True(r.Ok);
+        Assert.Equal(0, licitaciones.LlamadasOfertas);
+        Assert.Contains("herramienta_no_permitida", modelo.Pedidos[1].Last()!["content"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Las_instrucciones_de_Compras_piden_copiar_las_cifras_y_no_inventar_datos_del_proveedor()
+    {
+        var modelo = new ModeloQueAnotaHerramientas(Respuestas.Final("Hola"));
+
+        await ArmarAgente(modelo, "Comprador").ResponderAsync("hola");
+
+        var sistema = modelo.Sistema[0];
+        Assert.Contains("listar_cotizaciones", sistema);
+        Assert.Contains("nunca hagas cuentas", sistema);
+        Assert.Contains("no inventes reputación", sistema);
+    }
+
+    [Fact]
+    public async Task El_Comprador_adjudica_en_un_mismo_pedido_con_tres_herramientas_y_la_respuesta_trae_el_borrador()
+    {
+        var licitaciones = new ConsultorLicitacionesFalso();
+        var modelo = new ModeloFalso(
+            _ => Respuestas.PideHerramienta("{\"estado\":\"Abierta\"}", nombre: "listar_licitaciones"),
+            _ => Respuestas.PideHerramienta(
+                "{\"licitacionId\":\"" + ConsultorLicitacionesFalso.IdLicitacion + "\"}", nombre: "listar_cotizaciones"),
+            _ => Respuestas.PideHerramienta(
+                "{\"licitacionId\":\"" + ConsultorLicitacionesFalso.IdLicitacion + "\",\"cotizacionId\":\"" +
+                ConsultorLicitacionesFalso.IdCotizacionA + "\"}", nombre: "preparar_adjudicacion"),
+            _ => Respuestas.Final("Revisá el resumen: adjudicar no se puede deshacer. Si está bien, tocá Confirmar."));
+
+        var r = await ArmarAgente(modelo, "Comprador", licitaciones: licitaciones)
+            .ResponderAsync("adjudicá la oferta de Ferretería Sur de la licitación del galpón");
+
+        Assert.True(r.Ok);
+        Assert.Equal(3, r.Herramientas);
+        Assert.NotNull(r.Adjudicacion);
+        Assert.Equal("adjudicarCotizacion", r.Adjudicacion!.Accion);
+        Assert.Equal(ConsultorLicitacionesFalso.IdCotizacionA, r.Adjudicacion.CotizacionId);
+        Assert.Null(r.Aprobacion);
+        Assert.Null(r.Borrador);
+        // Nada se escribió: el consultor solo tiene operaciones de lectura.
+        Assert.Equal(2, licitaciones.LlamadasOfertas);
+        Assert.Equal(1, licitaciones.LlamadasDetalle);
+    }
+
+    [Fact]
+    public async Task Si_el_modelo_no_arma_texto_despues_de_preparar_la_adjudicacion_se_pone_el_aviso_de_siempre()
+    {
+        var modelo = new ModeloFalso(
+            _ => Respuestas.PideHerramienta(
+                "{\"licitacionId\":\"" + ConsultorLicitacionesFalso.IdLicitacion + "\",\"cotizacionId\":\"" +
+                ConsultorLicitacionesFalso.IdCotizacionA + "\"}", nombre: "preparar_adjudicacion"),
+            _ => Respuestas.Final(""));
+
+        var r = await ArmarAgente(modelo, "Comprador").ResponderAsync("adjudicá la de Ferretería Sur");
+
+        Assert.True(r.Ok);
+        Assert.NotNull(r.Adjudicacion);
+        Assert.Contains("Confirmar", r.Texto);
+    }
+
+    [Fact]
+    public async Task Un_Capataz_no_puede_preparar_una_adjudicacion()
+    {
+        var licitaciones = new ConsultorLicitacionesFalso();
+        var modelo = new ModeloFalso(
+            _ => Respuestas.PideHerramienta(
+                "{\"licitacionId\":\"" + ConsultorLicitacionesFalso.IdLicitacion + "\",\"cotizacionId\":\"" +
+                ConsultorLicitacionesFalso.IdCotizacionA + "\"}", nombre: "preparar_adjudicacion"),
+            _ => Respuestas.Final("No puedo."));
+
+        var r = await ArmarAgente(modelo, "Capataz", licitaciones: licitaciones).ResponderAsync("adjudicá la oferta");
+
+        Assert.True(r.Ok);
+        Assert.Null(r.Adjudicacion);
+        Assert.Equal(0, licitaciones.LlamadasDetalle);
+        Assert.Contains("herramienta_no_permitida", modelo.Pedidos[1].Last()!["content"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Las_instrucciones_de_Compras_dicen_que_adjudicar_es_irreversible_y_que_elige_la_persona()
+    {
+        var modelo = new ModeloQueAnotaHerramientas(Respuestas.Final("Hola"));
+
+        await ArmarAgente(modelo, "Comprador").ResponderAsync("hola");
+
+        var sistema = modelo.Sistema[0];
+        Assert.Contains("preparar_adjudicacion", sistema);
+        Assert.Contains("NO SE PUEDE DESHACER", sistema);
+        Assert.Contains("nunca elijas vos", sistema);
     }
 }

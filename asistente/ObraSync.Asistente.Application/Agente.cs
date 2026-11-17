@@ -8,7 +8,7 @@ public sealed record MensajeHistorial(string Rol, string Texto);
 /// <summary>Lo que devuelve el agente: siempre un ok o un error con código estable.</summary>
 public sealed record RespuestaAgente(bool Ok, string Texto, string? Error, int Iteraciones, int Herramientas, int Tokens,
     BorradorRequisicion? Borrador = null, BorradorAprobacion? Aprobacion = null,
-    BorradorRecepcion? Recepcion = null);
+    BorradorRecepcion? Recepcion = null, BorradorAdjudicacion? Adjudicacion = null);
 
 /// <summary>
 /// El "arnés" (harness): el bucle que le pregunta al modelo, ejecuta las herramientas que pide
@@ -18,8 +18,13 @@ public sealed record RespuestaAgente(bool Ok, string Texto, string? Error, int I
 public sealed class Agente
 {
     public const int MaxCaracteresEntrada = 500;
-    public const int MaxIteraciones = 3;
-    public const int MaxLlamadasHerramienta = 2;
+    /// <summary>
+    /// Adjudicar (#149) necesita 3 herramientas en un mismo pedido: listar_licitaciones (para el id), listar_cotizaciones
+    /// (para elegir la oferta) y preparar_adjudicacion. Con 3 herramientas el modelo da hasta 4 vueltas (3 + la respuesta final).
+    /// Antes eran 3 vueltas y 2 herramientas: el costo máximo por pedido sube, ver el reporte de #149.
+    /// </summary>
+    public const int MaxIteraciones = 4;
+    public const int MaxLlamadasHerramienta = 3;
     public const int MaxTokensSalida = 300;
     public const int MaxMensajesHistorial = 10;
     public const int MaxCaracteresHistorial = 2000;
@@ -56,6 +61,7 @@ public sealed class Agente
     private readonly HerramientasCatalogo _herramientas;
     private readonly HerramientasCompras? _compras;
     private readonly HerramientasRecepcion? _recepciones;
+    private readonly HerramientasLicitaciones? _licitaciones;
     private readonly IContextoDePeticion? _contexto;
     private readonly IControlConsumo? _consumo;
 
@@ -69,12 +75,14 @@ public sealed class Agente
         HerramientasCompras? compras = null,
         IContextoDePeticion? contexto = null,
         IControlConsumo? consumo = null,
-        HerramientasRecepcion? recepciones = null)
+        HerramientasRecepcion? recepciones = null,
+        HerramientasLicitaciones? licitaciones = null)
     {
         _modelo = modelo;
         _herramientas = herramientas;
         _compras = compras;
         _recepciones = recepciones;
+        _licitaciones = licitaciones;
         _contexto = contexto;
         _consumo = consumo;
     }
@@ -161,6 +169,7 @@ public sealed class Agente
         BorradorRequisicion? borrador = null;
         BorradorAprobacion? aprobacion = null;
         BorradorRecepcion? recepcion = null;
+        BorradorAdjudicacion? adjudicacion = null;
 
         try
         {
@@ -176,9 +185,9 @@ public sealed class Agente
                 if (pedidos is null || pedidos.Count == 0)
                 {
                     var texto = r.Mensaje["content"]?.GetValue<string>() ?? "";
-                    if (string.IsNullOrWhiteSpace(texto) && (borrador is not null || aprobacion is not null || recepcion is not null))
+                    if (string.IsNullOrWhiteSpace(texto) && (borrador is not null || aprobacion is not null || recepcion is not null || adjudicacion is not null))
                         texto = "Armé el borrador. Revisalo y, si está bien, tocá Confirmar.";
-                    return new RespuestaAgente(true, texto, null, iteracion, llamadas, tokens, borrador, aprobacion, recepcion);
+                    return new RespuestaAgente(true, texto, null, iteracion, llamadas, tokens, borrador, aprobacion, recepcion, adjudicacion);
                 }
 
                 // Hay que devolver el mensaje del modelo tal cual antes de las respuestas de herramienta.
@@ -202,6 +211,8 @@ public sealed class Agente
                         aprobacion = res.Aprobacion;
                     if (res.Recepcion is not null)
                         recepcion = res.Recepcion;
+                    if (res.Adjudicacion is not null)
+                        adjudicacion = res.Adjudicacion;
                     mensajes.Add(new JsonObject
                     {
                         ["role"] = "tool",
@@ -232,7 +243,7 @@ public sealed class Agente
     private static JsonArray DefinicionesDe(PerfilAsistente perfil)
     {
         var defs = new JsonArray();
-        foreach (var d in HerramientasCatalogo.Definiciones().Concat(HerramientasCompras.Definiciones()).Concat(HerramientasRecepcion.Definiciones()))
+        foreach (var d in HerramientasCatalogo.Definiciones().Concat(HerramientasCompras.Definiciones()).Concat(HerramientasRecepcion.Definiciones()).Concat(HerramientasLicitaciones.Definiciones()))
         {
             var nombre = d?["function"]?["name"]?.GetValue<string>();
             if (nombre is not null && perfil.Herramientas.Contains(nombre))
@@ -250,11 +261,16 @@ public sealed class Agente
         var esDeCatalogo = nombre is HerramientasCatalogo.BuscarInsumos or HerramientasCatalogo.ArmarBorrador;
         var esDeCompras = HerramientasCompras.Nombres.Contains(nombre);
         var esDeRecepcion = HerramientasRecepcion.Nombres.Contains(nombre);
+        var esDeLicitaciones = HerramientasLicitaciones.Nombres.Contains(nombre);
 
-        if (!esDeCatalogo && !esDeCompras && !esDeRecepcion)
+        if (!esDeCatalogo && !esDeCompras && !esDeRecepcion && !esDeLicitaciones)
             return Task.FromResult(ResultadoHerramienta.Error("herramienta_desconocida"));
         if (!perfil.Herramientas.Contains(nombre))
             return Task.FromResult(ResultadoHerramienta.Error("herramienta_no_permitida"));
+        if (esDeLicitaciones)
+            return _licitaciones is null
+                ? Task.FromResult(ResultadoHerramienta.Error("herramienta_no_disponible"))
+                : _licitaciones.EjecutarAsync(nombre, argumentos, ct);
         if (esDeRecepcion)
             return _recepciones is null
                 ? Task.FromResult(ResultadoHerramienta.Error("herramienta_no_disponible"))

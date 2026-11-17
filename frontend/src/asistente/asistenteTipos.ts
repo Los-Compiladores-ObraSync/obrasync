@@ -98,10 +98,42 @@ export interface BorradorRecepcionDto {
   recepcion: CuerpoRecepcionDto
 }
 
+export interface ResumenAdjudicacionDto {
+  numeroRequisicion?: string | null
+  obra?: string | null
+  /** null mientras Licitaciones no devuelva el nombre (#206): se muestra el código. */
+  proveedorNombre?: string | null
+  /** Primeros 8 caracteres del proveedorId. */
+  proveedorCodigo: string
+  precioMateriales: number
+  flete: number
+  /** Precio de los materiales más el flete, tal como lo calcula el backend: es el monto de la Orden de Compra. */
+  costoTotal: number
+  plazoEntregaDias?: number | null
+  puntajeTotal: number
+  /** La oferta elegida es la de mayor puntaje. */
+  esGanadora: boolean
+  /** La oferta elegida NO es la ganadora y hay otra que sí lo es: la tarjeta se lo avisa a la persona. */
+  hayOfertaConMayorPuntaje: boolean
+  items: ResumenItemAprobacionDto[]
+}
+
+/** Borrador de adjudicar (#149) UNA oferta de una licitación Abierta. ES IRREVERSIBLE: al confirmar se emite la Orden de
+ *  Compra. No hace nada hasta que el Comprador toca Confirmar: entonces el frontend llama, con su JWT, a
+ *  POST /api/licitaciones/{licitacionId}/adjudicar con { cotizacionId }. */
+export interface BorradorAdjudicacionDto {
+  accion: 'adjudicarCotizacion'
+  titulo: string
+  licitacionId: string
+  cotizacionId: string
+  resumen: ResumenAdjudicacionDto
+}
+
 export interface ChatResponseDto {
   respuesta: string
   borrador?: BorradorRequisicionDto | null
   aprobacion?: BorradorAprobacionDto | null
   recepcion?: BorradorRecepcionDto | null
+  adjudicacion?: BorradorAdjudicacionDto | null
   tokensUsados?: number | null
 }

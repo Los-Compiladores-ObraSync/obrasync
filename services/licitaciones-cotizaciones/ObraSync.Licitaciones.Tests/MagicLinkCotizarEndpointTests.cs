@@ -496,4 +496,53 @@ public class MagicLinkCotizarEndpointTests : IClassFixture<WebApplicationFactory
             }
         };
     }
+
+    [Fact]
+    public async Task CotizarConMagicLink_GuardaElNombreQueEscribioElCompradorAlGenerarElEnlace()
+    {
+        var licitacionId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var proveedorId = Guid.NewGuid();
+
+        using var factory = CreateIsolatedFactory(db => db.Licitaciones.Add(CrearLicitacionUnItem(licitacionId, itemId, Guid.NewGuid())));
+
+        var comprador = factory.CreateClient();
+        comprador.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
+        var gen = await comprador.PostAsJsonAsync(
+            $"/api/licitaciones/{licitacionId}/magic-links",
+            new { proveedorId, proveedorNombre = "  Corralón Norte\n" });
+        Assert.Equal(HttpStatusCode.OK, gen.StatusCode);
+        using var genDoc = JsonDocument.Parse(await gen.Content.ReadAsStringAsync());
+        var token = genDoc.RootElement.GetProperty("hash").GetString();
+
+        var resp = await factory.CreateClient().PostAsJsonAsync(
+            $"/api/licitaciones/magic-links/{token}/cotizar",
+            new { flete = 10m, plazoEntregaDias = 2, items = new[] { new { licitacionItemId = itemId, precioUnitario = 5m } } });
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+
+        var creada = await resp.Content.ReadFromJsonAsync<CotizacionResponseDto>();
+        Assert.Equal("Corralón Norte", creada!.ProveedorNombre);
+    }
+
+    [Fact]
+    public async Task CotizarConMagicLink_SinNombreEnElEnlace_DejaElNombreEnNull()
+    {
+        var licitacionId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        using var factory = CreateIsolatedFactory(db => db.Licitaciones.Add(CrearLicitacionUnItem(licitacionId, itemId, Guid.NewGuid())));
+
+        var comprador = factory.CreateClient();
+        comprador.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
+        var gen = await comprador.PostAsJsonAsync($"/api/licitaciones/{licitacionId}/magic-links", new { proveedorId = Guid.NewGuid() });
+        using var genDoc = JsonDocument.Parse(await gen.Content.ReadAsStringAsync());
+        var token = genDoc.RootElement.GetProperty("hash").GetString();
+
+        var resp = await factory.CreateClient().PostAsJsonAsync(
+            $"/api/licitaciones/magic-links/{token}/cotizar",
+            new { flete = 10m, plazoEntregaDias = 2, items = new[] { new { licitacionItemId = itemId, precioUnitario = 5m } } });
+        var creada = await resp.Content.ReadFromJsonAsync<CotizacionResponseDto>();
+
+        Assert.Null(creada!.ProveedorNombre);
+    }
 }

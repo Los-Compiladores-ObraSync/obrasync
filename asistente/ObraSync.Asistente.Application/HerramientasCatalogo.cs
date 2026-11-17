@@ -10,7 +10,7 @@ namespace ObraSync.Asistente.Application;
 /// </summary>
 public sealed record ResultadoHerramienta(
     bool Ok, JsonNode Datos, BorradorRequisicion? Borrador = null, BorradorAprobacion? Aprobacion = null,
-    BorradorRecepcion? Recepcion = null)
+    BorradorRecepcion? Recepcion = null, BorradorAdjudicacion? Adjudicacion = null)
 {
     public static ResultadoHerramienta Bien(JsonNode datos) => new(true, datos);
     public static ResultadoHerramienta Error(string codigo) =>

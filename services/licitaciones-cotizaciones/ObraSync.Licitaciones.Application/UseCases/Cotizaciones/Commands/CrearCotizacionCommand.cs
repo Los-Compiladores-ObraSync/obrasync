@@ -7,4 +7,5 @@ public record CrearCotizacionCommand(
     Guid ProveedorId,
     decimal Flete,
     int PlazoEntregaDias,
-    IReadOnlyList<CrearCotizacionItemDto> Items);
+    IReadOnlyList<CrearCotizacionItemDto> Items,
+    string? ProveedorNombre = null);

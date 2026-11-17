@@ -7,7 +7,7 @@ namespace ObraSync.Asistente.Infrastructure;
 public static class DependencyInjection
 {
     /// <summary>
-    /// Registra el cliente del modelo y los lectores de catálogo, obras, requisiciones y órdenes pendientes (solo GET).
+    /// Registra el cliente del modelo y los lectores de catálogo, obras, requisiciones, licitaciones y órdenes pendientes (solo GET).
     /// Se arman a mano (con IHttpClientFactory) para que el buscador reciba el contexto del pedido actual
     /// (el JWT del usuario) y no uno viejo.
     /// </summary>
@@ -39,6 +39,11 @@ public static class DependencyInjection
             sp.GetRequiredService<IContextoDePeticion>()));
 
         services.AddScoped<IConsultorRequisiciones>(sp => new RequisicionesGateway(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient("catalogo"),
+            sp.GetRequiredService<ConfiguracionApi>(),
+            sp.GetRequiredService<IContextoDePeticion>()));
+
+        services.AddScoped<IConsultorLicitaciones>(sp => new LicitacionesGateway(
             sp.GetRequiredService<IHttpClientFactory>().CreateClient("catalogo"),
             sp.GetRequiredService<ConfiguracionApi>(),
             sp.GetRequiredService<IContextoDePeticion>()));

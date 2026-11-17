@@ -30,7 +30,8 @@ public class CrearCotizacionCommandHandler
             command.Flete,
             command.PlazoEntregaDias,
             command.Items,
-            cancellationToken);
+            cancellationToken,
+            command.ProveedorNombre);
 
         await _cotizacionRepository.AddAsync(cotizacion, cancellationToken);
         await _cotizacionRepository.SaveChangesAsync(cancellationToken);
