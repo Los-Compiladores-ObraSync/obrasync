@@ -7,9 +7,12 @@ import {
   generarIdempotencyKey,
   rechazarRequisicion,
 } from '../requisiciones/requisicionesService'
+import { publicarLicitacion } from '../licitaciones/licitacionesService'
+import { fechaLocalEnDias, finDelDiaEnUtc } from '../licitaciones/plazoCotizacion'
 import { fechaAIso } from '../obras/validacionObra'
 import { hoyComoTexto } from '../obras/fechaEnPalabras'
 import { registrarRecepcion } from '../recepciones/recepcionesService'
+import { fechaLarga } from '../requisiciones/formatoFecha'
 import { enviarMensajeAlAsistente } from './asistenteService'
 import {
   MAX_CARACTERES_MENSAJE,
@@ -30,10 +33,13 @@ interface MensajeChat {
   /** Mensaje armado por la propia pantalla (no lo dijo el modelo): no se reenvía como historial. */
   local?: boolean
   /** Muestra "qué querés hacer ahora" debajo del mensaje (después de confirmar o cancelar un borrador). */
-  siguientesPasos?: 'creada' | 'descartada' | 'aprobada' | 'rechazada' | 'recibida'
+  siguientesPasos?: 'creada' | 'descartada' | 'aprobada' | 'rechazada' | 'publicada' | 'recibida'
   borrador?: BorradorRequisicionDto
-  /** Borrador de aprobar o rechazar una requisición (portal de Compras, #141 y #149). */
+  /** Borrador de aprobar, rechazar o publicar la licitación de una requisición (portal de Compras, #141 y #149). */
   aprobacion?: BorradorAprobacionDto
+  /** Solo al publicar: "YYYY-MM-DD" local hasta el que cotizan los proveedores. Se fija UNA vez, cuando llega el borrador,
+   *  para que la fecha que la persona ve en la tarjeta sea la misma que se envía aunque confirme más tarde. */
+  fechaLimiteLocal?: string
   /** Borrador de recepción total (portal de obra, #147). */
   recepcion?: BorradorRecepcionDto
   /** Una sola clave por borrador: si el usuario confirma dos veces, el servidor no duplica la requisición. */
@@ -68,7 +74,7 @@ const CAPACIDADES_OBRA = [
   },
 ]
 
-/** Lo que el asistente sabe hacer en el portal de Compras (#141 y #149): consultar, aprobar y rechazar con confirmación. */
+/** Lo que el asistente sabe hacer en el portal de Compras (#141 y #149): consultar, aprobar, rechazar y publicar con confirmación. */
 const CAPACIDADES_COMPRAS = [
   {
     titulo: 'Ver requisiciones pendientes',
@@ -86,6 +92,12 @@ const CAPACIDADES_COMPRAS = [
     titulo: 'Rechazar una requisición',
     descripcion: 'Te armo el rechazo con tu motivo para que lo revises y lo confirmes.',
     mensaje: 'Quiero rechazar una requisición',
+    disponible: true,
+  },
+  {
+    titulo: 'Publicar una licitación',
+    descripcion: 'Armo la publicación de una requisición aprobada, para que los proveedores coticen. Vos la confirmás.',
+    mensaje: 'Quiero publicar una licitación',
     disponible: true,
   },
 ]
@@ -113,6 +125,14 @@ function mensajeDeErrorDelAsistente(err: unknown, portal: PortalAsistente): stri
   return portal === 'compras'
     ? 'No se pudo conectar con el asistente. Probá de nuevo o usá la pantalla de requisiciones.'
     : 'No se pudo conectar con el asistente. Probá de nuevo o usá el formulario.'
+}
+
+/** La fecha límite (hora local de esta persona) de un borrador de publicación; undefined para cualquier otro borrador. */
+function fechaLimiteDelBorrador(borrador: BorradorAprobacionDto | null | undefined): string | undefined {
+  if (borrador?.accion !== 'publicarLicitacion' || !borrador.diasParaCotizar) {
+    return undefined
+  }
+  return fechaLocalEnDias(borrador.diasParaCotizar)
 }
 
 function formatoCantidad(cantidad: number): string {
@@ -201,6 +221,7 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
         texto: respuesta.respuesta,
         borrador: respuesta.borrador ?? undefined,
         aprobacion: respuesta.aprobacion ?? undefined,
+        fechaLimiteLocal: fechaLimiteDelBorrador(respuesta.aprobacion),
         recepcion: respuesta.recepcion ?? undefined,
         claveIdempotencia: respuesta.borrador ? generarIdempotencyKey() : undefined,
         estado: respuesta.borrador || respuesta.aprobacion || respuesta.recepcion ? 'pendiente' : undefined,
@@ -243,6 +264,26 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
         texto: `Listo, rechacé la requisición ${rechazada.numeroRequisicion ?? borrador.resumen.numero}.`,
         local: true,
         siguientesPasos: 'rechazada',
+      })
+      return
+    }
+    if (borrador.accion === 'publicarLicitacion') {
+      if (!mensaje.fechaLimiteLocal) {
+        return
+      }
+      const licitacion = await publicarLicitacion({
+        requisicionId: borrador.requisicionId,
+        fechaLimiteCotizacion: finDelDiaEnUtc(mensaje.fechaLimiteLocal),
+      })
+      actualizarMensaje(mensaje.id, { estado: 'confirmada' })
+      const hasta = fechaLarga(licitacion.fechaLimiteCotizacion)
+      agregarMensaje({
+        rol: 'asistente',
+        texto:
+          `Listo, publiqué la licitación de la requisición ${borrador.resumen.numero}.` +
+          (hasta ? ` Los proveedores pueden cotizar hasta el ${hasta}.` : ''),
+        local: true,
+        siguientesPasos: 'publicada',
       })
       return
     }
@@ -292,7 +333,9 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
       texto:
         mensaje.aprobacion?.accion === 'rechazarRequisicion'
           ? 'Listo, no rechacé nada. La requisición sigue pendiente.'
-          : 'Listo, no aprobé nada. La requisición sigue pendiente.',
+          : mensaje.aprobacion?.accion === 'publicarLicitacion'
+            ? 'Listo, no publiqué nada. La requisición sigue aprobada, sin licitación.'
+            : 'Listo, no aprobé nada. La requisición sigue pendiente.',
       local: true,
       siguientesPasos: 'descartada',
     })
@@ -444,13 +487,22 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
                     <p className={styles.dato}>Se registra como recibido completo y conforme.</p>
                   </ConfirmacionAccion>
                 )}
-                {mensaje.aprobacion && mensaje.estado === 'pendiente' && (
-                  // Aprobar dispara el proceso de licitación y rechazar cierra la requisición: las dos se muestran
-                  // reforzadas y con el nombre del botón claro.
+                {mensaje.aprobacion &&
+                  mensaje.estado === 'pendiente' &&
+                  // Publicar necesita la fecha límite fijada al llegar el borrador; sin ella no se ofrece la tarjeta (no escribe nada).
+                  (mensaje.aprobacion.accion !== 'publicarLicitacion' || mensaje.fechaLimiteLocal !== undefined) && (
+                  // Aprobar dispara el proceso de licitación y rechazar cierra la requisición: se muestran reforzadas.
+                  // Publicar no se marca como irreversible (no sabemos si hay forma de cancelar la licitación), pero igual pide confirmar.
                   <ConfirmacionAccion
                     titulo={mensaje.aprobacion.titulo}
-                    reforzada
-                    textoConfirmar={mensaje.aprobacion.accion === 'rechazarRequisicion' ? 'Rechazar' : 'Aprobar'}
+                    reforzada={mensaje.aprobacion.accion !== 'publicarLicitacion'}
+                    textoConfirmar={
+                      mensaje.aprobacion.accion === 'rechazarRequisicion'
+                        ? 'Rechazar'
+                        : mensaje.aprobacion.accion === 'publicarLicitacion'
+                          ? 'Publicar'
+                          : 'Aprobar'
+                    }
                     onConfirmar={() => confirmarAprobacion(mensaje)}
                     onCancelar={() => cancelarAprobacion(mensaje)}
                   >
@@ -463,6 +515,11 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
                     )}
                     {mensaje.aprobacion.accion === 'rechazarRequisicion' && mensaje.aprobacion.motivo && (
                       <p className={styles.dato}>Motivo: {mensaje.aprobacion.motivo}</p>
+                    )}
+                    {mensaje.aprobacion.accion === 'publicarLicitacion' && mensaje.fechaLimiteLocal && (
+                      <p className={styles.dato}>
+                        Los proveedores cotizan hasta el {fechaLarga(finDelDiaEnUtc(mensaje.fechaLimiteLocal))}
+                      </p>
                     )}
                     <ul className={styles.items}>
                       {mensaje.aprobacion.resumen.items.map((item, i) => (

@@ -333,7 +333,7 @@
                 "$ref": "#/components/schemas/BorradorAprobacionDto"
               }
             ],
-            "description": "Presente solo cuando el Comprador pidió aprobar o rechazar una requisición Pendiente. Su existencia NO significa que se haya hecho nada: según la accion, el frontend llama a POST /api/requisiciones/{id}/aprobar o a POST /api/requisiciones/{id}/rechazar (con el motivo) cuando el usuario toca Confirmar."
+            "description": "Presente solo cuando el Comprador pidió aprobar o rechazar una requisición Pendiente, o publicar la licitación de una Aprobada. Su existencia NO significa que se haya hecho nada: según la accion, el frontend llama a POST /api/requisiciones/{id}/aprobar, a POST /api/requisiciones/{id}/rechazar (con el motivo) o a POST /api/licitaciones cuando el usuario toca Confirmar."
           },
           "recepcion": {
             "nullable": true,
@@ -661,13 +661,14 @@
           "resumen"
         ],
         "additionalProperties": false,
-        "description": "Borrador de aprobar (#141) o rechazar (#149) UNA requisición que está Pendiente. Con accion aprobarRequisicion, el frontend llama a POST /api/requisiciones/{requisicionId}/aprobar (sin cuerpo, con el JWT del usuario) cuando el usuario toca Confirmar. Con accion rechazarRequisicion, llama a POST /api/requisiciones/{requisicionId}/rechazar con { motivo }. El borrador NO se guarda en ninguna base.",
+        "description": "Borrador de aprobar (#141) o rechazar (#149) UNA requisición que está Pendiente, o de publicar (#149) la licitación de una requisición Aprobada. Con accion aprobarRequisicion, el frontend llama a POST /api/requisiciones/{requisicionId}/aprobar (sin cuerpo, con el JWT del usuario) cuando el usuario toca Confirmar. Con accion rechazarRequisicion, llama a POST /api/requisiciones/{requisicionId}/rechazar con { motivo }. Con accion publicarLicitacion, llama a POST /api/licitaciones con { requisicionId, fechaLimiteCotizacion }: la fecha la calcula el frontend a partir de diasParaCotizar, en la hora local de la persona (el plazo vence a las 23:59 de ese día) y la manda en UTC. El borrador NO se guarda en ninguna base.",
         "properties": {
           "accion": {
             "type": "string",
             "enum": [
               "aprobarRequisicion",
-              "rechazarRequisicion"
+              "rechazarRequisicion",
+              "publicarLicitacion"
             ],
             "description": "Qué escritura representa el borrador."
           },
@@ -684,6 +685,14 @@
             "nullable": true,
             "maxLength": 500,
             "description": "Solo viene con accion rechazarRequisicion: el motivo que dijo el Comprador, tal cual se va a enviar al rechazar (1 a 500 caracteres, igual que RechazarRequisicionRequestDto). Con aprobarRequisicion es null."
+          },
+          "diasParaCotizar": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 30,
+            "description": "Solo viene con accion publicarLicitacion: cuántos días, contados desde hoy, tienen los proveedores para cotizar. Es un tope del asistente (el backend solo exige que la fecha límite sea futura). Con las otras acciones es null."
           },
           "resumen": {
             "$ref": "#/components/schemas/ResumenAprobacionDto"
