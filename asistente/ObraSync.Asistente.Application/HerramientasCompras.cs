@@ -11,6 +11,8 @@ namespace ObraSync.Asistente.Application;
 ///    el frontend llama a POST /api/requisiciones/{id}/aprobar, con el JWT del Comprador, cuando él toca Confirmar.
 ///  - preparar_rechazo_requisicion (#149): igual, pero para rechazar, con el motivo que dijo el Comprador. No rechaza nada:
 ///    el frontend llama a POST /api/requisiciones/{id}/rechazar con ese motivo recién cuando él toca Confirmar.
+///  - preparar_publicacion_licitacion (#149): igual, para publicar la licitación de una requisición Aprobada, con los días
+///    que tienen los proveedores para cotizar. No publica nada: el frontend llama a POST /api/licitaciones al confirmar.
 /// Igual que HerramientasCatalogo, validan los argumentos ANTES de llamar a la API y devuelven errores estables.
 /// El texto que viene de la base (observaciones, descripciones) se pasa como dato: las instrucciones del agente
 /// le dicen al modelo que ignore cualquier orden que aparezca ahí.
@@ -21,6 +23,7 @@ public sealed class HerramientasCompras
     public const string VerRequisicion = "ver_requisicion";
     public const string PrepararAprobacion = "preparar_aprobacion_requisicion";
     public const string PrepararRechazo = "preparar_rechazo_requisicion";
+    public const string PrepararPublicacion = "preparar_publicacion_licitacion";
 
     /// <summary>El modelo no necesita ver 50 requisiciones: se piden ya acotadas.</summary>
     public const int MaxRequisiciones = 5;
@@ -29,11 +32,18 @@ public sealed class HerramientasCompras
     /// <summary>El mismo máximo que valida la API de Requisiciones para el motivo de rechazo (contrato: 1 a 500).</summary>
     public const int MaxMotivo = 500;
 
+    /// <summary>
+    /// Plazo para cotizar, en días. El backend solo exige que la fecha sea futura; este tope es una barrera contra un
+    /// número disparatado que escriba el modelo (la persona lo ve en la tarjeta antes de confirmar).
+    /// </summary>
+    public const int MinDiasPlazo = 1;
+    public const int MaxDiasPlazo = 30;
+
     /// <summary>Estados que acepta la API (compara sin distinguir mayúsculas).</summary>
     public static readonly IReadOnlyList<string> Estados = new[] { "Pendiente", "Aprobada", "Rechazada" };
 
     public static readonly IReadOnlyList<string> Nombres =
-        new[] { ListarRequisiciones, VerRequisicion, PrepararAprobacion, PrepararRechazo };
+        new[] { ListarRequisiciones, VerRequisicion, PrepararAprobacion, PrepararRechazo, PrepararPublicacion };
 
     private readonly IConsultorRequisiciones _requisiciones;
     private readonly IBuscadorObras _obras;
@@ -150,6 +160,38 @@ public sealed class HerramientasCompras
                     ["required"] = new JsonArray("requisicionId", "motivo")
                 }
             }
+        },
+        new JsonObject
+        {
+            ["type"] = "function",
+            ["function"] = new JsonObject
+            {
+                ["name"] = PrepararPublicacion,
+                ["description"] =
+                    "Arma el BORRADOR para publicar la licitación de una requisición que está Aprobada, para que los proveedores coticen. " +
+                    "No publica nada: la persona lo revisa (ve hasta qué día pueden cotizar) y toca Confirmar. " +
+                    "Se pide con el requisicionId que devolvió listar_requisiciones y los días que tienen para cotizar.",
+                ["parameters"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["requisicionId"] = new JsonObject
+                        {
+                            ["type"] = "string",
+                            ["description"] = "Identificador (GUID) de la requisición Aprobada."
+                        },
+                        ["diasParaCotizar"] = new JsonObject
+                        {
+                            ["type"] = "integer",
+                            ["minimum"] = MinDiasPlazo,
+                            ["maximum"] = MaxDiasPlazo,
+                            ["description"] = "Cuántos días tienen los proveedores para cotizar, contados desde hoy (1 a 30). Si la persona no lo dijo, usá 7."
+                        }
+                    },
+                    ["required"] = new JsonArray("requisicionId", "diasParaCotizar")
+                }
+            }
         }
     };
 
@@ -161,6 +203,7 @@ public sealed class HerramientasCompras
             VerRequisicion => VerAsync(argumentosJson, ct),
             PrepararAprobacion => PrepararAprobacionAsync(argumentosJson, ct),
             PrepararRechazo => PrepararRechazoAsync(argumentosJson, ct),
+            PrepararPublicacion => PrepararPublicacionAsync(argumentosJson, ct),
             _ => Task.FromResult(ResultadoHerramienta.Error("herramienta_desconocida"))
         };
 
@@ -240,17 +283,23 @@ public sealed class HerramientasCompras
         return ResultadoHerramienta.Bien(datos);
     }
 
+    private enum Operacion { Aprobar, Rechazar, Publicar }
+
     private Task<ResultadoHerramienta> PrepararAprobacionAsync(string argumentosJson, CancellationToken ct) =>
-        PrepararAsync(argumentosJson, rechazar: false, ct);
+        PrepararAsync(argumentosJson, Operacion.Aprobar, ct);
 
     private Task<ResultadoHerramienta> PrepararRechazoAsync(string argumentosJson, CancellationToken ct) =>
-        PrepararAsync(argumentosJson, rechazar: true, ct);
+        PrepararAsync(argumentosJson, Operacion.Rechazar, ct);
+
+    private Task<ResultadoHerramienta> PrepararPublicacionAsync(string argumentosJson, CancellationToken ct) =>
+        PrepararAsync(argumentosJson, Operacion.Publicar, ct);
 
     /// <summary>
-    /// Aprobar y rechazar arman el mismo borrador (una requisición Pendiente, con su resumen): solo cambia la acción
-    /// y que rechazar lleva el motivo. Todo se valida ANTES de llamar a la API.
+    /// Aprobar, rechazar y publicar arman el mismo tipo de borrador (una requisición con su resumen): cambia la acción,
+    /// el estado que tiene que tener la requisición (Pendiente para aprobar y rechazar, Aprobada para publicar) y el dato
+    /// extra (el motivo al rechazar, los días de plazo al publicar). Todo se valida ANTES de llamar a la API.
     /// </summary>
-    private async Task<ResultadoHerramienta> PrepararAsync(string argumentosJson, bool rechazar, CancellationToken ct)
+    private async Task<ResultadoHerramienta> PrepararAsync(string argumentosJson, Operacion operacion, CancellationToken ct)
     {
         if (!TryLeerArgumentos(argumentosJson, out var args))
             return ResultadoHerramienta.Error("argumentos_invalidos");
@@ -260,7 +309,7 @@ public sealed class HerramientasCompras
             return ResultadoHerramienta.Error("argumentos_invalidos");
 
         string? motivo = null;
-        if (rechazar)
+        if (operacion == Operacion.Rechazar)
         {
             motivo = LimpiarMotivo(LeerTexto(args["motivo"]));
             if (motivo is null)
@@ -269,13 +318,27 @@ public sealed class HerramientasCompras
                 return ResultadoHerramienta.Error("motivo_demasiado_largo");
         }
 
+        int? dias = null;
+        if (operacion == Operacion.Publicar)
+        {
+            dias = LeerEntero(args["diasParaCotizar"]);
+            if (dias is null || dias < MinDiasPlazo || dias > MaxDiasPlazo)
+                return ResultadoHerramienta.Error("plazo_invalido");
+        }
+
         // Siempre se vuelve a leer la requisición: el estado lo decide la API, no lo que recuerde el modelo.
         var resultado = await _requisiciones.ObtenerAsync(id, ct);
         if (resultado.Error is not null)
             return ResultadoHerramienta.Error(resultado.Error);
 
         var detalle = resultado.Requisicion!;
-        if (!string.Equals(detalle.Resumen.Estado, "Pendiente", StringComparison.OrdinalIgnoreCase))
+        if (operacion == Operacion.Publicar)
+        {
+            // Solo se publica la licitación de una requisición ya aprobada.
+            if (!string.Equals(detalle.Resumen.Estado, "Aprobada", StringComparison.OrdinalIgnoreCase))
+                return ResultadoHerramienta.ErrorConDetalle("requisicion_no_aprobada", "estado", detalle.Resumen.Estado);
+        }
+        else if (!string.Equals(detalle.Resumen.Estado, "Pendiente", StringComparison.OrdinalIgnoreCase))
             return ResultadoHerramienta.ErrorConDetalle("requisicion_no_pendiente", "estado", detalle.Resumen.Estado);
 
         var nombresDeObras = await NombresDeObrasAsync(ct);
@@ -285,15 +348,21 @@ public sealed class HerramientasCompras
             .Select(i => new AprobacionResumenItem(Acotar(i.Descripcion) ?? "", i.Cantidad, i.UnidadMedida))
             .ToList();
         var resumen = new AprobacionResumen(detalle.Resumen.Numero, obra, detalle.Resumen.Etapa, items);
-        var aprobacion = rechazar
-            ? new BorradorAprobacion(
+        var aprobacion = operacion switch
+        {
+            Operacion.Rechazar => new BorradorAprobacion(
                 BorradorAprobacion.AccionRechazarRequisicion,
                 $"Rechazar requisición {detalle.Resumen.Numero}",
-                detalle.Resumen.Id, resumen, motivo)
-            : new BorradorAprobacion(
+                detalle.Resumen.Id, resumen, motivo),
+            Operacion.Publicar => new BorradorAprobacion(
+                BorradorAprobacion.AccionPublicarLicitacion,
+                $"Publicar licitación de la requisición {detalle.Resumen.Numero}",
+                detalle.Resumen.Id, resumen, DiasParaCotizar: dias),
+            _ => new BorradorAprobacion(
                 BorradorAprobacion.AccionAprobarRequisicion,
                 $"Aprobar requisición {detalle.Resumen.Numero}",
-                detalle.Resumen.Id, resumen);
+                detalle.Resumen.Id, resumen)
+        };
 
         // El modelo ve solo un resumen corto; el borrador completo viaja aparte, en la respuesta.
         var datos = new JsonObject
@@ -363,6 +432,18 @@ public sealed class HerramientasCompras
         {
             return false;
         }
+    }
+
+    /// <summary>Un número entero de JSON (7 o 7.0). Un texto ("7"), un decimal (2.5) o cualquier otra cosa da null.</summary>
+    private static int? LeerEntero(JsonNode? nodo)
+    {
+        if (nodo is not JsonValue v)
+            return null;
+        if (v.TryGetValue<int>(out var entero))
+            return entero;
+        if (v.TryGetValue<double>(out var real) && real == Math.Floor(real) && real >= int.MinValue && real <= int.MaxValue)
+            return (int)real;
+        return null;
     }
 
     private static string? LeerTexto(JsonNode? nodo) =>

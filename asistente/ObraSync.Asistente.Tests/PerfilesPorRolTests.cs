@@ -37,8 +37,8 @@ public class PerfilesPorRolTests
 
     [Theory]
     [InlineData("Capataz", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion" })]
-    [InlineData("Comprador", new[] { "listar_requisiciones", "ver_requisicion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion" })]
-    [InlineData("Admin", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion" })]
+    [InlineData("Comprador", new[] { "listar_requisiciones", "ver_requisicion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion", "preparar_publicacion_licitacion" })]
+    [InlineData("Admin", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion", "preparar_publicacion_licitacion" })]
     public async Task Cada_rol_ve_solo_las_herramientas_de_su_perfil(string rol, string[] esperadas)
     {
         var modelo = new ModeloQueAnotaHerramientas(Respuestas.Final("Hola"));
@@ -154,6 +154,7 @@ public class PerfilesPorRolTests
     [InlineData("Comprador", "preparar_recepcion")]
     [InlineData("Capataz", "preparar_aprobacion_requisicion")]
     [InlineData("Capataz", "preparar_rechazo_requisicion")]
+    [InlineData("Capataz", "preparar_publicacion_licitacion")]
     public async Task Si_el_modelo_pide_una_herramienta_que_no_es_de_su_perfil_no_se_ejecuta(string rol, string herramienta)
     {
         var consultor = new ConsultorFalso();
@@ -271,5 +272,29 @@ public class PerfilesPorRolTests
         Assert.Null(r.Aprobacion);
         Assert.Equal(0, consultor.LlamadasDetalle);
         Assert.Contains("motivo_requerido", modelo.Pedidos[1].Last()!["content"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task El_Comprador_pide_publicar_y_la_respuesta_trae_el_borrador_con_los_dias()
+    {
+        var consultor = new ConsultorFalso();
+        consultor.ResultadoDetalle = ResultadoRequisicion.Bien(new RequisicionDetalle(
+            ConsultorFalso.Pendiente with { Estado = "Aprobada" }, null, null,
+            new[] { new ItemRequisicion("Arena gruesa", 10, "M3") }));
+        var modelo = new ModeloFalso(
+            _ => Respuestas.PideHerramienta(
+                "{\"requisicionId\":\"" + ConsultorFalso.IdPendiente + "\",\"diasParaCotizar\":5}",
+                nombre: "preparar_publicacion_licitacion"),
+            _ => Respuestas.Final("Revisá el resumen y tocá Publicar."));
+
+        var r = await ArmarAgente(modelo, "Comprador", consultor).ResponderAsync("publicá la licitación de la REQ-0001, 5 días");
+
+        Assert.True(r.Ok);
+        Assert.NotNull(r.Aprobacion);
+        Assert.Equal("publicarLicitacion", r.Aprobacion!.Accion);
+        Assert.Equal(5, r.Aprobacion.DiasParaCotizar);
+        Assert.Null(r.Borrador);
+        // Nada se escribió: el consultor solo tiene operaciones de lectura.
+        Assert.Equal(1, consultor.LlamadasDetalle);
     }
 }

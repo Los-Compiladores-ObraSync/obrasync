@@ -52,16 +52,18 @@ export interface ResumenAprobacionDto {
   items: ResumenItemAprobacionDto[]
 }
 
-/** Borrador para aprobar (#141) o rechazar (#149) UNA requisición Pendiente. No hace nada hasta que el Comprador
- *  toca Confirmar: entonces el frontend llama, con su JWT, a POST /api/requisiciones/{requisicionId}/aprobar
- *  o, si la acción es rechazar, a POST /api/requisiciones/{requisicionId}/rechazar con { motivo }. */
+/** Borrador para aprobar (#141) o rechazar (#149) UNA requisición Pendiente, o para publicar (#149) la licitación de
+ *  una Aprobada. No hace nada hasta que el Comprador toca Confirmar: entonces el frontend llama, con su JWT, a
+ *  POST /api/requisiciones/{requisicionId}/aprobar, a .../rechazar con { motivo }, o a POST /api/licitaciones. */
 export interface BorradorAprobacionDto {
-  accion: 'aprobarRequisicion' | 'rechazarRequisicion'
+  accion: 'aprobarRequisicion' | 'rechazarRequisicion' | 'publicarLicitacion'
   titulo: string
   requisicionId: string
   resumen: ResumenAprobacionDto
   /** Solo viene al rechazar: el motivo que dijo el Comprador (1 a 500 caracteres). */
   motivo?: string | null
+  /** Solo viene al publicar: días para cotizar desde hoy (1 a 30). La fecha límite la calcula el frontend en hora local. */
+  diasParaCotizar?: number | null
 }
 
 export interface ResumenRecepcionDto {

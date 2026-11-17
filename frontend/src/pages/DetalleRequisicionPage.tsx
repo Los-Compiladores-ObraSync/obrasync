@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { useAuth } from '../auth/useAuth'
 import { publicarLicitacion } from '../licitaciones/licitacionesService'
+import { fechaLocalEnDias, finDelDiaEnUtc } from '../licitaciones/plazoCotizacion'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { obtenerObras, obtenerRequisicion } from '../requisiciones/requisicionesService'
 import type { RequisicionResponseDto } from '../requisiciones/requisicionesTipos'
@@ -25,20 +26,6 @@ type ErrorDetalle = 'noExiste' | 'falla'
 /** Roles que pueden publicar la licitación (el backend lo exige igual: es solo comodidad de pantalla). */
 const ROLES_QUE_PUBLICAN = ['Comprador', 'Admin']
 const DIAS_PLAZO_POR_DEFECTO = 7
-
-/** "YYYY-MM-DD" en hora local, a tantos días de hoy (es el formato del <input type="date">). */
-function fechaLocalEnDias(dias: number): string {
-  const f = new Date()
-  f.setDate(f.getDate() + dias)
-  const mes = String(f.getMonth() + 1).padStart(2, '0')
-  const dia = String(f.getDate()).padStart(2, '0')
-  return `${f.getFullYear()}-${mes}-${dia}`
-}
-
-/** El plazo vence al final del día elegido (hora local); la API lo recibe en UTC. */
-function finDelDiaEnUtc(fechaLocal: string): string {
-  return new Date(`${fechaLocal}T23:59:00`).toISOString()
-}
 
 type ResultadoPublicacion =
   | { tipo: 'ok'; fechaLimite: string }

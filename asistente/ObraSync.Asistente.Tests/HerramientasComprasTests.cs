@@ -16,13 +16,17 @@ public class HerramientasComprasTests
     private static JsonObject Datos(ResultadoHerramienta r) => (JsonObject)r.Datos;
 
     [Fact]
-    public void Las_definiciones_son_las_cuatro_y_el_estado_es_una_lista_cerrada()
+    public void Las_definiciones_son_las_cinco_y_el_estado_es_una_lista_cerrada()
     {
         var defs = HerramientasCompras.Definiciones();
 
         var nombres = defs.Select(d => d!["function"]!["name"]!.GetValue<string>()).ToList();
         Assert.Equal(
-            new[] { "listar_requisiciones", "ver_requisicion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion" },
+            new[]
+            {
+                "listar_requisiciones", "ver_requisicion", "preparar_aprobacion_requisicion",
+                "preparar_rechazo_requisicion", "preparar_publicacion_licitacion"
+            },
             nombres);
         var estados = defs[0]!["function"]!["parameters"]!["properties"]!["estado"]!["enum"]!.AsArray()
             .Select(n => n!.GetValue<string>());
@@ -439,6 +443,149 @@ public class HerramientasComprasTests
 
         var r = await h.EjecutarAsync(
             HerramientasCompras.PrepararRechazo, ArgsRechazo(Guid.NewGuid(), "No corresponde"), default);
+
+        Assert.False(r.Ok);
+        Assert.Null(r.Aprobacion);
+        Assert.Equal("requisicion_no_encontrada", Datos(r)["error"]!.GetValue<string>());
+    }
+
+    // ---- Publicar la licitación de una requisición Aprobada (#149): solo ARMA el borrador, con los días de plazo.
+
+    private static string ArgsPublicar(Guid id, object? dias) =>
+        new JsonObject { ["requisicionId"] = id.ToString(), ["diasParaCotizar"] = JsonValue.Create(dias) }.ToJsonString();
+
+    private static void DejarAprobada(ConsultorFalso consultor, string estado = "Aprobada") =>
+        consultor.ResultadoDetalle = ResultadoRequisicion.Bien(new RequisicionDetalle(
+            ConsultorFalso.Pendiente with { Estado = estado }, null, null,
+            new[] { new ItemRequisicion("Cemento Portland 50 kg", 20, "BOLSA") }));
+
+    [Fact]
+    public async Task Preparar_publicacion_de_una_aprobada_arma_el_borrador_con_los_dias_sin_publicar_nada()
+    {
+        var (h, consultor, _) = Armar();
+        DejarAprobada(consultor);
+
+        var r = await h.EjecutarAsync(
+            HerramientasCompras.PrepararPublicacion, ArgsPublicar(ConsultorFalso.IdPendiente, 7), default);
+
+        Assert.True(r.Ok);
+        var b = r.Aprobacion!;
+        Assert.Equal("publicarLicitacion", b.Accion);
+        Assert.Equal("Publicar licitación de la requisición REQ-0001", b.Titulo);
+        Assert.Equal(ConsultorFalso.IdPendiente, b.RequisicionId);
+        Assert.Equal(7, b.DiasParaCotizar);
+        Assert.Null(b.Motivo);
+        Assert.Equal("Torre Central", b.Resumen.Obra);
+        Assert.Single(b.Resumen.Items);
+        // La requisición se vuelve a leer para confirmar el estado; el modelo solo ve un resumen corto.
+        Assert.Equal(1, consultor.LlamadasDetalle);
+        Assert.True(Datos(r)["borradorListo"]!.GetValue<bool>());
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(30)]
+    public async Task Preparar_publicacion_acepta_los_extremos_del_plazo(int dias)
+    {
+        var (h, consultor, _) = Armar();
+        DejarAprobada(consultor);
+
+        var r = await h.EjecutarAsync(
+            HerramientasCompras.PrepararPublicacion, ArgsPublicar(ConsultorFalso.IdPendiente, dias), default);
+
+        Assert.True(r.Ok);
+        Assert.Equal(dias, r.Aprobacion!.DiasParaCotizar);
+    }
+
+    [Fact]
+    public async Task Preparar_publicacion_acepta_un_entero_escrito_como_7_punto_0()
+    {
+        var (h, consultor, _) = Armar();
+        DejarAprobada(consultor);
+        var args = $"{{\"requisicionId\":\"{ConsultorFalso.IdPendiente}\",\"diasParaCotizar\":7.0}}";
+
+        var r = await h.EjecutarAsync(HerramientasCompras.PrepararPublicacion, args, default);
+
+        Assert.True(r.Ok);
+        Assert.Equal(7, r.Aprobacion!.DiasParaCotizar);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-3")]
+    [InlineData("31")]
+    [InlineData("2.5")]
+    [InlineData("\"7\"")]
+    [InlineData("null")]
+    [InlineData("true")]
+    [InlineData("99999999999")]
+    public async Task Preparar_publicacion_con_un_plazo_invalido_no_llama_a_la_API(string dias)
+    {
+        var (h, consultor, _) = Armar();
+        var args = $"{{\"requisicionId\":\"{ConsultorFalso.IdPendiente}\",\"diasParaCotizar\":{dias}}}";
+
+        var r = await h.EjecutarAsync(HerramientasCompras.PrepararPublicacion, args, default);
+
+        Assert.False(r.Ok);
+        Assert.Null(r.Aprobacion);
+        Assert.Equal("plazo_invalido", Datos(r)["error"]!.GetValue<string>());
+        Assert.Equal(0, consultor.LlamadasDetalle);
+    }
+
+    [Fact]
+    public async Task Preparar_publicacion_sin_plazo_no_llama_a_la_API()
+    {
+        var (h, consultor, _) = Armar();
+        var args = $"{{\"requisicionId\":\"{ConsultorFalso.IdPendiente}\"}}";
+
+        var r = await h.EjecutarAsync(HerramientasCompras.PrepararPublicacion, args, default);
+
+        Assert.False(r.Ok);
+        Assert.Equal("plazo_invalido", Datos(r)["error"]!.GetValue<string>());
+        Assert.Equal(0, consultor.LlamadasDetalle);
+    }
+
+    [Theory]
+    [InlineData("Pendiente")]
+    [InlineData("Rechazada")]
+    public async Task Preparar_publicacion_de_una_que_no_esta_aprobada_no_arma_borrador(string estado)
+    {
+        var (h, consultor, _) = Armar();
+        DejarAprobada(consultor, estado);
+
+        var r = await h.EjecutarAsync(
+            HerramientasCompras.PrepararPublicacion, ArgsPublicar(ConsultorFalso.IdPendiente, 7), default);
+
+        Assert.False(r.Ok);
+        Assert.Null(r.Aprobacion);
+        Assert.Equal("requisicion_no_aprobada", Datos(r)["error"]!.GetValue<string>());
+        Assert.Equal(estado, Datos(r)["estado"]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"requisicionId\":\"REQ-0001\",\"diasParaCotizar\":7}")]
+    [InlineData("{\"requisicionId\":\"00000000-0000-0000-0000-000000000000\",\"diasParaCotizar\":7}")]
+    [InlineData("no es json")]
+    public async Task Preparar_publicacion_con_un_id_invalido_no_llama_a_la_API(string argumentos)
+    {
+        var (h, consultor, _) = Armar();
+
+        var r = await h.EjecutarAsync(HerramientasCompras.PrepararPublicacion, argumentos, default);
+
+        Assert.False(r.Ok);
+        Assert.Null(r.Aprobacion);
+        Assert.Equal(0, consultor.LlamadasDetalle);
+    }
+
+    [Fact]
+    public async Task Preparar_publicacion_de_una_que_no_existe_devuelve_error_estable()
+    {
+        var (h, consultor, _) = Armar();
+        consultor.ResultadoDetalle = ResultadoRequisicion.Falla("requisicion_no_encontrada");
+
+        var r = await h.EjecutarAsync(
+            HerramientasCompras.PrepararPublicacion, ArgsPublicar(Guid.NewGuid(), 7), default);
 
         Assert.False(r.Ok);
         Assert.Null(r.Aprobacion);
