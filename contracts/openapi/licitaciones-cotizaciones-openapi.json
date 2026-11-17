@@ -436,7 +436,20 @@
                       "properties": {
                         "licitacionItemId": { "type": "string", "format": "uuid" },
                         "articuloId": { "type": "string", "format": "uuid" },
-                        "precioUnitario": { "type": "number", "format": "double", "exclusiveMinimum": true, "minimum": 0 }
+                        "precioUnitario": { "type": "number", "format": "double", "exclusiveMinimum": true, "minimum": 0 },
+                        "presentacionOfrecida": {
+                          "type": "string",
+                          "maxLength": 100,
+                          "nullable": true,
+                          "description": "Presentación alternativa ofrecida (ej.: 'bolsa 25 kg', #190)."
+                        },
+                        "cantidadOfrecida": {
+                          "type": "number",
+                          "format": "double",
+                          "minimum": 0.01,
+                          "nullable": true,
+                          "description": "Cantidad ofrecida en la presentación alternativa (#190)."
+                        }
                       }
                     }
                   }
@@ -695,6 +708,28 @@
             "format": "double",
             "minimum": 0,
             "description": "Precio unitario ofertado (una sola divisa en el MVP)."
+          },
+          "presentacionOfrecida": {
+            "type": "string",
+            "maxLength": 100,
+            "nullable": true,
+            "description": "Presentación alternativa ofrecida (ej.: 'bolsa 25 kg', #190). Opcional."
+          },
+          "cantidadOfrecida": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0.01,
+            "nullable": true,
+            "description": "Cantidad ofrecida en la presentación alternativa (#190). Opcional; si se omite se toma la cantidad del pliego."
+          },
+          "subtotalItem": {
+            "type": "number",
+            "format": "double",
+            "description": "Total comparable del renglón ((cantidadOfrecida ?? cantidadPliego) * precioUnitario, #190)."
+          },
+          "coberturaParcial": {
+            "type": "boolean",
+            "description": "Indica si lo ofrecido en este renglón no cubre el total solicitado en el pliego (#190)."
           }
         },
         "additionalProperties": false
@@ -771,6 +806,10 @@
           "esMasBarata": {
             "type": "boolean",
             "description": "Indica si la oferta tiene el menor costoTotal (precio de ítems + flete) entre todas las cotizaciones de la licitación (CU-07)."
+          },
+          "coberturaParcial": {
+            "type": "boolean",
+            "description": "Indica si alguno de los ítems cotizados cubre parcialmente la cantidad o presentación requerida por el pliego (#190)."
           },
           "plazoEntregaDias": {
             "type": "integer",
@@ -900,6 +939,10 @@
             "type": "number",
             "format": "double",
             "description": "Costo total de la oferta (subtotalItems + flete)."
+          },
+          "coberturaParcial": {
+            "type": "boolean",
+            "description": "Indica si alguno de los ítems cotizados tiene cobertura parcial respecto al pliego (#190)."
           },
           "plazoEntregaDias": {
             "type": "integer",

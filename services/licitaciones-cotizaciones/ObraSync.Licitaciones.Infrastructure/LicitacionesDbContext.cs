@@ -90,6 +90,8 @@ public class LicitacionesDbContext : DbContext
             e.ToTable("CotizacionItems");
             e.HasKey(x => x.Id);
             e.Property(x => x.PrecioUnitario).HasPrecision(18, 2);
+            e.Property(x => x.PresentacionOfrecida).HasMaxLength(100);
+            e.Property(x => x.CantidadOfrecida).HasPrecision(18, 3);
         });
 
         modelBuilder.Entity<OrdenCompra>(e =>

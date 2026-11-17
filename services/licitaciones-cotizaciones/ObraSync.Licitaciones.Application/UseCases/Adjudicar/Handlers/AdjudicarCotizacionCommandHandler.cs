@@ -82,7 +82,7 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
 
         var requisicion = await _licitacionRepository.ObtenerRequisicionAsync(licitacion.RequisicionId, cancellationToken);
 
-        decimal subtotalItems = cotizacion.Items.Sum(ci => ci.PrecioUnitario * itemsPorArticulo[ci.ArticuloId].Cantidad);
+        decimal subtotalItems = cotizacion.Items.Sum(ci => ci.CalcularSubtotal(itemsPorArticulo[ci.ArticuloId].Cantidad));
         decimal montoTotal = subtotalItems + cotizacion.Flete;
 
         // 4. Crear la entidad Orden de Compra
@@ -98,13 +98,17 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
             TotalFlete = cotizacion.Flete,
             Items = cotizacion.Items.Select(ci => {
                 var licItem = itemsPorArticulo[ci.ArticuloId];
+                var cantidadEfectiva = ci.CantidadOfrecida is > 0 ? ci.CantidadOfrecida.Value : licItem.Cantidad;
+                var descripcionEfectiva = !string.IsNullOrWhiteSpace(ci.PresentacionOfrecida)
+                    ? $"{licItem.Descripcion} ({ci.PresentacionOfrecida})"
+                    : licItem.Descripcion;
                 return new OrdenCompraItem
                 {
                     Id = Guid.NewGuid(),
                     OrdenCompraId = ordenCompraId,
                     ArticuloId = ci.ArticuloId,
-                    Descripcion = licItem.Descripcion,
-                    Cantidad = licItem.Cantidad,
+                    Descripcion = descripcionEfectiva,
+                    Cantidad = cantidadEfectiva,
                     UnidadMedida = licItem.UnidadMedida,
                     PrecioUnitario = ci.PrecioUnitario
                 };

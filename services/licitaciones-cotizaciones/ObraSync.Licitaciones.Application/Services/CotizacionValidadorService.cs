@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.Mappings;
@@ -7,6 +9,12 @@ namespace ObraSync.Licitaciones.Application.Services;
 
 public class CotizacionValidadorService : ICotizacionValidadorService
 {
+    private const int LongitudMaximaPresentacion = 100;
+
+    private static readonly Regex MedidaUnitariaRegex = new(
+        @"(\d+(?:[.,]\d+)?)\s*(kg|kilos?|gr|g|lts?|litros?|ml|m3|m2|mts?|metros?|cm)\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     private readonly ILicitacionRepository _licitacionRepository;
     private readonly ICotizacionRepository _cotizacionRepository;
 
@@ -57,6 +65,19 @@ public class CotizacionValidadorService : ICotizacionValidadorService
             throw new ArgumentException("Todos los ítems cotizados deben tener un artículo válido y un precioUnitario mayor a cero.");
         }
 
+        foreach (var item in items)
+        {
+            if (item.CantidadOfrecida.HasValue && item.CantidadOfrecida.Value <= 0)
+            {
+                throw new ArgumentException("La cantidad ofrecida (cantidadOfrecida) debe ser mayor a cero.");
+            }
+
+            if (item.PresentacionOfrecida != null && item.PresentacionOfrecida.Trim().Length > LongitudMaximaPresentacion)
+            {
+                throw new ArgumentException($"La presentación ofrecida (presentacionOfrecida) no puede superar los {LongitudMaximaPresentacion} caracteres.");
+            }
+        }
+
         // 1. Verificar existencia de la licitación (404 Not Found)
         var licitacion = await _licitacionRepository.GetByIdAsync(licitacionId, cancellationToken);
         if (licitacion == null)
@@ -87,26 +108,50 @@ public class CotizacionValidadorService : ICotizacionValidadorService
             .GroupBy(i => i.Id)
             .ToDictionary(g => g.Key, g => g.First());
 
-        var articulosResueltos = new List<(Guid ArticuloId, decimal PrecioUnitario)>(items.Count);
+        var articulosResueltos = new List<(
+            LicitacionItem PliegoItem,
+            decimal PrecioUnitario,
+            string? PresentacionOfrecida,
+            decimal? CantidadOfrecida,
+            bool CoberturaParcial)>(items.Count);
 
         foreach (var item in items)
         {
+            LicitacionItem? pliegoItem = null;
             if (itemsPorArticuloId.TryGetValue(item.ArticuloId, out var pliegoItemPorArt))
             {
-                articulosResueltos.Add((pliegoItemPorArt.ArticuloId, item.PrecioUnitario));
+                pliegoItem = pliegoItemPorArt;
             }
             else if (itemsPorLicitacionItemId.TryGetValue(item.ArticuloId, out var pliegoItemPorId))
             {
-                articulosResueltos.Add((pliegoItemPorId.ArticuloId, item.PrecioUnitario));
+                pliegoItem = pliegoItemPorId;
             }
-            else
+
+            if (pliegoItem == null)
             {
                 throw new ArgumentException("Los artículos cotizados deben coincidir exactamente con los artículos del pliego de la licitación (sin faltantes ni sobrantes).");
             }
+
+            var presentacionLimpia = string.IsNullOrWhiteSpace(item.PresentacionOfrecida)
+                ? null
+                : item.PresentacionOfrecida.Trim();
+
+            var coberturaParcial = EvaluarCoberturaParcial(
+                pliegoItem,
+                presentacionLimpia,
+                item.CantidadOfrecida,
+                item.CoberturaParcial);
+
+            articulosResueltos.Add((
+                pliegoItem,
+                item.PrecioUnitario,
+                presentacionLimpia,
+                item.CantidadOfrecida,
+                coberturaParcial));
         }
 
         var articulosPliego = itemsPorArticuloId.Keys.ToHashSet();
-        var articulosCotizados = articulosResueltos.Select(x => x.ArticuloId).ToList();
+        var articulosCotizados = articulosResueltos.Select(x => x.PliegoItem.ArticuloId).ToList();
 
         if (articulosCotizados.Count != articulosPliego.Count ||
             articulosCotizados.Distinct().Count() != articulosPliego.Count ||
@@ -141,21 +186,137 @@ public class CotizacionValidadorService : ICotizacionValidadorService
                 {
                     Id = Guid.NewGuid(),
                     CotizacionId = cotizacionId,
-                    ArticuloId = i.ArticuloId,
-                    PrecioUnitario = i.PrecioUnitario
+                    ArticuloId = i.PliegoItem.ArticuloId,
+                    PrecioUnitario = i.PrecioUnitario,
+                    PresentacionOfrecida = i.PresentacionOfrecida,
+                    CantidadOfrecida = i.CantidadOfrecida,
+                    CoberturaParcial = i.CoberturaParcial
                 })
                 .ToList()
         };
 
-        decimal subtotalItems = cotizacion.Items.Sum(i =>
-            itemsPorArticuloId.TryGetValue(i.ArticuloId, out var pliegoItem)
-                ? pliegoItem.Cantidad * i.PrecioUnitario
-                : 0m);
-
         var dto = cotizacion.ToDto();
+        decimal subtotalItems = 0m;
+        foreach (var itemDto in dto.Items)
+        {
+            var cantidadPliego = itemsPorArticuloId.TryGetValue(itemDto.ArticuloId, out var pliegoItem)
+                ? pliegoItem.Cantidad
+                : 0m;
+            var cantidadEfectiva = itemDto.CantidadOfrecida is > 0 ? itemDto.CantidadOfrecida.Value : cantidadPliego;
+            itemDto.SubtotalItem = cantidadEfectiva * itemDto.PrecioUnitario;
+            subtotalItems += itemDto.SubtotalItem;
+        }
+
         dto.SubtotalItems = subtotalItems;
         dto.CostoTotal = subtotalItems + cotizacion.Flete;
+        dto.CoberturaParcial = cotizacion.Items.Any(i => i.CoberturaParcial);
 
         return (licitacion, cotizacion, dto);
+    }
+
+    public static bool EvaluarCoberturaParcial(
+        LicitacionItem pliegoItem,
+        string? presentacionOfrecida,
+        decimal? cantidadOfrecida,
+        bool coberturaParcialExplicita = false)
+    {
+        if (coberturaParcialExplicita)
+        {
+            return true;
+        }
+
+        var cantidadEfectiva = cantidadOfrecida ?? pliegoItem.Cantidad;
+
+        if (!string.IsNullOrWhiteSpace(presentacionOfrecida) &&
+            TryExtraerMagnitudNormalizada(pliegoItem.Descripcion, out var magPliego, out var familiaPliego) &&
+            TryExtraerMagnitudNormalizada(presentacionOfrecida, out var magOferta, out var familiaOferta) &&
+            string.Equals(familiaPliego, familiaOferta, StringComparison.OrdinalIgnoreCase))
+        {
+            var totalPedido = pliegoItem.Cantidad * magPliego;
+            var totalOfrecido = cantidadEfectiva * magOferta;
+            return totalOfrecido < totalPedido;
+        }
+
+        if (cantidadOfrecida.HasValue && cantidadOfrecida.Value < pliegoItem.Cantidad)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryExtraerMagnitudNormalizada(
+        string? texto,
+        out decimal magnitudBase,
+        out string familiaUnidad)
+    {
+        magnitudBase = 0m;
+        familiaUnidad = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            return false;
+        }
+
+        var match = MedidaUnitariaRegex.Match(texto);
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        var numeroTexto = match.Groups[1].Value.Replace(',', '.');
+        if (!decimal.TryParse(numeroTexto, NumberStyles.Any, CultureInfo.InvariantCulture, out var valor) || valor <= 0)
+        {
+            return false;
+        }
+
+        var unidad = match.Groups[2].Value.ToLowerInvariant();
+        switch (unidad)
+        {
+            case "kg":
+            case "kilo":
+            case "kilos":
+                magnitudBase = valor * 1000m;
+                familiaUnidad = "MASA";
+                return true;
+            case "g":
+            case "gr":
+                magnitudBase = valor;
+                familiaUnidad = "MASA";
+                return true;
+            case "lt":
+            case "lts":
+            case "litro":
+            case "litros":
+                magnitudBase = valor * 1000m;
+                familiaUnidad = "VOLUMEN";
+                return true;
+            case "ml":
+                magnitudBase = valor;
+                familiaUnidad = "VOLUMEN";
+                return true;
+            case "m":
+            case "mt":
+            case "mts":
+            case "metro":
+            case "metros":
+                magnitudBase = valor * 100m;
+                familiaUnidad = "LONGITUD";
+                return true;
+            case "cm":
+                magnitudBase = valor;
+                familiaUnidad = "LONGITUD";
+                return true;
+            case "m2":
+                magnitudBase = valor;
+                familiaUnidad = "AREA";
+                return true;
+            case "m3":
+                magnitudBase = valor;
+                familiaUnidad = "M3";
+                return true;
+            default:
+                return false;
+        }
     }
 }

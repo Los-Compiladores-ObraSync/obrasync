@@ -42,18 +42,23 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             return new PaginaDe<CotizacionResponseDto>(Array.Empty<CotizacionResponseDto>(), 0);
         }
 
-        // Solo las cotizaciones completas (con ítems válidos > 0) participan del scoring y de EsMasBarata (#186)
+        // Solo las cotizaciones completas (con ítems válidos > 0 y sin cobertura parcial) compiten por el scoring y EsGanadora (#186 / #190)
         var cotizacionesCompletas = cotizaciones
-            .Where(c => c.Items != null && c.Items.Count > 0 && c.Items.All(i => i.PrecioUnitario > 0))
+            .Where(c =>
+                c.Items != null &&
+                c.Items.Count > 0 &&
+                c.Items.All(i => i.PrecioUnitario > 0) &&
+                !c.Items.Any(i => i.CoberturaParcial))
             .ToList();
 
-        // 1. Mapeamos usando el constructor posicional exacto de la entidad Oferta del Dominio (sobre las cotizaciones completas)
+        // 1. Mapeamos usando el constructor posicional de la entidad Oferta del Dominio (pasando CantidadOfrecida para #190)
         var ofertasDomain = cotizacionesCompletas.Select(c => new Oferta(
             c.CotizacionId,
             c.ProveedorId,
             c.Items.Select(i => new OfertaItem(
                 i.ArticuloId,
-                i.PrecioUnitario
+                i.PrecioUnitario,
+                i.CantidadOfrecida
             )).ToList(),
             c.Flete,
             c.PlazoEntregaDias,
@@ -87,7 +92,7 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             ? ordenadasConDesempate.First().Cotizacion.CotizacionId
             : null;
 
-        // 4. Cálculo de costos totales (precio de ítems + flete) y resaltado de la oferta más barata (CU-07, Tarjeta #89)
+        // 4. Cálculo de costos totales (precio de ítems + flete) y resaltado de la oferta más barata (CU-07, Tarjeta #89 + #190)
         var cantidadesPorArticulo = licitacion.Items
             .GroupBy(i => i.ArticuloId)
             .ToDictionary(g => g.Key, g => g.First().Cantidad);
@@ -110,10 +115,18 @@ public class GetCotizacionesByLicitacionIdQueryHandler
                 decimal puntaje = scoringItem?.Puntaje ?? 0m;
                 bool esGanadora = idGanadora.HasValue && c.CotizacionId == idGanadora.Value;
 
-                decimal subtotalItems = c.Items.Sum(i =>
-                    cantidadesPorArticulo.TryGetValue(i.ArticuloId, out var cantidad)
-                        ? cantidad * i.PrecioUnitario
-                        : 0m);
+                var dto = c.ToDto();
+                decimal subtotalItems = 0m;
+                foreach (var itemDto in dto.Items)
+                {
+                    var cantidadPliego = cantidadesPorArticulo.TryGetValue(itemDto.ArticuloId, out var cant)
+                        ? cant
+                        : 0m;
+                    var cantidadEfectiva = itemDto.CantidadOfrecida is > 0 ? itemDto.CantidadOfrecida.Value : cantidadPliego;
+                    itemDto.SubtotalItem = cantidadEfectiva * itemDto.PrecioUnitario;
+                    subtotalItems += itemDto.SubtotalItem;
+                }
+
                 decimal costoTotal = subtotalItems + c.Flete;
 
                 // Desglose REAL (#206): cuántos puntos (0 a 100) aportó cada criterio. Los cuatro suman puntajeTotal.
@@ -121,13 +134,11 @@ public class GetCotizacionesByLicitacionIdQueryHandler
                     ? DesglosarPuntos(aporte)
                     : null;
 
-                var dto = c.ToDto();
                 dto.SubtotalItems = subtotalItems;
                 dto.CostoTotal = costoTotal;
+                dto.CoberturaParcial = c.Items.Any(i => i.CoberturaParcial);
                 dto.PuntajeTotal = Math.Round(puntaje * 100m, 2);
                 dto.EsGanadora = esGanadora;
-                // El nombre ya viene en el dto (c.ToDto()): lo guardó la cotización al crearse. Si no se conocía, queda null.
-                // Todavía no hay de dónde sacar una calificación (1 a 5): sigue en null y el scoring la trata como 0 para todos.
                 dto.CalificacionProveedor = null;
                 dto.DesglosePuntaje = desgloseDto;
                 dto.PonderacionesScoring = ponderacionesDto;
@@ -135,8 +146,9 @@ public class GetCotizacionesByLicitacionIdQueryHandler
                 return dto;
             }).ToList();
 
+        // Una oferta con cobertura parcial nunca le roba EsMasBarata a las que cubren todo lo pedido (#190)
         var dtosValidosParaMinimo = dtos
-            .Where(d => d.Items.Count > 0 && d.SubtotalItems > 0)
+            .Where(d => d.Items.Count > 0 && d.SubtotalItems > 0 && !d.CoberturaParcial)
             .ToList();
 
         if (dtosValidosParaMinimo.Count > 0)
