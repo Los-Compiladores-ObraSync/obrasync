@@ -21,7 +21,7 @@ interface Props {
 function textoAccesible(cantidad: number, resaltada: boolean): string {
     if (cantidad <= 0) return 'Notificaciones: sin avisos'
     // No alcanza con el color: quien no lo ve también tiene que enterarse.
-    if (resaltada) return `Atención: ${cantidad} requisiciones pendientes`
+    if (resaltada) return `Atención: ${cantidad} avisos pendientes`
     return `Notificaciones: ${cantidad} sin leer`
 }
 

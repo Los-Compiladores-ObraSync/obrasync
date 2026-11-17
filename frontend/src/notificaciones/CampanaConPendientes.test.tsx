@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
+import { BloqueadasContext } from './bloqueadasContext'
 import { CampanaConPendientes } from './CampanaConPendientes'
 import { UMBRAL_PENDIENTES } from './configuracionAvisos'
 import { PendientesContext } from './pendientesContext'
@@ -136,7 +137,7 @@ describe('CampanaConPendientes - resaltado por umbral', () => {
         renderizar(UMBRAL_PENDIENTES)
 
         expect(campana()).toHaveAccessibleName(
-            `Atención: ${UMBRAL_PENDIENTES} requisiciones pendientes`,
+            `Atención: ${UMBRAL_PENDIENTES} avisos pendientes`,
         )
     })
 
@@ -144,7 +145,47 @@ describe('CampanaConPendientes - resaltado por umbral', () => {
         renderizar(UMBRAL_PENDIENTES + 2)
 
         expect(campana()).toHaveAccessibleName(
-            `Atención: ${UMBRAL_PENDIENTES + 2} requisiciones pendientes`,
+            `Atención: ${UMBRAL_PENDIENTES + 2} avisos pendientes`,
         )
     })
 })
+
+function renderizarConAmbos(cantidadPendientes: number, cantidadBloqueadas: number) {
+    return render(
+        <MemoryRouter>
+            <PendientesContext.Provider
+                value={{ cantidad: cantidadPendientes, pendientes: [], cargado: true, huboError: false, refrescar: () => {} }}
+            >
+                <BloqueadasContext.Provider
+                    value={{ cantidad: cantidadBloqueadas, bloqueadas: [], cargado: true, huboError: false, refrescar: () => {} }}
+                >
+                    <p>Afuera</p>
+                    <CampanaConPendientes />
+                </BloqueadasContext.Provider>
+            </PendientesContext.Provider>
+        </MemoryRouter>,
+    )
+}
+
+describe('CampanaConPendientes - integración con órdenes bloqueadas (#97)', () => {
+    it('suma correctamente la cantidad de requisiciones y órdenes bloqueadas', () => {
+        renderizarConAmbos(2, 3)
+
+        expect(campana()).toHaveTextContent('5')
+        expect(campana()).toHaveAccessibleName('Atención: 5 avisos pendientes')
+    })
+
+    it('no resalta si la suma total está por debajo del umbral', () => {
+        renderizarConAmbos(2, 2)
+
+        expect(campana()).toHaveTextContent('4')
+        expect(campana()).toHaveAccessibleName('Notificaciones: 4 sin leer')
+    })
+
+    it('resalta en el umbral con la suma combinada', () => {
+        renderizarConAmbos(1, 4)
+
+        expect(campana()).toHaveTextContent('5')
+        expect(campana()).toHaveAccessibleName('Atención: 5 avisos pendientes')
+    })
+})
