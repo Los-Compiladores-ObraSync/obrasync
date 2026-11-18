@@ -338,10 +338,10 @@ public class ScoringConfiguracionYNormalizacionTests : IClassFixture<WebApplicat
 
         Assert.Equal(99.01m, oferta101.DesgloseScoring!.PuntajePrecio);
         Assert.Equal(100m, oferta101.DesgloseScoring.PuntajePlazo);
-        Assert.Equal(0m, oferta101.DesgloseScoring.PesoCalificacion);
+        Assert.Equal(0.10m, oferta101.DesgloseScoring.PesoCalificacion);
 
-        // Gracias a que el 1% de precio solo le resta ~0.5 puntos globales y gana 12.5 puntos en plazo,
-        // la Oferta 2 gana legítimamente la comparativa (99.50 vs 87.50)
+        // Gracias a que el 1% de precio solo le resta ~0.5 puntos globales y gana en plazo,
+        // la Oferta 2 gana legítimamente la comparativa
         Assert.True(oferta101.PuntajeTotal > oferta100.PuntajeTotal);
         Assert.True(oferta101.EsGanadora);
         Assert.False(oferta100.EsGanadora);

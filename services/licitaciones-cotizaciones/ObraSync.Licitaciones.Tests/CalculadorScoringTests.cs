@@ -91,7 +91,7 @@ public class CalculadorScoringTests
     [Fact]
     public void La_calificacion_pesa_cero_por_defecto_y_no_influye()
     {
-        var a = CrearOferta(100m, 5m, 3, calificacion: 10m);
+        var a = CrearOferta(100m, 5m, 3, calificacion: 5m);
         var b = CrearOferta(100m, 5m, 3, calificacion: 1m);
 
         var resultado = CalculadorScoring.Calcular(new[] { a, b }, UnItem, new PonderacionScoring(1, 1, 1));
@@ -102,12 +102,88 @@ public class CalculadorScoringTests
     [Fact]
     public void Si_la_calificacion_tiene_peso_gana_la_de_mayor_calificacion()
     {
-        var a = CrearOferta(100m, 5m, 3, calificacion: 10m);
+        var a = CrearOferta(100m, 5m, 3, calificacion: 5m);
         var b = CrearOferta(100m, 5m, 3, calificacion: 1m);
 
         var resultado = CalculadorScoring.Calcular(new[] { b, a }, UnItem, new PonderacionScoring(0, 0, 0, 1));
 
         Assert.Equal(a.CotizacionId, resultado[0].CotizacionId);
+    }
+
+    [Theory]
+    [InlineData(1, 0)]
+    [InlineData(3, 0.5)]
+    [InlineData(5, 1)]
+    public void Normalizacion_de_calificacion_usa_escala_fija_1_a_5(decimal calificacion, decimal puntajeEsperado)
+    {
+        var oferta = CrearOferta(100m, 10m, 5, calificacion: calificacion);
+
+        var resultado = CalculadorScoring.Calcular(
+            new[] { oferta },
+            UnItem,
+            new PonderacionScoring(0m, 0m, 0m, 1m));
+
+        Assert.Single(resultado);
+        Assert.Equal(puntajeEsperado, resultado[0].PuntajesCriterio!.Calificacion);
+        Assert.Equal(puntajeEsperado, resultado[0].Puntaje);
+    }
+
+    [Fact]
+    public void Proveedor_sin_calificacion_obtiene_cero_y_peso_calificacion_se_mantiene_en_divisor()
+    {
+        var conCalificacion5 = CrearOferta(100m, 10m, 5, calificacion: 5m);
+        var sinCalificacion = CrearOferta(100m, 10m, 5, calificacion: null);
+        var conCalificacion1 = CrearOferta(100m, 10m, 5, calificacion: 1m);
+
+        var ponderacion = new PonderacionScoring(0.50m, 0.20m, 0.20m, 0.10m);
+        var resultado = CalculadorScoring.Calcular(
+            new[] { sinCalificacion, conCalificacion5, conCalificacion1 },
+            UnItem,
+            ponderacion);
+
+        var eval5 = resultado.Single(r => r.CotizacionId == conCalificacion5.CotizacionId);
+        var evalNull = resultado.Single(r => r.CotizacionId == sinCalificacion.CotizacionId);
+        var eval1 = resultado.Single(r => r.CotizacionId == conCalificacion1.CotizacionId);
+
+        Assert.Equal(1m, eval5.PuntajesCriterio!.Calificacion);
+        Assert.Equal(1m, eval5.Puntaje);
+
+        Assert.Equal(0m, evalNull.PuntajesCriterio!.Calificacion);
+        Assert.Equal(0.90m, evalNull.Puntaje);
+        Assert.Equal(eval1.Puntaje, evalNull.Puntaje);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(6)]
+    public void Calificacion_fuera_de_rango_1_a_5_lanza_ArgumentOutOfRangeException(decimal calificacionInvalida)
+    {
+        var oferta = CrearOferta(100m, 10m, 5, calificacion: calificacionInvalida);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            CalculadorScoring.Calcular(new[] { oferta }, UnItem, new PonderacionScoring(0.50m, 0.20m, 0.20m, 0.10m)));
+    }
+
+    [Fact]
+    public void Pesos_que_no_suman_uno_se_normalizan_proporcionalmente()
+    {
+        var masBarata = CrearOferta(100m, 100m, 10, calificacion: 1m);
+        var mejorCalificada = CrearOferta(200m, 100m, 10, calificacion: 5m);
+
+        var rUnitario = CalculadorScoring.Calcular(
+            new[] { masBarata, mejorCalificada },
+            UnItem,
+            new PonderacionScoring(0.20m, 0.20m, 0.20m, 0.40m));
+
+        var rEscala100 = CalculadorScoring.Calcular(
+            new[] { masBarata, mejorCalificada },
+            UnItem,
+            new PonderacionScoring(20m, 20m, 20m, 40m));
+
+        Assert.Equal(rUnitario[0].CotizacionId, rEscala100[0].CotizacionId);
+        Assert.Equal(rUnitario[0].Puntaje, rEscala100[0].Puntaje);
+        Assert.Equal(rUnitario[1].Puntaje, rEscala100[1].Puntaje);
     }
 
     [Fact]

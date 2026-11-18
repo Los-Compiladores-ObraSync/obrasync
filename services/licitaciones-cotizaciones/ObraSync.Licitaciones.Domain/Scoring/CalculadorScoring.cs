@@ -23,6 +23,14 @@ public static class CalculadorScoring
         var completas = new List<(Oferta Oferta, decimal Precio)>();
         foreach (var oferta in ofertas)
         {
+            if (oferta.Calificacion.HasValue && (oferta.Calificacion.Value < 1m || oferta.Calificacion.Value > 5m))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(ofertas),
+                    oferta.Calificacion.Value,
+                    "La calificación del proveedor debe estar entre 1 y 5.");
+            }
+
             var precio = PrecioTotal(oferta, requeridos);
             if (precio is not null) completas.Add((oferta, precio.Value));
         }
@@ -32,15 +40,11 @@ public static class CalculadorScoring
         var precios = completas.Select(c => c.Precio).ToList();
         var fletes = completas.Select(c => c.Oferta.Flete).ToList();
         var plazos = completas.Select(c => (decimal)c.Oferta.PlazoEntregaDias).ToList();
-        var calificaciones = completas.Select(c => c.Oferta.Calificacion ?? 0m).ToList();
 
-        // Si ninguna oferta trae calificación y hay otros criterios con peso > 0, la calificación no agrega peso muerto (#197)
-        var algunaTieneCalificacion = completas.Any(c => c.Oferta.Calificacion.HasValue);
-        var sumaOtrosPesos = ponderacion.Precio + ponderacion.Flete + ponderacion.Plazo;
-        var pesoCalificacionEfectivo = (algunaTieneCalificacion || sumaOtrosPesos == 0m)
-            ? ponderacion.Calificacion
-            : 0m;
-        var pesoTotalEfectivo = sumaOtrosPesos + pesoCalificacionEfectivo;
+        // Regla #88: el divisor es siempre la suma total de los 4 pesos (incluyendo calificación).
+        // Si un proveedor no tiene calificación registrada, su puntaje normalizado es 0 y el peso
+        // de calificación se mantiene en el divisor (penaliza igual que calificación 1).
+        var pesoTotalEfectivo = ponderacion.Total;
 
         return completas
             .Select(c =>
@@ -57,11 +61,7 @@ public static class CalculadorScoring
                     ? MenorEsMejorMinMax(c.Oferta.PlazoEntregaDias, plazos)
                     : MenorEsMejorRelativo(c.Oferta.PlazoEntregaDias, plazos);
 
-                decimal normCalificacion = pesoCalificacionEfectivo > 0m
-                    ? (modoNormalizacion == ModoNormalizacionScoring.MinMax
-                        ? MayorEsMejorMinMax(c.Oferta.Calificacion ?? 0m, calificaciones)
-                        : MayorEsMejorRelativo(c.Oferta.Calificacion ?? 0m, calificaciones))
-                    : 0m;
+                decimal normCalificacion = NormalizarCalificacion(c.Oferta.Calificacion);
 
                 var puntajesCriterio = new PuntajesCriterioScoring(
                     normPrecio,
@@ -73,7 +73,7 @@ public static class CalculadorScoring
                     ponderacion.Precio * normPrecio / pesoTotalEfectivo,
                     ponderacion.Flete * normFlete / pesoTotalEfectivo,
                     ponderacion.Plazo * normPlazo / pesoTotalEfectivo,
-                    pesoCalificacionEfectivo * normCalificacion / pesoTotalEfectivo);
+                    ponderacion.Calificacion * normCalificacion / pesoTotalEfectivo);
 
                 // El puntaje es la suma de los aportes: el desglose y el total no pueden discrepar.
                 return new ResultadoScoring(
@@ -114,12 +114,16 @@ public static class CalculadorScoring
         return (max - valor) / max;
     }
 
-    private static decimal MayorEsMejorRelativo(decimal valor, IReadOnlyList<decimal> valores)
+    // Normalización lineal de calificación en escala 1..5 (#88):
+    // 1 vale 0, 5 vale 1 ((calificacion - 1) / 4). Si no tiene calificación (null), vale 0.
+    private static decimal NormalizarCalificacion(decimal? calificacion)
     {
-        var min = valores.Min();
-        var max = valores.Max();
-        if (max == min || max <= 0m) return 1m;
-        return valor / max;
+        if (!calificacion.HasValue)
+        {
+            return 0m;
+        }
+
+        return (calificacion.Value - 1m) / 4m;
     }
 
     // Normalización lineal min-max (0..1)
@@ -128,12 +132,5 @@ public static class CalculadorScoring
         var min = valores.Min();
         var max = valores.Max();
         return max == min ? 1m : (max - valor) / (max - min);
-    }
-
-    private static decimal MayorEsMejorMinMax(decimal valor, IReadOnlyList<decimal> valores)
-    {
-        var min = valores.Min();
-        var max = valores.Max();
-        return max == min ? 1m : (valor - min) / (max - min);
     }
 }

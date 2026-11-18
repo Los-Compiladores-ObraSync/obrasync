@@ -131,7 +131,8 @@
     "/api/cotizaciones": {
       "get": {
         "tags": ["Cotizaciones"],
-        "summary": "Listar las cotizaciones de un pliego (Roles: Comprador, Admin)",
+        "summary": "Listar las cotizaciones de un pliego para la matriz comparativa con scoring multivariable (Roles: Comprador, Admin)",
+        "description": "Calcula el scoring multivariable de las cotizaciones del pliego considerando precio, flete, plazo y calificación del proveedor (normalizada como (calificacion - 1) / 4; 0 si no tiene calificación, manteniendo el peso en el divisor). Permite sobreescribir las ponderaciones por defecto de configuración enviando pesoPrecio, pesoFlete, pesoPlazo y/o pesoCalificacion (>= 0 y suma > 0; se normalizan dividiendo por la suma total).",
         "parameters": [
           {
             "name": "licitacionId",
@@ -153,6 +154,34 @@
             "description": "Cantidad de elementos por página (entre 1 y 50).",
             "required": false,
             "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 50 }
+          },
+          {
+            "name": "pesoPrecio",
+            "in": "query",
+            "description": "Peso relativo del criterio Precio (>= 0). Si se omite, se usa el valor por defecto configurado en Scoring:PesoPrecio (0.50).",
+            "required": false,
+            "schema": { "type": "number", "format": "double", "minimum": 0 }
+          },
+          {
+            "name": "pesoFlete",
+            "in": "query",
+            "description": "Peso relativo del criterio Flete (>= 0). Si se omite, se usa el valor por defecto configurado en Scoring:PesoFlete (0.20).",
+            "required": false,
+            "schema": { "type": "number", "format": "double", "minimum": 0 }
+          },
+          {
+            "name": "pesoPlazo",
+            "in": "query",
+            "description": "Peso relativo del criterio Plazo de entrega (>= 0). Si se omite, se usa el valor por defecto configurado en Scoring:PesoPlazo (0.20).",
+            "required": false,
+            "schema": { "type": "number", "format": "double", "minimum": 0 }
+          },
+          {
+            "name": "pesoCalificacion",
+            "in": "query",
+            "description": "Peso relativo del criterio Calificación del proveedor (>= 0). Si se omite, se usa el valor por defecto configurado en Scoring:PesoCalificacion (0.10).",
+            "required": false,
+            "schema": { "type": "number", "format": "double", "minimum": 0 }
           }
         ],
         "responses": {
@@ -265,6 +294,70 @@
                   "type": "array",
                   "items": { "$ref": "#/components/schemas/MiCotizacionResponseDto" }
                 }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/cotizaciones/proveedores/{proveedorId}/calificacion": {
+      "get": {
+        "tags": ["Cotizaciones"],
+        "summary": "Consultar la calificación vigente de un proveedor (Roles: Comprador, Admin)",
+        "description": "Devuelve la calificación registrada (1 a 5) para el proveedor indicado en DB_Licit. Si el proveedor todavía no tiene calificación cargada, responde 404 Not Found con ProblemDetails.",
+        "parameters": [
+          {
+            "name": "proveedorId",
+            "in": "path",
+            "description": "Identificador único (GUID) del proveedor.",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CalificacionProveedorResponseDto" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "tags": ["Cotizaciones"],
+        "summary": "Cargar o actualizar la calificación de un proveedor en escala de 1 a 5 (Roles: Comprador, Admin)",
+        "description": "Registra o actualiza (upsert idempotente, una única fila por proveedorId) la calificación del proveedor entre 1 y 5 para el cálculo de scoring en comparativas (#88).",
+        "parameters": [
+          {
+            "name": "proveedorId",
+            "in": "path",
+            "description": "Identificador único (GUID) del proveedor.",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpsertCalificacionProveedorRequestDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Calificación registrada o actualizada exitosamente.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CalificacionProveedorResponseDto" }
               }
             }
           },
@@ -935,10 +1028,12 @@
             "description": "Nombre del proveedor tal como figuraba al cotizar (máximo 200 caracteres). Sale del claim 'name' del JWT cuando el proveedor cotiza por su cuenta, o de lo que escribió Compras al generar el Magic Link. null si no se conoce (cotizaciones anteriores, o un Admin que cotiza en nombre de otro proveedor): no se inventa. Si falta, el frontend muestra el comienzo de proveedorId."
           },
           "calificacionProveedor": {
-            "type": "number",
-            "format": "double",
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 5,
             "nullable": true,
-            "description": "Calificación del proveedor, en escala de 1 a 5. Hoy siempre es null: todavía no hay de dónde obtenerla (#88 y #197). Mientras tanto el scoring la trata como 0 para todas las ofertas."
+            "description": "Calificación del proveedor en escala de 1 a 5 (#88). Si el proveedor aún no tiene calificación registrada, viene en null y el scoring normaliza su puntaje de calificación como 0 (manteniendo el peso del criterio en el divisor)."
           },
           "desglosePuntaje": {
             "nullable": true,
@@ -1157,6 +1252,44 @@
       },
       "OrdenCompraResponseDto": {
         "$ref": "#/components/schemas/OrdenCompraListadoDto"
+      },
+      "UpsertCalificacionProveedorRequestDto": {
+        "type": "object",
+        "required": ["calificacion"],
+        "properties": {
+          "calificacion": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "Calificación del proveedor en escala entera de 1 a 5 (#88)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CalificacionProveedorResponseDto": {
+        "type": "object",
+        "required": ["proveedorId", "calificacion", "fechaActualizacion"],
+        "properties": {
+          "proveedorId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del proveedor calificado."
+          },
+          "calificacion": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "Calificación vigente del proveedor (1 a 5)."
+          },
+          "fechaActualizacion": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha y hora de última actualización de la calificación (en UTC)."
+          }
+        },
+        "additionalProperties": false
       },
       "ProblemDetails": {
         "type": "object",
