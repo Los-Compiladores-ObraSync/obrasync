@@ -1,10 +1,12 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { setToken } from '../api/client'
 import { AuthContext, type SesionUsuario } from '../auth/sessionContext'
+import { BloqueadasProvider } from '../notificaciones/BloqueadasProvider'
+import { CampanaConPendientes } from '../notificaciones/CampanaConPendientes'
 import {
   MOCK_TOKEN_ADMIN,
   ORDEN_BLOQUEADA_1_ID,
@@ -32,7 +34,10 @@ function renderPagina(usuario: SesionUsuario = usuarioAdmin, initialEntries = ['
   return render(
     <AuthContext.Provider value={{ usuario, login: () => {}, logout: () => {} }}>
       <MemoryRouter initialEntries={initialEntries}>
-        <PresupuestoPage />
+        <BloqueadasProvider intervaloMs={60_000}>
+          <CampanaConPendientes />
+          <PresupuestoPage />
+        </BloqueadasProvider>
       </MemoryRouter>
     </AuthContext.Provider>,
   )
@@ -215,6 +220,55 @@ describe('PresupuestoPage', () => {
   })
 
   describe('Órdenes de compra bloqueadas (#97)', () => {
+    it('informa el error inicial en el tablero y la campana, sin mostrar una lista vacía', async () => {
+      server.use(
+        http.get('*/api/recepciones/ordenes-bloqueadas', () =>
+          HttpResponse.json({ title: 'Falla', status: 500 }, { status: 500 }),
+        ),
+      )
+      renderPagina(usuarioAdmin)
+
+      expect(await screen.findByText(/No se pudieron cargar las órdenes bloqueadas/)).toBeInTheDocument()
+      const campana = screen.getByRole('button', { name: /no se pudieron cargar las órdenes bloqueadas/i })
+      expect(campana).toBeInTheDocument()
+      expect(screen.queryByText('No tenés avisos')).not.toBeInTheDocument()
+
+      await userEvent.setup().click(campana)
+      expect(await screen.findByText(/No se pudieron cargar los avisos de órdenes bloqueadas/)).toBeInTheDocument()
+    })
+
+    it('conserva las órdenes y muestra el error cuando falla una actualización', async () => {
+      let falla = false
+      server.use(
+        http.get('*/api/recepciones/ordenes-bloqueadas', () => {
+          if (falla) return HttpResponse.json({ title: 'Falla', status: 500 }, { status: 500 })
+          return HttpResponse.json([{
+            ordenCompraId: ORDEN_BLOQUEADA_1_ID,
+            obraId: 'b1b2c3d4-0000-0000-0000-0000000000a1',
+            partidaId: null,
+            etapa: 'Albañilería',
+            montoOrdenCompra: 2200000,
+            montoAsignadoPartida: 5000000,
+            montoComprometidoActual: 4000000,
+            montoProyectado: 6200000,
+            exceso: 1200000,
+            motivo: 'Excede presupuesto',
+            fechaBloqueo: '2026-11-18T12:00:00Z',
+          }], { headers: { 'X-Total-Count': '1' } })
+        }),
+      )
+
+      renderPagina(usuarioAdmin)
+      expect(await screen.findByRole('button', { name: 'Autorizar y liberar' })).toBeInTheDocument()
+
+      falla = true
+      act(() => document.dispatchEvent(new Event('visibilitychange')))
+
+      expect(await screen.findByText(/No se pudieron actualizar las órdenes bloqueadas/)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Autorizar y liberar' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /no se pudieron actualizar las órdenes bloqueadas/i })).toBeInTheDocument()
+    })
+
     it('Admin ve las órdenes bloqueadas, el botón de autorización y puede liberarlas con motivo', async () => {
       const user = userEvent.setup()
       renderPagina(usuarioAdmin)
@@ -222,6 +276,7 @@ describe('PresupuestoPage', () => {
       expect(
         await screen.findByRole('heading', { name: 'Órdenes de compra bloqueadas' }),
       ).toBeInTheDocument()
+      expect(await screen.findByRole('button', { name: 'Notificaciones: 2 sin leer' })).toBeInTheDocument()
 
       expect(
         screen.getAllByText(/Orden bloqueada: supera la partida de la etapa por/),
@@ -243,6 +298,7 @@ describe('PresupuestoPage', () => {
       await user.click(botonConfirmar)
 
       expect(await screen.findByText('Orden liberada')).toBeInTheDocument()
+      expect(await screen.findByRole('button', { name: 'Notificaciones: 1 sin leer' })).toBeInTheDocument()
     })
 
     it('Comprador ve el aviso pero no ve el botón de autorizar', async () => {
@@ -258,7 +314,9 @@ describe('PresupuestoPage', () => {
 
     it('no muestra la sección si la lista de órdenes bloqueadas está vacía', async () => {
       server.use(
-        http.get('*/api/recepciones/ordenes-bloqueadas', () => HttpResponse.json([])),
+        http.get('*/api/recepciones/ordenes-bloqueadas', () =>
+          HttpResponse.json([], { headers: { 'X-Total-Count': '0' } }),
+        ),
       )
 
       renderPagina(usuarioAdmin)
@@ -309,11 +367,42 @@ describe('PresupuestoPage', () => {
       expect(await screen.findByText('La orden ya no existe')).toBeInTheDocument()
     })
 
-    it('muestra error 409: "La orden ya no está bloqueada" y la saca de la lista', async () => {
+    it('muestra error 409 y reconcilia la lista compartida con el backend', async () => {
+      let conflicto = false
       server.use(
-        http.post('*/api/recepciones/ordenes/:id/liberar', () =>
-          HttpResponse.json({ title: 'Conflicto', status: 409 }, { status: 409 }),
-        ),
+        http.post('*/api/recepciones/ordenes/:id/liberar', () => {
+          conflicto = true
+          return HttpResponse.json({ title: 'Conflicto', status: 409 }, { status: 409 })
+        }),
+        http.get('*/api/recepciones/ordenes-bloqueadas', () => {
+          const ordenes = [{
+            ordenCompraId: 'e1e2e3e4-0000-0000-0000-0000000000b2',
+            obraId: 'b1b2c3d4-0000-0000-0000-0000000000a1',
+            partidaId: 'p1p2p3p4-0000-0000-0000-000000000001',
+            etapa: 'Estructura',
+            montoOrdenCompra: 5500000,
+            montoAsignadoPartida: 10000000,
+            montoComprometidoActual: 6000000,
+            montoProyectado: 11500000,
+            exceso: 1500000,
+            motivo: 'Desvío',
+            fechaBloqueo: '2026-10-21T12:00:00Z',
+          }]
+          if (!conflicto) ordenes.unshift({
+            ordenCompraId: ORDEN_BLOQUEADA_1_ID,
+            obraId: 'b1b2c3d4-0000-0000-0000-0000000000a1',
+            partidaId: 'p1p2p3p4-0000-0000-0000-000000000002',
+            etapa: 'Albañilería',
+            montoOrdenCompra: 2200000,
+            montoAsignadoPartida: 5000000,
+            montoComprometidoActual: 4000000,
+            montoProyectado: 6200000,
+            exceso: 1200000,
+            motivo: 'Desvío',
+            fechaBloqueo: '2026-10-20T12:00:00Z',
+          })
+          return HttpResponse.json(ordenes, { headers: { 'X-Total-Count': String(ordenes.length) } })
+        }),
       )
 
       const user = userEvent.setup()
@@ -327,8 +416,8 @@ describe('PresupuestoPage', () => {
 
       expect(await screen.findByText('La orden ya no está bloqueada')).toBeInTheDocument()
 
-      const botonesRestantes = screen.getAllByRole('button', { name: 'Autorizar y liberar' })
-      expect(botonesRestantes).toHaveLength(1)
+      expect(screen.getAllByRole('button', { name: 'Autorizar y liberar' })).toHaveLength(1)
+      expect(screen.queryByText('Orden liberada')).not.toBeInTheDocument()
     })
 
     it('muestra mensaje adecuado cuando hay falla de red', async () => {
@@ -526,13 +615,27 @@ describe('PresupuestoPage', () => {
       expect(consultasPartidas).toBeGreaterThanOrEqual(2)
     })
 
-    it('no realiza la petición al endpoint de órdenes bloqueadas ni muestra la sección cuando no está en modo simulado', async () => {
+    it('consulta el endpoint real y muestra la sección cuando no está en modo simulado', async () => {
       vi.spyOn(modoSimulado, 'estaEnModoSimulado').mockReturnValue(false)
       let llamadasEndpoint = 0
       server.use(
         http.get('*/api/recepciones/ordenes-bloqueadas', () => {
           llamadasEndpoint += 1
-          return HttpResponse.json([])
+          return HttpResponse.json([
+            {
+              ordenCompraId: ORDEN_BLOQUEADA_1_ID,
+              obraId: 'b1b2c3d4-0000-0000-0000-0000000000a1',
+              partidaId: null,
+              etapa: 'Albañilería',
+              montoOrdenCompra: 2200000,
+              montoAsignadoPartida: 5000000,
+              montoComprometidoActual: 4000000,
+              montoProyectado: 6200000,
+              exceso: 1200000,
+              motivo: 'Excede presupuesto',
+              fechaBloqueo: '2026-11-18T12:00:00Z',
+            },
+          ], { headers: { 'X-Total-Count': '1' } })
         }),
       )
 
@@ -540,10 +643,63 @@ describe('PresupuestoPage', () => {
 
       await screen.findByLabelText('Obra')
 
-      expect(llamadasEndpoint).toBe(0)
+      expect(llamadasEndpoint).toBeGreaterThan(0)
       expect(
-        screen.queryByRole('heading', { name: 'Órdenes de compra bloqueadas' }),
-      ).not.toBeInTheDocument()
+        await screen.findByRole('heading', { name: 'Órdenes de compra bloqueadas' }),
+      ).toBeInTheDocument()
+    })
+
+    it.each([
+      [400, 'El motivo es inválido.'],
+      [403, 'Solo un Administrador puede autorizar'],
+      [500, 'No se pudo conectar con el servidor. Intentá nuevamente.'],
+    ])('no refresca la campana ni muestra éxito cuando la liberación responde %i', async (status, mensaje) => {
+      let consultasBloqueadas = 0
+      server.use(
+        http.get('*/api/recepciones/ordenes-bloqueadas', ({ request }) => {
+          consultasBloqueadas += 1
+          const url = new URL(request.url)
+          return HttpResponse.json(
+            url.searchParams.has('pagina')
+              ? [
+                  {
+                    ordenCompraId: ORDEN_BLOQUEADA_1_ID,
+                    obraId: 'b1b2c3d4-0000-0000-0000-0000000000a1',
+                    partidaId: null,
+                    etapa: 'Albañilería',
+                    montoOrdenCompra: 2200000,
+                    montoAsignadoPartida: 5000000,
+                    montoComprometidoActual: 4000000,
+                    montoProyectado: 6200000,
+                    exceso: 1200000,
+                    motivo: 'Excede presupuesto',
+                    fechaBloqueo: '2026-11-18T12:00:00Z',
+                  },
+                ]
+              : [],
+            { headers: { 'X-Total-Count': url.searchParams.has('pagina') ? '1' : '0' } },
+          )
+        }),
+        http.post('*/api/recepciones/ordenes/:id/liberar', () =>
+          HttpResponse.json(
+            { title: 'Error de liberación', status, detail: status === 400 ? mensaje : undefined },
+            { status },
+          ),
+        ),
+      )
+
+      const user = userEvent.setup()
+      renderPagina(usuarioAdmin)
+      await screen.findByRole('button', { name: 'Notificaciones: 1 sin leer' })
+      const boton = (await screen.findAllByRole('button', { name: 'Autorizar y liberar' }))[0]
+      await user.click(boton)
+      await user.click(screen.getByRole('button', { name: 'Confirmar autorización' }))
+      expect(await screen.findByText(mensaje)).toBeInTheDocument()
+      expect(screen.queryByText('Orden liberada')).not.toBeInTheDocument()
+
+      const consultasAlFallar = consultasBloqueadas
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(consultasBloqueadas).toBe(consultasAlFallar)
     })
   })
 })

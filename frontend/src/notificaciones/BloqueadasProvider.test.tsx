@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthContext, type SesionUsuario } from '../auth/sessionContext'
-import { reiniciarPresupuestoMock } from '../mocks/handlers'
+import { MOCK_TOKEN_ADMIN, MOCK_TOKEN_COMPRADOR, reiniciarPresupuestoMock } from '../mocks/handlers'
+import { setToken } from '../api/client'
 import * as modoSimulado from '../mocks/modoSimulado'
 import { server } from '../mocks/server'
 import { BloqueadasProvider } from './BloqueadasProvider'
@@ -25,6 +26,7 @@ function Cantidad() {
 }
 
 function renderizar(rol: string, intervaloMs?: number) {
+  setToken(rol === 'Admin' ? MOCK_TOKEN_ADMIN : MOCK_TOKEN_COMPRADOR)
   const usuario: SesionUsuario = {
     id: 'u-1',
     nombreCompleto: 'Persona de Prueba',
@@ -41,6 +43,8 @@ function renderizar(rol: string, intervaloMs?: number) {
 }
 
 const esperar = (ms: number) => new Promise((resolver) => setTimeout(resolver, ms))
+const respuestaLista = (items: unknown[]) =>
+  HttpResponse.json(items, { headers: { 'X-Total-Count': String(items.length) } })
 
 describe('BloqueadasProvider', () => {
   beforeEach(() => {
@@ -75,7 +79,7 @@ describe('BloqueadasProvider', () => {
     server.use(
       http.get('*/api/recepciones/ordenes-bloqueadas', () => {
         llamadas += 1
-        return HttpResponse.json([])
+        return respuestaLista([])
       }),
     )
 
@@ -85,7 +89,7 @@ describe('BloqueadasProvider', () => {
     expect(llamadas).toBe(0)
     expect(screen.getByTestId('cantidad')).toHaveTextContent('0')
     expect(screen.getByTestId('lista')).toHaveTextContent('0')
-    expect(screen.getByTestId('cargado')).toHaveTextContent('false')
+    expect(screen.getByTestId('cargado')).toHaveTextContent('true')
   })
 
   it('actualiza por intervalo cada cierto tiempo', async () => {
@@ -94,9 +98,9 @@ describe('BloqueadasProvider', () => {
       http.get('*/api/recepciones/ordenes-bloqueadas', () => {
         llamadas += 1
         if (llamadas === 1) {
-          return HttpResponse.json([{ ordenCompraId: 'oc-1' }])
+          return respuestaLista([{ ordenCompraId: 'oc-1' }])
         }
-        return HttpResponse.json([{ ordenCompraId: 'oc-1' }, { ordenCompraId: 'oc-2' }, { ordenCompraId: 'oc-3' }])
+        return respuestaLista([{ ordenCompraId: 'oc-1' }, { ordenCompraId: 'oc-2' }, { ordenCompraId: 'oc-3' }])
       }),
     )
 
@@ -112,7 +116,7 @@ describe('BloqueadasProvider', () => {
     server.use(
       http.get('*/api/recepciones/ordenes-bloqueadas', () => {
         llamadas += 1
-        return HttpResponse.json([{ ordenCompraId: 'oc-1' }])
+        return respuestaLista([{ ordenCompraId: 'oc-1' }])
       }),
     )
 
@@ -137,7 +141,7 @@ describe('BloqueadasProvider', () => {
         if (falla) {
           return HttpResponse.json({ status: 500 }, { status: 500 })
         }
-        return HttpResponse.json([{ ordenCompraId: 'oc-1' }, { ordenCompraId: 'oc-2' }])
+        return respuestaLista([{ ordenCompraId: 'oc-1' }, { ordenCompraId: 'oc-2' }])
       }),
     )
 
@@ -157,7 +161,7 @@ describe('BloqueadasProvider', () => {
     server.use(
       http.get('*/api/recepciones/ordenes-bloqueadas', async () => {
         await esperar(100)
-        return HttpResponse.json([{ ordenCompraId: 'oc-1' }])
+        return respuestaLista([{ ordenCompraId: 'oc-1' }])
       }),
     )
 
@@ -167,21 +171,21 @@ describe('BloqueadasProvider', () => {
     await esperar(150)
   })
 
-  it('no realiza llamadas de red al endpoint propuesto cuando no está en modo simulado', async () => {
+  it('consulta el endpoint cuando no está en modo simulado', async () => {
     vi.spyOn(modoSimulado, 'estaEnModoSimulado').mockReturnValue(false)
     let llamadas = 0
     server.use(
       http.get('*/api/recepciones/ordenes-bloqueadas', () => {
         llamadas += 1
-        return HttpResponse.json([])
+        return respuestaLista([{ ordenCompraId: 'oc-real' }])
       }),
     )
 
     renderizar('Admin')
 
     await esperar(100)
-    expect(llamadas).toBe(0)
-    expect(screen.getByTestId('cantidad')).toHaveTextContent('0')
-    expect(screen.getByTestId('lista')).toHaveTextContent('0')
+    expect(llamadas).toBe(1)
+    expect(screen.getByTestId('cantidad')).toHaveTextContent('1')
+    expect(screen.getByTestId('lista')).toHaveTextContent('1')
   })
 })

@@ -2,10 +2,10 @@ import { useContext, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { AuthContext } from '../auth/sessionContext'
+import { useBloqueadas } from '../notificaciones/useBloqueadas'
 import { formatearPesos } from '../presupuesto/formatoPesos'
 import {
   liberarOrdenCompra,
-  listarOrdenesBloqueadas,
   obtenerPartidas,
 } from '../presupuesto/presupuestoService'
 import type {
@@ -33,6 +33,13 @@ function mensajeDeErrorLiberar(err: unknown): string {
 
 export function PresupuestoPage() {
   const auth = useContext(AuthContext)
+  const {
+    bloqueadas: ordenesBloqueadas,
+    refrescar: refrescarOrdenesBloqueadas,
+    reconciliarOrdenNoBloqueada,
+    cargado: bloqueadasCargadas,
+    huboError: errorBloqueadas,
+  } = useBloqueadas()
   const esAdmin = auth?.usuario?.rol === 'Admin'
 
   const [searchParams, setSearchParams] = useSearchParams()
@@ -45,8 +52,7 @@ export function PresupuestoPage() {
   const [error, setError] = useState<EstadoError | null>(null)
   const [intento, setIntento] = useState(0)
 
-  // Órdenes bloqueadas (#97)
-  const [ordenesBloqueadas, setOrdenesBloqueadas] = useState<OrdenCompraBloqueada[]>([])
+  // Las órdenes bloqueadas vienen del proveedor compartido con la campana (#97).
   const [autorizandoId, setAutorizandoId] = useState<string | null>(null)
   const [motivoLiberacion, setMotivoLiberacion] = useState('')
   const [liberandoId, setLiberandoId] = useState<string | null>(null)
@@ -62,13 +68,9 @@ export function PresupuestoPage() {
 
     async function cargarInicial() {
       try {
-        const [listaObras, bloqueadas] = await Promise.all([
-          obtenerObras(),
-          listarOrdenesBloqueadas().catch(() => []),
-        ])
+        const listaObras = await obtenerObras()
         if (!cancelado) {
           setObras(listaObras)
-          setOrdenesBloqueadas(bloqueadas)
         }
       } catch (err) {
         if (!cancelado) {
@@ -173,22 +175,18 @@ export function PresupuestoPage() {
       await liberarOrdenCompra(orden.ordenCompraId, {
         motivo: motivoLiberacion.trim() || null,
       })
-      setOrdenesBloqueadas((actuales) =>
-        actuales.filter((o) => o.ordenCompraId !== orden.ordenCompraId),
-      )
       setMensajeExito('Orden liberada')
       setAutorizandoId(null)
       setMotivoLiberacion('')
+      refrescarOrdenesBloqueadas()
       // Vuelve a pedir el tablero para reflejar los montos actualizados
       setIntento((n) => n + 1)
     } catch (err) {
       const msg = mensajeDeErrorLiberar(err)
       setErrorAccion(msg)
       if (err instanceof ApiError && err.status === 409) {
-        // La orden ya no está bloqueada: se quita de la lista
-        setOrdenesBloqueadas((actuales) =>
-          actuales.filter((o) => o.ordenCompraId !== orden.ordenCompraId),
-        )
+        // El backend confirma que ya cambió de estado: retirarla inmediatamente y reconciliar.
+        reconciliarOrdenNoBloqueada(orden.ordenCompraId)
         setAutorizandoId(null)
         setMotivoLiberacion('')
       }
@@ -221,6 +219,23 @@ export function PresupuestoPage() {
         <p className={styles.errorApi} role="alert">
           {errorAccion}
         </p>
+      )}
+
+      {errorBloqueadas && (
+        <div role="alert" className={styles.errorApi}>
+          <p>
+            {bloqueadasCargadas
+              ? 'No se pudieron actualizar las órdenes bloqueadas. Se conservan los datos anteriores.'
+              : 'No se pudieron cargar las órdenes bloqueadas. No es posible confirmar si hay órdenes.'}
+          </p>
+          <button type="button" onClick={refrescarOrdenesBloqueadas} className={styles.botonReintentar}>
+            Reintentar
+          </button>
+        </div>
+      )}
+
+      {!errorBloqueadas && !bloqueadasCargadas && (
+        <p role="status" className={styles.estadoMensaje}>Cargando órdenes bloqueadas…</p>
       )}
 
       {/* Sección de Órdenes Bloqueadas: SOLO si hay órdenes */}

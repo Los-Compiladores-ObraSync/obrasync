@@ -157,7 +157,7 @@ function renderizarConAmbos(cantidadPendientes: number, cantidadBloqueadas: numb
                 value={{ cantidad: cantidadPendientes, pendientes: [], cargado: true, huboError: false, refrescar: () => {} }}
             >
                 <BloqueadasContext.Provider
-                    value={{ cantidad: cantidadBloqueadas, bloqueadas: [], cargado: true, huboError: false, refrescar: () => {} }}
+                    value={{ cantidad: cantidadBloqueadas, bloqueadas: [], cargado: true, huboError: false, refrescar: () => {}, reconciliarOrdenNoBloqueada: () => {} }}
                 >
                     <p>Afuera</p>
                     <CampanaConPendientes />

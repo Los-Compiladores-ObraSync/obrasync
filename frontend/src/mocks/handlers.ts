@@ -5,9 +5,13 @@ import { hoyComoTexto } from '../obras/fechaEnPalabras'
 // Token simulado con la estructura real de JWT (header.payload.firma).
 // La firma es falsa y los claims son de ejemplo: el frontend no decodifica el token,
 // solo lo reenvía. El usuario y el rol salen del cuerpo de la respuesta (roles[]).
-const MOCK_TOKEN =
+export const MOCK_TOKEN_CAPATAZ =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' +
   '.eyJzdWIiOiJhMWIyYzNkNC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDEiLCJlbWFpbCI6ImNhcGF0YXpAb2JyYXN5bmMuY29tIiwibmFtZSI6Ikp1YW4gUMOpcmV6Iiwicm9sZSI6IkNhcGF0YXoifQ' +
+  '.MOCK_FIRMA_NO_VALIDA'
+export const MOCK_TOKEN_COMPRADOR =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' +
+  '.eyJzdWIiOiJhMWIyYzNkNC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDIiLCJlbWFpbCI6ImNvbXByYWRvckBvYnJhc3luYy5jb20iLCJyb2xlIjoiQ29tcHJhZG9yIn0' +
   '.MOCK_FIRMA_NO_VALIDA'
 
 // Una contraseña de prueba para todos los usuarios simulados.
@@ -448,7 +452,9 @@ export const handlers: RequestHandler[] = [
           id: usuario.id,
           nombreCompleto: usuario.nombreCompleto,
           email: usuario.email,
-          token: MOCK_TOKEN,
+          token: usuario.rol === 'Admin' ? MOCK_TOKEN_ADMIN
+            : usuario.rol === 'Comprador' ? MOCK_TOKEN_COMPRADOR
+              : MOCK_TOKEN_CAPATAZ,
           roles: [usuario.rol],
         },
         { status: 200 },
@@ -719,7 +725,7 @@ export const handlers: RequestHandler[] = [
     }
     USUARIOS_MOCK.push(nuevo)
     return HttpResponse.json(
-      { id: nuevo.id, nombreCompleto: nuevo.nombreCompleto, email: nuevo.email, token: MOCK_TOKEN, roles: [nuevo.rol] },
+      { id: nuevo.id, nombreCompleto: nuevo.nombreCompleto, email: nuevo.email, token: MOCK_TOKEN_CAPATAZ, roles: [nuevo.rol] },
       { status: 201 },
     )
   }),
@@ -1424,10 +1430,26 @@ export const handlers: RequestHandler[] = [
     return responderPaginado(request, filtradas)
   }),
 
-  // PROPUESTO, NO ESTÁ EN EL CONTRATO (#97):
-  // GET /api/recepciones/ordenes-bloqueadas → 200 OrdenCompraBloqueadaDto[]
-  http.get('*/api/recepciones/ordenes-bloqueadas', () => {
-    return HttpResponse.json(ordenesBloqueadasMock, { status: 200 })
+  // Contrato: GET /api/recepciones/ordenes-bloqueadas?obraId=&pagina=&tamano=
+  // → 200 OrdenBloqueadaDto[] con X-Total-Count y encabezados de paginación.
+  http.get('*/api/recepciones/ordenes-bloqueadas', ({ request }) => {
+    const rol = rolDelJwt(request)
+    if (!rol) {
+      return HttpResponse.json(
+        { title: 'No autenticado', status: 401, detail: 'Se requiere un token JWT válido.' },
+        { status: 401 },
+      )
+    }
+    if (rol !== 'Comprador' && rol !== 'Admin') {
+      return HttpResponse.json(
+        { title: 'Acceso denegado', status: 403, detail: 'El usuario no tiene un rol habilitado.' },
+        { status: 403 },
+      )
+    }
+    const url = new URL(request.url)
+    const obraId = url.searchParams.get('obraId')
+    const filtradas = ordenesBloqueadasMock.filter((orden) => !obraId || orden.obraId === obraId)
+    return responderPaginado(request, filtradas)
   }),
 
   // Contrato: POST /api/recepciones/ordenes/{id}/liberar → 200 | 400 | 401 | 403 | 404 | 409
@@ -1594,6 +1616,7 @@ function crearOrdenesBloqueadasMock() {
     {
       ordenCompraId: ORDEN_BLOQUEADA_1_ID,
       obraId: 'b1b2c3d4-0000-0000-0000-0000000000a1',
+      partidaId: 'p1p2p3p4-0000-0000-0000-000000000002',
       etapa: 'Albañilería',
       montoOrdenCompra: 2200000,
       montoAsignadoPartida: 5000000,
@@ -1601,10 +1624,12 @@ function crearOrdenesBloqueadasMock() {
       montoProyectado: 6200000,
       exceso: 1200000,
       motivo: 'La orden de compra por $ 2.200.000,00 supera la partida de Albañilería (exceso de $ 1.200.000,00)',
+      fechaBloqueo: '2026-10-20T12:00:00Z',
     },
     {
       ordenCompraId: ORDEN_BLOQUEADA_2_ID,
       obraId: 'b1b2c3d4-0000-0000-0000-0000000000a1',
+      partidaId: 'p1p2p3p4-0000-0000-0000-000000000001',
       etapa: 'Estructura',
       montoOrdenCompra: 5500000,
       montoAsignadoPartida: 10000000,
@@ -1612,6 +1637,7 @@ function crearOrdenesBloqueadasMock() {
       montoProyectado: 11500000,
       exceso: 1500000,
       motivo: 'La orden de compra por $ 5.500.000,00 supera la partida de Estructura (exceso de $ 1.500.000,00)',
+      fechaBloqueo: '2026-10-21T12:00:00Z',
     },
   ]
 }
@@ -1653,5 +1679,19 @@ function esUsuarioAdmin(request: Request): boolean {
     // ignorar
   }
   return false
+}
+
+/** Lee el rol del JWT del mecanismo de sesión simulado existente. */
+function rolDelJwt(request: Request): string | undefined {
+  const auth = request.headers.get('Authorization')
+  const coincidencia = auth?.match(/^Bearer\s+([^.]+\.([^.]+)\.[^.]+)$/i)
+  if (!coincidencia) return undefined
+  try {
+    const payload = JSON.parse(atob(coincidencia[2]))
+    const rol = payload.rol ?? payload.role
+    return typeof rol === 'string' && rol.length > 0 ? rol : undefined
+  } catch {
+    return undefined
+  }
 }
 

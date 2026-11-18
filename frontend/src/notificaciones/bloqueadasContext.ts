@@ -12,6 +12,8 @@ export interface BloqueadasContextValue {
   huboError: boolean
   /** Vuelve a pedir la lista al servicio. */
   refrescar: () => void
+  /** Retira una orden que el backend confirmó que ya no está bloqueada y recarga la lista. */
+  reconciliarOrdenNoBloqueada: (ordenCompraId: string) => void
 }
 
 /** Valor por defecto: sin proveedor, la cantidad es 0 y refrescar no hace nada.
@@ -19,7 +21,9 @@ export interface BloqueadasContextValue {
 export const BloqueadasContext = createContext<BloqueadasContextValue>({
   cantidad: 0,
   bloqueadas: [],
-  cargado: false,
+  // Sin proveedor la campana aislada no espera una consulta que nunca se ejecutará.
+  cargado: true,
   huboError: false,
   refrescar: () => {},
+  reconciliarOrdenNoBloqueada: () => {},
 })

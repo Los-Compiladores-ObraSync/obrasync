@@ -18,6 +18,10 @@ interface Props {
   pendientes?: RequisicionResponseDto[]
   /** Órdenes de compra bloqueadas por desvío presupuestario (#97). */
   cantidadBloqueadas?: number
+  /** Estado de la carga compartida de órdenes bloqueadas. */
+  bloqueadasCargadas?: boolean
+  huboErrorBloqueadas?: boolean
+  onReintentarBloqueadas?: () => void
   /** Se llama al tocar un enlace, para que el panel se cierre. */
   onNavegar: () => void
 }
@@ -30,13 +34,16 @@ export function PanelNotificaciones({
   cantidad,
   pendientes = [],
   cantidadBloqueadas = 0,
+  bloqueadasCargadas = true,
+  huboErrorBloqueadas = false,
+  onReintentarBloqueadas,
   onNavegar,
 }: Props) {
   const [nombresObras, setNombresObras] = useState<Record<string, string>>({})
   const totalPendientes = cantidadPendientes ?? cantidad ?? 0
   const hayPendientes = totalPendientes > 0
   const hayBloqueadas = cantidadBloqueadas > 0
-  const hayAvisos = hayPendientes || hayBloqueadas
+  const hayAvisos = hayPendientes || hayBloqueadas || huboErrorBloqueadas || !bloqueadasCargadas
 
   // Los nombres de las obras se piden solo si hay algo para mostrar en la lista de requisiciones.
   useEffect(() => {
@@ -61,6 +68,23 @@ export function PanelNotificaciones({
     <div id={id} className={styles.panel} role="region" aria-label="Avisos">
       {hayAvisos ? (
         <>
+          {huboErrorBloqueadas && (
+            <div role="alert" className={styles.seccionAviso}>
+              <p className={styles.texto}>
+                {bloqueadasCargadas
+                  ? 'No se pudieron actualizar los avisos de órdenes bloqueadas.'
+                  : 'No se pudieron cargar los avisos de órdenes bloqueadas.'}
+              </p>
+              {onReintentarBloqueadas && (
+                <button type="button" className={styles.enlace} onClick={onReintentarBloqueadas}>
+                  Reintentar
+                </button>
+              )}
+            </div>
+          )}
+          {!huboErrorBloqueadas && !bloqueadasCargadas && (
+            <p role="status" className={styles.vacio}>Cargando avisos de órdenes bloqueadas…</p>
+          )}
           {hayPendientes && (
             <div className={styles.seccionAviso}>
               <p className={styles.texto}>{textoPendientes(totalPendientes)}</p>
