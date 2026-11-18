@@ -16,6 +16,10 @@ public static class LicitacionMappingExtensions
             Estado = licitacion.Estado.ToString(),
             FechaCreacion = DateTime.SpecifyKind(licitacion.FechaCreacion, DateTimeKind.Utc),
             FechaLimiteCotizacion = DateTime.SpecifyKind(licitacion.FechaLimiteCotizacion, DateTimeKind.Utc),
+            MotivoCierre = licitacion.MotivoCierre,
+            FechaCierre = licitacion.FechaCierre.HasValue
+                ? DateTime.SpecifyKind(licitacion.FechaCierre.Value, DateTimeKind.Utc)
+                : null,
             Items = licitacion.Items
                 .Select(i => new PliegoItemDto
                 {
