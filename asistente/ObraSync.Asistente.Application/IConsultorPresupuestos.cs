@@ -27,8 +27,7 @@ public sealed record ResultadoPartidasPresupuestarias(
 }
 
 /// <summary>
-/// Fuente de las partidas presupuestarias. La API conserva la autorización por JWT;
-/// la integración de OC bloqueadas queda fuera hasta que exista el contrato #210.
+/// Fuente de partidas presupuestarias. La API conserva la autorización por JWT.
 /// </summary>
 public interface IConsultorPresupuestos
 {

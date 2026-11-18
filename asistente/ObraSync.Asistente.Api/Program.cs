@@ -209,9 +209,9 @@ app.MapControllers();
 // Las herramientas MCP existentes conservan su autorización original.
 app.MapMcp("/api/mcp").RequireAuthorization(new AuthorizeAttribute { Roles = "Capataz,Admin" });
 
-// Ruta presupuestaria separada: el filtro limita tools/list y tools/call a la consulta de partidas.
+// Ruta presupuestaria separada: consulta de partidas y OCs bloqueadas (Comprador/Admin, como Recepción).
 app.MapMcp(FiltroHerramientasMcpPorRuta.RutaPresupuestos)
-    .RequireAuthorization(new AuthorizeAttribute { Roles = "Capataz,Comprador,Admin" });
+    .RequireAuthorization(new AuthorizeAttribute { Roles = "Comprador,Admin" });
 
 app.Run();
 
