@@ -5,5 +5,9 @@ public record OrdenCompraResponseDto(
     Guid LicitacionId,
     Guid CotizacionId,
     string Estado,
-    DateTime FechaEmision
+    DateTime FechaEmision,
+    Guid ObraId = default,
+    Guid ProveedorId = default,
+    bool FueDespachada = false,
+    DateTime? FechaDespacho = null
 );
