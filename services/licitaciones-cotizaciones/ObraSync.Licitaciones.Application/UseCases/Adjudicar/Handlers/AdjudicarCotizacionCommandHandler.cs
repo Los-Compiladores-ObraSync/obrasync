@@ -1,5 +1,6 @@
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.DTOs;
+using ObraSync.Licitaciones.Application.Mappings;
 using ObraSync.Licitaciones.Domain.Entities;
 using MassTransit;
 using MediatR;
@@ -93,6 +94,7 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
             LicitacionId = licitacion.LicitacionId,
             CotizacionId = cotizacion.CotizacionId,
             ProveedorId = cotizacion.ProveedorId,
+            ObraId = licitacion.ObraId,
             Estado = "Emitida",
             FechaEmision = DateTime.UtcNow,
             TotalFlete = cotizacion.Flete,
@@ -154,12 +156,6 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
             ordenCompra.OrdenCompraId,
             correlationId);
 
-        return new OrdenCompraResponseDto(
-            ordenCompra.OrdenCompraId,
-            licitacion.LicitacionId,
-            cotizacion.CotizacionId,
-            ordenCompra.Estado,
-            ordenCompra.FechaEmision
-        );
+        return ordenCompra.ToDto();
     }
 }

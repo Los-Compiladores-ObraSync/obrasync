@@ -517,9 +517,37 @@
     "/api/ordenes-compra": {
       "get": {
         "tags": ["OrdenesCompra"],
-        "summary": "Listar órdenes de compra con su estado de despacho (Roles: Comprador, Admin)",
-        "description": "Permite a un Comprador o Administrador consultar las órdenes de compra emitidas con paginación estándar, incluyendo su estado actual y si fueron despachadas.",
+        "summary": "Listar órdenes de compra con su estado de despacho (Roles: Comprador, Admin, Proveedor)",
+        "description": "Permite consultar las órdenes de compra emitidas y despachadas con paginación estándar y filtros opcionales. Si quien consulta es un Proveedor, solo visualiza sus propias órdenes de compra.",
         "parameters": [
+          {
+            "name": "obraId",
+            "in": "query",
+            "description": "Filtrar órdenes de compra por identificador de obra.",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "licitacionId",
+            "in": "query",
+            "description": "Filtrar órdenes de compra por identificador de licitación.",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "proveedorId",
+            "in": "query",
+            "description": "Filtrar órdenes de compra por identificador de proveedor (ignorado si consulta un Proveedor; se usa su propio usuarioId).",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "estado",
+            "in": "query",
+            "description": "Filtrar por estado de la orden de compra (Emitida o Despachada).",
+            "required": false,
+            "schema": { "type": "string" }
+          },
           {
             "name": "pagina",
             "in": "query",
@@ -1126,6 +1154,9 @@
           }
         },
         "additionalProperties": false
+      },
+      "OrdenCompraResponseDto": {
+        "$ref": "#/components/schemas/OrdenCompraListadoDto"
       },
       "ProblemDetails": {
         "type": "object",

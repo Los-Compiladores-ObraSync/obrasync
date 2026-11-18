@@ -10,6 +10,7 @@ using ObraSync.Licitaciones.Application.Services;
 using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Handlers;
+using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Handlers;
 using ObraSync.Licitaciones.Infrastructure;
 using ObraSync.Licitaciones.Infrastructure.Consumers;
 using ObraSync.Licitaciones.Infrastructure.Messaging;
@@ -58,6 +59,8 @@ builder.Services.AddScoped<CrearCotizacionCommandHandler>();
 builder.Services.AddScoped<GetCotizacionesByLicitacionIdQueryHandler>();
 builder.Services.AddScoped<GetMisCotizacionesQueryHandler>();
 builder.Services.AddScoped<AdjudicarCotizacionCommandHandler>();
+builder.Services.AddScoped<DespacharOrdenCompraCommandHandler>();
+builder.Services.AddScoped<GetOrdenesCompraQueryHandler>();
 
 // RabbitMQ + MassTransit (misma convención que Requisiciones)
 var useInMemoryTransport = string.Equals(

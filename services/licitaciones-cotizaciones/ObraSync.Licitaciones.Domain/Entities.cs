@@ -91,8 +91,30 @@ public class OrdenCompra
     public Guid ProveedorId { get; set; }
     public string Estado { get; set; } = "Emitida";
     public DateTime FechaEmision { get; set; } = DateTime.UtcNow;
+    public DateTime? FechaDespacho { get; set; }
     public decimal TotalFlete { get; set; }
     public List<OrdenCompraItem> Items { get; set; } = new();
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public Guid ObraId { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public bool FueDespachada =>
+        string.Equals(Estado, "Despachada", StringComparison.OrdinalIgnoreCase) || FechaDespacho.HasValue;
+
+    public void Despachar(DateTime? fechaDespachoUtc = null)
+    {
+        if (FueDespachada)
+        {
+            throw new InvalidOperationException("La orden de compra ya fue despachada.");
+        }
+
+        var instante = fechaDespachoUtc ?? DateTime.UtcNow;
+        Estado = "Despachada";
+        FechaDespacho = instante.Kind == DateTimeKind.Utc
+            ? instante
+            : DateTime.SpecifyKind(instante, DateTimeKind.Utc);
+    }
 }
 
 public class OrdenCompraItem
