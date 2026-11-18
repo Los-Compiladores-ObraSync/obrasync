@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -16,6 +17,7 @@ namespace ObraSync.Asistente.Tests;
 public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private const string Ruta = "/api/mcp";
+    private const string RutaPresupuestos = "/api/mcp/presupuestos";
 
     private readonly WebApplicationFactory<Program> _fabrica;
 
@@ -24,19 +26,30 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         _fabrica = fabrica.WithWebHostBuilder(b => b.UseSetting("Jwt:Secret", AsistenteEndpointTests.Secreto));
     }
 
-    private HttpClient Cliente(IBuscadorInsumos? buscador = null, IBuscadorObras? obras = null) =>
+    private HttpClient Cliente(
+        IBuscadorInsumos? buscador = null,
+        IBuscadorObras? obras = null,
+        IConsultorPresupuestos? presupuestos = null,
+        bool sinContextoHttp = false) =>
         _fabrica.WithWebHostBuilder(b => b.ConfigureServices(s =>
         {
             s.RemoveAll<IBuscadorInsumos>();
             s.AddScoped(_ => buscador ?? new BuscadorFalso());
             s.RemoveAll<IBuscadorObras>();
             s.AddScoped(_ => obras ?? new ObrasFalsas());
+            s.RemoveAll<IConsultorPresupuestos>();
+            s.AddScoped(_ => presupuestos ?? new ConsultorPresupuestosFalso());
+            if (sinContextoHttp)
+            {
+                s.RemoveAll<IHttpContextAccessor>();
+                s.AddSingleton<IHttpContextAccessor, AccesorHttpNulo>();
+            }
         })).CreateClient();
 
-    private static HttpRequestMessage Rpc(string? token, string metodo, object? parametros, int id)
+    private static HttpRequestMessage Rpc(string? token, string metodo, object? parametros, int id, string ruta = Ruta)
     {
         var cuerpo = new { jsonrpc = "2.0", id, method = metodo, @params = parametros };
-        var pedido = new HttpRequestMessage(HttpMethod.Post, Ruta) { Content = JsonContent.Create(cuerpo) };
+        var pedido = new HttpRequestMessage(HttpMethod.Post, ruta) { Content = JsonContent.Create(cuerpo) };
         // Streamable HTTP: el cliente tiene que aceptar JSON y eventos (SSE).
         pedido.Headers.Accept.ParseAdd("application/json");
         pedido.Headers.Accept.ParseAdd("text/event-stream");
@@ -60,23 +73,54 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         return JsonDocument.Parse(texto).RootElement.Clone();
     }
 
-    private static async Task InicializarAsync(HttpClient cliente, string token)
+    private static async Task InicializarAsync(HttpClient cliente, string token, string ruta)
     {
         var r = await cliente.SendAsync(Rpc(token, "initialize", new
         {
             protocolVersion = "2025-06-18",
             capabilities = new { },
             clientInfo = new { name = "pruebas-obrasync", version = "1.0.0" }
-        }, id: 1));
+        }, id: 1, ruta));
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
     }
 
-    private static async Task<JsonElement> LlamarAsync(HttpClient cliente, string token, string metodo, object? parametros)
+    private static async Task<JsonElement> LlamarAsync(
+        HttpClient cliente,
+        string token,
+        string metodo,
+        object? parametros,
+        string ruta = Ruta)
     {
-        await InicializarAsync(cliente, token);
-        var r = await cliente.SendAsync(Rpc(token, metodo, parametros, id: 2));
+        await InicializarAsync(cliente, token, ruta);
+        var r = await cliente.SendAsync(Rpc(token, metodo, parametros, id: 2, ruta));
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
         return await LeerRespuestaAsync(r);
+    }
+
+    private sealed class ConsultorPresupuestosFalso : IConsultorPresupuestos
+    {
+        private static readonly Guid Obra = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
+        public int Llamadas { get; private set; }
+        public Guid? UltimaObraId { get; private set; }
+        public string? UltimaEtapa { get; private set; }
+
+        public Task<ResultadoPartidasPresupuestarias> ListarPartidasAsync(Guid obraId, string? etapa, CancellationToken ct)
+        {
+            Llamadas++;
+            UltimaObraId = obraId;
+            UltimaEtapa = etapa;
+            return Task.FromResult(ResultadoPartidasPresupuestarias.Bien(new[]
+            {
+                new PartidaPresupuestariaAsistente(
+                    Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001"), obraId, etapa,
+                    "EST-01", "Hormigón", 100m, 25m, 10m, 75m, "ARS")
+            }, 1));
+        }
+    }
+
+    private sealed class AccesorHttpNulo : IHttpContextAccessor
+    {
+        public HttpContext? HttpContext { get => null; set { } }
     }
 
     [Fact]
@@ -100,7 +144,7 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
     [Theory]
     [InlineData("Capataz")]
     [InlineData("Admin")]
-    public async Task Capataz_y_Admin_ven_exactamente_las_dos_herramientas_de_solo_lectura(string rol)
+    public async Task Capataz_y_Admin_ven_las_herramientas_originales_en_la_ruta_original(string rol)
     {
         var respuesta = await LlamarAsync(Cliente(), AsistenteEndpointTests.CrearToken(rol), "tools/list", new { });
 
@@ -110,6 +154,81 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(new[] { "armar_borrador_requisicion", "buscar_insumos" }, nombres);
         Assert.All(herramientas, h =>
             Assert.True(h.GetProperty("annotations").GetProperty("readOnlyHint").GetBoolean()));
+    }
+
+    [Theory]
+    [InlineData("Capataz")]
+    [InlineData("Comprador")]
+    [InlineData("Admin")]
+    public async Task Ruta_presupuestos_muestra_y_ejecuta_solo_la_herramienta_de_partidas(string rol)
+    {
+        var consultor = new ConsultorPresupuestosFalso();
+        var cliente = Cliente(presupuestos: consultor);
+        var token = AsistenteEndpointTests.CrearToken(rol);
+
+        var listado = await LlamarAsync(cliente, token, "tools/list", new { }, RutaPresupuestos);
+        var herramientas = listado.GetProperty("result").GetProperty("tools").EnumerateArray().ToList();
+        var herramienta = Assert.Single(herramientas);
+        Assert.Equal("consultar_partidas_presupuestarias", herramienta.GetProperty("name").GetString());
+        Assert.True(herramienta.GetProperty("annotations").GetProperty("readOnlyHint").GetBoolean());
+
+        var llamada = await LlamarAsync(cliente, token, "tools/call", new
+        {
+            name = "consultar_partidas_presupuestarias",
+            arguments = new { obraId = "aaaaaaaa-0000-0000-0000-000000000001", etapa = "Estructura" }
+        }, RutaPresupuestos);
+        var texto = llamada.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString()!;
+        var datos = JsonDocument.Parse(texto).RootElement;
+
+        Assert.Equal("Hormigón", datos.GetProperty("partidas")[0].GetProperty("descripcion").GetString());
+        Assert.Equal(1, consultor.Llamadas);
+        Assert.Equal(Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), consultor.UltimaObraId);
+        Assert.Equal("Estructura", consultor.UltimaEtapa);
+    }
+
+    [Theory]
+    [InlineData("buscar_insumos", "{\"texto\":\"cemento\"}")]
+    [InlineData("armar_borrador_requisicion", "{\"obra\":\"Torre Central\",\"items\":[{\"insumo\":\"cemento\",\"cantidad\":1}]}")]
+    public async Task Ruta_presupuestos_rechaza_las_herramientas_originales(string nombre, string argumentos)
+    {
+        var respuesta = await LlamarAsync(Cliente(), AsistenteEndpointTests.CrearToken("Comprador"), "tools/call",
+            new { name = nombre, arguments = JsonDocument.Parse(argumentos).RootElement.Clone() }, RutaPresupuestos);
+
+        Assert.True(respuesta.GetProperty("result").GetProperty("isError").GetBoolean());
+        Assert.Contains("no está permitida", respuesta.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString());
+    }
+
+    [Fact]
+    public async Task Contexto_HTTP_nulo_no_lista_herramientas_ni_permite_llamadas()
+    {
+        var cliente = Cliente(sinContextoHttp: true);
+        var token = AsistenteEndpointTests.CrearToken("Comprador");
+
+        var listado = await LlamarAsync(cliente, token, "tools/list", new { }, RutaPresupuestos);
+        Assert.Empty(listado.GetProperty("result").GetProperty("tools").EnumerateArray());
+
+        var llamada = await LlamarAsync(cliente, token, "tools/call", new
+        {
+            name = "buscar_insumos",
+            arguments = new { texto = "cemento" }
+        }, RutaPresupuestos);
+        Assert.True(llamada.GetProperty("result").GetProperty("isError").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Ruta_MCP_desconocida_no_devuelve_herramientas_ni_ejecuta_llamadas()
+    {
+        var cliente = Cliente();
+        var token = AsistenteEndpointTests.CrearToken("Comprador");
+
+        var listado = await cliente.SendAsync(Rpc(token, "tools/list", new { }, 1, "/api/mcp/no-existe"));
+        Assert.Equal(HttpStatusCode.NotFound, listado.StatusCode);
+        var llamada = await cliente.SendAsync(Rpc(token, "tools/call", new
+        {
+            name = "buscar_insumos",
+            arguments = new { texto = "cemento" }
+        }, 2, "/api/mcp/no-existe"));
+        Assert.Equal(HttpStatusCode.NotFound, llamada.StatusCode);
     }
 
     [Fact]

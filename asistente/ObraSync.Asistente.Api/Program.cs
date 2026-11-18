@@ -50,6 +50,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IContextoDePeticion, ContextoDePeticionHttp>();
 builder.Services.AddScoped<HerramientasCatalogo>();
+builder.Services.AddScoped<HerramientasPresupuestos>();
 builder.Services.AddScoped<HerramientasCompras>();
 builder.Services.AddScoped<HerramientasRecepcion>();
 builder.Services.AddScoped<HerramientasLicitaciones>();
@@ -112,6 +113,7 @@ builder.Services.AddAsistenteInfrastructure(builder.Configuration);
 builder.Services
     .AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
+    .WithRequestFilters(FiltroHerramientasMcpPorRuta.Configurar)
     .WithTools<HerramientasMcp>();
 
 // Errores en formato RFC 7807 (ProblemDetails) con el correlationId que propaga el Gateway
@@ -204,8 +206,12 @@ app.MapGet("/health", (ObraSync.Asistente.Infrastructure.ConfiguracionIA ia) => 
 
 app.MapControllers();
 
-// Misma regla que el chat: solo Capataz y Admin (el resto recibe 403). Va por el Gateway en /api/mcp.
+// Las herramientas MCP existentes conservan su autorización original.
 app.MapMcp("/api/mcp").RequireAuthorization(new AuthorizeAttribute { Roles = "Capataz,Admin" });
+
+// Ruta presupuestaria separada: el filtro limita tools/list y tools/call a la consulta de partidas.
+app.MapMcp(FiltroHerramientasMcpPorRuta.RutaPresupuestos)
+    .RequireAuthorization(new AuthorizeAttribute { Roles = "Capataz,Comprador,Admin" });
 
 app.Run();
 
