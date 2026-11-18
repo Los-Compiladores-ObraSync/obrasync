@@ -10,7 +10,7 @@ import { usePendientes } from './usePendientes'
  *  con el panel de avisos que se abre al tocarla (#49, #97). */
 export function CampanaConPendientes() {
   const { cantidad: cantidadPendientes, pendientes } = usePendientes()
-  const { cantidad: cantidadBloqueadas } = useBloqueadas()
+  const { cantidad: cantidadBloqueadas, cargado: bloqueadasCargadas, huboError, refrescar } = useBloqueadas()
   const cantidadTotal = cantidadPendientes + cantidadBloqueadas
   const [abierto, setAbierto] = useState(false)
   const idPanel = useId()
@@ -48,6 +48,7 @@ export function CampanaConPendientes() {
       <CampanaNotificaciones
         ref={botonRef}
         cantidad={cantidadTotal}
+        errorAvisos={huboError}
         resaltada={cantidadTotal >= UMBRAL_PENDIENTES}
         abierto={abierto}
         idPanel={idPanel}
@@ -59,6 +60,9 @@ export function CampanaConPendientes() {
           cantidadPendientes={cantidadPendientes}
           pendientes={pendientes}
           cantidadBloqueadas={cantidadBloqueadas}
+          bloqueadasCargadas={bloqueadasCargadas}
+          huboErrorBloqueadas={huboError}
+          onReintentarBloqueadas={refrescar}
           onNavegar={() => setAbierto(false)}
         />
       )}

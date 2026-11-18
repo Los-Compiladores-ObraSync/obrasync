@@ -157,6 +157,25 @@ describe('apiFetchPagina', () => {
     expect(pagina.total).toBeUndefined()
   })
 
+  it('conserva el parseo anterior de prefijos numéricos por defecto', async () => {
+    server.use(
+      http.get(URL_PRUEBA, () => HttpResponse.json([], { headers: { 'X-Total-Count': '51 registros' } })),
+    )
+
+    await expect(apiFetchPagina('/api/prueba')).resolves.toMatchObject({ total: 51 })
+  })
+
+  it('permite exigir un X-Total-Count entero estricto sin cambiar el modo predeterminado', async () => {
+    server.use(
+      http.get(URL_PRUEBA, () => HttpResponse.json([], { headers: { 'X-Total-Count': '51 registros' } })),
+    )
+
+    await expect(apiFetchPagina('/api/prueba', {}, { exigirTotalValido: true })).resolves.toMatchObject({
+      items: [],
+      total: undefined,
+    })
+  })
+
   it('devuelve una lista vacía si la respuesta no es una lista', async () => {
     server.use(http.get(URL_PRUEBA, () => new HttpResponse(null, { status: 204 })))
 

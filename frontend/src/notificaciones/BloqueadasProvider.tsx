@@ -31,6 +31,12 @@ export function BloqueadasProvider({
     setVersion((n) => n + 1)
   }, [])
 
+  const reconciliarOrdenNoBloqueada = useCallback((ordenCompraId: string) => {
+    setLista((actual) => actual.filter((orden) => orden.ordenCompraId !== ordenCompraId))
+    setHuboError(false)
+    setVersion((n) => n + 1)
+  }, [])
+
   useEffect(() => {
     if (!puedeVer) return
 
@@ -71,11 +77,13 @@ export function BloqueadasProvider({
     () => ({
       cantidad: puedeVer ? lista.length : 0,
       bloqueadas: puedeVer ? lista : [],
-      cargado: puedeVer && cargado,
+      // Para roles fuera del contrato, la consulta no aplica y no debe quedar en "cargando".
+      cargado: !puedeVer || cargado,
       huboError: puedeVer && huboError,
       refrescar,
+      reconciliarOrdenNoBloqueada,
     }),
-    [puedeVer, lista, cargado, huboError, refrescar],
+    [puedeVer, lista, cargado, huboError, refrescar, reconciliarOrdenNoBloqueada],
   )
 
   return <BloqueadasContext.Provider value={valor}>{children}</BloqueadasContext.Provider>

@@ -137,6 +137,17 @@ function leerEntero(valor: string | null): number | undefined {
   return Number.isFinite(numero) && numero >= 0 ? numero : undefined
 }
 
+function leerEnteroEstricto(valor: string | null): number | undefined {
+  if (valor === null || !/^\d+$/.test(valor.trim())) return undefined
+  const numero = Number(valor)
+  return Number.isSafeInteger(numero) && numero >= 0 ? numero : undefined
+}
+
+export interface OpcionesPaginacionApi {
+  /** Interpreta como indefinido X-Total-Count ausente, malformado o fuera del rango entero seguro. */
+  exigirTotalValido?: boolean
+}
+
 /**
  * Igual que apiFetch, pero para listados paginados (#172): devuelve las filas y el total que
  * informa el servicio en X-Total-Count. Si el encabezado no está, "total" queda sin definir.
@@ -144,10 +155,13 @@ function leerEntero(valor: string | null): number | undefined {
 export async function apiFetchPagina<T>(
   path: string,
   options: OpcionesApi = {},
+  opcionesPaginacion: OpcionesPaginacionApi = {},
 ): Promise<PaginaDe<T>> {
   const { datos, encabezados } = await ejecutar(path, options)
   return {
     items: Array.isArray(datos) ? (datos as T[]) : [],
-    total: leerEntero(encabezados.get('X-Total-Count')),
+    total: opcionesPaginacion.exigirTotalValido
+      ? leerEnteroEstricto(encabezados.get('X-Total-Count'))
+      : leerEntero(encabezados.get('X-Total-Count')),
   }
 }

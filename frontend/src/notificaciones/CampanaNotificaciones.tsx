@@ -4,6 +4,7 @@ import styles from './CampanaNotificaciones.module.css'
 interface Props {
     /** Cantidad de avisos sin leer. Con 0 (o menos) no se muestra el número. */
     cantidad?: number
+    errorAvisos?: boolean
     /** Si el panel de avisos está abierto (lo usa el lector de pantalla). */
     abierto?: boolean
     /** Id del panel que abre esta campana, para relacionarlos (aria-controls). */
@@ -18,7 +19,10 @@ interface Props {
 }
 
 /** Texto que escucha un lector de pantalla: el ícono solo no dice nada. */
-function textoAccesible(cantidad: number, resaltada: boolean): string {
+function textoAccesible(cantidad: number, resaltada: boolean, errorAvisos: boolean): string {
+    if (errorAvisos) return cantidad > 0
+        ? `Atención: ${cantidad} avisos, no se pudieron actualizar las órdenes bloqueadas`
+        : 'Atención: no se pudieron cargar las órdenes bloqueadas'
     if (cantidad <= 0) return 'Notificaciones: sin avisos'
     // No alcanza con el color: quien no lo ve también tiene que enterarse.
     if (resaltada) return `Atención: ${cantidad} avisos pendientes`
@@ -29,6 +33,7 @@ function textoAccesible(cantidad: number, resaltada: boolean): string {
  *  que le pasan (#47, #48); el panel que se abre al tocarla es #49. */
 export function CampanaNotificaciones({
     cantidad = 0,
+    errorAvisos = false,
     resaltada = false,
     abierto,
     idPanel,
@@ -44,7 +49,7 @@ export function CampanaNotificaciones({
     type = "button"
     className = { estaResaltada? `${styles.campana} ${styles.resaltada}` : styles.campana
 }
-aria-label={ textoAccesible(cantidad, estaResaltada) }
+aria-label={ textoAccesible(cantidad, estaResaltada, errorAvisos) }
 aria-expanded={ abierto }
 aria-controls={ abierto ? idPanel : undefined }
 onClick = { onClick }

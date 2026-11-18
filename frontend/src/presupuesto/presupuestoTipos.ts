@@ -44,14 +44,11 @@ export interface OrdenCompraLiberada {
   montoComprometidoPartida: number | null
 }
 
-/**
- * Orden de compra bloqueada por desvío presupuestario (#97).
- * Estructura tomada de OrdenCompraBloqueadaEvent.json para el endpoint propuesto
- * GET /api/recepciones/ordenes-bloqueadas.
- */
+/** Orden de compra bloqueada devuelta por GET /api/recepciones/ordenes-bloqueadas. */
 export interface OrdenCompraBloqueada {
   ordenCompraId: string
   obraId: string
+  partidaId: string | null
   etapa: string | null
   montoOrdenCompra: number
   montoAsignadoPartida: number
@@ -59,4 +56,5 @@ export interface OrdenCompraBloqueada {
   montoProyectado: number
   exceso: number
   motivo: string
+  fechaBloqueo: string
 }

@@ -5,7 +5,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
 import { setToken } from './api/client'
 import { STORAGE_KEY } from './auth/sessionContext'
-import { reiniciarLicitacionesMock, reiniciarRequisicionesMock } from './mocks/handlers'
+import {
+  MOCK_TOKEN_ADMIN,
+  MOCK_TOKEN_CAPATAZ,
+  MOCK_TOKEN_COMPRADOR,
+  reiniciarLicitacionesMock,
+  reiniciarRequisicionesMock,
+} from './mocks/handlers'
 import { PORTALES } from './portales/portales'
 
 // <App /> declara las rutas pero no trae Router: acá usamos MemoryRouter,
@@ -28,7 +34,9 @@ function iniciarSesionComo(rol: string) {
         email: 'usuario@obrasync.com',
         rol,
       },
-      token: 'token-jwt-prueba',
+      token: rol === 'Admin' ? MOCK_TOKEN_ADMIN
+        : rol === 'Comprador' ? MOCK_TOKEN_COMPRADOR
+          : MOCK_TOKEN_CAPATAZ,
     }),
   )
 }
@@ -404,7 +412,7 @@ describe('App - campana de notificaciones', () => {
     renderApp('/')
 
     expect(
-      await screen.findByRole('button', { name: 'Notificaciones: 2 sin leer' }),
+      await screen.findByRole('button', { name: 'Notificaciones: 4 sin leer' }),
     ).toBeInTheDocument()
   })
 
@@ -422,11 +430,11 @@ describe('App - campana de notificaciones', () => {
     iniciarSesionComo('Comprador')
     renderApp('/compras/requisiciones')
 
-    await screen.findByRole('button', { name: 'Notificaciones: 2 sin leer' })
+    await screen.findByRole('button', { name: 'Notificaciones: 4 sin leer' })
     await usuario.click(await screen.findByRole('button', { name: 'Aprobar REQ-2026-0011' }))
 
     expect(
-      await screen.findByRole('button', { name: 'Notificaciones: 1 sin leer' }),
+      await screen.findByRole('button', { name: 'Notificaciones: 3 sin leer' }),
     ).toBeInTheDocument()
   })
 })
@@ -512,7 +520,7 @@ describe('App - pendientes de aprobación del Comprador', () => {
     iniciarSesionComo('Comprador')
     renderApp('/')
 
-    await usuario.click(await screen.findByRole('button', { name: 'Notificaciones: 2 sin leer' }))
+    await usuario.click(await screen.findByRole('button', { name: 'Notificaciones: 4 sin leer' }))
     await usuario.click(await screen.findByRole('link', { name: /REQ-2026-0012/ }))
 
     expect(
@@ -529,7 +537,7 @@ describe('App - pendientes de aprobación del Comprador', () => {
     renderApp('/compras/requisiciones')
 
     await usuario.click(await screen.findByRole('button', { name: 'Aprobar REQ-2026-0011' }))
-    await screen.findByRole('button', { name: 'Notificaciones: 1 sin leer' })
+    await screen.findByRole('button', { name: 'Notificaciones: 3 sin leer' })
     await usuario.click(screen.getByRole('link', { name: '← Volver al inicio' }))
 
     expect(await screen.findByText('Tenés 1 requisición para aprobar')).toBeInTheDocument()
