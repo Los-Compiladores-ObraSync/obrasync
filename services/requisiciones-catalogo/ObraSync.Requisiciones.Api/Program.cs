@@ -1,5 +1,7 @@
 using System;
+using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -10,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using ObraSync.Requisiciones.Api.Middlewares;
 using ObraSync.Requisiciones.Application;
 using ObraSync.Requisiciones.Infrastructure;
 using ObraSync.Requisiciones.Infrastructure.Persistence;
@@ -64,14 +67,8 @@ builder.Services.AddProblemDetails(options =>
 {
     options.CustomizeProblemDetails = ctx =>
     {
-        var correlationId = ctx.HttpContext.Request.Headers["X-Correlation-ID"].ToString();
-        if (string.IsNullOrWhiteSpace(correlationId))
-        {
-            correlationId = ctx.HttpContext.TraceIdentifier;
-        }
-
         ctx.ProblemDetails.Instance ??= ctx.HttpContext.Request.Path;
-        ctx.ProblemDetails.Extensions["correlationId"] = correlationId;
+        ctx.ProblemDetails.Extensions["correlationId"] = ObtenerCorrelationId(ctx.HttpContext);
     };
 });
 
@@ -107,86 +104,22 @@ builder.Services
 
         options.Events = new JwtBearerEvents
         {
-            OnChallenge = async context =>
+            OnChallenge = context =>
             {
                 context.HandleResponse();
-
-                var httpContext = context.HttpContext;
-                httpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                httpContext.Response.ContentType = "application/problem+json";
-
-                var correlationId = httpContext.Request.Headers["X-Correlation-ID"].ToString();
-                if (string.IsNullOrWhiteSpace(correlationId))
-                {
-                    correlationId = httpContext.TraceIdentifier;
-                }
-
-                var problemDetails = new ProblemDetails
-                {
-                    Type = "https://tools.ietf.org/html/rfc9110#section-15.5.2",
-                    Title = "No autorizado",
-                    Status = StatusCodes.Status401Unauthorized,
-                    Detail = "Se requiere un token JWT válido para acceder a este recurso.",
-                    Instance = httpContext.Request.Path
-                };
-                problemDetails.Extensions["correlationId"] = correlationId;
-
-                var problemDetailsService = httpContext.RequestServices.GetService<IProblemDetailsService>();
-                if (problemDetailsService != null)
-                {
-                    await problemDetailsService.WriteAsync(new ProblemDetailsContext
-                    {
-                        HttpContext = httpContext,
-                        ProblemDetails = problemDetails
-                    });
-                }
-                else
-                {
-                    await httpContext.Response.WriteAsJsonAsync(
-                        problemDetails,
-                        options: null,
-                        contentType: "application/problem+json");
-                }
+                return EscribirProblemaAuthAsync(
+                    context.HttpContext,
+                    StatusCodes.Status401Unauthorized,
+                    "https://tools.ietf.org/html/rfc9110#section-15.5.2",
+                    "No autorizado",
+                    "Se requiere un token JWT válido para acceder a este recurso.");
             },
-            OnForbidden = async context =>
-            {
-                var httpContext = context.HttpContext;
-                httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
-                httpContext.Response.ContentType = "application/problem+json";
-
-                var correlationId = httpContext.Request.Headers["X-Correlation-ID"].ToString();
-                if (string.IsNullOrWhiteSpace(correlationId))
-                {
-                    correlationId = httpContext.TraceIdentifier;
-                }
-
-                var problemDetails = new ProblemDetails
-                {
-                    Type = "https://tools.ietf.org/html/rfc9110#section-15.5.4",
-                    Title = "Acceso denegado",
-                    Status = StatusCodes.Status403Forbidden,
-                    Detail = "Su rol no posee permisos suficientes para consultar o modificar este recurso.",
-                    Instance = httpContext.Request.Path
-                };
-                problemDetails.Extensions["correlationId"] = correlationId;
-
-                var problemDetailsService = httpContext.RequestServices.GetService<IProblemDetailsService>();
-                if (problemDetailsService != null)
-                {
-                    await problemDetailsService.WriteAsync(new ProblemDetailsContext
-                    {
-                        HttpContext = httpContext,
-                        ProblemDetails = problemDetails
-                    });
-                }
-                else
-                {
-                    await httpContext.Response.WriteAsJsonAsync(
-                        problemDetails,
-                        options: null,
-                        contentType: "application/problem+json");
-                }
-            }
+            OnForbidden = context => EscribirProblemaAuthAsync(
+                context.HttpContext,
+                StatusCodes.Status403Forbidden,
+                "https://tools.ietf.org/html/rfc9110#section-15.5.4",
+                "Acceso denegado",
+                "Su rol no posee permisos suficientes para consultar o modificar este recurso.")
         };
     });
 
@@ -200,8 +133,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseExceptionHandler();
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseStatusCodePages();
+app.UseMiddleware<ExceptionMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -232,6 +166,59 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+static string ObtenerCorrelationId(HttpContext httpContext)
+{
+    if (httpContext.Items.TryGetValue(CorrelationIdMiddleware.CorrelationIdItemKey, out var item) &&
+        item is string itemValue &&
+        !string.IsNullOrWhiteSpace(itemValue))
+    {
+        return itemValue;
+    }
+
+    var correlationId = httpContext.Request.Headers[CorrelationIdMiddleware.CorrelationIdHeader].FirstOrDefault();
+    return !string.IsNullOrWhiteSpace(correlationId)
+        ? correlationId
+        : httpContext.TraceIdentifier;
+}
+
+static async Task EscribirProblemaAuthAsync(
+    HttpContext httpContext,
+    int statusCode,
+    string type,
+    string title,
+    string detail)
+{
+    httpContext.Response.StatusCode = statusCode;
+    httpContext.Response.ContentType = "application/problem+json";
+
+    var problemDetails = new ProblemDetails
+    {
+        Type = type,
+        Title = title,
+        Status = statusCode,
+        Detail = detail,
+        Instance = httpContext.Request.Path
+    };
+    problemDetails.Extensions["correlationId"] = ObtenerCorrelationId(httpContext);
+
+    var problemDetailsService = httpContext.RequestServices.GetService<IProblemDetailsService>();
+    if (problemDetailsService != null)
+    {
+        await problemDetailsService.WriteAsync(new ProblemDetailsContext
+        {
+            HttpContext = httpContext,
+            ProblemDetails = problemDetails
+        });
+    }
+    else
+    {
+        await httpContext.Response.WriteAsJsonAsync(
+            problemDetails,
+            options: null,
+            contentType: "application/problem+json");
+    }
+}
 
 // Clase parcial para permitir integración con WebApplicationFactory en proyectos de pruebas xUnit
 public partial class Program { }

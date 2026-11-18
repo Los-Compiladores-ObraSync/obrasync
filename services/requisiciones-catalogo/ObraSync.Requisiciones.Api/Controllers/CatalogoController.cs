@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ObraSync.Requisiciones.Application.DTOs;
-using ObraSync.Requisiciones.Application.UseCases.Catalog.Commands;
+using ObraSync.Requisiciones.Application.Mappings;
 using ObraSync.Requisiciones.Application.UseCases.Catalog.Handlers;
 using ObraSync.Requisiciones.Application.UseCases.Catalog.Queries;
 
@@ -84,37 +84,12 @@ namespace ObraSync.Requisiciones.Api.Controllers
             [FromBody] CrearInsumoRequestDto request,
             CancellationToken cancellationToken = default)
         {
-            try
-            {
-                var command = new CreateInsumoCommand(
-                    request.Codigo,
-                    request.Descripcion,
-                    request.UnidadMedida,
-                    request.Activo,
-                    request.PrecioReferencia,
-                    request.Moneda);
+            var creado = await _createInsumoHandler.Handle(request.ToCommand(), cancellationToken);
 
-                var creado = await _createInsumoHandler.Handle(command, cancellationToken);
-
-                return CreatedAtAction(
-                    nameof(ListarInsumos),
-                    new { search = creado.Codigo },
-                    creado);
-            }
-            catch (ArgumentException ex)
-            {
-                return Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status400BadRequest,
-                    title: "Datos de insumo inválidos");
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status409Conflict,
-                    title: "Conflicto al crear el insumo");
-            }
+            return CreatedAtAction(
+                nameof(ListarInsumos),
+                new { search = creado.Codigo },
+                creado);
         }
     }
 }

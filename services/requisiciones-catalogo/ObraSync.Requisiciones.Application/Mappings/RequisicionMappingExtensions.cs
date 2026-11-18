@@ -1,13 +1,19 @@
+using System;
 using System.Linq;
+using ObraSync.Contracts.Events;
 using ObraSync.Requisiciones.Application.DTOs;
+using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Commands;
 using ObraSync.Requisiciones.Domain.Entities;
 
 namespace ObraSync.Requisiciones.Application.Mappings
 {
     public static class RequisicionMappingExtensions
     {
-        public static RequisicionResponseDto ToDto(this Requisicion requisicion) =>
-            new()
+        public static RequisicionResponseDto ToDto(this Requisicion requisicion)
+        {
+            ArgumentNullException.ThrowIfNull(requisicion);
+
+            return new RequisicionResponseDto
             {
                 RequisicionId = requisicion.Id,
                 NumeroRequisicion = requisicion.NumeroRequisicion,
@@ -22,24 +28,108 @@ namespace ObraSync.Requisiciones.Application.Mappings
                 FechaCreacion = requisicion.FechaCreacion,
                 FechaAprobacion = requisicion.FechaAprobacion,
                 FechaRechazo = requisicion.FechaRechazo,
-                Items = requisicion.Items.Select(i => new RequisicionItemDto
-                {
-                    ArticuloId = i.ArticuloId,
-                    Descripcion = i.Descripcion,
-                    Cantidad = i.Cantidad,
-                    UnidadMedida = i.UnidadMedida
-                }).ToList(),
+                Items = (requisicion.Items ?? Enumerable.Empty<RequisicionItem>())
+                    .Select(i => i.ToDto())
+                    .ToList(),
                 HistorialRechazos = (requisicion.HistorialRechazos ?? Enumerable.Empty<HistorialRechazoRequisicion>())
                     .OrderBy(h => h.FechaRechazo)
                     .ThenBy(h => h.Id)
-                    .Select(h => new HistorialRechazoRequisicionDto
-                    {
-                        Id = h.Id,
-                        RechazadorId = h.RechazadorId,
-                        Motivo = h.Motivo,
-                        FechaRechazo = h.FechaRechazo
-                    })
+                    .Select(h => h.ToDto())
                     .ToList()
             };
+        }
+
+        public static RequisicionItemDto ToDto(this RequisicionItem item)
+        {
+            ArgumentNullException.ThrowIfNull(item);
+
+            return new RequisicionItemDto
+            {
+                ArticuloId = item.ArticuloId,
+                Descripcion = item.Descripcion,
+                Cantidad = item.Cantidad,
+                UnidadMedida = item.UnidadMedida
+            };
+        }
+
+        public static HistorialRechazoRequisicionDto ToDto(this HistorialRechazoRequisicion historial)
+        {
+            ArgumentNullException.ThrowIfNull(historial);
+
+            return new HistorialRechazoRequisicionDto
+            {
+                Id = historial.Id,
+                RechazadorId = historial.RechazadorId,
+                Motivo = historial.Motivo,
+                FechaRechazo = historial.FechaRechazo
+            };
+        }
+
+        public static RequisicionAprobadaEvent ToAprobadaEvent(
+            this Requisicion requisicion,
+            Guid correlationId,
+            Guid aprobadorId,
+            DateTime? occurredAt = null)
+        {
+            ArgumentNullException.ThrowIfNull(requisicion);
+
+            return new RequisicionAprobadaEvent(
+                EventId: Guid.NewGuid(),
+                OccurredAt: requisicion.FechaAprobacion ?? occurredAt ?? DateTime.UtcNow,
+                CorrelationId: correlationId,
+                RequisicionId: requisicion.Id,
+                NumeroRequisicion: requisicion.NumeroRequisicion,
+                ObraId: requisicion.ObraId,
+                SolicitanteId: requisicion.SolicitanteId,
+                AprobadorId: aprobadorId,
+                Items: (requisicion.Items ?? Enumerable.Empty<RequisicionItem>())
+                    .Select(i => i.ToAprobadaItemEvent())
+                    .ToList(),
+                Etapa: requisicion.Etapa);
+        }
+
+        public static RequisicionAprobadaItemEvent ToAprobadaItemEvent(this RequisicionItem item)
+        {
+            ArgumentNullException.ThrowIfNull(item);
+
+            return new RequisicionAprobadaItemEvent(
+                item.ArticuloId,
+                item.Descripcion,
+                item.Cantidad,
+                item.UnidadMedida);
+        }
+
+        public static CreateRequisicionCommand ToCreateCommand(
+            this CrearRequisicionRequestDto request,
+            Guid solicitanteId,
+            string? idempotencyKey = null)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+
+            return new CreateRequisicionCommand(
+                request.ObraId,
+                solicitanteId,
+                request.Items,
+                request.Etapa,
+                request.Observaciones,
+                idempotencyKey);
+        }
+
+        public static ReenviarRequisicionCommand ToReenviarCommand(
+            this EditarRequisicionRequestDto request,
+            Guid requisicionId,
+            Guid usuarioId,
+            bool esAdmin)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+
+            return new ReenviarRequisicionCommand(
+                requisicionId,
+                usuarioId,
+                esAdmin,
+                request.Items,
+                request.Etapa,
+                request.Observaciones);
+        }
     }
 }

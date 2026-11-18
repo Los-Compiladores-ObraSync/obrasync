@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using ObraSync.Contracts.Events;
 using ObraSync.Requisiciones.Application.DTOs;
 using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Application.Mappings;
@@ -41,21 +39,7 @@ namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers
                 ? Guid.NewGuid()
                 : command.CorrelationId;
 
-            var evento = new RequisicionAprobadaEvent(
-                EventId: Guid.NewGuid(),
-                OccurredAt: requisicion.FechaAprobacion ?? fechaAprobacion,
-                CorrelationId: correlationId,
-                RequisicionId: requisicion.Id,
-                NumeroRequisicion: requisicion.NumeroRequisicion,
-                ObraId: requisicion.ObraId,
-                SolicitanteId: requisicion.SolicitanteId,
-                AprobadorId: command.AprobadorId,
-                Items: requisicion.Items.Select(i => new RequisicionAprobadaItemEvent(
-                    i.ArticuloId,
-                    i.Descripcion,
-                    i.Cantidad,
-                    i.UnidadMedida)).ToList(),
-                Etapa: requisicion.Etapa);
+            var evento = requisicion.ToAprobadaEvent(correlationId, command.AprobadorId, fechaAprobacion);
 
             await _eventPublisher.PublishRequisicionAprobadaAsync(evento, cancellationToken);
 

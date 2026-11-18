@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using ObraSync.Requisiciones.Api.Middlewares;
 using ObraSync.Requisiciones.Application.DTOs;
-using ObraSync.Requisiciones.Application.Exceptions;
 using ObraSync.Requisiciones.Application.Interfaces;
+using ObraSync.Requisiciones.Application.Mappings;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Commands;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Queries;
@@ -122,19 +122,9 @@ namespace ObraSync.Requisiciones.Api.Controllers
                 solicitanteIdRestriccion = userId;
             }
 
-            try
-            {
-                var query = new GetRequisicionByIdQuery(id, solicitanteIdRestriccion);
-                var requisicion = await _getByIdHandler.Handle(query, cancellationToken);
-                return Ok(requisicion);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status404NotFound,
-                    title: "Requisición no encontrada");
-            }
+            var query = new GetRequisicionByIdQuery(id, solicitanteIdRestriccion);
+            var requisicion = await _getByIdHandler.Handle(query, cancellationToken);
+            return Ok(requisicion);
         }
 
         /// <summary>
@@ -166,23 +156,11 @@ namespace ObraSync.Requisiciones.Api.Controllers
             if (EsCapatazSinPrivilegiosSuperiores() && _obraAsignacionValidator != null)
             {
                 var authHeader = Request?.Headers["Authorization"].ToString();
-                bool asignada;
-                try
-                {
-                    asignada = await _obraAsignacionValidator.EstaAsignadaACapatazAsync(
-                        request.ObraId,
-                        authHeader,
-                        GetCorrelationId().ToString(),
-                        cancellationToken);
-                }
-                catch (ObraAsignacionNoVerificableException)
-                {
-                    // #178: no es "obra no asignada" (403): Usuarios y Obras no respondió y no se pudo comprobar.
-                    return Problem(
-                        detail: "No se pudo verificar que la obra esté asignada al capataz porque el servicio Usuarios y Obras no respondió. Reintentá en unos segundos.",
-                        statusCode: StatusCodes.Status503ServiceUnavailable,
-                        title: "No se pudo verificar la obra");
-                }
+                var asignada = await _obraAsignacionValidator.EstaAsignadaACapatazAsync(
+                    request.ObraId,
+                    authHeader,
+                    GetCorrelationId().ToString(),
+                    cancellationToken);
 
                 if (!asignada)
                 {
@@ -197,52 +175,14 @@ namespace ObraSync.Requisiciones.Api.Controllers
                 ? idempotencyKey
                 : Request?.Headers["Idempotency-Key"].ToString();
 
-            try
-            {
-                var command = new CreateRequisicionCommand(
-                    request.ObraId,
-                    solicitanteId,
-                    request.Items,
-                    request.Etapa,
-                    request.Observaciones,
-                    keyEfectiva);
+            var creada = await _createHandler.Handle(
+                request.ToCreateCommand(solicitanteId, keyEfectiva),
+                cancellationToken);
 
-                var creada = await _createHandler.Handle(command, cancellationToken);
-
-                return CreatedAtAction(
-                    nameof(ObtenerPorId),
-                    new { id = creada.RequisicionId },
-                    creada);
-            }
-            catch (RequisicionDuplicadaException ex)
-            {
-                var result = Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status409Conflict,
-                    title: "Requisición duplicada");
-
-                if (result.Value is ProblemDetails problemDetails)
-                {
-                    problemDetails.Extensions["numeroRequisicion"] = ex.NumeroRequisicionExistente;
-                    problemDetails.Extensions["requisicionId"] = ex.RequisicionExistenteId;
-                }
-
-                return result;
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status404NotFound,
-                    title: "Artículo de catálogo inexistente");
-            }
-            catch (ArgumentException ex)
-            {
-                return Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status400BadRequest,
-                    title: "Datos de requisición inválidos");
-            }
+            return CreatedAtAction(
+                nameof(ObtenerPorId),
+                new { id = creada.RequisicionId },
+                creada);
         }
 
         /// <summary>
@@ -278,63 +218,14 @@ namespace ObraSync.Requisiciones.Api.Controllers
             }
 
             var handler = _reenviarHandler
-                ?? HttpContext?.RequestServices.GetService(typeof(ReenviarRequisicionCommandHandler)) as ReenviarRequisicionCommandHandler;
+                ?? HttpContext?.RequestServices.GetService(typeof(ReenviarRequisicionCommandHandler)) as ReenviarRequisicionCommandHandler
+                ?? throw new NotSupportedException("No se encontró el servicio ReenviarRequisicionCommandHandler.");
 
-            if (handler == null)
-            {
-                throw new InvalidOperationException("No se encontró el servicio ReenviarRequisicionCommandHandler.");
-            }
+            var reenviada = await handler.Handle(
+                request.ToReenviarCommand(id, usuarioId, User.IsInRole("Admin")),
+                cancellationToken);
 
-            var esAdmin = User.IsInRole("Admin");
-
-            try
-            {
-                var command = new ReenviarRequisicionCommand(
-                    id,
-                    usuarioId,
-                    esAdmin,
-                    request.Items,
-                    request.Etapa,
-                    request.Observaciones);
-
-                var reenviada = await handler.Handle(command, cancellationToken);
-                return Ok(reenviada);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status404NotFound,
-                    title: "Recurso no encontrado");
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status403Forbidden,
-                    title: "Acceso denegado: no es el solicitante dueño de la requisición");
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                return Problem(
-                    detail: "La requisición cambió, recargá e intentá nuevamente.",
-                    statusCode: StatusCodes.Status409Conflict,
-                    title: "Conflicto de concurrencia en la requisición");
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status409Conflict,
-                    title: "Conflicto de estado en la requisición");
-            }
-            catch (ArgumentException ex)
-            {
-                return Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status400BadRequest,
-                    title: "Datos de requisición inválidos");
-            }
+            return Ok(reenviada);
         }
 
         /// <summary>
@@ -360,42 +251,9 @@ namespace ObraSync.Requisiciones.Api.Controllers
                     title: "Usuario no identificado");
             }
 
-            var correlationId = GetCorrelationId();
-
-            try
-            {
-                var command = new AprobarRequisicionCommand(id, aprobadorId, correlationId);
-                var aprobada = await _aprobarHandler.Handle(command, cancellationToken);
-                return Ok(aprobada);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status404NotFound,
-                    title: "Requisición no encontrada");
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                return Problem(
-                    detail: "La requisición cambió, recargá e intentá nuevamente.",
-                    statusCode: StatusCodes.Status409Conflict,
-                    title: "Conflicto de concurrencia en la requisición");
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status409Conflict,
-                    title: "Conflicto de estado en la requisición");
-            }
-            catch (ArgumentException ex)
-            {
-                return Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status400BadRequest,
-                    title: "Solicitud inválida");
-            }
+            var command = new AprobarRequisicionCommand(id, aprobadorId, GetCorrelationId());
+            var aprobada = await _aprobarHandler.Handle(command, cancellationToken);
+            return Ok(aprobada);
         }
 
         /// <summary>
@@ -430,40 +288,9 @@ namespace ObraSync.Requisiciones.Api.Controllers
                     title: "Motivo de rechazo inválido");
             }
 
-            try
-            {
-                var command = new RechazarRequisicionCommand(id, rechazadorId, request.Motivo);
-                var rechazada = await _rechazarHandler.Handle(command, cancellationToken);
-                return Ok(rechazada);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status404NotFound,
-                    title: "Requisición no encontrada");
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                return Problem(
-                    detail: "La requisición cambió, recargá e intentá nuevamente.",
-                    statusCode: StatusCodes.Status409Conflict,
-                    title: "Conflicto de concurrencia en la requisición");
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status409Conflict,
-                    title: "Conflicto de estado en la requisición");
-            }
-            catch (ArgumentException ex)
-            {
-                return Problem(
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status400BadRequest,
-                    title: "Motivo de rechazo inválido");
-            }
+            var command = new RechazarRequisicionCommand(id, rechazadorId, request.Motivo);
+            var rechazada = await _rechazarHandler.Handle(command, cancellationToken);
+            return Ok(rechazada);
         }
 
         private bool EsCapatazSinPrivilegiosSuperiores() =>
@@ -479,7 +306,8 @@ namespace ObraSync.Requisiciones.Api.Controllers
 
         private Guid GetCorrelationId()
         {
-            var header = Request.Headers["X-Correlation-ID"].ToString();
+            var header = HttpContext?.Items[CorrelationIdMiddleware.CorrelationIdItemKey] as string
+                ?? Request.Headers[CorrelationIdMiddleware.CorrelationIdHeader].ToString();
             return Guid.TryParse(header, out var correlationId) && correlationId != Guid.Empty
                 ? correlationId
                 : Guid.NewGuid();
