@@ -7,6 +7,7 @@ using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Application.Mappings;
 using ObraSync.Recepcion.Application.UseCases.Recepciones.Commands;
 using ObraSync.Recepcion.Domain.Enums;
+using ObraSync.Recepcion.Domain.Presupuestos;
 using DetalleRecepcionEntity = ObraSync.Recepcion.Domain.Entities.DetalleRecepcion;
 using RecepcionEntity = ObraSync.Recepcion.Domain.Entities.Recepcion;
 
@@ -149,6 +150,8 @@ public class CrearRecepcionCommandHandler
         var recibidoPrevioPorArticulo = recibidosPrevios
             .ToDictionary(x => x.ArticuloId, x => x.Total);
 
+        var saldosPendientes = ordenCompra.CalcularSaldosPendientes(recibidoPrevioPorArticulo);
+
         var recepcion = new RecepcionEntity
         {
             Id = Guid.NewGuid(),
@@ -172,7 +175,7 @@ public class CrearRecepcionCommandHandler
             }
 
             decimal recibidoPrevio = recibidoPrevioPorArticulo.GetValueOrDefault(detalleRequest.ArticuloId, 0m);
-            decimal cantidadPendiente = articuloComprado.Cantidad - recibidoPrevio;
+            decimal cantidadPendiente = saldosPendientes.GetValueOrDefault(detalleRequest.ArticuloId, 0m);
 
             if (detalleRequest.CantidadEsperada != articuloComprado.Cantidad &&
                 detalleRequest.CantidadEsperada != cantidadPendiente)
@@ -185,7 +188,7 @@ public class CrearRecepcionCommandHandler
                 throw new ArgumentException("La cantidad recibida no puede ser negativa.");
             }
 
-            if (recibidoPrevio + detalleRequest.CantidadRecibida > articuloComprado.Cantidad)
+            if (detalleRequest.CantidadRecibida > cantidadPendiente)
             {
                 throw new ArgumentException("La cantidad recibida acumulada supera la cantidad pedida en la orden de compra.");
             }
@@ -231,6 +234,25 @@ public class CrearRecepcionCommandHandler
 
         _context.Recepciones.Add(recepcion);
 
+        if (!ordenCompra.SinPartidaPresupuestaria)
+        {
+            decimal montoRecibido = recepcion.Detalles.Sum(d =>
+                d.CantidadRecibida * ordenCompra.Items.First(i => i.ArticuloId == d.ArticuloId).PrecioUnitario);
+
+            if (montoRecibido > 0)
+            {
+                var partidasObra = await _context.PartidasPresupuestarias
+                    .Where(p => p.ObraId == ordenCompra.ObraId)
+                    .ToListAsync(cancellationToken);
+
+                var partida = EmparejadorPartidaPresupuestaria.BuscarPartida(partidasObra, ordenCompra.Etapa);
+                if (partida is not null)
+                {
+                    partida.EjecutarMonto(montoRecibido);
+                }
+            }
+        }
+
         var correlationId = command.CorrelationId != Guid.Empty
             ? command.CorrelationId
             : Guid.NewGuid();
@@ -243,6 +265,10 @@ public class CrearRecepcionCommandHandler
         try
         {
             await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new RecepcionConflictoException("La partida presupuestaria o la orden de compra fue modificada concurrentemente. Reintentá la operación.");
         }
         catch (DbUpdateException ex) when (EsViolacionDeIndiceUnico(ex))
         {

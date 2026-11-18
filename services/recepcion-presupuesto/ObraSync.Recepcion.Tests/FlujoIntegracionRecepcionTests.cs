@@ -522,6 +522,7 @@ public class FlujoIntegracionRecepcionTests : IClassFixture<RecepcionApiFactory>
         Assert.NotNull(itemPendiente);
         Assert.Equal(100m, itemPendiente.CantidadEsperada);
         Assert.Equal(45m, itemPendiente.CantidadRecibida);
+        Assert.Equal(55m, itemPendiente.CantidadPendiente);
     }
 
     [Fact]
@@ -540,5 +541,174 @@ public class FlujoIntegracionRecepcionTests : IClassFixture<RecepcionApiFactory>
 
         var respuesta = await clientProveedor.PostAsJsonAsync("/api/recepciones", solicitud);
         Assert.Equal(HttpStatusCode.Forbidden, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task FlujoCompleto_CadenaTresEntregasSucesivas_EncadenaRemanentesYActualizaPresupuesto()
+    {
+        // ── 1. Emitir OC por evento y comprometer presupuesto en la Partida ──
+        var obraId = Guid.NewGuid();
+        var ordenCompraId = Guid.NewGuid();
+        var articuloId = Guid.NewGuid();
+        var partidaId = Guid.NewGuid();
+        var etapa = "Estructura";
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+            db.PartidasPresupuestarias.Add(new PartidaPresupuestaria
+            {
+                Id = partidaId,
+                ObraId = obraId,
+                Etapa = etapa,
+                CodigoPartida = $"PART-{Guid.NewGuid():N}"[..15],
+                Descripcion = "Estructura",
+                MontoAsignado = 150000m,
+                MontoComprometido = 0m,
+                MontoEjecutado = 0m
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var eventoOC = new OrdenCompraEmitidaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: ordenCompraId,
+            LicitacionId: Guid.NewGuid(),
+            RequisicionId: Guid.NewGuid(),
+            ObraId: obraId,
+            ProveedorId: Guid.NewGuid(),
+            Etapa: etapa,
+            MontoTotal: 100000m,
+            Items: new List<OrdenCompraEmitidaItemEvent>
+            {
+                new(articuloId, 100m, "u", 1000m, "Barras de acero")
+            });
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+            var repo = new OrdenCompraRepository(db);
+            var consumer = new OrdenCompraEmitidaConsumer(db, repo, NullLogger<OrdenCompraEmitidaConsumer>.Instance);
+            await consumer.Consume(CrearConsumeContext(eventoOC));
+        }
+
+        // Simular despacho
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+            var repo = new OrdenCompraRepository(db);
+            var dispatchConsumer = new OrdenCompraDespachadaConsumer(db, repo, NullLogger<OrdenCompraDespachadaConsumer>.Instance);
+            await dispatchConsumer.Consume(CrearConsumeContextDespacho(new OrdenCompraDespachadaEvent(
+                EventId: Guid.NewGuid(),
+                OccurredAt: DateTime.UtcNow,
+                CorrelationId: Guid.NewGuid(),
+                OrdenCompraId: ordenCompraId,
+                ObraId: obraId,
+                FechaDespacho: DateTime.UtcNow)));
+        }
+
+        var client = CrearCliente("Capataz");
+
+        // ── 2. Entrega 1: 40 unidades (de 100) ──
+        var req1 = new CrearRecepcionRequest
+        {
+            ObraId = obraId,
+            OrdenCompraId = ordenCompraId,
+            NumeroRemito = $"REM-F1-{Guid.NewGuid():N}"[..15],
+            FechaRecepcion = DateTime.UtcNow,
+            Detalles = new List<CrearDetalleRecepcionRequest>
+            {
+                new() { ArticuloId = articuloId, DescripcionArticulo = "Barras de acero", CantidadEsperada = 100m, CantidadRecibida = 40m, UnidadMedida = "u", Conforme = true }
+            }
+        };
+        var r1 = await client.PostAsJsonAsync("/api/recepciones", req1);
+        Assert.Equal(HttpStatusCode.Created, r1.StatusCode);
+
+        // Verificar pendientes y presupuesto tras Entrega 1
+        var pend1 = await (await client.GetAsync($"/api/recepciones/ordenes-pendientes?obraId={obraId}"))
+            .Content.ReadFromJsonAsync<List<OrdenPendienteDto>>();
+        Assert.NotNull(pend1);
+        var item1 = pend1.Single(o => o.OrdenCompraId == ordenCompraId).Items.Single();
+        Assert.Equal(100m, item1.CantidadEsperada);
+        Assert.Equal(40m, item1.CantidadRecibida);
+        Assert.Equal(60m, item1.CantidadPendiente);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+            var p = await db.PartidasPresupuestarias.FindAsync(partidaId);
+            Assert.NotNull(p);
+            Assert.Equal(100000m, p.MontoComprometido);
+            Assert.Equal(40000m, p.MontoEjecutado);
+        }
+
+        // ── 3. Entrega 2: 35 unidades ──
+        var req2 = new CrearRecepcionRequest
+        {
+            ObraId = obraId,
+            OrdenCompraId = ordenCompraId,
+            NumeroRemito = $"REM-F2-{Guid.NewGuid():N}"[..15],
+            FechaRecepcion = DateTime.UtcNow,
+            Detalles = new List<CrearDetalleRecepcionRequest>
+            {
+                new() { ArticuloId = articuloId, DescripcionArticulo = "Barras de acero", CantidadEsperada = 60m, CantidadRecibida = 35m, UnidadMedida = "u", Conforme = true }
+            }
+        };
+        var r2 = await client.PostAsJsonAsync("/api/recepciones", req2);
+        Assert.Equal(HttpStatusCode.Created, r2.StatusCode);
+
+        // Verificar pendientes y presupuesto tras Entrega 2
+        var pend2 = await (await client.GetAsync($"/api/recepciones/ordenes-pendientes?obraId={obraId}"))
+            .Content.ReadFromJsonAsync<List<OrdenPendienteDto>>();
+        Assert.NotNull(pend2);
+        var item2 = pend2.Single(o => o.OrdenCompraId == ordenCompraId).Items.Single();
+        Assert.Equal(100m, item2.CantidadEsperada);
+        Assert.Equal(75m, item2.CantidadRecibida);
+        Assert.Equal(25m, item2.CantidadPendiente);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+            var p = await db.PartidasPresupuestarias.FindAsync(partidaId);
+            Assert.NotNull(p);
+            Assert.Equal(100000m, p.MontoComprometido);
+            Assert.Equal(75000m, p.MontoEjecutado);
+        }
+
+        // ── 4. Entrega 3: 25 unidades (completa la OC) ──
+        var req3 = new CrearRecepcionRequest
+        {
+            ObraId = obraId,
+            OrdenCompraId = ordenCompraId,
+            NumeroRemito = $"REM-F3-{Guid.NewGuid():N}"[..15],
+            FechaRecepcion = DateTime.UtcNow,
+            Detalles = new List<CrearDetalleRecepcionRequest>
+            {
+                new() { ArticuloId = articuloId, DescripcionArticulo = "Barras de acero", CantidadEsperada = 25m, CantidadRecibida = 25m, UnidadMedida = "u", Conforme = true }
+            }
+        };
+        var r3 = await client.PostAsJsonAsync("/api/recepciones", req3);
+        Assert.Equal(HttpStatusCode.Created, r3.StatusCode);
+        var dto3 = await r3.Content.ReadFromJsonAsync<RecepcionDto>();
+        Assert.NotNull(dto3);
+        Assert.Equal(EstadoRecepcion.Completa, dto3.Estado);
+
+        // La orden debe haber desaparecido de pendientes
+        var pend3 = await (await client.GetAsync($"/api/recepciones/ordenes-pendientes?obraId={obraId}"))
+            .Content.ReadFromJsonAsync<List<OrdenPendienteDto>>();
+        Assert.NotNull(pend3);
+        Assert.DoesNotContain(pend3, o => o.OrdenCompraId == ordenCompraId);
+
+        // Verificar Partida en BD tras completado total
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+            var p = await db.PartidasPresupuestarias.FindAsync(partidaId);
+            Assert.NotNull(p);
+            Assert.Equal(100000m, p.MontoComprometido);
+            Assert.Equal(100000m, p.MontoEjecutado);
+        }
     }
 }

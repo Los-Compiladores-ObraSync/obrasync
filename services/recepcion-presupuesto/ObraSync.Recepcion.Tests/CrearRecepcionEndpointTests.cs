@@ -705,4 +705,196 @@ public class CrearRecepcionEndpointTests : IClassFixture<RecepcionApiFactory>
         var respuesta = await client.PostAsJsonAsync("/api/recepciones", solicitud);
         Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
     }
+
+    [Fact]
+    public async Task CrearRecepcion_CadenaTresEntregasSucesivas_EncadenaRemanentesYActualizaPartidaPresupuestaria()
+    {
+        // Arrange: OC de 100 barras a $1000 ($100.000) con partida presupuestaria asociada
+        Guid ordenId = Guid.NewGuid();
+        Guid obraId = Guid.NewGuid();
+        Guid articuloId = Guid.NewGuid();
+        string etapa = "Estructura";
+
+        var articulo = OrdenCompraItem.Crear(articuloId, 100m, "UNIDAD", 1000m, "Barras de hierro");
+        var oc = OrdenCompra.Crear(
+            ordenId,
+            obraId,
+            Guid.NewGuid(),
+            100000m,
+            new List<OrdenCompraItem> { articulo },
+            etapa: etapa,
+            fechaDespacho: DateTime.UtcNow);
+
+        var partida = new PartidaPresupuestaria
+        {
+            Id = Guid.NewGuid(),
+            ObraId = obraId,
+            Etapa = etapa,
+            CodigoPartida = $"PART-{Guid.NewGuid():N}"[..15],
+            Descripcion = "Estructura de hormigón",
+            MontoAsignado = 150000m,
+            MontoComprometido = 100000m,
+            MontoEjecutado = 0m
+        };
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+            db.PartidasPresupuestarias.Add(partida);
+            db.OrdenesCompra.Add(oc);
+            await db.SaveChangesAsync();
+        }
+
+        using var client = CrearClienteConToken();
+
+        // ── 1. Primera entrega: 40 de 100 -> Parcial (2) ──
+        var req1 = CrearSolicitud(ordenId, obraId, articuloId, cantidadEsperada: 100m, cantidadRecibida: 40m);
+        var res1 = await client.PostAsJsonAsync("/api/recepciones", req1);
+        Assert.Equal(HttpStatusCode.Created, res1.StatusCode);
+        var dto1 = await res1.Content.ReadFromJsonAsync<RecepcionDto>();
+        Assert.NotNull(dto1);
+        Assert.Equal(EstadoRecepcion.Parcial, dto1.Estado);
+
+        // Consultar órdenes pendientes tras entrega 1
+        var pendientes1 = await (await client.GetAsync($"/api/recepciones/ordenes-pendientes?obraId={obraId}"))
+            .Content.ReadFromJsonAsync<List<OrdenPendienteDto>>();
+        Assert.NotNull(pendientes1);
+        var ordPendiente1 = Assert.Single(pendientes1, o => o.OrdenCompraId == ordenId);
+        var itemPendiente1 = Assert.Single(ordPendiente1.Items);
+        Assert.Equal(100m, itemPendiente1.CantidadEsperada);
+        Assert.Equal(40m, itemPendiente1.CantidadRecibida);
+        Assert.Equal(60m, itemPendiente1.CantidadPendiente);
+
+        // Verificar Partida en BD tras entrega 1: Ejecutado = 40.000, Comprometido sigue en 100.000
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+            var p1 = await db.PartidasPresupuestarias.FindAsync(partida.Id);
+            Assert.NotNull(p1);
+            Assert.Equal(100000m, p1.MontoComprometido);
+            Assert.Equal(40000m, p1.MontoEjecutado);
+        }
+
+        // ── 2. Segunda entrega: 35 unidades (saldo remanente era 60) -> Parcial (2) ──
+        var req2 = CrearSolicitud(ordenId, obraId, articuloId, cantidadEsperada: 60m, cantidadRecibida: 35m);
+        var res2 = await client.PostAsJsonAsync("/api/recepciones", req2);
+        Assert.Equal(HttpStatusCode.Created, res2.StatusCode);
+        var dto2 = await res2.Content.ReadFromJsonAsync<RecepcionDto>();
+        Assert.NotNull(dto2);
+        Assert.Equal(EstadoRecepcion.Parcial, dto2.Estado);
+
+        // Consultar órdenes pendientes tras entrega 2
+        var pendientes2 = await (await client.GetAsync($"/api/recepciones/ordenes-pendientes?obraId={obraId}"))
+            .Content.ReadFromJsonAsync<List<OrdenPendienteDto>>();
+        Assert.NotNull(pendientes2);
+        var ordPendiente2 = Assert.Single(pendientes2, o => o.OrdenCompraId == ordenId);
+        var itemPendiente2 = Assert.Single(ordPendiente2.Items);
+        Assert.Equal(100m, itemPendiente2.CantidadEsperada);
+        Assert.Equal(75m, itemPendiente2.CantidadRecibida);
+        Assert.Equal(25m, itemPendiente2.CantidadPendiente);
+
+        // Verificar Partida en BD tras entrega 2: Ejecutado = 75.000, Comprometido sigue en 100.000
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+            var p2 = await db.PartidasPresupuestarias.FindAsync(partida.Id);
+            Assert.NotNull(p2);
+            Assert.Equal(100000m, p2.MontoComprometido);
+            Assert.Equal(75000m, p2.MontoEjecutado);
+        }
+
+        // ── 3. Tercera entrega: 25 unidades (cierra el saldo restante de 25) -> Completa (3) ──
+        var req3 = CrearSolicitud(ordenId, obraId, articuloId, cantidadEsperada: 25m, cantidadRecibida: 25m);
+        var res3 = await client.PostAsJsonAsync("/api/recepciones", req3);
+        Assert.Equal(HttpStatusCode.Created, res3.StatusCode);
+        var dto3 = await res3.Content.ReadFromJsonAsync<RecepcionDto>();
+        Assert.NotNull(dto3);
+        Assert.Equal(EstadoRecepcion.Completa, dto3.Estado);
+
+        // Consultar órdenes pendientes tras entrega 3: la orden debe desaparecer
+        var pendientes3 = await (await client.GetAsync($"/api/recepciones/ordenes-pendientes?obraId={obraId}"))
+            .Content.ReadFromJsonAsync<List<OrdenPendienteDto>>();
+        Assert.NotNull(pendientes3);
+        Assert.DoesNotContain(pendientes3, o => o.OrdenCompraId == ordenId);
+
+        // Verificar Partida en BD tras entrega 3: Ejecutado = 100.000, Comprometido sigue en 100.000
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+            var p3 = await db.PartidasPresupuestarias.FindAsync(partida.Id);
+            Assert.NotNull(p3);
+            Assert.Equal(100000m, p3.MontoComprometido);
+            Assert.Equal(100000m, p3.MontoEjecutado);
+        }
+    }
+
+    [Fact]
+    public async Task CrearRecepcion_DosEntregas40y60_ActualizaMontoEjecutadoSegunDecision154()
+    {
+        // Arrange: OC de 100 barras a $1000 ($100.000)
+        Guid ordenId = Guid.NewGuid();
+        Guid obraId = Guid.NewGuid();
+        Guid articuloId = Guid.NewGuid();
+        string etapa = "Fundaciones";
+
+        var articulo = OrdenCompraItem.Crear(articuloId, 100m, "UNIDAD", 1000m, "Barras");
+        var oc = OrdenCompra.Crear(
+            ordenId,
+            obraId,
+            Guid.NewGuid(),
+            100000m,
+            new List<OrdenCompraItem> { articulo },
+            etapa: etapa,
+            fechaDespacho: DateTime.UtcNow);
+
+        var partida = new PartidaPresupuestaria
+        {
+            Id = Guid.NewGuid(),
+            ObraId = obraId,
+            Etapa = etapa,
+            CodigoPartida = $"PART-{Guid.NewGuid():N}"[..15],
+            Descripcion = "Fundaciones",
+            MontoAsignado = 200000m,
+            MontoComprometido = 100000m,
+            MontoEjecutado = 0m
+        };
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+            db.PartidasPresupuestarias.Add(partida);
+            db.OrdenesCompra.Add(oc);
+            await db.SaveChangesAsync();
+        }
+
+        using var client = CrearClienteConToken();
+
+        // 1. Recepción de 40 unidades ($40.000) -> MontoEjecutado = $40.000, MontoComprometido = $100.000
+        var r1 = await client.PostAsJsonAsync("/api/recepciones",
+            CrearSolicitud(ordenId, obraId, articuloId, cantidadEsperada: 100m, cantidadRecibida: 40m));
+        Assert.Equal(HttpStatusCode.Created, r1.StatusCode);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+            var p = await db.PartidasPresupuestarias.FindAsync(partida.Id);
+            Assert.NotNull(p);
+            Assert.Equal(40000m, p.MontoEjecutado);
+            Assert.Equal(100000m, p.MontoComprometido);
+        }
+
+        // 2. Recepción de las 60 restantes ($60.000) -> MontoEjecutado = $100.000, MontoComprometido = $100.000
+        var r2 = await client.PostAsJsonAsync("/api/recepciones",
+            CrearSolicitud(ordenId, obraId, articuloId, cantidadEsperada: 60m, cantidadRecibida: 60m));
+        Assert.Equal(HttpStatusCode.Created, r2.StatusCode);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
+            var p = await db.PartidasPresupuestarias.FindAsync(partida.Id);
+            Assert.NotNull(p);
+            Assert.Equal(100000m, p.MontoEjecutado);
+            Assert.Equal(100000m, p.MontoComprometido);
+        }
+    }
 }
