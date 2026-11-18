@@ -153,3 +153,11 @@ public class MagicLink
     [Timestamp]
     public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 }
+
+public class CalificacionProveedor
+{
+    public Guid Id { get; set; }
+    public Guid ProveedorId { get; set; }
+    public int Calificacion { get; set; }
+    public DateTime FechaActualizacion { get; set; } = DateTime.UtcNow;
+}

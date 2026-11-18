@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.Services;
 using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Handlers;
+using ObraSync.Licitaciones.Application.UseCases.Calificaciones.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Handlers;
@@ -51,6 +52,7 @@ builder.Services.AddScoped<ICotizacionRepository, CotizacionRepository>();
 builder.Services.AddScoped<ICotizacionValidadorService, CotizacionValidadorService>();
 builder.Services.AddScoped<IOrdenCompraRepository, OrdenCompraRepository>();
 builder.Services.AddScoped<IMagicLinkRepository, MagicLinkRepository>();
+builder.Services.AddScoped<ICalificacionProveedorRepository, CalificacionProveedorRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<GetLicitacionesQueryHandler>();
 builder.Services.AddScoped<GetLicitacionByIdQueryHandler>();
@@ -61,6 +63,8 @@ builder.Services.AddScoped<GetMisCotizacionesQueryHandler>();
 builder.Services.AddScoped<AdjudicarCotizacionCommandHandler>();
 builder.Services.AddScoped<DespacharOrdenCompraCommandHandler>();
 builder.Services.AddScoped<GetOrdenesCompraQueryHandler>();
+builder.Services.AddScoped<UpsertCalificacionProveedorCommandHandler>();
+builder.Services.AddScoped<GetCalificacionProveedorQueryHandler>();
 
 // RabbitMQ + MassTransit (misma convención que Requisiciones)
 var useInMemoryTransport = string.Equals(
@@ -227,6 +231,37 @@ builder.Services
     });
 builder.Services.AddAuthorization();
 
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new() { Title = "ObraSync.Licitaciones.Api", Version = "v1" });
+
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "Ingresá el token JWT obtenido en el login."
+    });
+
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
 var app = builder.Build();
 
 // Validar configuración de pesos de Scoring al arrancar (#197)
@@ -277,6 +312,13 @@ app.Use(async (context, next) =>
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -19,6 +19,7 @@ public class LicitacionesDbContext : DbContext
     public DbSet<OrdenCompra> OrdenesCompra => Set<OrdenCompra>();
     public DbSet<OrdenCompraItem> OrdenCompraItems => Set<OrdenCompraItem>();
     public DbSet<MagicLink> MagicLinks => Set<MagicLink>();
+    public DbSet<CalificacionProveedor> CalificacionesProveedores => Set<CalificacionProveedor>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -147,6 +148,15 @@ public class LicitacionesDbContext : DbContext
             e.Ignore(x => x.TokenHash);
             e.Property(x => x.ProveedorNombre).HasMaxLength(200);
         });
-    
+
+        modelBuilder.Entity<CalificacionProveedor>(e =>
+        {
+            e.ToTable("CalificacionesProveedores");
+            e.HasKey(x => x.Id);
+            // Una única fila por proveedor (#88): re-calificar actualiza la fila existente.
+            e.HasIndex(x => x.ProveedorId).IsUnique();
+            e.Property(x => x.Calificacion).IsRequired();
+            e.Property(x => x.FechaActualizacion).HasConversion(utcDateTimeConverter);
+        });
     }
 }

@@ -4,4 +4,8 @@ namespace ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Queries;
 
 public record GetCotizacionesByLicitacionIdQuery(
     Guid LicitacionId,
-    ParametrosPagina? Paginacion = null);
+    ParametrosPagina? Paginacion = null,
+    decimal? PesoPrecio = null,
+    decimal? PesoFlete = null,
+    decimal? PesoPlazo = null,
+    decimal? PesoCalificacion = null);

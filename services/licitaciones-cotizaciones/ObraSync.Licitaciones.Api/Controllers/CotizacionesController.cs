@@ -17,15 +17,21 @@ public class CotizacionesController : ControllerBase
     private readonly CrearCotizacionCommandHandler _crearCotizacionHandler;
     private readonly GetCotizacionesByLicitacionIdQueryHandler _getCotizacionesHandler;
     private readonly GetMisCotizacionesQueryHandler _getMisCotizacionesHandler;
+    private readonly ObraSync.Licitaciones.Application.UseCases.Calificaciones.Handlers.UpsertCalificacionProveedorCommandHandler? _upsertCalificacionHandler;
+    private readonly ObraSync.Licitaciones.Application.UseCases.Calificaciones.Handlers.GetCalificacionProveedorQueryHandler? _getCalificacionHandler;
 
     public CotizacionesController(
         CrearCotizacionCommandHandler crearCotizacionHandler,
         GetCotizacionesByLicitacionIdQueryHandler getCotizacionesHandler,
-        GetMisCotizacionesQueryHandler getMisCotizacionesHandler)
+        GetMisCotizacionesQueryHandler getMisCotizacionesHandler,
+        ObraSync.Licitaciones.Application.UseCases.Calificaciones.Handlers.UpsertCalificacionProveedorCommandHandler? upsertCalificacionHandler = null,
+        ObraSync.Licitaciones.Application.UseCases.Calificaciones.Handlers.GetCalificacionProveedorQueryHandler? getCalificacionHandler = null)
     {
         _crearCotizacionHandler = crearCotizacionHandler;
         _getCotizacionesHandler = getCotizacionesHandler;
         _getMisCotizacionesHandler = getMisCotizacionesHandler;
+        _upsertCalificacionHandler = upsertCalificacionHandler;
+        _getCalificacionHandler = getCalificacionHandler;
     }
 
     /// <summary>
@@ -95,6 +101,14 @@ public class CotizacionesController : ControllerBase
         [FromQuery] Guid? licitacionId,
         [FromQuery] int pagina = 1,
         [FromQuery] int tamano = 50,
+        [FromQuery] decimal? pesoPrecio = null,
+        [FromQuery] decimal? pesoFlete = null,
+        [FromQuery] decimal? pesoPlazo = null,
+        [FromQuery] decimal? pesoCalificacion = null,
+        [FromQuery] decimal? precio = null,
+        [FromQuery] decimal? flete = null,
+        [FromQuery] decimal? plazo = null,
+        [FromQuery] decimal? calificacion = null,
         CancellationToken cancellationToken = default)
     {
         if (!licitacionId.HasValue || licitacionId.Value == Guid.Empty)
@@ -117,7 +131,13 @@ public class CotizacionesController : ControllerBase
 
         try
         {
-            var query = new GetCotizacionesByLicitacionIdQuery(licitacionId.Value, p);
+            var query = new GetCotizacionesByLicitacionIdQuery(
+                licitacionId.Value,
+                p,
+                PesoPrecio: pesoPrecio ?? precio,
+                PesoFlete: pesoFlete ?? flete,
+                PesoPlazo: pesoPlazo ?? plazo,
+                PesoCalificacion: pesoCalificacion ?? calificacion);
             var resultado = await _getCotizacionesHandler.Handle(query, cancellationToken);
 
             Response.Headers["X-Total-Count"] = resultado.Total.ToString();
@@ -138,7 +158,117 @@ public class CotizacionesController : ControllerBase
             return Problem(
                 detail: ex.Message,
                 statusCode: StatusCodes.Status400BadRequest,
-                title: "Parámetro licitacionId inválido");
+                title: "Parámetros de consulta inválidos");
+        }
+    }
+
+    /// <summary>
+    /// Cargar o actualizar la calificación global de un proveedor (1 a 5) (Roles: Comprador, Admin).
+    /// </summary>
+    [HttpPut("proveedores/{proveedorId:guid}/calificacion")]
+    [HttpPut("/api/proveedores/{proveedorId:guid}/calificacion")]
+    [Authorize(Roles = "Comprador,Admin")]
+    [ProducesResponseType(typeof(CalificacionProveedorResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpsertCalificacionProveedor(
+        [FromRoute] Guid proveedorId,
+        [FromBody] UpsertCalificacionProveedorRequestDto? request,
+        CancellationToken cancellationToken = default)
+    {
+        if (proveedorId == Guid.Empty)
+        {
+            return Problem(
+                detail: "El identificador del proveedor (proveedorId) es obligatorio y debe ser un GUID válido.",
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Parámetro proveedorId inválido");
+        }
+
+        if (request is null)
+        {
+            return Problem(
+                detail: "El cuerpo de la petición es obligatorio.",
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Petición inválida");
+        }
+
+        if (_upsertCalificacionHandler is null)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError);
+        }
+
+        try
+        {
+            var command = new ObraSync.Licitaciones.Application.UseCases.Calificaciones.Commands.UpsertCalificacionProveedorCommand(
+                proveedorId,
+                request.Calificacion);
+            var resultado = await _upsertCalificacionHandler.Handle(command, cancellationToken);
+            return Ok(resultado);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Calificación fuera de rango");
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Datos de calificación inválidos");
+        }
+    }
+
+    /// <summary>
+    /// Consultar la calificación global actual de un proveedor (Roles: Comprador, Admin).
+    /// </summary>
+    [HttpGet("proveedores/{proveedorId:guid}/calificacion")]
+    [HttpGet("/api/proveedores/{proveedorId:guid}/calificacion")]
+    [Authorize(Roles = "Comprador,Admin")]
+    [ProducesResponseType(typeof(CalificacionProveedorResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCalificacionProveedor(
+        [FromRoute] Guid proveedorId,
+        CancellationToken cancellationToken = default)
+    {
+        if (proveedorId == Guid.Empty)
+        {
+            return Problem(
+                detail: "El identificador del proveedor (proveedorId) es obligatorio y debe ser un GUID válido.",
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Parámetro proveedorId inválido");
+        }
+
+        if (_getCalificacionHandler is null)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError);
+        }
+
+        try
+        {
+            var query = new ObraSync.Licitaciones.Application.UseCases.Calificaciones.Queries.GetCalificacionProveedorQuery(proveedorId);
+            var resultado = await _getCalificacionHandler.Handle(query, cancellationToken);
+            return Ok(resultado);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Calificación de proveedor no encontrada");
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Parámetro proveedorId inválido");
         }
     }
 

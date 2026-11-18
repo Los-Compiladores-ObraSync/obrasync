@@ -12,16 +12,19 @@ public class GetCotizacionesByLicitacionIdQueryHandler
 {
     private readonly ILicitacionRepository _licitacionRepository;
     private readonly ICotizacionRepository _cotizacionRepository;
+    private readonly ICalificacionProveedorRepository? _calificacionRepository;
     private readonly ScoringOptions _scoringOptions;
 
     public GetCotizacionesByLicitacionIdQueryHandler(
         ILicitacionRepository licitacionRepository,
         ICotizacionRepository cotizacionRepository,
         IConfiguration? configuration = null,
-        ScoringOptions? scoringOptions = null)
+        ScoringOptions? scoringOptions = null,
+        ICalificacionProveedorRepository? calificacionRepository = null)
     {
         _licitacionRepository = licitacionRepository ?? throw new ArgumentNullException(nameof(licitacionRepository));
         _cotizacionRepository = cotizacionRepository ?? throw new ArgumentNullException(nameof(cotizacionRepository));
+        _calificacionRepository = calificacionRepository;
         _scoringOptions = scoringOptions ?? configuration.ReadAndValidateScoringOptions();
         _scoringOptions.Validar();
     }
@@ -37,6 +40,13 @@ public class GetCotizacionesByLicitacionIdQueryHandler
 
         var p = query.Paginacion ?? new ParametrosPagina();
 
+        // Validar ponderaciones antes de consultar la base (si el cliente envió pesos negativos o todos cero, falla con ArgumentException -> 400)
+        var ponderacion = new PonderacionScoring(
+            precio: query.PesoPrecio ?? _scoringOptions.PesoPrecio,
+            flete: query.PesoFlete ?? _scoringOptions.PesoFlete,
+            plazo: query.PesoPlazo ?? _scoringOptions.PesoPlazo,
+            calificacion: query.PesoCalificacion ?? _scoringOptions.PesoCalificacion);
+
         var licitacion = await _licitacionRepository.GetByIdAsync(query.LicitacionId, cancellationToken);
         if (licitacion == null)
         {
@@ -49,6 +59,15 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             return new PaginaDe<CotizacionResponseDto>(Array.Empty<CotizacionResponseDto>(), 0);
         }
 
+        var proveedorIds = cotizaciones
+            .Select(c => c.ProveedorId)
+            .Distinct()
+            .ToList();
+
+        IReadOnlyDictionary<Guid, int> calificacionesPorProveedor = _calificacionRepository != null
+            ? await _calificacionRepository.GetCalificacionesByProveedorIdsAsync(proveedorIds, cancellationToken)
+            : new Dictionary<Guid, int>();
+
         // Solo las cotizaciones completas (con ítems válidos > 0 y sin cobertura parcial) compiten por el scoring y EsGanadora (#186 / #190 / #197)
         var cotizacionesCompletas = cotizaciones
             .Where(c =>
@@ -58,26 +77,31 @@ public class GetCotizacionesByLicitacionIdQueryHandler
                 !c.Items.Any(i => i.CoberturaParcial))
             .ToList();
 
-        // 1. Mapeamos usando el constructor posicional de la entidad Oferta del Dominio (pasando CantidadOfrecida para #190)
-        var ofertasDomain = cotizacionesCompletas.Select(c => new Oferta(
-            c.CotizacionId,
-            c.ProveedorId,
-            c.Items.Select(i => new OfertaItem(
-                i.ArticuloId,
-                i.PrecioUnitario,
-                i.CantidadOfrecida
-            )).ToList(),
-            c.Flete,
-            c.PlazoEntregaDias,
-            null
-        )).ToList();
+        // 1. Mapeamos usando el constructor posicional de la entidad Oferta del Dominio (pasando CantidadOfrecida para #190 y Calificacion para #88)
+        var ofertasDomain = cotizacionesCompletas.Select(c =>
+        {
+            int? calif = calificacionesPorProveedor.TryGetValue(c.ProveedorId, out var valorCalif)
+                ? valorCalif
+                : null;
+
+            return new Oferta(
+                c.CotizacionId,
+                c.ProveedorId,
+                c.Items.Select(i => new OfertaItem(
+                    i.ArticuloId,
+                    i.PrecioUnitario,
+                    i.CantidadOfrecida
+                )).ToList(),
+                c.Flete,
+                c.PlazoEntregaDias,
+                calif
+            );
+        }).ToList();
 
         var itemsRequeridos = licitacion.Items.Select(i => new ItemRequerido(
             i.ArticuloId,
             i.Cantidad
         )).ToList();
-
-        var ponderacion = _scoringOptions.ToPonderacion();
 
         // 2. Ejecutamos el motor de scoring sobre las ofertas completas de la licitación
         var resultadosScoring = ofertasDomain.Count > 0
@@ -104,13 +128,19 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             .GroupBy(i => i.ArticuloId)
             .ToDictionary(g => g.Key, g => g.First().Cantidad);
 
-        // Preparamos el DTO de ponderaciones aplicadas en el scoring (#197 + #206)
+        var pesoTotal = ponderacion.Total;
+        var pesoPrecioNorm = Math.Round(ponderacion.Precio / pesoTotal, 4);
+        var pesoFleteNorm = Math.Round(ponderacion.Flete / pesoTotal, 4);
+        var pesoPlazoNorm = Math.Round(ponderacion.Plazo / pesoTotal, 4);
+        var pesoCalificacionNorm = Math.Round(ponderacion.Calificacion / pesoTotal, 4);
+
+        // Preparamos el DTO de ponderaciones normalizadas aplicadas en el scoring (#88 + #197 + #206)
         var ponderacionesDto = new CriteriosScoringDto
         {
-            Precio = ponderacion.Precio,
-            Flete = ponderacion.Flete,
-            Plazo = ponderacion.Plazo,
-            Calificacion = ponderacion.Calificacion
+            Precio = pesoPrecioNorm,
+            Flete = pesoFleteNorm,
+            Plazo = pesoPlazoNorm,
+            Calificacion = pesoCalificacionNorm
         };
 
         var dtos = cotizaciones
@@ -148,11 +178,15 @@ public class GetCotizacionesByLicitacionIdQueryHandler
                         PuntajePlazo = Math.Round(pc.Plazo * 100m, 2),
                         PuntajeFlete = Math.Round(pc.Flete * 100m, 2),
                         PuntajeCalificacion = Math.Round(pc.Calificacion * 100m, 2),
-                        PesoPrecio = ponderacion.Precio,
-                        PesoPlazo = ponderacion.Plazo,
-                        PesoFlete = ponderacion.Flete,
-                        PesoCalificacion = ponderacion.Calificacion
+                        PesoPrecio = pesoPrecioNorm,
+                        PesoPlazo = pesoPlazoNorm,
+                        PesoFlete = pesoFleteNorm,
+                        PesoCalificacion = pesoCalificacionNorm
                     }
+                    : null;
+
+                int? calificacionProveedor = calificacionesPorProveedor.TryGetValue(c.ProveedorId, out var califGuardada)
+                    ? califGuardada
                     : null;
 
                 dto.SubtotalItems = subtotalItems;
@@ -160,7 +194,7 @@ public class GetCotizacionesByLicitacionIdQueryHandler
                 dto.CoberturaParcial = c.Items.Any(i => i.CoberturaParcial);
                 dto.PuntajeTotal = Math.Round(puntaje * 100m, 2);
                 dto.EsGanadora = esGanadora;
-                dto.CalificacionProveedor = null;
+                dto.CalificacionProveedor = calificacionProveedor;
                 dto.DesglosePuntaje = desgloseDto;
                 dto.PonderacionesScoring = ponderacionesDto;
                 dto.DesgloseScoring = desgloseScoringDto;
