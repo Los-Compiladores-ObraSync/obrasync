@@ -9,6 +9,8 @@ public class LicitacionResponseDto
     public string Estado { get; set; } = string.Empty;
     public DateTime FechaCreacion { get; set; }
     public DateTime FechaLimiteCotizacion { get; set; }
+    public string? MotivoCierre { get; set; }
+    public DateTime? FechaCierre { get; set; }
     public IReadOnlyList<PliegoItemDto> Items { get; set; } = Array.Empty<PliegoItemDto>();
 
     /// <summary>

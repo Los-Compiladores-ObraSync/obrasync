@@ -7,6 +7,7 @@ using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Exceptions;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Commands;
+using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Commands;
 using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Queries;
 
@@ -208,6 +209,51 @@ public class LicitacionesController : ControllerBase
                 detail: ex.Message,
                 statusCode: StatusCodes.Status409Conflict,
                 title: "Conflicto en la adjudicación");
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Solicitud inválida");
+        }
+    }
+
+    /// <summary>
+    /// Cerrar o cancelar una licitación abierta sin adjudicar (Roles: Comprador, Admin).
+    /// </summary>
+    [HttpPost("{id:guid}/cerrar")]
+    [Authorize(Roles = "Comprador,Admin")]
+    [ProducesResponseType(typeof(LicitacionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Cerrar(
+        Guid id,
+        [FromBody] CerrarLicitacionRequestDto? request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var command = new CerrarLicitacionCommand(id, request?.Motivo);
+            var resultado = await _mediator.Send(command, cancellationToken);
+            return Ok(resultado);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Recurso no encontrado");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Conflicto al cerrar la licitación");
         }
         catch (ArgumentException ex)
         {

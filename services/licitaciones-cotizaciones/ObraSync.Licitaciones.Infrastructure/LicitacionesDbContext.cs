@@ -53,6 +53,7 @@ public class LicitacionesDbContext : DbContext
             e.HasIndex(x => x.RequisicionId);
             e.Property(x => x.NumeroRequisicion).HasMaxLength(50);
             e.Property(x => x.Estado).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.MotivoCierre).HasMaxLength(500);
             e.HasMany(x => x.Items).WithOne().HasForeignKey(i => i.LicitacionId);
         });
 

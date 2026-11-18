@@ -273,11 +273,18 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<DateTime?>("FechaCierre")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("FechaCreacion")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime>("FechaLimiteCotizacion")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("MotivoCierre")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("NumeroRequisicion")
                         .IsRequired()

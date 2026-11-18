@@ -83,4 +83,21 @@ public class MagicLinkRepository : IMagicLinkRepository
             semaforo.Release();
         }
     }
+
+    public async Task InvalidarPendientesPorLicitacionIdAsync(
+        Guid licitacionId,
+        DateTime ahoraUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var pendientes = await _context.MagicLinks
+            .Where(m => m.LicitacionId == licitacionId
+                        && m.FechaDeUso == null
+                        && m.FechaDeVencimiento > ahoraUtc)
+            .ToListAsync(cancellationToken);
+
+        foreach (var magicLink in pendientes)
+        {
+            magicLink.FechaDeVencimiento = ahoraUtc;
+        }
+    }
 }
