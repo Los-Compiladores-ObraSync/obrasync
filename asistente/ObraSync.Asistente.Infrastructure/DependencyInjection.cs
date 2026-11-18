@@ -8,7 +8,7 @@ public static class DependencyInjection
 {
     /// <summary>
     /// Registra el cliente del modelo y los lectores de catálogo, obras, requisiciones, licitaciones,
-    /// órdenes pendientes y partidas presupuestarias (solo GET).
+    /// órdenes pendientes, partidas presupuestarias y órdenes bloqueadas (solo GET).
     /// Se arman a mano (con IHttpClientFactory) para que el buscador reciba el contexto del pedido actual
     /// (el JWT del usuario) y no uno viejo.
     /// </summary>
@@ -55,6 +55,11 @@ public static class DependencyInjection
             sp.GetRequiredService<IContextoDePeticion>()));
 
         services.AddScoped<IConsultorPresupuestos>(sp => new PresupuestosGateway(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient("catalogo"),
+            sp.GetRequiredService<ConfiguracionApi>(),
+            sp.GetRequiredService<IContextoDePeticion>()));
+
+        services.AddScoped<IConsultorOrdenesBloqueadas>(sp => new OrdenesBloqueadasGateway(
             sp.GetRequiredService<IHttpClientFactory>().CreateClient("catalogo"),
             sp.GetRequiredService<ConfiguracionApi>(),
             sp.GetRequiredService<IContextoDePeticion>()));

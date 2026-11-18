@@ -30,6 +30,7 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         IBuscadorInsumos? buscador = null,
         IBuscadorObras? obras = null,
         IConsultorPresupuestos? presupuestos = null,
+        IConsultorOrdenesBloqueadas? ordenesBloqueadas = null,
         bool sinContextoHttp = false) =>
         _fabrica.WithWebHostBuilder(b => b.ConfigureServices(s =>
         {
@@ -39,6 +40,8 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
             s.AddScoped(_ => obras ?? new ObrasFalsas());
             s.RemoveAll<IConsultorPresupuestos>();
             s.AddScoped(_ => presupuestos ?? new ConsultorPresupuestosFalso());
+            s.RemoveAll<IConsultorOrdenesBloqueadas>();
+            s.AddScoped(_ => ordenesBloqueadas ?? new ConsultorOrdenesBloqueadasFalso());
             if (sinContextoHttp)
             {
                 s.RemoveAll<IHttpContextAccessor>();
@@ -118,6 +121,24 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         }
     }
 
+    private sealed class ConsultorOrdenesBloqueadasFalso : IConsultorOrdenesBloqueadas
+    {
+        public int Llamadas { get; private set; }
+
+        public Task<ResultadoOrdenesBloqueadas> ListarAsync(Guid obraId, int pagina, int tamano, CancellationToken ct)
+        {
+            Llamadas++;
+            return Task.FromResult(ResultadoOrdenesBloqueadas.Bien(new[]
+            {
+                new OrdenCompraBloqueadaAsistente(
+                    Guid.Parse("cccccccc-0000-0000-0000-000000000001"), obraId, "Estructura", 120m,
+                    100m, 25m, 145m, 45m, "exceso de presupuesto",
+                    Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001"),
+                    new DateTime(2026, 11, 16, 10, 30, 0, DateTimeKind.Utc))
+            }, 1));
+        }
+    }
+
     private sealed class AccesorHttpNulo : IHttpContextAccessor
     {
         public HttpContext? HttpContext { get => null; set { } }
@@ -157,13 +178,13 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Theory]
-    [InlineData("Capataz")]
     [InlineData("Comprador")]
     [InlineData("Admin")]
-    public async Task Ruta_presupuestos_muestra_y_ejecuta_solo_la_herramienta_de_partidas(string rol)
+    public async Task Ruta_presupuestos_muestra_y_ejecuta_solo_la_herramienta_de_auditoria(string rol)
     {
         var consultor = new ConsultorPresupuestosFalso();
-        var cliente = Cliente(presupuestos: consultor);
+        var consultorOrdenes = new ConsultorOrdenesBloqueadasFalso();
+        var cliente = Cliente(presupuestos: consultor, ordenesBloqueadas: consultorOrdenes);
         var token = AsistenteEndpointTests.CrearToken(rol);
 
         var listado = await LlamarAsync(cliente, token, "tools/list", new { }, RutaPresupuestos);
@@ -180,10 +201,39 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         var texto = llamada.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString()!;
         var datos = JsonDocument.Parse(texto).RootElement;
 
+        Assert.Equal(1, datos.GetProperty("ordenesBloqueadas").GetArrayLength());
+        Assert.Equal("exceso de presupuesto", datos.GetProperty("ordenesBloqueadas")[0].GetProperty("motivo").GetString());
+        Assert.Equal(45m, datos.GetProperty("ordenesBloqueadas")[0].GetProperty("exceso").GetDecimal());
+        Assert.True(datos.GetProperty("completo").GetBoolean());
+
         Assert.Equal("Hormigón", datos.GetProperty("partidas")[0].GetProperty("descripcion").GetString());
         Assert.Equal(1, consultor.Llamadas);
+        Assert.Equal(1, consultorOrdenes.Llamadas);
         Assert.Equal(Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), consultor.UltimaObraId);
         Assert.Equal("Estructura", consultor.UltimaEtapa);
+    }
+
+    [Fact]
+    public async Task Capataz_recibe_403_en_la_ruta_presupuestaria_por_permisos_del_endpoint_de_ordenes()
+    {
+        var respuesta = await Cliente().SendAsync(Rpc(
+            AsistenteEndpointTests.CrearToken("Capataz"), "tools/list", new { }, id: 1, ruta: RutaPresupuestos));
+
+        Assert.Equal(HttpStatusCode.Forbidden, respuesta.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("Capataz")]
+    [InlineData("Admin")]
+    public async Task Ruta_original_rechaza_ejecutar_la_herramienta_presupuestaria(string rol)
+    {
+        var respuesta = await LlamarAsync(Cliente(), AsistenteEndpointTests.CrearToken(rol), "tools/call", new
+        {
+            name = "consultar_partidas_presupuestarias",
+            arguments = new { obraId = "aaaaaaaa-0000-0000-0000-000000000001", etapa = "Estructura" }
+        });
+
+        Assert.True(respuesta.GetProperty("result").GetProperty("isError").GetBoolean());
     }
 
     [Theory]
