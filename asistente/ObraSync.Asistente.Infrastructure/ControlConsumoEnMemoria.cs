@@ -12,15 +12,21 @@ public sealed class OpcionesConsumo
     /// <summary>Interruptor: en false el asistente responde "no disponible" sin llamar al modelo.</summary>
     public bool Habilitado { get; set; } = true;
 
-    public int TokensPorMinuto { get; set; } = 10_000;
+    /// <summary>
+    /// Tope local por minuto. El gateway nuevo del profe permite 125.000 por minuto y 125 pedidos por minuto
+    /// (encabezados x-ratelimit), pero la clave la comparte todo el grupo: cada instancia usa solo una parte (#212).
+    /// Antes eran 10.000, el cupo del gateway anterior.
+    /// </summary>
+    public int TokensPorMinuto { get; set; } = 30_000;
 
     public long TokensPorMes { get; set; } = 18_750_000;
 
     /// <summary>
     /// Cuánto se calcula que gasta un pedido, para no arrancarlo si no entra en el minuto.
-    /// ES UNA ESTIMACIÓN (la cuenta de #144: ~5.000 a 7.000 por mensaje): hay que reemplazarla por lo medido en los registros.
+    /// Medido con el gateway nuevo (#212): un pedido gasta entre 1.000 y 2.900 tokens (el de 2 vueltas con una herramienta, ~2.900).
+    /// Antes se estimaban 6.000 (cuenta de #144), y con eso 2 o 3 mensajes seguidos ya daban "asistente ocupado".
     /// </summary>
-    public int TokensEstimadosPorPedido { get; set; } = 6_000;
+    public int TokensEstimadosPorPedido { get; set; } = 3_000;
 
     /// <summary>A partir de este porcentaje del tope mensual se avisa en el log (una vez por mes).</summary>
     public double UmbralAviso { get; set; } = 0.8;

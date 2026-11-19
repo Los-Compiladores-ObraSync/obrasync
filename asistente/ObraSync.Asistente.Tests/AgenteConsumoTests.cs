@@ -65,7 +65,7 @@ public class AgenteConsumoTests
     public async Task Cerca_del_tope_por_minuto_responde_ocupado_SIN_llamar_al_modelo()
     {
         var control = Control();
-        control.Registrar(5_000);                       // el pedido estimado (6.000) ya no entra en los 10.000
+        control.Registrar(28_000);                      // el pedido estimado (3.000) ya no entra en los 30.000
         var modelo = new ModeloFalso();                 // si lo llamaran, fallaría (no tiene respuestas preparadas)
 
         var r = await Agente(modelo, control).ResponderAsync("hola");
