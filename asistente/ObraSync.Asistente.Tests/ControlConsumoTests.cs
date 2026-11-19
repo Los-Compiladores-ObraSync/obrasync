@@ -39,18 +39,32 @@ public class ControlConsumoTests
     [Fact]
     public void Si_el_pedido_estimado_no_entra_en_el_minuto_responde_ocupado_sin_llamar_al_modelo()
     {
-        // Tope 10.000 por minuto, estimado 6.000 por pedido: con 5.000 ya gastados, el siguiente no entra.
+        // Tope 30.000 por minuto, estimado 3.000 por pedido: con 28.000 ya gastados, el siguiente no entra.
         var control = Armar();
-        control.Registrar(5_000);
+        control.Registrar(28_000);
 
         Assert.Equal(DecisionConsumo.Ocupado, control.Autorizar());
+    }
+
+    [Fact]
+    public void Con_los_topes_nuevos_entran_varios_pedidos_seguidos_de_lo_que_se_midio_en_el_gateway_nuevo()
+    {
+        // #212: con el freno viejo (10.000 y 6.000 estimados) el tercer mensaje ya daba "ocupado".
+        // Medido: un pedido de chat gasta 1.500 y uno con una herramienta ~2.900.
+        var control = Armar();
+
+        foreach (var gastado in new[] { 1_500, 2_900, 2_900, 1_500, 2_900, 2_900, 1_500 })
+        {
+            Assert.Equal(DecisionConsumo.Permitido, control.Autorizar());
+            control.Registrar(gastado);
+        }
     }
 
     [Fact]
     public void Pasado_el_minuto_vuelve_a_permitir()
     {
         var control = Armar();
-        control.Registrar(5_000);
+        control.Registrar(28_000);
         Assert.Equal(DecisionConsumo.Ocupado, control.Autorizar());
 
         _reloj.Avanzar(TimeSpan.FromSeconds(61));
@@ -62,15 +76,15 @@ public class ControlConsumoTests
     public void La_ventana_es_deslizante_y_solo_cuenta_lo_de_los_ultimos_60_segundos()
     {
         var control = Armar(new OpcionesConsumo { TokensEstimadosPorPedido = 1_000 });
-        control.Registrar(5_000);
+        control.Registrar(14_000);
         _reloj.Avanzar(TimeSpan.FromSeconds(40));
-        control.Registrar(4_500);                       // total en la ventana: 9.500
+        control.Registrar(15_500);                      // total en la ventana: 29.500 (con 1.000 estimados ya no entra)
         Assert.Equal(DecisionConsumo.Ocupado, control.Autorizar());
 
-        _reloj.Avanzar(TimeSpan.FromSeconds(30));       // los 5.000 de hace 70 s salen de la ventana: quedan 4.500
+        _reloj.Avanzar(TimeSpan.FromSeconds(30));       // los 14.000 de hace 70 s salen de la ventana: quedan 15.500
 
         Assert.Equal(DecisionConsumo.Permitido, control.Autorizar());
-        Assert.Equal(4_500, control.Estado().TokensUltimoMinuto);
+        Assert.Equal(15_500, control.Estado().TokensUltimoMinuto);
     }
 
     [Fact]
