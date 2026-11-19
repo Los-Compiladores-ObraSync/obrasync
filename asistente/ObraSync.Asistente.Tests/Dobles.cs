@@ -72,6 +72,7 @@ internal sealed class HandlerModelo : HttpMessageHandler
 {
     private readonly int _estado;
     public string? ApiKey { get; private set; }
+    public string? Authorization { get; private set; }
     public string? Url { get; private set; }
     public string? Cuerpo { get; private set; }
     public int Llamadas { get; private set; }
@@ -81,7 +82,8 @@ internal sealed class HandlerModelo : HttpMessageHandler
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct)
     {
         Llamadas++;
-        ApiKey = req.Headers.GetValues("api-key").FirstOrDefault();
+        ApiKey = req.Headers.TryGetValues("api-key", out var claves) ? claves.FirstOrDefault() : null;
+        Authorization = req.Headers.Authorization?.ToString();
         Url = req.RequestUri!.AbsoluteUri;
         Cuerpo = req.Content is null ? null : await req.Content.ReadAsStringAsync(ct);
         const string ok = "{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"role\":\"assistant\",\"content\":\"¡Hola!\"}}],\"usage\":{\"total_tokens\":16}}";

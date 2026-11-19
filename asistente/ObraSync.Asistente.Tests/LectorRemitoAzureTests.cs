@@ -41,4 +41,15 @@ public class LectorRemitoAzureTests
 
         Assert.NotNull(lector);
     }
+
+    [Fact]
+    public void Con_endpoint_openai_v1_se_construye_sin_llamar_a_la_red()
+    {
+        var c = new ConfiguracionIA("https://ejemplo.test/default/models/openai/v1", "shared-unaj-newsku-resource/gpt-5-mini", null, "clave");
+
+        var lector = new LectorRemitoAzure(c);
+
+        Assert.NotNull(lector);
+        Assert.Equal("shared-unaj-newsku-resource/gpt-5-mini", c.DeploymentRemito);
+    }
 }

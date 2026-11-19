@@ -7,7 +7,7 @@ Las herramientas se escriben UNA sola vez (`HerramientasCatalogo`, capa Applicat
 las publica sin duplicar lógica.
 
 Servicio que atiende el chat del asistente: recibe el mensaje del usuario y el historial reciente, le pregunta al
-modelo (gpt-4.1-mini, por el gateway de IA de la cátedra) y devuelve la respuesta en texto.
+modelo (gpt-5-mini en el gateway nuevo de la cátedra; gpt-4.1-mini en el anterior) y devuelve la respuesta en texto.
 
 **Regla de oro:** el asistente NUNCA escribe datos. Solo tiene herramientas de lectura. A lo sumo ARMA un borrador
 (tarjeta #100: una requisición) que viaja en el campo `borrador` de la respuesta. La escritura la hace el frontend
@@ -44,7 +44,7 @@ El borrador no se guarda en ninguna base.
 tiene entidades ni base de datos.
 
 ## Límites del agente (para no gastar de más: el cupo es compartido por todo el grupo)
-500 caracteres por mensaje · historial de 10 mensajes · 4 vueltas · 3 llamadas a herramientas · 300 tokens de
+500 caracteres por mensaje · historial de 10 mensajes · 4 vueltas · 3 llamadas a herramientas · 800 tokens de
 salida · 45 s en total. Un `429` del proveedor se devuelve tal cual, sin reintentos.
 
 ## Configuración (variables de entorno, nunca en el código ni en el repo)
@@ -53,7 +53,10 @@ salida · 45 s en total. Un `429` del proveedor se devuelve tal cual, sin reinte
 | `JWT_SECRET` (`Jwt__Secret`) | El mismo secreto que usa Usuarios para firmar. |
 | `AI_API_KEY` (`Ai__ApiKey`) | Clave del gateway de IA. Sin ella el chat responde 503. |
 | `AI_BASE_URL` (`Ai__BaseUrl`) | Dirección del gateway de IA (está en la tarjeta #137). Sin ella el chat responde 503. |
-| `AI_DEPLOYMENT` (`Ai__Deployment`) | Opcional. Por defecto `gpt-4.1-mini`. |
+| `AI_DEPLOYMENT` (`Ai__Deployment`) | Modelo del chat. Por defecto `gpt-4.1-mini`. Con el gateway nuevo (#211): `shared-unaj-newsku-resource/gpt-5-mini`. |
+| `Ai__ReasoningEffort` | Opcional. Esfuerzo de razonamiento de los modelos gpt-5 (por defecto `minimal`; `none` para no mandarlo). Con un tope de tokens de salida bajo, un razonamiento largo deja la respuesta vacía. |
+
+**Dos estilos de gateway (#211).** El servicio mira cómo termina `AI_BASE_URL`: si termina en `/v1` usa el estilo OpenAI (URL `.../chat/completions`, modelo en el cuerpo, clave como `Authorization: Bearer`); si no, el estilo Azure de antes (`/openai/deployments/{deployment}/chat/completions?api-version=...`, clave en `api-key`).
 | `Gateway__BaseUrl` | Dónde está el API Gateway de ObraSync (en Docker: `http://gateway:8080`; por defecto `http://localhost:5000`). |
 
 ## Correrlo

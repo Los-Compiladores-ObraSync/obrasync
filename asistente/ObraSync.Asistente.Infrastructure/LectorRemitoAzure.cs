@@ -4,6 +4,7 @@ using System.ComponentModel;
 using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using OpenAI;
 using OpenAI.Chat;
 using ObraSync.Asistente.Application;
 // El paquete de OpenAI también tiene un ChatMessage: se aclara cuál es.
@@ -12,7 +13,7 @@ using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 namespace ObraSync.Asistente.Infrastructure;
 
 /// <summary>
-/// Lee el número y la fecha de la foto de un remito con Azure OpenAI (#209), como en el ejemplo del profe:
+/// Lee el número y la fecha de la foto de un remito con Azure OpenAI o con el endpoint OpenAI v1 del profe (#209, #211):
 /// Azure.AI.OpenAI + Microsoft.Agents.AI.OpenAI, con la imagen como DataContent y una respuesta estructurada.
 /// A propósito SIN reintentos automáticos (cada intento gasta cupo compartido) y con un timeout acotado.
 /// </summary>
@@ -42,13 +43,29 @@ public sealed class LectorRemitoAzure : IExtractorRemito
         if (!config.EstaActivo)
             return;
 
-        var opciones = new AzureOpenAIClientOptions
+        ChatClient chat;
+        if (config.EstiloOpenAiV1)
         {
-            RetryPolicy = new ClientRetryPolicy(maxRetries: 0),
-            NetworkTimeout = TimeSpan.FromSeconds(25)
-        };
-        var cliente = new AzureOpenAIClient(new Uri(config.BaseUrl), new ApiKeyCredential(config.ApiKey), opciones);
-        _agente = cliente.GetChatClient(config.DeploymentRemito).AsAIAgent(name: "ExtractorRemitos", instructions: Instrucciones);
+            // Gateway nuevo del profe (#211): endpoint compatible con OpenAI v1, igual que su ejemplo con OpenAIClient.
+            var opcionesV1 = new OpenAIClientOptions
+            {
+                Endpoint = new Uri(config.BaseUrl),
+                RetryPolicy = new ClientRetryPolicy(maxRetries: 0),
+                NetworkTimeout = TimeSpan.FromSeconds(25)
+            };
+            chat = new OpenAIClient(new ApiKeyCredential(config.ApiKey), opcionesV1).GetChatClient(config.DeploymentRemito);
+        }
+        else
+        {
+            var opciones = new AzureOpenAIClientOptions
+            {
+                RetryPolicy = new ClientRetryPolicy(maxRetries: 0),
+                NetworkTimeout = TimeSpan.FromSeconds(25)
+            };
+            chat = new AzureOpenAIClient(new Uri(config.BaseUrl), new ApiKeyCredential(config.ApiKey), opciones)
+                .GetChatClient(config.DeploymentRemito);
+        }
+        _agente = chat.AsAIAgent(name: "ExtractorRemitos", instructions: Instrucciones);
     }
 
     public async Task<LecturaCruda> ExtraerAsync(byte[] imagen, string tipoMedia, CancellationToken ct)

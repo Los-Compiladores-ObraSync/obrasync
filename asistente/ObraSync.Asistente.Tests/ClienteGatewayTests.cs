@@ -23,6 +23,78 @@ public class ClienteGatewayTests
         Assert.Contains("/openai/deployments/gpt-4.1-mini/chat/completions?api-version=2025-03-01-preview", handler.Url);
     }
 
+    private static readonly ConfiguracionIA ConfigV1 = new(
+        "https://ejemplo.test/default/models/openai/v1", "shared-unaj-newsku-resource/gpt-5-mini", null, "CLAVE_V1");
+
+    [Fact]
+    public async Task Con_endpoint_openai_v1_usa_Bearer_pone_el_modelo_en_el_cuerpo_y_no_usa_api_version()
+    {
+        var handler = new HandlerModelo();
+        var cliente = new ClienteGateway(new HttpClient(handler), ConfigV1);
+
+        await cliente.PedirAsync(Mensajes(), null, 300, default);
+
+        Assert.Equal("https://ejemplo.test/default/models/openai/v1/chat/completions", handler.Url);
+        Assert.Equal("Bearer CLAVE_V1", handler.Authorization);
+        Assert.Null(handler.ApiKey);
+        var cuerpo = JsonNode.Parse(handler.Cuerpo!)!;
+        Assert.Equal("shared-unaj-newsku-resource/gpt-5-mini", cuerpo["model"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Con_gpt_5_manda_reasoning_effort_minimal_para_que_pensar_no_se_coma_la_respuesta()
+    {
+        var handler = new HandlerModelo();
+        var cliente = new ClienteGateway(new HttpClient(handler), ConfigV1);
+
+        await cliente.PedirAsync(Mensajes(), null, 300, default);
+
+        Assert.Equal("minimal", JsonNode.Parse(handler.Cuerpo!)!["reasoning_effort"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Con_gpt_4_1_no_manda_reasoning_effort_ni_model_en_el_estilo_azure()
+    {
+        var handler = new HandlerModelo();
+        var cliente = new ClienteGateway(new HttpClient(handler), Config);
+
+        await cliente.PedirAsync(Mensajes(), null, 300, default);
+
+        var cuerpo = JsonNode.Parse(handler.Cuerpo!)!;
+        Assert.Null(cuerpo["reasoning_effort"]);
+        Assert.Null(cuerpo["model"]);
+        Assert.Null(handler.Authorization);
+    }
+
+    [Fact]
+    public async Task El_reasoning_effort_se_puede_cambiar_o_apagar_por_configuracion()
+    {
+        var handler = new HandlerModelo();
+        var baja = new ConfiguracionIA(ConfigV1.BaseUrl, ConfigV1.Deployment, null, "k", null, "low");
+        await new ClienteGateway(new HttpClient(handler), baja).PedirAsync(Mensajes(), null, 300, default);
+        Assert.Equal("low", JsonNode.Parse(handler.Cuerpo!)!["reasoning_effort"]!.GetValue<string>());
+
+        var apagado = new ConfiguracionIA(ConfigV1.BaseUrl, ConfigV1.Deployment, null, "k", null, "none");
+        await new ClienteGateway(new HttpClient(handler), apagado).PedirAsync(Mensajes(), null, 300, default);
+        Assert.Null(JsonNode.Parse(handler.Cuerpo!)!["reasoning_effort"]);
+    }
+
+    [Fact]
+    public void Un_reasoning_effort_vacio_usa_el_valor_por_defecto_como_pasa_con_las_variables_opcionales_del_compose()
+    {
+        Assert.Equal("minimal", new ConfiguracionIA(ConfigV1.BaseUrl, ConfigV1.Deployment, null, "k", null, "").ReasoningEffort);
+        Assert.Equal("", new ConfiguracionIA(Config.BaseUrl, "gpt-4.1-mini", null, "k", null, "  ").ReasoningEffort);
+    }
+
+    [Theory]
+    [InlineData("https://ejemplo.test/default/models/openai/v1", true)]
+    [InlineData("https://ejemplo.test/default/models/openai/v1/", true)]
+    [InlineData("https://ejemplo.test/unaj-llm", false)]
+    public void El_estilo_se_detecta_por_el_final_de_la_url(string url, bool esperado)
+    {
+        Assert.Equal(esperado, new ConfiguracionIA(url, null, null, "k").EstiloOpenAiV1);
+    }
+
     [Fact]
     public async Task Manda_max_completion_tokens_y_las_herramientas_cuando_hay()
     {

@@ -25,7 +25,8 @@ public sealed class Agente
     /// </summary>
     public const int MaxIteraciones = 4;
     public const int MaxLlamadasHerramienta = 3;
-    public const int MaxTokensSalida = 300;
+    /// <summary>Tope de tokens de respuesta por llamada al modelo. Subió de 300 a 800 (#211): comparar ofertas y explicar cuál conviene no entraba.</summary>
+    public const int MaxTokensSalida = 800;
     public const int MaxMensajesHistorial = 10;
     public const int MaxCaracteresHistorial = 2000;
     /// <summary>Tope del total de caracteres del historial (#194): si se pasa, se descartan los mensajes más viejos.
