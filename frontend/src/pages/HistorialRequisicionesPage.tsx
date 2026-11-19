@@ -173,19 +173,23 @@ export function HistorialRequisicionesPage({
 
       <div className={styles.filtros} role="group" aria-label="Filtros del historial">
         <div className={styles.filtro}>
-          <label htmlFor="filtro-estado">Estado</label>
-          <select
-            id="filtro-estado"
-            value={estadoFiltro}
-            onChange={(e) => cambiarFiltro('estado', e.target.value)}
-          >
-            <option value="">Todos</option>
+          <span id="filtro-estado-titulo" className={styles.tituloFiltro}>
+            Estado
+          </span>
+          {/* Son solo 3 estados: botones en vez de desplegable (un toque menos). Tocar el activo lo desactiva. */}
+          <div className={styles.botonesEstado} role="group" aria-labelledby="filtro-estado-titulo">
             {ESTADOS.map((estado) => (
-              <option key={estado} value={estado}>
+              <button
+                key={estado}
+                type="button"
+                className={styles.botonEstado}
+                aria-pressed={estadoFiltro === estado}
+                onClick={() => cambiarFiltro('estado', estadoFiltro === estado ? '' : estado)}
+              >
                 {estado}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
         <div className={styles.filtro}>
           <label htmlFor="filtro-obra">Obra</label>

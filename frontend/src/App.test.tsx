@@ -452,7 +452,7 @@ describe('App - detalle de una requisición', () => {
     renderApp('/compras/requisiciones/historial')
 
     await screen.findByText('REQ-2026-0011')
-    await usuario.selectOptions(screen.getByLabelText('Estado'), 'Aprobada')
+    await usuario.click(screen.getByRole('button', { name: 'Aprobada' }))
     await usuario.click(await screen.findByRole('link', { name: 'REQ-2026-0009' }))
 
     expect(
@@ -464,7 +464,7 @@ describe('App - detalle de una requisición', () => {
 
     expect(await screen.findByRole('link', { name: 'REQ-2026-0009' })).toBeInTheDocument()
     expect(screen.queryByText('REQ-2026-0011')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Estado')).toHaveValue('Aprobada')
+    expect(screen.getByRole('button', { name: 'Aprobada' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('el Capataz abre el detalle desde su historial', async () => {
