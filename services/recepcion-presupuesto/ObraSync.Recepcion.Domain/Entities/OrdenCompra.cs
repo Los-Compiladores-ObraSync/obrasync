@@ -207,4 +207,97 @@ public class OrdenCompra : BaseEntity
         FechaDespacho = FechaUtc.Normalizar(fechaDespachoUtc);
         UpdatedAt = ahora;
     }
+
+    /// <summary>
+    /// Calcula los saldos pendientes de cada artículo de la orden de compra (#91).
+    /// Si cantidadesRecibidasPrevias es null o no contiene algún artículo, se asume recibido previo = 0.
+    /// Saldo = Math.Max(0m, item.Cantidad - recibidoPrevio).
+    /// </summary>
+    public IReadOnlyDictionary<Guid, decimal> CalcularSaldosPendientes(
+        IReadOnlyDictionary<Guid, decimal>? cantidadesRecibidasPrevias = null)
+    {
+        var saldos = new Dictionary<Guid, decimal>();
+        foreach (var item in _items)
+        {
+            decimal recibido = cantidadesRecibidasPrevias?.GetValueOrDefault(item.ArticuloId, 0m) ?? 0m;
+            decimal pendiente = Math.Max(0m, item.Cantidad - recibido);
+            saldos[item.ArticuloId] = pendiente;
+        }
+        return saldos;
+    }
+
+    /// <summary>
+    /// Obtiene el saldo pendiente de un artículo puntual de la orden de compra (#91).
+    /// Lanza ArgumentException si el artículo no pertenece a la orden de compra.
+    /// </summary>
+    public decimal ObtenerSaldoPendienteArticulo(
+        Guid articuloId,
+        IReadOnlyDictionary<Guid, decimal>? cantidadesRecibidasPrevias = null)
+    {
+        var item = _items.FirstOrDefault(i => i.ArticuloId == articuloId);
+        if (item is null)
+        {
+            throw new ArgumentException($"El artículo {articuloId} no pertenece a la orden de compra {Id}.", nameof(articuloId));
+        }
+
+        decimal recibido = cantidadesRecibidasPrevias?.GetValueOrDefault(articuloId, 0m) ?? 0m;
+        return Math.Max(0m, item.Cantidad - recibido);
+    }
+
+    /// <summary>
+    /// Simula y valida una secuencia ordenada de entregas sucesivas (#91).
+    /// Valida en cada paso que ninguna cantidad recibida sea negativa ni supere el saldo remanente vigente en ese eslabón.
+    /// Devuelve el historial de saldos pendientes tras cada entrega sucesiva.
+    /// </summary>
+    public IReadOnlyList<IReadOnlyDictionary<Guid, decimal>> EncadenarEntregas(
+        IEnumerable<IReadOnlyDictionary<Guid, decimal>> entregasSucesivas)
+    {
+        if (entregasSucesivas is null)
+            throw new ArgumentNullException(nameof(entregasSucesivas));
+
+        var historialSaldos = new List<IReadOnlyDictionary<Guid, decimal>>();
+        var acumuladoRecibido = new Dictionary<Guid, decimal>();
+
+        foreach (var item in _items)
+        {
+            acumuladoRecibido[item.ArticuloId] = 0m;
+        }
+
+        foreach (var entrega in entregasSucesivas)
+        {
+            if (entrega is null)
+                throw new ArgumentNullException(nameof(entregasSucesivas), "Una entrega en la secuencia no puede ser nula.");
+
+            foreach (var (articuloId, cantidadRecibida) in entrega)
+            {
+                var item = _items.FirstOrDefault(i => i.ArticuloId == articuloId);
+                if (item is null)
+                {
+                    throw new ArgumentException($"El artículo {articuloId} no pertenece a la orden de compra.", nameof(entregasSucesivas));
+                }
+
+                if (cantidadRecibida < 0)
+                {
+                    throw new ArgumentException($"La cantidad recibida para el artículo {articuloId} no puede ser negativa.", nameof(entregasSucesivas));
+                }
+
+                decimal saldoVigente = item.Cantidad - acumuladoRecibido[articuloId];
+                if (cantidadRecibida > saldoVigente)
+                {
+                    throw new InvalidOperationException($"La cantidad recibida ({cantidadRecibida}) para el artículo {articuloId} supera el saldo remanente vigente ({saldoVigente}).");
+                }
+
+                acumuladoRecibido[articuloId] += cantidadRecibida;
+            }
+
+            var saldosPaso = new Dictionary<Guid, decimal>();
+            foreach (var item in _items)
+            {
+                saldosPaso[item.ArticuloId] = Math.Max(0m, item.Cantidad - acumuladoRecibido[item.ArticuloId]);
+            }
+            historialSaldos.Add(saldosPaso);
+        }
+
+        return historialSaldos;
+    }
 }

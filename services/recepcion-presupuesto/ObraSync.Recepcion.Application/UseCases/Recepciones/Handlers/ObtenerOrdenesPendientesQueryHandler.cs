@@ -68,24 +68,39 @@ public class ObtenerOrdenesPendientesQueryHandler
             .ToListAsync(cancellationToken);
 
         var items = ordenes
-            .Select(o => new OrdenPendienteDto
+            .Select(o =>
             {
-                OrdenCompraId = o.Id,
-                ObraId = o.ObraId,
-                Etapa = o.Etapa,
-                SinPartidaPresupuestaria = o.SinPartidaPresupuestaria,
-                Items = o.Items
-                    .Select(i => new ItemOrdenPendienteDto
-                    {
-                        ArticuloId = i.ArticuloId,
-                        DescripcionArticulo = i.Descripcion ?? string.Empty,
-                        CantidadEsperada = i.Cantidad,
-                        CantidadRecibida = recibidos
-                            .Where(d => d.OrdenCompraId == o.Id && d.ArticuloId == i.ArticuloId)
-                            .Sum(d => d.CantidadRecibida),
-                        UnidadMedida = i.UnidadMedida
-                    })
-                    .ToList()
+                var recibidosDeEstaOrden = recibidos
+                    .Where(d => d.OrdenCompraId == o.Id)
+                    .GroupBy(d => d.ArticuloId)
+                    .ToDictionary(g => g.Key, g => g.Sum(d => d.CantidadRecibida));
+
+                var saldosPendientes = o.CalcularSaldosPendientes(recibidosDeEstaOrden);
+
+                return new OrdenPendienteDto
+                {
+                    OrdenCompraId = o.Id,
+                    ObraId = o.ObraId,
+                    Etapa = o.Etapa,
+                    SinPartidaPresupuestaria = o.SinPartidaPresupuestaria,
+                    Items = o.Items
+                        .Select(i =>
+                        {
+                            decimal recibido = recibidosDeEstaOrden.GetValueOrDefault(i.ArticuloId, 0m);
+                            decimal pendiente = saldosPendientes.GetValueOrDefault(i.ArticuloId, Math.Max(0m, i.Cantidad - recibido));
+
+                            return new ItemOrdenPendienteDto
+                            {
+                                ArticuloId = i.ArticuloId,
+                                DescripcionArticulo = i.Descripcion ?? string.Empty,
+                                CantidadEsperada = i.Cantidad,
+                                CantidadRecibida = recibido,
+                                CantidadPendiente = pendiente,
+                                UnidadMedida = i.UnidadMedida
+                            };
+                        })
+                        .ToList()
+                };
             })
             .ToList();
 

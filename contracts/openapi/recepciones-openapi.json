@@ -1149,6 +1149,10 @@
           "cantidadRecibida": {
             "type": "number"
           },
+          "cantidadPendiente": {
+            "type": "number",
+            "description": "Saldo pendiente de recibir para este artículo (cantidadEsperada - cantidadRecibida)."
+          },
           "unidadMedida": {
             "type": "string"
           }
