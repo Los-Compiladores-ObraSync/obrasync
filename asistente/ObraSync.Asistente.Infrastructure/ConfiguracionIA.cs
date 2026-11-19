@@ -20,20 +20,40 @@ public sealed class ConfiguracionIA
     /// </summary>
     public string DeploymentRemito { get; }
 
-    public ConfiguracionIA(string? baseUrl, string? deployment, string? apiVersion, string? apiKey, string? deploymentRemito = null)
+    /// <summary>
+    /// Esfuerzo de razonamiento que se le pide al modelo en el chat (#211). Vacío (propiedad) = no se manda.
+    /// Los modelos de razonamiento (gpt-5-mini) gastan parte del tope de tokens de respuesta en "pensar":
+    /// con el tope de 300 del chat, un razonamiento largo deja la respuesta vacía. "minimal" lo evita.
+    /// </summary>
+    public string ReasoningEffort { get; }
+
+    /// <summary>
+    /// True si la URL es de un endpoint compatible con OpenAI v1 (termina en /v1, como el del profe desde #211):
+    /// el modelo va en el cuerpo, la URL es {base}/chat/completions y la clave va como Bearer.
+    /// Si no, se usa el estilo Azure de antes: /openai/deployments/{deployment}/... con la clave en api-key.
+    /// </summary>
+    public bool EstiloOpenAiV1 => BaseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase);
+
+    public ConfiguracionIA(string? baseUrl, string? deployment, string? apiVersion, string? apiKey,
+        string? deploymentRemito = null, string? reasoningEffort = null)
     {
         BaseUrl = (baseUrl ?? "").Trim().TrimEnd('/');
         Deployment = string.IsNullOrWhiteSpace(deployment) ? "gpt-4.1-mini" : deployment.Trim();
         ApiVersion = string.IsNullOrWhiteSpace(apiVersion) ? "2025-03-01-preview" : apiVersion.Trim();
         ApiKey = (apiKey ?? "").Trim();
         DeploymentRemito = string.IsNullOrWhiteSpace(deploymentRemito) ? Deployment : deploymentRemito.Trim();
+        // Vacío = valor por defecto: "minimal" solo para los gpt-5 (los demás modelos no aceptan ese parámetro).
+        // Para no mandar el parámetro con un gpt-5, se pone "none".
+        ReasoningEffort = string.IsNullOrWhiteSpace(reasoningEffort)
+            ? (Deployment.Contains("gpt-5", StringComparison.OrdinalIgnoreCase) ? "minimal" : "")
+            : reasoningEffort.Trim().Equals("none", StringComparison.OrdinalIgnoreCase) ? "" : reasoningEffort.Trim();
     }
 
     /// <summary>Sin clave o sin URL el asistente queda "apagado" (503), pero el servicio igual arranca.</summary>
     public bool EstaActivo => BaseUrl.Length > 0 && ApiKey.Length > 0;
 
     /// <summary>
-    /// Lee Ai:ApiKey, Ai:BaseUrl, Ai:Deployment y Ai:ApiVersion (en Docker: Ai__ApiKey, etc.).
+    /// Lee Ai:ApiKey, Ai:BaseUrl, Ai:Deployment, Ai:ApiVersion y Ai:ReasoningEffort (en Docker: Ai__ApiKey, etc.).
     /// Si Ai:ApiKey o Ai:BaseUrl no están, prueba con AI_API_KEY y AI_BASE_URL (comodidad al correr desde Visual Studio).
     /// </summary>
     public static ConfiguracionIA Desde(IConfiguration configuracion) => new(
@@ -41,12 +61,14 @@ public sealed class ConfiguracionIA
         configuracion["Ai:Deployment"],
         configuracion["Ai:ApiVersion"],
         PrimeroConValor(configuracion["Ai:ApiKey"], Environment.GetEnvironmentVariable("AI_API_KEY")),
-        configuracion["Ai:DeploymentRemito"]);
+        configuracion["Ai:DeploymentRemito"],
+        configuracion["Ai:ReasoningEffort"]);
 
     private static string? PrimeroConValor(string? a, string? b) => string.IsNullOrWhiteSpace(a) ? b : a;
 
-    public string UrlChat =>
-        $"{BaseUrl}/openai/deployments/{Uri.EscapeDataString(Deployment)}/chat/completions?api-version={ApiVersion}";
+    public string UrlChat => EstiloOpenAiV1
+        ? $"{BaseUrl}/chat/completions"
+        : $"{BaseUrl}/openai/deployments/{Uri.EscapeDataString(Deployment)}/chat/completions?api-version={ApiVersion}";
 
     // Para que la clave no aparezca si alguien imprime este objeto por error.
     public override string ToString() => $"ConfiguracionIA(Deployment={Deployment}, DeploymentRemito={DeploymentRemito}, ApiKey=***)";

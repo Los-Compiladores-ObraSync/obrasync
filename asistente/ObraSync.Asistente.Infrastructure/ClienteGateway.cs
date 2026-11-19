@@ -6,7 +6,7 @@ using ObraSync.Asistente.Application;
 namespace ObraSync.Asistente.Infrastructure;
 
 /// <summary>
-/// Habla con el gateway de IA del profe (Chat Completions).
+/// Habla con el gateway de IA del profe (Chat Completions), en estilo Azure o en estilo OpenAI v1 (#211).
 /// A propósito SIN reintentos automáticos: cada intento gasta cupo compartido y un 429 no se arregla repitiendo.
 /// </summary>
 public sealed class ClienteGateway : IModeloChat
@@ -32,6 +32,12 @@ public sealed class ClienteGateway : IModeloChat
             ["messages"] = mensajes.DeepClone(),
             ["max_completion_tokens"] = maxTokensSalida
         };
+        // Endpoint estilo OpenAI v1 (#211): el modelo va en el cuerpo (en el estilo Azure va en la URL).
+        if (_config.EstiloOpenAiV1)
+            cuerpo["model"] = _config.Deployment;
+        // Modelos de razonamiento: sin esto "pensar" puede comerse todo el tope de tokens y la respuesta llega vacía.
+        if (_config.ReasoningEffort.Length > 0)
+            cuerpo["reasoning_effort"] = _config.ReasoningEffort;
         if (herramientas is not null)
         {
             cuerpo["tools"] = herramientas.DeepClone();
@@ -39,7 +45,10 @@ public sealed class ClienteGateway : IModeloChat
         }
 
         using var pedido = new HttpRequestMessage(HttpMethod.Post, _config.UrlChat);
-        pedido.Headers.Add("api-key", _config.ApiKey);
+        if (_config.EstiloOpenAiV1)
+            pedido.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _config.ApiKey);
+        else
+            pedido.Headers.Add("api-key", _config.ApiKey);
         pedido.Content = new StringContent(cuerpo.ToJsonString(), Encoding.UTF8, "application/json");
 
         HttpResponseMessage respuesta;

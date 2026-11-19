@@ -46,7 +46,7 @@ Chat del portal del Capataz (#138, React PWA) → API Gateway (`/api/asistente/c
 ## 6. Seguridad y costo
 - Siempre se usa el token del usuario, nunca una cuenta propia. Rol sin permiso: 403 y no se llama al modelo.
 - Las instrucciones están acotadas a ObraSync. Lo que devuelven las APIs se trata como datos, no como órdenes (defensa contra inyección de instrucciones).
-- Límites por pedido: 500 caracteres de entrada, historial de 10 mensajes, 4 vueltas, 3 llamadas a herramientas, 300 tokens de salida y 45 s en total (eran 3 y 2; adjudicar necesita listar licitaciones, listar ofertas y preparar la adjudicación en un mismo pedido, #149). Un 429 del proveedor se devuelve tal cual, sin reintentos.
+- Límites por pedido: 500 caracteres de entrada, historial de 10 mensajes, 4 vueltas, 3 llamadas a herramientas, 800 tokens de salida y 45 s en total (eran 3 y 2; adjudicar necesita listar licitaciones, listar ofertas y preparar la adjudicación en un mismo pedido, #149). Un 429 del proveedor se devuelve tal cual, sin reintentos.
 - Errores en ProblemDetails con `correlationId`; se propaga `X-Correlation-ID`.
 
 ## 7. Pruebas
