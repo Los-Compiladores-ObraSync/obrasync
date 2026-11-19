@@ -32,9 +32,32 @@
   min-width: 0;
 }
 
-.filtro label {
+.filtro label,
+.tituloFiltro {
   font-size: 1rem;
   font-weight: 700;
+}
+
+/* Filtro de estado (#213): tres botones en fila. El activo va relleno; los demás, con borde. */
+.botonesEstado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.botonEstado {
+  flex: 1 1 7rem;
+  min-height: 48px; /* área de toque cómoda */
+  font-size: 1.0625rem;
+  background: var(--fondo);
+  color: var(--texto);
+  border: 2px solid var(--borde);
+}
+
+.botonEstado[aria-pressed='true'] {
+  background: var(--azul);
+  color: #ffffff;
+  border-color: var(--azul);
 }
 
 .filtro select {

@@ -40,6 +40,14 @@ const capataz: SesionUsuario = {
   rol: 'Capataz',
 }
 
+// Los botones de estado que están activos (aria-pressed="true"), en el orden en que se ven.
+function estadosActivos() {
+  return within(screen.getByRole('group', { name: 'Estado' }))
+    .getAllByRole('button')
+    .filter((b) => b.getAttribute('aria-pressed') === 'true')
+    .map((b) => b.textContent)
+}
+
 describe('HistorialRequisicionesPage', () => {
   beforeEach(() => {
     reiniciarRequisicionesMock()
@@ -150,13 +158,10 @@ describe('HistorialRequisicionesPage - filtros', () => {
     renderPagina(comprador)
 
     await screen.findByText('REQ-2026-0011')
-    const estados = within(screen.getByLabelText('Estado')).getAllByRole('option')
-    expect(estados.map((o) => o.textContent)).toEqual([
-      'Todos',
-      'Pendiente',
-      'Aprobada',
-      'Rechazada',
-    ])
+    // El filtro de Estado son 3 botones (#213), ninguno activo al empezar.
+    const botones = within(screen.getByRole('group', { name: 'Estado' })).getAllByRole('button')
+    expect(botones.map((b) => b.textContent)).toEqual(['Pendiente', 'Aprobada', 'Rechazada'])
+    expect(estadosActivos()).toEqual([])
 
     expect(await screen.findByRole('option', { name: 'Torre Alvear' })).toBeInTheDocument()
     const obras = within(screen.getByLabelText('Obra')).getAllByRole('option')
@@ -168,7 +173,7 @@ describe('HistorialRequisicionesPage - filtros', () => {
     renderPagina(comprador)
     await screen.findByText('REQ-2026-0011')
 
-    await user.selectOptions(screen.getByLabelText('Estado'), 'Aprobada')
+    await user.click(screen.getByRole('button', { name: 'Aprobada' }))
 
     expect(await screen.findByText('REQ-2026-0009')).toBeInTheDocument()
     expect(screen.queryByText('REQ-2026-0011')).not.toBeInTheDocument()
@@ -188,7 +193,7 @@ describe('HistorialRequisicionesPage - filtros', () => {
     await screen.findByText('Todavía no hay requisiciones.')
     await screen.findByRole('option', { name: 'Torre Alvear' })
 
-    await user.selectOptions(screen.getByLabelText('Estado'), 'Aprobada')
+    await user.click(screen.getByRole('button', { name: 'Aprobada' }))
     await screen.findByText('No hay requisiciones con esos filtros.')
     await user.selectOptions(screen.getByLabelText('Obra'), OBRA_ID)
     await screen.findByText('No hay requisiciones con esos filtros.')
@@ -207,7 +212,7 @@ describe('HistorialRequisicionesPage - filtros', () => {
     const quitar = screen.getByRole('button', { name: 'Quitar filtros' })
     expect(quitar).toBeDisabled()
 
-    await user.selectOptions(screen.getByLabelText('Estado'), 'Rechazada')
+    await user.click(screen.getByRole('button', { name: 'Rechazada' }))
     await screen.findByText('REQ-2026-0010')
     expect(quitar).toBeEnabled()
 
@@ -215,7 +220,7 @@ describe('HistorialRequisicionesPage - filtros', () => {
 
     expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
     expect(screen.getByText('REQ-2026-0010')).toBeInTheDocument()
-    expect(screen.getByLabelText('Estado')).toHaveValue('')
+    expect(estadosActivos()).toEqual([])
     expect(screen.getByLabelText('Obra')).toHaveValue('')
     expect(quitar).toBeDisabled()
   })
@@ -232,7 +237,7 @@ describe('HistorialRequisicionesPage - filtros', () => {
     renderPagina(comprador)
     await screen.findByText('REQ-2026-0011')
 
-    await user.selectOptions(screen.getByLabelText('Estado'), 'Aprobada')
+    await user.click(screen.getByRole('button', { name: 'Aprobada' }))
 
     expect(await screen.findByText('No hay requisiciones con esos filtros.')).toBeInTheDocument()
   })
@@ -250,17 +255,17 @@ describe('HistorialRequisicionesPage - filtros', () => {
     renderPagina(comprador)
     await screen.findByText('REQ-2026-0011')
 
-    await user.selectOptions(screen.getByLabelText('Estado'), 'Aprobada')
+    await user.click(screen.getByRole('button', { name: 'Aprobada' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'No se pudieron cargar las requisiciones.',
     )
-    expect(screen.getByLabelText('Estado')).toHaveValue('Aprobada')
+    expect(screen.getByRole('button', { name: 'Aprobada' })).toHaveAttribute('aria-pressed', 'true')
 
     falla = false
     await user.click(screen.getByRole('button', { name: 'Reintentar' }))
 
     expect(await screen.findByText('REQ-2026-0009')).toBeInTheDocument()
-    expect(screen.getByLabelText('Estado')).toHaveValue('Aprobada')
+    expect(screen.getByRole('button', { name: 'Aprobada' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
@@ -278,8 +283,8 @@ describe('HistorialRequisicionesPage - filtros', () => {
     renderPagina(comprador)
     await screen.findByText('REQ-2026-0011')
 
-    await user.selectOptions(screen.getByLabelText('Estado'), 'Pendiente')
-    await user.selectOptions(screen.getByLabelText('Estado'), 'Aprobada')
+    await user.click(screen.getByRole('button', { name: 'Pendiente' }))
+    await user.click(screen.getByRole('button', { name: 'Aprobada' }))
 
     expect(await screen.findByText('REQ-2026-0009')).toBeInTheDocument()
     await act(async () => {
@@ -295,7 +300,7 @@ describe('HistorialRequisicionesPage - filtros', () => {
     await screen.findByText('REQ-2026-0011')
 
     // La 0010 la pidió otra persona; la 0013 propia sí debe aparecer.
-    await user.selectOptions(screen.getByLabelText('Estado'), 'Rechazada')
+    await user.click(screen.getByRole('button', { name: 'Rechazada' }))
 
     expect(await screen.findByText('REQ-2026-0013')).toBeInTheDocument()
     expect(screen.queryByText('REQ-2026-0010')).not.toBeInTheDocument()
@@ -322,7 +327,7 @@ describe('enlaces al detalle y filtros en la URL', () => {
     renderPagina(comprador)
     await screen.findByText('REQ-2026-0011')
 
-    await user.selectOptions(screen.getByLabelText('Estado'), 'Aprobada')
+    await user.click(screen.getByRole('button', { name: 'Aprobada' }))
 
     const enlace = await screen.findByRole('link', { name: 'REQ-2026-0009' })
     expect(enlace).toHaveAttribute(
@@ -334,19 +339,48 @@ describe('enlaces al detalle y filtros en la URL', () => {
     )
   })
 
+  it('tocar un estado lo activa y volver a tocarlo lo desactiva y muestra todas (#213)', async () => {
+    const user = userEvent.setup()
+    renderPagina(comprador)
+    await screen.findByText('REQ-2026-0011')
+
+    await user.click(screen.getByRole('button', { name: 'Rechazada' }))
+    await screen.findByText('REQ-2026-0010')
+    expect(estadosActivos()).toEqual(['Rechazada'])
+    expect(screen.queryByText('REQ-2026-0011')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Rechazada' }))
+
+    expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
+    expect(estadosActivos()).toEqual([])
+  })
+
+  it('al elegir otro estado se desactiva el anterior (solo uno activo a la vez)', async () => {
+    const user = userEvent.setup()
+    renderPagina(comprador)
+    await screen.findByText('REQ-2026-0011')
+
+    await user.click(screen.getByRole('button', { name: 'Aprobada' }))
+    await screen.findByText('REQ-2026-0009')
+    await user.click(screen.getByRole('button', { name: 'Rechazada' }))
+    await screen.findByText('REQ-2026-0010')
+
+    expect(estadosActivos()).toEqual(['Rechazada'])
+  })
+
   it('arranca con los filtros que vienen en la URL', async () => {
     renderPagina(comprador, '/compras/requisiciones/historial?estado=Aprobada')
 
     expect(await screen.findByText('REQ-2026-0009')).toBeInTheDocument()
     expect(screen.queryByText('REQ-2026-0011')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Estado')).toHaveValue('Aprobada')
+    expect(screen.getByRole('button', { name: 'Aprobada' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('ignora un estado inválido en la URL', async () => {
     renderPagina(comprador, '/compras/requisiciones/historial?estado=Cualquiera')
 
     expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
-    expect(screen.getByLabelText('Estado')).toHaveValue('')
+    expect(estadosActivos()).toEqual([])
   })
 
   it('"Quitar filtros" deja la URL limpia', async () => {
@@ -480,7 +514,7 @@ describe('HistorialRequisicionesPage - paginación (#172)', () => {
     await user.click(screen.getByRole('button', { name: 'Ver más' }))
     await screen.findByText('Mostrando 2 de 3.')
 
-    await user.selectOptions(screen.getByLabelText('Estado'), 'Aprobada')
+    await user.click(screen.getByRole('button', { name: 'Aprobada' }))
 
     await screen.findByText('Mostrando 2 de 3.')
     expect(pedidos.at(-1)).toBe('?estado=Aprobada&pagina=1&tamano=50')
