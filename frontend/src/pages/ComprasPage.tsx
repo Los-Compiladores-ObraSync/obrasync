@@ -27,6 +27,11 @@ export function ComprasPage() {
           </Link>
         </li>
         <li>
+          <Link to="/compras/ordenes" className="accion-secundaria">
+            Órdenes de compra
+          </Link>
+        </li>
+        <li>
           <Link to="/compras/presupuesto" className="accion-secundaria">
             Presupuesto
           </Link>

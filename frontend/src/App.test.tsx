@@ -386,6 +386,32 @@ describe('App - alta de obra', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Nueva obra' })).toBeInTheDocument()
   })
 
+  it('el Comprador y el Admin entran a las órdenes de compra para despachar (#205)', async () => {
+    for (const rol of ['Comprador', 'Admin']) {
+      localStorage.clear()
+      iniciarSesionComo(rol)
+      const { unmount } = renderApp('/compras/ordenes')
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'Órdenes de compra' }),
+      ).toBeInTheDocument()
+      unmount()
+    }
+  })
+
+  it('el Capataz y el Proveedor no ven la pantalla de órdenes de compra (#205)', () => {
+    for (const rol of ['Capataz', 'Proveedor']) {
+      localStorage.clear()
+      iniciarSesionComo(rol)
+      const { unmount } = renderApp('/compras/ordenes')
+
+      expect(
+        screen.queryByRole('heading', { level: 1, name: 'Órdenes de compra' }),
+      ).not.toBeInTheDocument()
+      unmount()
+    }
+  })
+
   it('el Capataz no puede entrar: ve la pantalla de sin acceso', () => {
     iniciarSesionComo('Capataz')
     renderApp('/compras/obras/nueva')

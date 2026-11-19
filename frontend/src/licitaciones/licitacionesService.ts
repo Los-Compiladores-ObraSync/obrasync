@@ -6,6 +6,7 @@ import type {
   CotizacionResponseDto,
   LicitacionResponseDto,
   OrdenCompraAdjudicadaDto,
+  OrdenCompraListadoDto,
 } from './licitacionesTipos'
 
 /**
@@ -84,3 +85,24 @@ export function adjudicarLicitacion(
   )
 }
 
+/**
+ * Lista las órdenes de compra con su estado de despacho (#205).
+ * Fuente: GET /api/ordenes-compra (Comprador, Admin y Proveedor; esta pantalla es solo de Compras).
+ */
+export function listarOrdenesCompra(): Promise<OrdenCompraListadoDto[]> {
+  // Trae todas las páginas (#172): Compras necesita ver todas las órdenes para despacharlas.
+  return traerTodas((pagina) =>
+    apiFetchPagina<OrdenCompraListadoDto>(conPaginacion('/api/ordenes-compra', pagina)),
+  )
+}
+
+/**
+ * Marca una orden de compra como despachada y avisa a Recepción (OrdenCompraDespachadaEvent).
+ * Fuente: POST /api/ordenes-compra/{id}/despachar (Comprador, Admin). No se puede deshacer.
+ * Errores: 403 sin permiso, 404 la orden no existe, 409 ya estaba despachada.
+ */
+export function despacharOrdenCompra(id: string): Promise<OrdenCompraListadoDto> {
+  return apiFetch<OrdenCompraListadoDto>(`/api/ordenes-compra/${encodeURIComponent(id)}/despachar`, {
+    method: 'POST',
+  })
+}

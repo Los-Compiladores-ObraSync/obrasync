@@ -430,7 +430,9 @@ export function RecepcionPage() {
         ← Volver al inicio
       </Link>
       <h1>Recibir mercadería</h1>
-      <p className="intro">Elegí la orden que llegó a la obra.</p>
+      <p className="intro">
+        Elegí la orden que llegó a la obra. Acá solo aparecen las órdenes que Compras ya despachó.
+      </p>
 
       {cargando && <p role="status">Cargando…</p>}
 
@@ -447,8 +449,8 @@ export function RecepcionPage() {
 
       {!cargando && !errorCarga && ordenes.length === 0 && (
         <div className={styles.tarjeta} role="status">
-          <p className={styles.subtitulo}>No hay órdenes de compra para recibir.</p>
-          <p className={styles.dato}>Cuando Compras adjudique una, la vas a ver acá.</p>
+          <p className={styles.subtitulo}>No hay órdenes despachadas pendientes de recibir.</p>
+          <p className={styles.dato}>Cuando Compras despache una orden, la vas a ver acá.</p>
         </div>
       )}
 

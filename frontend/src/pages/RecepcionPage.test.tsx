@@ -162,11 +162,25 @@ describe('RecepcionPage', () => {
     expect(screen.getByLabelText('Número de remito')).toHaveValue('0001-00012345')
   })
 
+  it('aclara que solo se muestran las órdenes que Compras ya despachó (#205)', async () => {
+    renderPagina()
+
+    expect(await screen.findAllByRole('button', { name: /Torre Alvear/ })).toHaveLength(2)
+    expect(screen.getByText(/solo aparecen las órdenes que Compras ya despachó/)).toBeInTheDocument()
+  })
+
+  it('en el estado vacío dice que no hay órdenes despachadas pendientes de recibir (#205)', async () => {
+    server.use(http.get(RUTA_ORDENES, () => HttpResponse.json([])))
+    renderPagina()
+
+    expect(await screen.findByText('Cuando Compras despache una orden, la vas a ver acá.')).toBeInTheDocument()
+  })
+
   it('avisa si no hay órdenes para recibir', async () => {
     server.use(http.get(RUTA_ORDENES, () => HttpResponse.json([])))
     renderPagina()
 
-    expect(await screen.findByText('No hay órdenes de compra para recibir.')).toBeInTheDocument()
+    expect(await screen.findByText('No hay órdenes despachadas pendientes de recibir.')).toBeInTheDocument()
   })
 
   it('avisa y deja reintentar si falla la carga de las órdenes', async () => {

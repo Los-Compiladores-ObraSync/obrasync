@@ -1,0 +1,147 @@
+/* ── OrdenesCompraPage (#205) — mobile-first ───────────────────────────────
+   Usa las variables de index.css (--azul, --naranja, --borde, --texto-suave, --alto-toque).
+─────────────────────────────────────────────────────────────────────────── */
+
+.contenedor {
+  width: 100%;
+}
+
+.volverEnlace {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px; /* área de toque cómoda */
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--azul);
+  text-decoration: none;
+}
+
+.lista {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Cada orden es una tarjeta: naranja si falta despachar, verde si ya se despachó. */
+.orden {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 1.25rem;
+  border-left: 6px solid var(--naranja);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+}
+
+.orden[data-despachada='true'] {
+  border-left-color: #16a34a;
+}
+
+.cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+
+.ordenObra {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.estado {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--texto-suave);
+}
+
+.tarjeta {
+  margin-top: 1rem;
+  padding: 1.25rem;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+}
+
+.subtitulo {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.dato {
+  margin: 0;
+  font-size: 1.0625rem;
+  color: var(--texto-suave);
+}
+
+.boton {
+  width: 100%;
+  min-height: var(--alto-toque);
+  margin-top: 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.boton:disabled,
+.botonSecundario:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* "Cancelar": botón con borde, para que no compita con el principal. */
+.botonSecundario {
+  width: 100%;
+  min-height: var(--alto-toque);
+  font-size: 1.125rem;
+  font-weight: 700;
+  background: #ffffff;
+  color: var(--texto);
+  border: 2px solid var(--borde);
+}
+
+.confirmar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--borde);
+}
+
+.pregunta {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.exito {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 2px solid #86efac;
+  border-radius: 10px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.errorApi {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 2px solid #fca5a5;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.4;
+}

@@ -27,4 +27,17 @@ describe('ComprasPage', () => {
     expect(link).toBeInTheDocument()
     expect(link).toHaveAttribute('href', '/compras/presupuesto')
   })
+
+  it('contiene el enlace a Órdenes de compra apuntando a /compras/ordenes', () => {
+    render(
+      <MemoryRouter>
+        <ComprasPage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('link', { name: 'Órdenes de compra' })).toHaveAttribute(
+      'href',
+      '/compras/ordenes',
+    )
+  })
 })
