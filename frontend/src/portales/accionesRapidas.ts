@@ -52,6 +52,11 @@ const VER_OBRAS: AccionRapida = {
   texto: 'Ver obras',
   ruta: '/compras/obras',
 }
+// Despacho de órdenes de compra (#205): Compras marca cuándo el proveedor envió la mercadería.
+const ORDENES_DE_COMPRA: AccionRapida = {
+  texto: 'Órdenes de compra',
+  ruta: '/compras/ordenes',
+}
 const LICITACIONES_ABIERTAS: AccionRapida = {
   texto: 'Licitaciones abiertas',
   ruta: '/proveedores',
@@ -72,6 +77,7 @@ const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
     NUEVA_OBRA,
     VER_OBRAS,
     LICITACIONES_Y_COTIZACIONES,
+    ORDENES_DE_COMPRA,
   ],
   Admin: [
     ASISTENTE,
@@ -81,6 +87,7 @@ const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
     NUEVA_OBRA,
     VER_OBRAS,
     LICITACIONES_Y_COTIZACIONES,
+    ORDENES_DE_COMPRA,
     LICITACIONES_ABIERTAS,
   ],
 

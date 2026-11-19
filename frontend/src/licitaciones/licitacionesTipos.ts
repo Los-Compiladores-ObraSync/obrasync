@@ -81,3 +81,17 @@ export interface OrdenCompraAdjudicadaDto {
   fechaEmision: string
 }
 
+/** Una orden de compra del listado de Compras (#205). Fuente: GET /api/ordenes-compra. */
+export interface OrdenCompraListadoDto {
+  id: string
+  licitacionId: string
+  cotizacionId: string
+  obraId: string
+  proveedorId: string
+  /** "Emitida" o "Despachada". */
+  estado: string
+  fechaEmision: string
+  fueDespachada: boolean
+  /** Cuándo se marcó el despacho; null mientras no se despachó. */
+  fechaDespacho?: string | null
+}

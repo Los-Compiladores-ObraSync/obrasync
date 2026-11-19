@@ -26,6 +26,7 @@ describe('accionesParaRol', () => {
       'Nueva obra',
       'Ver obras',
       'Licitaciones y cotizaciones',
+      'Órdenes de compra',
     ])
   })
 
@@ -38,6 +39,7 @@ describe('accionesParaRol', () => {
       'Nueva obra',
       'Ver obras',
       'Licitaciones y cotizaciones',
+      'Órdenes de compra',
       'Licitaciones abiertas',
     ])
   })

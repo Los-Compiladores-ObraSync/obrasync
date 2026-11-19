@@ -10,6 +10,7 @@ import { DetalleRequisicionPage } from './pages/DetalleRequisicionPage'
 import { HistorialRequisicionesPage } from './pages/HistorialRequisicionesPage'
 import { InicioPage } from './pages/InicioPage'
 import { LicitacionesComprasPage } from './pages/LicitacionesComprasPage'
+import { OrdenesCompraPage } from './pages/OrdenesCompraPage'
 import { LoginPage } from './pages/LoginPage'
 import { EditarObraPage } from './pages/EditarObraPage'
 import { NuevaObraPage } from './pages/NuevaObraPage'
@@ -75,6 +76,7 @@ function App() {
                 <Route path="requisiciones" element={<AprobarRequisicionesPage />} />
                 <Route path="asistente" element={<AsistenteChatPage portal="compras" />} />
                 <Route path="licitaciones" element={<LicitacionesComprasPage />} />
+                <Route path="ordenes" element={<OrdenesCompraPage />} />
                 <Route path="presupuesto" element={<PresupuestoPage />} />
                 <Route
                   path="requisiciones/historial"

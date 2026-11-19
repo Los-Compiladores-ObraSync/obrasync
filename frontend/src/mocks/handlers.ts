@@ -273,6 +273,54 @@ export function reiniciarRecepcionesMock() {
   ordenesPendientesMock = crearOrdenesPendientesMock()
 }
 
+// Órdenes de compra simuladas para la pantalla de despacho de Compras (#205).
+// Dos sin despachar y una ya despachada, así la demo muestra los dos estados.
+export const ORDEN_COMPRA_SIN_DESPACHAR_1_ID = 'c1c2c3c4-0000-0000-0000-000000000001'
+export const ORDEN_COMPRA_SIN_DESPACHAR_2_ID = 'c1c2c3c4-0000-0000-0000-000000000002'
+export const ORDEN_COMPRA_DESPACHADA_ID = 'c1c2c3c4-0000-0000-0000-000000000003'
+
+function crearOrdenesCompraMock() {
+  const base = {
+    licitacionId: 'b1b2c3d4-1111-0000-0000-000000000001',
+    cotizacionId: 'f1f2f3f4-0000-0000-0000-000000000001',
+    obraId: OBRA_MOCK_ID,
+    proveedorId: 'a1b2c3d4-0000-0000-0000-000000000003',
+  }
+  return [
+    {
+      ...base,
+      id: ORDEN_COMPRA_SIN_DESPACHAR_1_ID,
+      estado: 'Emitida',
+      fechaEmision: '2026-11-18T12:00:00Z',
+      fueDespachada: false,
+      fechaDespacho: null as string | null,
+    },
+    {
+      ...base,
+      id: ORDEN_COMPRA_SIN_DESPACHAR_2_ID,
+      estado: 'Emitida',
+      fechaEmision: '2026-11-17T12:00:00Z',
+      fueDespachada: false,
+      fechaDespacho: null as string | null,
+    },
+    {
+      ...base,
+      id: ORDEN_COMPRA_DESPACHADA_ID,
+      estado: 'Despachada',
+      fechaEmision: '2026-11-12T12:00:00Z',
+      fueDespachada: true,
+      fechaDespacho: '2026-11-13T12:00:00Z' as string | null,
+    },
+  ]
+}
+
+let ordenesCompraMock = crearOrdenesCompraMock()
+
+/** Solo para tests: vuelve las órdenes de compra simuladas a su estado inicial. */
+export function reiniciarOrdenesCompraMock() {
+  ordenesCompraMock = crearOrdenesCompraMock()
+}
+
 // Licitaciones simuladas para el portal de proveedores.
 function crearLicitacionesMock() {
   return [
@@ -1104,6 +1152,31 @@ export const handlers: RequestHandler[] = [
     req.rechazadorId = 'a1b2c3d4-0000-0000-0000-000000000002'
     req.fechaRechazo = new Date().toISOString()
     return HttpResponse.json(req, { status: 200 })
+  }),
+
+  // Contrato: GET /api/ordenes-compra → 200 OrdenCompraListadoDto[] (con X-Total-Count)
+  http.get('*/api/ordenes-compra', ({ request }) => responderPaginado(request, ordenesCompraMock)),
+
+  // Contrato: POST /api/ordenes-compra/{id}/despachar → 200 OrdenCompraListadoDto | 403 | 404 | 409 ProblemDetails
+  http.post('*/api/ordenes-compra/:id/despachar', ({ params }) => {
+    const id = params.id as string
+    const orden = ordenesCompraMock.find((o) => o.id === id)
+    if (!orden) {
+      return HttpResponse.json(
+        { title: 'Recurso no encontrado', status: 404, detail: `No se encontró la orden de compra con ID ${id}.` },
+        { status: 404 },
+      )
+    }
+    if (orden.fueDespachada) {
+      return HttpResponse.json(
+        { title: 'Conflicto', status: 409, detail: 'La orden de compra ya fue despachada.' },
+        { status: 409 },
+      )
+    }
+    orden.estado = 'Despachada'
+    orden.fueDespachada = true
+    orden.fechaDespacho = new Date().toISOString()
+    return HttpResponse.json(orden, { status: 200 })
   }),
 
   // Contrato: GET /api/recepciones/ordenes-pendientes?obraId= → 200 OrdenPendienteDto[]
