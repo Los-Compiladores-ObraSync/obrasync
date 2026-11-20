@@ -55,5 +55,5 @@ xUnit y NSubstitute con modelo y Gateway simulados: rol sin permiso, modelo caí
 ## 8. Pendiente
 - **Voz (#139):** transcripción con un modelo multimodal de Azure OpenAI (recomendado) o reconocimiento de voz del navegador (plan B). Confirmar con el profe qué modelos y región tiene la clave.
 - **Cupo y alertas:** confirmar con el profe cómo se mide el cupo de la clave y si se puede poner un límite de tokens por minuto y una alerta de gasto. Hasta entonces, desarrollar con el modelo simulado y avisar en el canal antes de usar el real.
-- **Evaluación de 5 casos por rol (#145):** hecha. Modo automático con modelo simulado en la CI y modo manual contra el modelo real; ver `evaluacion/README.md`. Falta anotar la primera corrida real en `evaluacion/resultados/`.
+- **Evaluación de 5 casos por rol (#145):** hecha. Modo automático con modelo simulado en la CI y modo manual contra el modelo real; ver `evaluacion/README.md`. Corrida real documentada en `evaluacion/resultados/LEEME.md` (Capataz, Comprador y Admin: 6 de 6).
 - **Framework:** revisar MAF si crece la cantidad de herramientas o aparecen varios agentes.

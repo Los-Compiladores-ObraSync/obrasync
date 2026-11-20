@@ -31,6 +31,15 @@ public class EvaluacionSimuladaTests
             Assert.Contains(escenario.EsperaEnResultadoDeHerramienta, ultimo["content"]!.GetValue<string>());
     }
 
+    [Theory]
+    [InlineData("Capataz")]
+    [InlineData("Comprador")]
+    [InlineData("Admin")]
+    public void Todos_los_perfiles_piden_hablar_en_lenguaje_comun(string rol)
+    {
+        Assert.Contains(Agente.AvisoLenguajeComun, PerfilAsistente.Para(rol)!.Instrucciones);
+    }
+
     [Fact]
     public void Cada_rol_con_perfil_tiene_los_5_casos_y_el_extra()
     {
