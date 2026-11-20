@@ -201,6 +201,9 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                     b.Property<int>("Calificacion")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("CalificadorId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("FechaActualizacion")
                         .HasColumnType("datetime2");
 
@@ -209,7 +212,7 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProveedorId")
+                    b.HasIndex("ProveedorId", "CalificadorId")
                         .IsUnique();
 
                     b.ToTable("CalificacionesProveedores", (string)null);

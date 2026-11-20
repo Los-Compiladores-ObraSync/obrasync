@@ -153,8 +153,9 @@ public class LicitacionesDbContext : DbContext
         {
             e.ToTable("CalificacionesProveedores");
             e.HasKey(x => x.Id);
-            // Una única fila por proveedor (#88): re-calificar actualiza la fila existente.
-            e.HasIndex(x => x.ProveedorId).IsUnique();
+            // Una fila por usuario y proveedor: si el mismo usuario vuelve a calificar, actualiza su fila;
+            // si califica otro usuario, se suma otra fila y la calificación del proveedor es el promedio.
+            e.HasIndex(x => new { x.ProveedorId, x.CalificadorId }).IsUnique();
             e.Property(x => x.Calificacion).IsRequired();
             e.Property(x => x.FechaActualizacion).HasConversion(utcDateTimeConverter);
         });

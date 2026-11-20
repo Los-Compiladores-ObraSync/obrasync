@@ -158,6 +158,8 @@ public class CalificacionProveedor
 {
     public Guid Id { get; set; }
     public Guid ProveedorId { get; set; }
+    /// <summary>Usuario (sub del JWT) que calificó. Cada usuario tiene una sola calificación por proveedor.</summary>
+    public Guid CalificadorId { get; set; }
     public int Calificacion { get; set; }
     public DateTime FechaActualizacion { get; set; } = DateTime.UtcNow;
 }

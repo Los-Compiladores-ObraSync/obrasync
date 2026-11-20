@@ -14,33 +14,55 @@ public class CalificacionProveedorRepository : ICalificacionProveedorRepository
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
-    public async Task<CalificacionProveedor?> GetByProveedorIdAsync(
+    public async Task<ResumenCalificacionProveedor?> GetResumenAsync(
         Guid proveedorId,
         CancellationToken cancellationToken = default)
     {
-        return await _context.CalificacionesProveedores
+        var datos = await _context.CalificacionesProveedores
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.ProveedorId == proveedorId, cancellationToken);
+            .Where(x => x.ProveedorId == proveedorId)
+            .GroupBy(x => x.ProveedorId)
+            .Select(g => new
+            {
+                ProveedorId = g.Key,
+                Promedio = g.Average(x => (double)x.Calificacion),
+                Cantidad = g.Count(),
+                Fecha = g.Max(x => x.FechaActualizacion)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return datos is null
+            ? null
+            : new ResumenCalificacionProveedor(
+                datos.ProveedorId,
+                Math.Round((decimal)datos.Promedio, 2),
+                datos.Cantidad,
+                datos.Fecha);
     }
 
-    public async Task<IReadOnlyDictionary<Guid, int>> GetCalificacionesByProveedorIdsAsync(
+    public async Task<IReadOnlyDictionary<Guid, decimal>> GetPromediosByProveedorIdsAsync(
         IReadOnlyCollection<Guid> proveedorIds,
         CancellationToken cancellationToken = default)
     {
         if (proveedorIds == null || proveedorIds.Count == 0)
         {
-            return new Dictionary<Guid, int>();
+            return new Dictionary<Guid, decimal>();
         }
 
         var ids = proveedorIds.Distinct().ToList();
-        return await _context.CalificacionesProveedores
+        var promedios = await _context.CalificacionesProveedores
             .AsNoTracking()
             .Where(x => ids.Contains(x.ProveedorId))
-            .ToDictionaryAsync(x => x.ProveedorId, x => x.Calificacion, cancellationToken);
+            .GroupBy(x => x.ProveedorId)
+            .Select(g => new { ProveedorId = g.Key, Promedio = g.Average(x => (double)x.Calificacion) })
+            .ToListAsync(cancellationToken);
+
+        return promedios.ToDictionary(x => x.ProveedorId, x => Math.Round((decimal)x.Promedio, 2));
     }
 
     public async Task<CalificacionProveedor> UpsertAsync(
         Guid proveedorId,
+        Guid calificadorId,
         int calificacion,
         DateTime fechaActualizacionUtc,
         CancellationToken cancellationToken = default)
@@ -50,7 +72,7 @@ public class CalificacionProveedorRepository : ICalificacionProveedorRepository
             : DateTime.SpecifyKind(fechaActualizacionUtc, DateTimeKind.Utc);
 
         var existente = await _context.CalificacionesProveedores
-            .FirstOrDefaultAsync(x => x.ProveedorId == proveedorId, cancellationToken);
+            .FirstOrDefaultAsync(x => x.ProveedorId == proveedorId && x.CalificadorId == calificadorId, cancellationToken);
 
         if (existente != null)
         {
@@ -64,6 +86,7 @@ public class CalificacionProveedorRepository : ICalificacionProveedorRepository
         {
             Id = Guid.NewGuid(),
             ProveedorId = proveedorId,
+            CalificadorId = calificadorId,
             Calificacion = calificacion,
             FechaActualizacion = fechaUtc
         };
@@ -75,13 +98,13 @@ public class CalificacionProveedorRepository : ICalificacionProveedorRepository
             await _context.SaveChangesAsync(cancellationToken);
             return nueva;
         }
-        catch (DbUpdateException ex) when (EsDuplicadoProveedor(ex))
+        catch (DbUpdateException ex) when (EsDuplicadoCalificacion(ex))
         {
-            // Colisión de índice único en alta concurrente: descartar la inserción local y actualizar la fila ganadora.
+            // Colisión de índice único (mismo usuario y proveedor) en alta concurrente: descartar la inserción local y actualizar la fila ganadora.
             _context.Entry(nueva).State = EntityState.Detached;
 
             var ganadora = await _context.CalificacionesProveedores
-                .FirstAsync(x => x.ProveedorId == proveedorId, cancellationToken);
+                .FirstAsync(x => x.ProveedorId == proveedorId && x.CalificadorId == calificadorId, cancellationToken);
 
             ganadora.Calificacion = calificacion;
             ganadora.FechaActualizacion = fechaUtc;
@@ -90,6 +113,6 @@ public class CalificacionProveedorRepository : ICalificacionProveedorRepository
         }
     }
 
-    private static bool EsDuplicadoProveedor(DbUpdateException ex) =>
+    private static bool EsDuplicadoCalificacion(DbUpdateException ex) =>
         ex.InnerException is SqlException { Number: 2601 or 2627 };
 }

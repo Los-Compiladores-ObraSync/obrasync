@@ -64,9 +64,9 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             .Distinct()
             .ToList();
 
-        IReadOnlyDictionary<Guid, int> calificacionesPorProveedor = _calificacionRepository != null
-            ? await _calificacionRepository.GetCalificacionesByProveedorIdsAsync(proveedorIds, cancellationToken)
-            : new Dictionary<Guid, int>();
+        IReadOnlyDictionary<Guid, decimal> calificacionesPorProveedor = _calificacionRepository != null
+            ? await _calificacionRepository.GetPromediosByProveedorIdsAsync(proveedorIds, cancellationToken)
+            : new Dictionary<Guid, decimal>();
 
         // Solo las cotizaciones completas (con ítems válidos > 0 y sin cobertura parcial) compiten por el scoring y EsGanadora (#186 / #190 / #197)
         var cotizacionesCompletas = cotizaciones
@@ -80,7 +80,7 @@ public class GetCotizacionesByLicitacionIdQueryHandler
         // 1. Mapeamos usando el constructor posicional de la entidad Oferta del Dominio (pasando CantidadOfrecida para #190 y Calificacion para #88)
         var ofertasDomain = cotizacionesCompletas.Select(c =>
         {
-            int? calif = calificacionesPorProveedor.TryGetValue(c.ProveedorId, out var valorCalif)
+            decimal? calif = calificacionesPorProveedor.TryGetValue(c.ProveedorId, out var valorCalif)
                 ? valorCalif
                 : null;
 
@@ -185,7 +185,7 @@ public class GetCotizacionesByLicitacionIdQueryHandler
                     }
                     : null;
 
-                int? calificacionProveedor = calificacionesPorProveedor.TryGetValue(c.ProveedorId, out var califGuardada)
+                decimal? calificacionProveedor = calificacionesPorProveedor.TryGetValue(c.ProveedorId, out var califGuardada)
                     ? califGuardada
                     : null;
 

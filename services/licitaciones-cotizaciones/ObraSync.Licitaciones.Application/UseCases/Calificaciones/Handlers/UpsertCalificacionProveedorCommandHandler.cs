@@ -28,6 +28,11 @@ public class UpsertCalificacionProveedorCommandHandler
             throw new ArgumentException("El identificador del proveedor es obligatorio.", nameof(request.ProveedorId));
         }
 
+        if (request.CalificadorId == Guid.Empty)
+        {
+            throw new ArgumentException("El identificador del usuario que califica es obligatorio.", nameof(request.CalificadorId));
+        }
+
         if (request.Calificacion < 1 || request.Calificacion > 5)
         {
             throw new ArgumentOutOfRangeException(
@@ -37,15 +42,21 @@ public class UpsertCalificacionProveedorCommandHandler
         }
 
         var ahoraUtc = _timeProvider.GetUtcNow().UtcDateTime;
-        var entidad = await _repository.UpsertAsync(
+        await _repository.UpsertAsync(
             request.ProveedorId,
+            request.CalificadorId,
             request.Calificacion,
             ahoraUtc,
             cancellationToken);
 
+        // La calificación del proveedor es el promedio de lo que le dio cada usuario.
+        var resumen = await _repository.GetResumenAsync(request.ProveedorId, cancellationToken)
+            ?? throw new InvalidOperationException("No se pudo leer la calificación recién guardada.");
+
         return new CalificacionProveedorResponseDto(
-            entidad.ProveedorId,
-            entidad.Calificacion,
-            DateTime.SpecifyKind(entidad.FechaActualizacion, DateTimeKind.Utc));
+            resumen.ProveedorId,
+            resumen.Promedio,
+            resumen.Cantidad,
+            DateTime.SpecifyKind(resumen.FechaActualizacion, DateTimeKind.Utc));
     }
 }
