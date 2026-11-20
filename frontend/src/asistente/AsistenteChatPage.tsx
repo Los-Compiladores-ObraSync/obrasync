@@ -25,6 +25,7 @@ import {
 } from './asistenteTipos'
 import styles from './AsistenteChatPage.module.css'
 import { ConfirmacionAccion } from './ConfirmacionAccion'
+import { useReconocimientoVoz } from './useReconocimientoVoz'
 
 type EstadoBorrador = 'pendiente' | 'confirmada' | 'cancelada'
 
@@ -184,6 +185,13 @@ function IconoDestello() {
  *  - Todo texto (del usuario o del asistente) se muestra como TEXTO, nunca como HTML (#174).
  *  - El asistente nunca crea ni aprueba nada: arma un borrador y solo el botón Confirmar (#146) llama al
  *    endpoint de requisiciones con el JWT del usuario. */
+/** Junta lo que ya estaba escrito con lo que se dictó, con un espacio en el medio. */
+function unirDictado(base: string, dictado: string): string {
+  if (dictado === '') return base
+  if (base === '' || /\s$/.test(base)) return `${base}${dictado}`
+  return `${base} ${dictado}`
+}
+
 export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistente } = {}) {
   const capacidades = portal === 'compras' ? CAPACIDADES_COMPRAS : CAPACIDADES_OBRA
   const [mensajes, setMensajes] = useState<MensajeChat[]>([])
@@ -195,6 +203,16 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
   const caja = useRef<HTMLTextAreaElement>(null)
   // Evita que dos envíos seguidos salgan antes del siguiente render.
   const enviandoRef = useRef(false)
+  // Lo que ya estaba escrito cuando se apretó el micrófono: el dictado se agrega después (#139).
+  const baseDictado = useRef('')
+  const voz = useReconocimientoVoz({
+    alEmpezar: () => {
+      baseDictado.current = texto
+    },
+    // El texto dictado queda en la caja para revisarlo: NUNCA se envía solo.
+    alTranscribir: (dictado) =>
+      setTexto(unirDictado(baseDictado.current, dictado).slice(0, MAX_CARACTERES_MENSAJE)),
+  })
 
   useEffect(() => {
     finDeLista.current?.scrollIntoView?.({ block: 'end' })
@@ -233,6 +251,7 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
   }
 
   async function enviarTexto(textoAEnviar: string) {
+    voz.detener()
     const mensaje = textoAEnviar.trim()
     if (!mensaje || enviandoRef.current) {
       return
@@ -679,6 +698,11 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
             </button>
           </div>
         )}
+        {voz.errorVoz && (
+          <p role="alert" className={styles.error}>
+            {voz.errorVoz}
+          </p>
+        )}
         <form className={styles.compositor} onSubmit={enviar}>
           {/* La etiqueta se lee con lector de pantalla, pero no ocupa lugar: el placeholder ya dice qué escribir. */}
           <label htmlFor="mensaje-asistente" className={styles.soloLectores}>
@@ -690,12 +714,33 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
             className={styles.caja}
             rows={1}
             maxLength={MAX_CARACTERES_MENSAJE}
-            placeholder="Escribí lo que necesitás…"
+            placeholder={voz.escuchando ? 'Escuchando… hablá ahora' : 'Escribí lo que necesitás…'}
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={alApretarTecla}
             disabled={pensando}
           />
+          <button
+            type="button"
+            className={voz.escuchando ? `${styles.microfono} ${styles.microfonoActivo}` : styles.microfono}
+            aria-label={voz.escuchando ? 'Dejar de dictar' : 'Dictar por voz'}
+            aria-pressed={voz.escuchando}
+            disabled={pensando}
+            onClick={voz.alternar}
+          >
+            {voz.escuchando ? (
+              // Mientras escucha, el botón muestra "frenar" (cuadrado) para que se entienda que hay que tocarlo de nuevo.
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false">
+                <rect x="5" y="5" width="14" height="14" rx="2.5" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                <rect x="9" y="3" width="6" height="11" rx="3" />
+                <path d="M5 11a7 7 0 0 0 14 0" />
+                <path d="M12 18v3" />
+              </svg>
+            )}
+          </button>
           <button type="submit" className={styles.enviar} aria-label="Enviar" disabled={vacio || pensando}>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
               <path d="M12 19V5" />

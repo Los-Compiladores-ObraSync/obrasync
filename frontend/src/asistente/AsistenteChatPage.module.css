@@ -292,6 +292,51 @@
   cursor: not-allowed;
 }
 
+/* Micrófono (#139): botón redondo, secundario, al lado del de enviar. Activo = naranja con cuadrado de "frenar" y latido suave. */
+.microfono {
+  flex: none;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 2px solid var(--azul);
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--azul);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.microfono:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.microfonoActivo {
+  border-color: var(--accion);
+  background: var(--accion);
+  color: #ffffff;
+  animation: latido 1.2s ease-in-out infinite;
+}
+
+@keyframes latido {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(194, 65, 12, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(194, 65, 12, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .microfonoActivo {
+    animation: none;
+  }
+}
+
 /* Opciones para seguir después de confirmar o cancelar un borrador. */
 .siguientesPasos {
   display: flex;
