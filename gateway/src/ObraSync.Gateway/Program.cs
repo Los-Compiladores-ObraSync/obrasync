@@ -21,7 +21,7 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, IPAddress>(httpContext =>
     {
-        if (!EsRutaDeCotizacionMagicLink(httpContext.Request))
+        if (!MagicLinkGatewayRequest.EsMagicLink(httpContext.Request))
             return RateLimitPartition.GetNoLimiter<IPAddress>(IPAddress.None);
 
         return RateLimitPartition.GetSlidingWindowLimiter(
@@ -75,11 +75,11 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 // Va después del Correlation ID (para incluirlo) y antes del proxy.
 // Auditoría y limitador preceden a los componentes que pueden finalizar el pedido para registrar también 429 y errores.
 
-// El limitador solo se ejecuta para la operación del Magic Link; no afecta las demás rutas.
+// El limitador solo se ejecuta para las operaciones del Magic Link (cotizar y ver el pliego; comparten la ventana por IP); no afecta las demás rutas.
 // Auditoría sin datos sensibles: no se incluye el segmento {hash}, query string, URL ni cuerpo.
 app.Use(async (context, next) =>
 {
-    if (!EsRutaDeCotizacionMagicLink(context.Request))
+    if (!MagicLinkGatewayRequest.EsMagicLink(context.Request))
     {
         await next();
         return;
@@ -99,7 +99,9 @@ app.Use(async (context, next) =>
             : "forwarded";
         logger.LogInformation("Magic Link {Metodo} {Ruta} respondió {Estado}; resultado {Resultado}; CorrelationId {CorrelationId}",
             context.Request.Method,
-            "/api/licitaciones/magic-links/{hash}/cotizar",
+            MagicLinkGatewayRequest.EsPliego(context.Request)
+                ? "/api/licitaciones/magic-links/{hash}"
+                : "/api/licitaciones/magic-links/{hash}/cotizar",
             estado,
             resultado,
             context.Request.Headers[CorrelationIdMiddleware.HeaderName].ToString());
@@ -117,9 +119,6 @@ app.MapGet("/health", () => Results.Ok(new { status = "Healthy", servicio = "gat
 app.MapReverseProxy();
 
 app.Run();
-
-static bool EsRutaDeCotizacionMagicLink(HttpRequest request)
-    => MagicLinkGatewayRequest.EsCotizacion(request);
 
 // Hace visible la clase Program para que los proyectos de pruebas puedan levantar el gateway.
 public partial class Program { }

@@ -537,6 +537,48 @@
         }
       }
     },
+    "/api/licitaciones/magic-links/{hash}": {
+      "get": {
+        "tags": [
+          "MagicLinks"
+        ],
+        "summary": "Ver el pliego al que da acceso un Magic Link, sin consumirlo (Público / AllowAnonymous)",
+        "description": "Devuelve lo necesario para cotizar (ítems y plazos) sin gastar el enlace (#158). No expone la obra ni la requisición. Errores: 404 si el enlace no existe; 409 si ya fue utilizado; 400 si expiró, si la licitación no está Abierta o si venció el plazo para cotizar.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "hash",
+            "in": "path",
+            "required": true,
+            "description": "Token temporal de un solo uso recibido por el proveedor.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pliego disponible para cotizar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PliegoMagicLinkResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
     "/api/licitaciones/magic-links/{hash}/cotizar": {
       "post": {
         "tags": ["MagicLinks"],
@@ -784,6 +826,47 @@
           "unidadMedida": {
             "type": "string",
             "description": "Unidad de medida (ej: BOLSA, KG, M3, UNIDAD)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PliegoMagicLinkResponseDto": {
+        "type": "object",
+        "required": [
+          "licitacionId",
+          "numeroRequisicion",
+          "fechaLimiteCotizacion",
+          "fechaDeVencimientoEnlace",
+          "items"
+        ],
+        "properties": {
+          "licitacionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "numeroRequisicion": {
+            "type": "string"
+          },
+          "fechaLimiteCotizacion": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Plazo límite para cotizar (UTC)."
+          },
+          "fechaDeVencimientoEnlace": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Hasta cuándo se puede usar el enlace (UTC)."
+          },
+          "proveedorNombre": {
+            "type": "string",
+            "nullable": true,
+            "description": "Nombre que escribió Compras al generar el enlace."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PliegoItemDto"
+            }
           }
         },
         "additionalProperties": false
