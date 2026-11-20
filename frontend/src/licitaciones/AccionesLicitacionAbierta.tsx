@@ -95,31 +95,47 @@ export function AccionesLicitacionAbierta({ licitacion, onActualizada }: Props) 
 
   return (
     <section className={styles.acciones} aria-label="Acciones sobre la licitación abierta">
-      <h3 className={styles.titulo}>Mientras está abierta</h3>
-
-      <div className={styles.fila}>
-        <label htmlFor="extender-fecha" className={styles.etiqueta}>Dar más tiempo hasta</label>
-        <input
-          id="extender-fecha"
-          type="date"
-          className={styles.fecha}
-          value={fecha}
-          onChange={(e) => setFecha(e.target.value)}
-        />
-        <button type="button" className={styles.boton} onClick={() => void extender()} disabled={enviando || !fecha}>
-          Extender plazo
-        </button>
+      <div className={styles.encabezado}>
+        <h3 className={styles.titulo}>Mientras está abierta</h3>
+        <p className={styles.subtitulo}>
+          Podés dar más tiempo a los proveedores, avisarles o cerrar la licitación antes de la fecha.
+        </p>
       </div>
 
-      <button type="button" className={styles.boton} onClick={() => void copiarRecordatorio()}>
-        Copiar recordatorio para los proveedores
-      </button>
+      <div className={styles.bloque}>
+        <label htmlFor="extender-fecha" className={styles.etiqueta}>Dar más tiempo hasta</label>
+        <div className={styles.fila}>
+          <input
+            id="extender-fecha"
+            type="date"
+            className={styles.fecha}
+            value={fecha}
+            onChange={(e) => setFecha(e.target.value)}
+          />
+          <button
+            type="button"
+            className={styles.botonPrincipal}
+            onClick={() => void extender()}
+            disabled={enviando || !fecha}
+          >
+            Extender plazo
+          </button>
+        </div>
+      </div>
 
-      {!cerrando ? (
-        <button type="button" className={styles.botonPeligro} onClick={() => setCerrando(true)}>
-          Cerrar antes de tiempo
+      <div className={styles.secundarias}>
+        <button type="button" className={styles.boton} onClick={() => void copiarRecordatorio()}>
+          Copiar recordatorio para los proveedores
         </button>
-      ) : (
+
+        {!cerrando && (
+          <button type="button" className={styles.botonPeligro} onClick={() => setCerrando(true)}>
+            Cerrar antes de tiempo
+          </button>
+        )}
+      </div>
+
+      {cerrando && (
         <div role="group" aria-label="Cerrar la licitación" className={styles.confirmar}>
           <label htmlFor="cerrar-motivo" className={styles.etiqueta}>Motivo del cierre</label>
           <input
@@ -131,12 +147,14 @@ export function AccionesLicitacionAbierta({ licitacion, onActualizada }: Props) 
             onChange={(e) => setMotivo(e.target.value)}
           />
           <p className={styles.ayuda}>Los links que mandaste a los proveedores dejan de funcionar. No se puede deshacer.</p>
-          <button type="button" className={styles.botonPeligro} onClick={() => void cerrar()} disabled={enviando}>
-            Sí, cerrar la licitación
-          </button>
-          <button type="button" className={styles.boton} onClick={() => setCerrando(false)} disabled={enviando}>
-            No, dejarla abierta
-          </button>
+          <div className={styles.filaConfirmar}>
+            <button type="button" className={styles.botonPeligro} onClick={() => void cerrar()} disabled={enviando}>
+              Sí, cerrar la licitación
+            </button>
+            <button type="button" className={styles.boton} onClick={() => setCerrando(false)} disabled={enviando}>
+              No, dejarla abierta
+            </button>
+          </div>
         </div>
       )}
 

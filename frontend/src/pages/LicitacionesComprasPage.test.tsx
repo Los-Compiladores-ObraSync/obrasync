@@ -104,8 +104,9 @@ describe('LicitacionesComprasPage', () => {
     const botonesVer = screen.getAllByRole('button', { name: 'Ver cotizaciones' })
     await user.click(botonesVer[0])
 
+    // El número va en su propio <span> (para que no se parta en el guion), por eso se busca el encabezado entero.
     expect(
-      await screen.findByText('Cotizaciones para REQ-2026-0011'),
+      await screen.findByRole('heading', { level: 2, name: 'Cotizaciones para REQ-2026-0011' }),
     ).toBeInTheDocument()
 
     // Proveedor con ID abreviado (primeros 8 caracteres: f7a8b9c0 y e1a2b3c4)

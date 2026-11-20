@@ -135,10 +135,9 @@ export function LicitacionesComprasPage() {
   const idsDeMateriales = licitacionSeleccionada?.items.map((m) => m.articuloId).join(',') ?? ''
   useEffect(() => {
     let cancelado = false
-    if (!idsDeMateriales) {
-      setPreciosPrevios(new Map())
-      return
-    }
+    // Sin licitación elegida no hay nada que pedir. No se vacía el mapa acá (setState directo dentro del efecto):
+    // se consulta por articuloId, así que lo que quedó de otra licitación no se usa.
+    if (!idsDeMateriales) return
     obtenerPreciosHistoricos(idsDeMateriales.split(','))
       .then((lista) => {
         if (!cancelado) setPreciosPrevios(new Map(lista.map((p) => [p.articuloId, p])))
@@ -373,7 +372,8 @@ export function LicitacionesComprasPage() {
         <div className={styles.seccionCotizaciones}>
           <div className={styles.encabezadoMatriz}>
             <h2 ref={tituloCotizacionesRef} tabIndex={-1}>
-              Cotizaciones para {licitacionSeleccionada.numeroRequisicion ?? 'la licitación'}
+              Cotizaciones para{' '}
+              <span className={styles.numeroTitulo}>{licitacionSeleccionada.numeroRequisicion ?? 'la licitación'}</span>
             </h2>
             {esLicitacionAdjudicada && (
               <span className={`${styles.estadoBadge} ${styles.estadoAdjudicada}`}>
