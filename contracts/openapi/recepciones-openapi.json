@@ -545,6 +545,70 @@
         }
       }
     },
+    "/api/recepciones/ordenes/{id}/liquidar": {
+      "post": {
+        "tags": [
+          "Recepciones"
+        ],
+        "summary": "Liquidar administrativamente una orden de compra (#92)",
+        "description": "Liquida administrativamente una orden de compra solo si no existe saldo pendiente de recepción (criterio CU-06). Bloquea con 409 Conflict (ProblemDetails) mientras exista saldo pendiente, si la orden está bloqueada por desvío presupuestario o si ya fue liquidada. Roles permitidos: Comprador y Admin.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Identificador único de la orden de compra a liquidar.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Orden de compra liquidada exitosamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrdenCompraLiquidadaDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No se proporcionó un token válido o el claim sub no es un GUID válido."
+          },
+          "403": {
+            "description": "El usuario no tiene el rol Comprador o Admin."
+          },
+          "404": {
+            "description": "La orden de compra no existe.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto: la orden de compra tiene saldo pendiente de recepción (excedente no entregado), está bloqueada por desvío presupuestario o ya fue liquidada.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/presupuestos/partidas": {
       "get": {
         "tags": [
@@ -1352,6 +1416,31 @@
           "montoComprometidoPartida": {
             "type": "number",
             "nullable": true
+          }
+        }
+      },
+      "OrdenCompraLiquidadaDto": {
+        "type": "object",
+        "description": "Respuesta tras liquidar administrativamente una orden de compra sin saldo pendiente (#92).",
+        "properties": {
+          "ordenCompraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "obraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "montoLiquidado": {
+            "type": "number"
+          },
+          "liquidadaPorUsuarioId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "liquidadaEn": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }

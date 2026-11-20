@@ -25,6 +25,7 @@ public class RecepcionesController : ControllerBase
     private readonly ObtenerOrdenesPendientesQueryHandler _obtenerOrdenesPendientesHandler;
     private readonly ObtenerOrdenesBloqueadasQueryHandler? _obtenerOrdenesBloqueadasHandler;
     private readonly LiberarOrdenCompraCommandHandler? _liberarOrdenHandler;
+    private readonly LiquidarOrdenCompraCommandHandler? _liquidarOrdenHandler;
     private readonly IObraAsignacionValidator? _obraAsignacionValidator;
 
     [ActivatorUtilitiesConstructor]
@@ -35,7 +36,8 @@ public class RecepcionesController : ControllerBase
         ObtenerOrdenesPendientesQueryHandler obtenerOrdenesPendientesHandler,
         IObraAsignacionValidator? obraAsignacionValidator = null,
         LiberarOrdenCompraCommandHandler? liberarOrdenHandler = null,
-        ObtenerOrdenesBloqueadasQueryHandler? obtenerOrdenesBloqueadasHandler = null)
+        ObtenerOrdenesBloqueadasQueryHandler? obtenerOrdenesBloqueadasHandler = null,
+        LiquidarOrdenCompraCommandHandler? liquidarOrdenHandler = null)
     {
         _crearHandler = crearHandler;
         _obtenerRecepcionesHandler = obtenerRecepcionesHandler;
@@ -44,6 +46,7 @@ public class RecepcionesController : ControllerBase
         _obraAsignacionValidator = obraAsignacionValidator;
         _liberarOrdenHandler = liberarOrdenHandler;
         _obtenerOrdenesBloqueadasHandler = obtenerOrdenesBloqueadasHandler;
+        _liquidarOrdenHandler = liquidarOrdenHandler;
     }
 
     public RecepcionesController(
@@ -61,7 +64,8 @@ public class RecepcionesController : ControllerBase
             new ObtenerOrdenesPendientesQueryHandler(context),
             obraAsignacionValidator,
             new LiberarOrdenCompraCommandHandler(context),
-            new ObtenerOrdenesBloqueadasQueryHandler(context))
+            new ObtenerOrdenesBloqueadasQueryHandler(context),
+            new LiquidarOrdenCompraCommandHandler(context))
     {
     }
 
@@ -448,6 +452,42 @@ public class RecepcionesController : ControllerBase
 
         var resultado = await _liberarOrdenHandler.Handle(
             new LiberarOrdenCompraCommand(id, usuarioId, request?.Motivo),
+            cancellationToken);
+
+        return Ok(resultado);
+    }
+
+    /// <summary>
+    /// Liquida administrativamente una orden de compra (#92).
+    /// Bloquea la liquidación con 409 Conflict (ProblemDetails) mientras exista saldo pendiente de recepción (criterio CU-06).
+    /// Roles permitidos: Comprador y Admin.
+    /// </summary>
+    [Authorize(Roles = "Comprador,Admin")]
+    [HttpPost("ordenes/{id:guid}/liquidar")]
+    [HttpPost("ordenes-compra/{id:guid}/liquidar")]
+    public async Task<IActionResult> LiquidarOrdenCompra(
+        [FromRoute] Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        if (_liquidarOrdenHandler is null)
+        {
+            throw new InvalidOperationException("LiquidarOrdenCompraCommandHandler no está configurado.");
+        }
+
+        string? usuarioIdTexto = User.FindFirst("sub")?.Value
+                                 ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (!Guid.TryParse(usuarioIdTexto, out Guid usuarioId) ||
+            usuarioId == Guid.Empty)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "No autorizado",
+                detail: "El token JWT no contiene un claim 'sub' válido con formato GUID.");
+        }
+
+        var resultado = await _liquidarOrdenHandler.Handle(
+            new LiquidarOrdenCompraCommand(id, usuarioId),
             cancellationToken);
 
         return Ok(resultado);
