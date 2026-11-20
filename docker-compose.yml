@@ -166,6 +166,9 @@ services:
       ReverseProxy__Clusters__licitaciones__Destinations__principal__Address: http://licitaciones-cotizaciones-api:8080/
       ReverseProxy__Clusters__recepcion__Destinations__principal__Address: http://recepcion-presupuesto-api:8080/
       ReverseProxy__Clusters__asistente__Destinations__principal__Address: http://asistente-api:8080/
+      # Límite de pedidos por IP a login, registro y recuperar contraseña. En Docker todo llega desde la misma IP
+      # (la de tu computadora), y los scripts de prueba hacen 3 o 4 logins cada uno: con 10 por minuto se pisan.
+      AuthRateLimit__PermitLimit: ${AUTH_RATE_LIMIT:-30}
     depends_on:
       - usuarios-obras-api
       - requisiciones-catalogo-api
