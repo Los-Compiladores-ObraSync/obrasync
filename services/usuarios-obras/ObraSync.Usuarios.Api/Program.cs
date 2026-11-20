@@ -179,6 +179,9 @@ var app = builder.Build();
 // <-- Intercepta códigos de error HTTP (como 401 y 403) y les inyecta el ProblemDetails
 app.UseStatusCodePages();
 
+// Correlación (#104): primero de todos, así los errores y los logs del pedido llevan el mismo X-Correlation-ID del Gateway
+app.UseMiddleware<CorrelationIdMiddleware>();
+
 // 5. Registrar Middleware de Excepciones al principio del pipeline
 app.UseMiddleware<ExceptionMiddleware>();
 
