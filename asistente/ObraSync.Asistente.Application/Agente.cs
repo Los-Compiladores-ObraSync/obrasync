@@ -44,6 +44,7 @@ public sealed class Agente
     public const string AvisoLenguajeComun =
         "Hablale a la persona en lenguaje común: no nombres campos ni códigos internos de las herramientas " +
         "(por ejemplo hayMas, esGanadora, esMasBarata, requisicionId, licitacionId o cotizacionId, ni nombres de herramientas). " +
+        "Tampoco muestres identificadores internos (códigos largos de letras y números): usá el número o el nombre que ve la persona. " +
         "Decí 'la mejor oferta', 'la más barata' o 'hay más resultados', y mostrá cada requisición por el número que figura en los datos, sin inventar ninguno.";
 
     public static readonly TimeSpan TiempoTotal = TimeSpan.FromSeconds(45);
