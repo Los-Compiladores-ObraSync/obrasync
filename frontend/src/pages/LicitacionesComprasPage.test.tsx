@@ -24,11 +24,11 @@ describe('LicitacionesComprasPage', () => {
     reiniciarLicitacionesMock()
   })
 
-  it('tiene enlace para volver a compras', () => {
+  it('tiene enlace para volver al inicio', () => {
     renderPagina()
-    const enlaceVolver = screen.getByRole('link', { name: '← Volver a compras' })
+    const enlaceVolver = screen.getByRole('link', { name: '← Volver al inicio' })
     expect(enlaceVolver).toBeInTheDocument()
-    expect(enlaceVolver).toHaveAttribute('href', '/compras')
+    expect(enlaceVolver).toHaveAttribute('href', '/')
   })
 
   it('muestra estado de carga y luego la lista de licitaciones', async () => {

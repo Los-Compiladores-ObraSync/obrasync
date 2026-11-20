@@ -32,16 +32,7 @@ function mensajeDeErrorLiberar(err: unknown): string {
   return 'No se pudo conectar con el servidor. Intentá nuevamente.'
 }
 
-interface PropsPresupuestoPage {
-  /** Adónde lleva la flecha de volver (por defecto, a Gestión y Compras). */
-  volverA?: string
-  textoVolver?: string
-}
-
-export function PresupuestoPage({
-  volverA = '/compras',
-  textoVolver = '← Volver a compras',
-}: PropsPresupuestoPage = {}) {
+export function PresupuestoPage() {
   const auth = useContext(AuthContext)
   const {
     bloqueadas: ordenesBloqueadas,
@@ -218,8 +209,8 @@ export function PresupuestoPage({
 
   return (
     <section className={styles.contenedor}>
-      <Link to={volverA} className={styles.volver}>
-        {textoVolver}
+      <Link to="/" className={styles.volver}>
+        ← Volver al inicio
       </Link>
       <h1 className={styles.titulo}>Tablero de desvíos presupuestarios</h1>
       <p className={styles.intro}>

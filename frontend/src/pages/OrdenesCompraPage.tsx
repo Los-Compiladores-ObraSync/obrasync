@@ -125,8 +125,8 @@ export function OrdenesCompraPage() {
 
   return (
     <section className={styles.contenedor}>
-      <Link to="/compras" className={styles.volverEnlace}>
-        ← Volver a Gestión y Compras
+      <Link to="/" className={styles.volverEnlace}>
+        ← Volver al inicio
       </Link>
       <h1>Órdenes de compra</h1>
       <p className="intro">

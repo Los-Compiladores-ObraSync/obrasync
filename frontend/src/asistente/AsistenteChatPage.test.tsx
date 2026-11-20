@@ -58,7 +58,7 @@ describe('AsistenteChatPage', () => {
       'href',
       '/obra/requisicion/nueva',
     )
-    expect(screen.getByRole('link', { name: 'Volver al inicio' })).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: '← Volver al inicio' })).toHaveAttribute('href', '/')
   })
 
   it('cuenta lo que sabe hacer, sin etiquetas de "Próximamente", y lo saca cuando empieza la conversación', async () => {

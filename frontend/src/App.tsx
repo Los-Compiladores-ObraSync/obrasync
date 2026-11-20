@@ -58,10 +58,7 @@ function App() {
                 <Route path="recepcion" element={<RecepcionPage />} />
                 <Route path="asistente" element={<AsistenteChatPage />} />
                 {/* Misma pantalla que en Compras: el Capataz solo consulta (el formulario es de Comprador y Admin) */}
-                <Route
-                  path="presupuesto"
-                  element={<PresupuestoPage volverA="/" textoVolver="← Volver al inicio" />}
-                />
+                <Route path="presupuesto" element={<PresupuestoPage />} />
                 <Route
                   path="requisiciones"
                   element={

@@ -422,8 +422,8 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
   return (
     <section className={styles.contenedor}>
       <header className={styles.encabezado}>
-        <Link to="/" className={styles.volver} aria-label="Volver al inicio">
-          <span aria-hidden="true">←</span>
+        <Link to="/" className={styles.volver}>
+          ← Volver al inicio
         </Link>
         <h1 className={styles.titulo}>Asistente</h1>
       </header>
