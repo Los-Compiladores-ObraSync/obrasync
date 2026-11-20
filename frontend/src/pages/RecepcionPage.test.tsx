@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { reiniciarRecepcionesMock } from '../mocks/handlers'
 import { server } from '../mocks/server'
-import { hoyComoTexto } from '../obras/fechaEnPalabras'
+import { fechaEnPalabras, hoyComoTexto } from '../obras/fechaEnPalabras'
 import { ErrorDeImagen, reducirImagen } from '../recepciones/imagenRemito'
 import { leerRemitoDeFoto, obtenerHistorialRecepciones, obtenerOrdenesPendientes, registrarRecepcion } from '../recepciones/recepcionesService'
 import { RecepcionPage } from './RecepcionPage'
@@ -181,7 +181,7 @@ describe('RecepcionPage', () => {
     expect(screen.getByLabelText(/Arena Fina a Granel.*recibido en esta entrega/i)).toHaveValue(0)
     expect(await screen.findByText('Remito R-P')).toBeInTheDocument()
     expect(screen.getByLabelText('Historial de recepciones').textContent).toContain('Parcial')
-    expect(screen.getByLabelText('Historial de recepciones').textContent).toContain('jueves, 19 de noviembre de 2026')
+    expect(screen.getByLabelText('Historial de recepciones').textContent).toContain(fechaEnPalabras(hoyComoTexto()))
     expect(screen.getByText(/Cemento Portland Especial 50kg: 75 bolsas/)).toBeInTheDocument()
   })
 
