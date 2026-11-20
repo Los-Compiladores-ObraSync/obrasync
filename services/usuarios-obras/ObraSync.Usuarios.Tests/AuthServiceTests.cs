@@ -197,6 +197,39 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task GetProveedoresActivosPaginadosAsync_DevuelveSoloProveedoresActivosEnOrdenEstable()
+    {
+        // Arrange (#157): 3 proveedores activos (2 con el mismo nombre) y 1 inactivo
+        var idMenor = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var idMayor = Guid.Parse("99999999-9999-9999-9999-999999999999");
+        var idZeta = Guid.Parse("55555555-5555-5555-5555-555555555555");
+
+        var proveedores = new List<AppUser>
+        {
+            new AppUser { Id = idMayor, NombreCompleto = "Corralón Empate", Activo = true },
+            new AppUser { Id = Guid.NewGuid(), NombreCompleto = "Proveedor Inactivo", Activo = false },
+            new AppUser { Id = idZeta, NombreCompleto = "Zulema Materiales", Activo = true },
+            new AppUser { Id = idMenor, NombreCompleto = "Corralón Empate", Activo = true }
+        };
+
+        _userManager.GetUsersInRoleAsync(UserRoles.Proveedor).Returns(proveedores);
+
+        // Act
+        var (pag1, total1) = await _authService.GetProveedoresActivosPaginadosAsync(new ParametrosPagina(1, 2));
+        var (pag2, total2) = await _authService.GetProveedoresActivosPaginadosAsync(new ParametrosPagina(2, 2));
+
+        // Assert
+        Assert.Equal(3, total1);
+        Assert.Equal(3, total2);
+        Assert.Equal(2, pag1.Count);
+        Assert.Single(pag2);
+        Assert.Equal(idMenor, pag1[0].Id);
+        Assert.Equal(idMayor, pag1[1].Id);
+        Assert.Equal(idZeta, pag2[0].Id);
+        Assert.DoesNotContain(pag1.Concat(pag2), p => p.NombreCompleto == "Proveedor Inactivo");
+    }
+
+    [Fact]
     public async Task RegistrarAsync_DeberiaRetornarAuthResponseDto_CuandoRegistroEsExitoso()
     {
         // Arrange: para registrar un Capataz se requiere sesión de Comprador o Admin (#117)

@@ -222,6 +222,30 @@ public class AuthService : IAuthService
         return (items, total);
     }
 
+    public async Task<(IReadOnlyList<ProveedorDto> Items, int Total)> GetProveedoresActivosPaginadosAsync(
+        ParametrosPagina? paginacion = null)
+    {
+        var p = paginacion ?? new ParametrosPagina();
+        var usuariosProveedor = await _userManager.GetUsersInRoleAsync(UserRoles.Proveedor);
+
+        var activos = usuariosProveedor
+            .Where(u => u.Activo)
+            .ToList();
+
+        var total = activos.Count;
+
+        // Mismo orden que los capataces: por nombre y, si empatan, por Id (así la paginación es estable).
+        var items = activos
+            .OrderBy(u => u.NombreCompleto)
+            .ThenBy(u => u.Id)
+            .Skip(p.Saltear)
+            .Take(p.Tamano)
+            .Select(u => new ProveedorDto(u.Id, u.NombreCompleto))
+            .ToList();
+
+        return (items, total);
+    }
+
     public async Task<MensajeResponseDto> RecuperarPasswordAsync(RecuperarPasswordRequestDto request)
     {
         var respuesta = new MensajeResponseDto(MensajeRecuperacionGenerico);
