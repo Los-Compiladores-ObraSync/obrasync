@@ -373,7 +373,8 @@ export function LicitacionesComprasPage() {
         <div className={styles.seccionCotizaciones}>
           <div className={styles.encabezadoMatriz}>
             <h2 ref={tituloCotizacionesRef} tabIndex={-1}>
-              Cotizaciones para {licitacionSeleccionada.numeroRequisicion ?? 'la licitación'}
+              Cotizaciones para{' '}
+              <span className={styles.numeroTitulo}>{licitacionSeleccionada.numeroRequisicion ?? 'la licitación'}</span>
             </h2>
             {esLicitacionAdjudicada && (
               <span className={`${styles.estadoBadge} ${styles.estadoAdjudicada}`}>

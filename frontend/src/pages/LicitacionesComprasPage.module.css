@@ -105,6 +105,16 @@
   gap: 0.5rem;
 }
 
+/* La separación con lo que sigue la da el gap de la sección, no el margen por defecto del título. */
+.encabezadoMatriz h2 {
+  margin: 0;
+}
+
+/* El número (REQ-2026-0001) no se corta en el guion: si no entra, baja entero a la línea siguiente. */
+.numeroTitulo {
+  white-space: nowrap;
+}
+
 @media (min-width: 600px) {
   .encabezadoMatriz {
     flex-direction: row;
