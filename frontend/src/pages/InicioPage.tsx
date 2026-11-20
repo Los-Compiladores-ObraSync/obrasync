@@ -65,10 +65,10 @@ export function InicioPage() {
       ))}
       {apruebaRequisiciones && <ResumenAprobacion />}
       {cotiza && (
-        <>
+        <section className={styles.licitaciones}>
           <h2 className={styles.subtitulo}>Licitaciones abiertas</h2>
           <ListaLicitaciones tituloTarjeta="h3" />
-        </>
+        </section>
       )}
       {acciones.length > 0 && (
         <ul className="lista-acciones">
