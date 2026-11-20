@@ -3,9 +3,10 @@ import { Link } from 'react-router'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { obtenerObras } from '../requisiciones/requisicionesService'
 import type { RequisicionResponseDto } from '../requisiciones/requisicionesTipos'
-import { MAX_PENDIENTES_EN_CAMPANA } from './configuracionAvisos'
+import { MAX_NOVEDADES_EN_CAMPANA, MAX_PENDIENTES_EN_CAMPANA } from './configuracionAvisos'
+import type { Novedad } from './novedades'
 import styles from './PanelNotificaciones.module.css'
-import { textoOrdenesBloqueadas, textoPendientes } from './textos'
+import { textoDeNovedad, textoNovedades, textoOrdenesBloqueadas, textoPendientes } from './textos'
 
 interface Props {
   /** Id que usa la campana en aria-controls. */
@@ -22,6 +23,10 @@ interface Props {
   bloqueadasCargadas?: boolean
   huboErrorBloqueadas?: boolean
   onReintentarBloqueadas?: () => void
+  /** Avisos propios del Capataz (requisición aprobada o rechazada) y del Proveedor (licitación nueva) (#163). */
+  novedades?: Novedad[]
+  /** Marca novedades como vistas (sin argumento, todas). */
+  onMarcarNovedades?: (cuales?: Novedad[]) => void
   /** Se llama al tocar un enlace, para que el panel se cierre. */
   onNavegar: () => void
 }
@@ -37,13 +42,17 @@ export function PanelNotificaciones({
   bloqueadasCargadas = true,
   huboErrorBloqueadas = false,
   onReintentarBloqueadas,
+  novedades = [],
+  onMarcarNovedades,
   onNavegar,
 }: Props) {
   const [nombresObras, setNombresObras] = useState<Record<string, string>>({})
   const totalPendientes = cantidadPendientes ?? cantidad ?? 0
   const hayPendientes = totalPendientes > 0
   const hayBloqueadas = cantidadBloqueadas > 0
-  const hayAvisos = hayPendientes || hayBloqueadas || huboErrorBloqueadas || !bloqueadasCargadas
+  const hayNovedades = novedades.length > 0
+  const hayAvisos =
+    hayPendientes || hayBloqueadas || hayNovedades || huboErrorBloqueadas || !bloqueadasCargadas
 
   // Los nombres de las obras se piden solo si hay algo para mostrar en la lista de requisiciones.
   useEffect(() => {
@@ -117,8 +126,40 @@ export function PanelNotificaciones({
             </div>
           )}
 
-          {hayBloqueadas && (
+          {hayNovedades && (
             <div className={hayPendientes ? `${styles.seccionAviso} ${styles.seccionSeparada}` : styles.seccionAviso}>
+              <p className={styles.texto}>{textoNovedades(novedades)}</p>
+              <ul className={styles.lista}>
+                {novedades.slice(0, MAX_NOVEDADES_EN_CAMPANA).map((novedad) => (
+                  <li key={novedad.id}>
+                    <Link
+                      to={novedad.ruta}
+                      className={styles.fila}
+                      onClick={() => {
+                        onMarcarNovedades?.([novedad])
+                        onNavegar()
+                      }}
+                    >
+                      <span className={styles.numero}>{textoDeNovedad(novedad)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              {novedades.length > MAX_NOVEDADES_EN_CAMPANA && (
+                <p className={styles.vacio}>
+                  y {novedades.length - MAX_NOVEDADES_EN_CAMPANA} más
+                </p>
+              )}
+              {onMarcarNovedades && (
+                <button type="button" className={styles.enlace} onClick={() => onMarcarNovedades()}>
+                  Marcar como vistas
+                </button>
+              )}
+            </div>
+          )}
+
+          {hayBloqueadas && (
+            <div className={hayPendientes || hayNovedades ? `${styles.seccionAviso} ${styles.seccionSeparada}` : styles.seccionAviso}>
               <p className={styles.texto}>{textoOrdenesBloqueadas(cantidadBloqueadas)}</p>
               <Link to="/compras/presupuesto" className={styles.enlace} onClick={onNavegar}>
                 Ir a Presupuesto

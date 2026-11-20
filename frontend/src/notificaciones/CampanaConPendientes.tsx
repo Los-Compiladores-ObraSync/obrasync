@@ -4,14 +4,16 @@ import styles from './CampanaConPendientes.module.css'
 import { UMBRAL_PENDIENTES } from './configuracionAvisos'
 import { PanelNotificaciones } from './PanelNotificaciones'
 import { useBloqueadas } from './useBloqueadas'
+import { useNovedades } from './useNovedades'
 import { usePendientes } from './usePendientes'
 
-/** La campana del encabezado conectada a la cantidad real de pendientes y de órdenes bloqueadas,
+/** La campana del encabezado conectada a la cantidad real de pendientes, de órdenes bloqueadas y de novedades del Capataz y el Proveedor (#163),
  *  con el panel de avisos que se abre al tocarla (#49, #97). */
 export function CampanaConPendientes() {
   const { cantidad: cantidadPendientes, pendientes } = usePendientes()
   const { cantidad: cantidadBloqueadas, cargado: bloqueadasCargadas, huboError, refrescar } = useBloqueadas()
-  const cantidadTotal = cantidadPendientes + cantidadBloqueadas
+  const { cantidad: cantidadNovedades, novedades, marcarVistas } = useNovedades()
+  const cantidadTotal = cantidadPendientes + cantidadBloqueadas + cantidadNovedades
   const [abierto, setAbierto] = useState(false)
   const idPanel = useId()
   const contenedorRef = useRef<HTMLDivElement>(null)
@@ -63,6 +65,8 @@ export function CampanaConPendientes() {
           bloqueadasCargadas={bloqueadasCargadas}
           huboErrorBloqueadas={huboError}
           onReintentarBloqueadas={refrescar}
+          novedades={novedades}
+          onMarcarNovedades={marcarVistas}
           onNavegar={() => setAbierto(false)}
         />
       )}

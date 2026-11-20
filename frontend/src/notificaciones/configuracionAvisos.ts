@@ -14,3 +14,8 @@ export const UMBRAL_PENDIENTES = 5
  *  elegir una y ir directo a ella. Pocas, para que el panel entre en la pantalla del celular.
  *  El resto está en Aprobar requisiciones. */
 export const MAX_PENDIENTES_EN_CAMPANA = 3
+
+/** Cuántas novedades (requisiciones aprobadas o rechazadas del Capataz, licitaciones nuevas del
+ *  Proveedor) lista el panel de la campana. Pocas, para que entre en el celular; el resto se ve
+ *  al tocar "Marcar como vistas" o entrando a la pantalla correspondiente (#163). */
+export const MAX_NOVEDADES_EN_CAMPANA = 3

@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router'
 import { BloqueadasProvider } from '../notificaciones/BloqueadasProvider'
 import { CampanaConPendientes } from '../notificaciones/CampanaConPendientes'
+import { NovedadesProvider } from '../notificaciones/NovedadesProvider'
 import { PendientesProvider } from '../notificaciones/PendientesProvider'
 import styles from './LayoutApp.module.css'
 import { MenuUsuario } from './MenuUsuario'
@@ -12,24 +13,26 @@ import { MenuUsuario } from './MenuUsuario'
 export function LayoutApp() {
   return (
     <PendientesProvider>
-      <BloqueadasProvider>
-        <header className="app-encabezado">
-          <div className={styles.barra}>
-            <span className={`app-marca ${styles.marca}`}>
-              <img src="/pwa-512x512.png" alt="" className={styles.logo} />
-              OBRA<span>SYNC</span>
-            </span>
-            <div className={styles.acciones}>
-              <CampanaConPendientes />
-              <MenuUsuario />
+      <NovedadesProvider>
+        <BloqueadasProvider>
+          <header className="app-encabezado">
+            <div className={styles.barra}>
+              <span className={`app-marca ${styles.marca}`}>
+                <img src="/pwa-512x512.png" alt="" className={styles.logo} />
+                OBRA<span>SYNC</span>
+              </span>
+              <div className={styles.acciones}>
+                <CampanaConPendientes />
+                <MenuUsuario />
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        <main className="app-contenido">
-          <Outlet />
-        </main>
-      </BloqueadasProvider>
+          <main className="app-contenido">
+            <Outlet />
+          </main>
+        </BloqueadasProvider>
+      </NovedadesProvider>
     </PendientesProvider>
   )
 }
