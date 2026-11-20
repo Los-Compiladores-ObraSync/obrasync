@@ -1,9 +1,11 @@
 import { apiFetch, apiFetchPagina } from '../api/client'
 import { conPaginacion, traerTodas } from '../api/paginacion'
 import type {
+  CalificacionProveedorResponseDto,
   CrearCotizacionRequestDto,
   CrearLicitacionRequestDto,
   CotizacionResponseDto,
+  CriteriosScoringDto,
   LicitacionResponseDto,
   OrdenCompraAdjudicadaDto,
   OrdenCompraListadoDto,
@@ -56,15 +58,47 @@ export function crearCotizacion(
 }
 
 /**
- * Lista las cotizaciones cargadas para un pliego de licitación.
+ * Lista las cotizaciones cargadas para un pliego de licitación, con su puntaje.
  * Fuente: GET /api/cotizaciones?licitacionId={id} (Comprador, Admin)
+ *
+ * "pesos" (opcional, #156): cuánto pesa cada criterio en el puntaje. Cada uno tiene que ser 0 o más
+ * y la suma mayor que 0; el servicio los normaliza dividiendo por la suma, así que no hace falta que
+ * sumen 100. Si se omite, el servicio usa los pesos por defecto de su configuración.
+ * Con pesos inválidos el servicio responde 400.
  */
-export function listarCotizaciones(licitacionId: string): Promise<CotizacionResponseDto[]> {
+export function listarCotizaciones(
+  licitacionId: string,
+  pesos?: CriteriosScoringDto,
+): Promise<CotizacionResponseDto[]> {
+  const params = new URLSearchParams({ licitacionId })
+  if (pesos) {
+    params.set('pesoPrecio', String(pesos.precio))
+    params.set('pesoFlete', String(pesos.flete))
+    params.set('pesoPlazo', String(pesos.plazo))
+    params.set('pesoCalificacion', String(pesos.calificacion))
+  }
   // Trae todas las páginas (#172): comparar ofertas necesita TODAS las cotizaciones del pliego.
   return traerTodas((pagina) =>
-    apiFetchPagina<CotizacionResponseDto>(
-      conPaginacion(`/api/cotizaciones?licitacionId=${encodeURIComponent(licitacionId)}`, pagina),
-    ),
+    apiFetchPagina<CotizacionResponseDto>(conPaginacion(`/api/cotizaciones?${params}`, pagina)),
+  )
+}
+
+/**
+ * Carga o cambia la calificación de un proveedor (entero de 1 a 5) (#88, #156).
+ * Fuente: PUT /api/cotizaciones/proveedores/{proveedorId}/calificacion (Comprador, Admin).
+ * Errores: 400 si no es un entero de 1 a 5, 403 si el rol no puede.
+ * Cambia el puntaje de las ofertas de ese proveedor: después hay que volver a pedir las cotizaciones.
+ */
+export function guardarCalificacionProveedor(
+  proveedorId: string,
+  calificacion: number,
+): Promise<CalificacionProveedorResponseDto> {
+  return apiFetch<CalificacionProveedorResponseDto>(
+    `/api/cotizaciones/proveedores/${encodeURIComponent(proveedorId)}/calificacion`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ calificacion }),
+    },
   )
 }
 

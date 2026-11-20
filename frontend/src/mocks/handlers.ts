@@ -453,11 +453,14 @@ function crearCotizacionesMock(): CotizacionMock[] {
 
 let licitacionesMock = crearLicitacionesMock()
 let cotizacionesMock = crearCotizacionesMock()
+// Calificaciones de proveedores (1 a 5) que el Comprador cargó; un proveedor ausente está "sin calificar".
+const calificacionesMock = new Map<string, number>()
 
 /** Solo para tests: vuelve las licitaciones y cotizaciones simuladas a su estado inicial. */
 export function reiniciarLicitacionesMock() {
   licitacionesMock = crearLicitacionesMock()
   cotizacionesMock = crearCotizacionesMock()
+  calificacionesMock.clear()
 }
 
 // Paginación de los listados (#172). Imita a los servicios: ?pagina=&tamano= opcionales
@@ -1443,7 +1446,10 @@ export const handlers: RequestHandler[] = [
     return HttpResponse.json(nuevaCotizacion, { status: 201 })
   }),
 
-  // Contrato: GET /api/cotizaciones?licitacionId={guid} → 200 CotizacionResponseDto[] | 400 ProblemDetails
+  // Contrato: GET /api/cotizaciones?licitacionId={guid}&pesoPrecio=&pesoFlete=&pesoPlazo=&pesoCalificacion=
+  // → 200 CotizacionResponseDto[] | 400 ProblemDetails
+  // Los pesos son opcionales (por defecto 0,50 / 0,20 / 0,20 / 0,10); cada uno >= 0 y la suma > 0.
+  // El mock recalcula el puntaje de forma simplificada (no es la fórmula exacta del servicio).
   http.get('*/api/cotizaciones', ({ request }) => {
     const url = new URL(request.url)
     const licitacionId = url.searchParams.get('licitacionId')
@@ -1458,8 +1464,103 @@ export const handlers: RequestHandler[] = [
       )
     }
 
+    const leerPeso = (nombre: string, porDefecto: number) => {
+      const crudo = url.searchParams.get(nombre)
+      return crudo === null ? porDefecto : Number(crudo)
+    }
+    const pesos = {
+      precio: leerPeso('pesoPrecio', 0.5),
+      flete: leerPeso('pesoFlete', 0.2),
+      plazo: leerPeso('pesoPlazo', 0.2),
+      calificacion: leerPeso('pesoCalificacion', 0.1),
+    }
+    const suma = pesos.precio + pesos.flete + pesos.plazo + pesos.calificacion
+    if (Object.values(pesos).some((p) => !Number.isFinite(p) || p < 0) || suma <= 0) {
+      return HttpResponse.json(
+        {
+          title: 'Datos inválidos',
+          status: 400,
+          detail: 'Los pesos deben ser números de 0 o más y su suma debe ser mayor que 0.',
+        },
+        { status: 400 },
+      )
+    }
+    const ponderaciones = {
+      precio: pesos.precio / suma,
+      flete: pesos.flete / suma,
+      plazo: pesos.plazo / suma,
+      calificacion: pesos.calificacion / suma,
+    }
+
     const filtradas = cotizacionesMock.filter((c) => c.licitacionId === licitacionId)
-    return responderPaginado(request, filtradas)
+    // Sin pesos propios ni calificaciones cargadas se devuelven los puntajes fijos del mock,
+    // más los pesos por defecto (para que la pantalla muestre el panel de ponderaciones).
+    const hayPesosPropios = ['pesoPrecio', 'pesoFlete', 'pesoPlazo', 'pesoCalificacion'].some(
+      (nombre) => url.searchParams.has(nombre),
+    )
+    if (!hayPesosPropios && calificacionesMock.size === 0) {
+      return responderPaginado(
+        request,
+        filtradas.map((c) => ({ ...c, ponderacionesScoring: ponderaciones })),
+      )
+    }
+    const total = (c: CotizacionMock) =>
+      c.items.reduce((acc, i) => acc + i.precioUnitario, 0) + (c.flete ?? 0)
+    const menor = (valores: number[]) => Math.min(...valores.filter((v) => v > 0), Infinity)
+    const minTotal = menor(filtradas.map(total))
+    const minFlete = menor(filtradas.map((c) => c.flete ?? 0))
+    const minPlazo = menor(filtradas.map((c) => c.plazoEntregaDias ?? 0))
+    const conPuntaje = filtradas.map((c) => {
+      const calificacion = calificacionesMock.get(c.proveedorId) ?? null
+      const puntos = {
+        precio: 100 * ponderaciones.precio * (minTotal / total(c)),
+        flete: 100 * ponderaciones.flete * ((c.flete ?? 0) > 0 ? minFlete / (c.flete ?? 1) : 1),
+        plazo:
+          100 *
+          ponderaciones.plazo *
+          ((c.plazoEntregaDias ?? 0) > 0 ? minPlazo / (c.plazoEntregaDias ?? 1) : 1),
+        // Sin calificación: puntúa 0 pero su peso igual cuenta en la suma (igual que el servicio).
+        calificacion: 100 * ponderaciones.calificacion * ((calificacion ?? 0) / 5),
+      }
+      const puntajeTotal =
+        Math.round((puntos.precio + puntos.flete + puntos.plazo + puntos.calificacion) * 100) / 100
+      return {
+        ...c,
+        calificacionProveedor: calificacion,
+        desglosePuntaje: puntos,
+        ponderacionesScoring: ponderaciones,
+        puntajeTotal,
+      }
+    })
+    const mejor = Math.max(...conPuntaje.map((c) => c.puntajeTotal), 0)
+    return responderPaginado(
+      request,
+      conPuntaje.map((c) => ({ ...c, esGanadora: c.puntajeTotal === mejor })),
+    )
+  }),
+
+  // Contrato: PUT /api/cotizaciones/proveedores/{proveedorId}/calificacion con body {"calificacion": 1..5}
+  // → 200 CalificacionProveedorResponseDto | 400 | 401 | 403 ProblemDetails
+  http.put('*/api/cotizaciones/proveedores/:proveedorId/calificacion', async ({ params, request }) => {
+    const cuerpo = (await request.json()) as { calificacion?: unknown }
+    const valor = cuerpo.calificacion
+    if (typeof valor !== 'number' || !Number.isInteger(valor) || valor < 1 || valor > 5) {
+      return HttpResponse.json(
+        {
+          title: 'Datos inválidos',
+          status: 400,
+          detail: 'La calificación debe ser un número entero entre 1 y 5.',
+        },
+        { status: 400 },
+      )
+    }
+    const proveedorId = params.proveedorId as string
+    calificacionesMock.set(proveedorId, valor)
+    return HttpResponse.json({
+      proveedorId,
+      calificacion: valor,
+      fechaActualizacion: new Date().toISOString(),
+    })
   }),
 
   // Contrato: POST /api/licitaciones/{licitacionId}/adjudicar con body {"cotizacionId": "<guid>"}

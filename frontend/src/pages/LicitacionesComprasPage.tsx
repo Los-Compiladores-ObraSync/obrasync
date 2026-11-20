@@ -15,8 +15,10 @@ import {
 } from '../licitaciones/licitacionesService'
 import type {
   CotizacionResponseDto,
+  CriteriosScoringDto,
   LicitacionResponseDto,
 } from '../licitaciones/licitacionesTipos'
+import { PonderacionesScoring } from '../licitaciones/PonderacionesScoring'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './LicitacionesComprasPage.module.css'
@@ -62,6 +64,15 @@ export function LicitacionesComprasPage() {
   const [cargandoCotizaciones, setCargandoCotizaciones] = useState(false)
   const [errorCotizaciones, setErrorCotizaciones] = useState<string | null>(null)
   const [intentoCotizaciones, setIntentoCotizaciones] = useState(0)
+  // Pesos elegidos por el Comprador (#156). Se guardan junto con la licitación a la que pertenecen:
+  // al cambiar de licitación vuelven solos a los valores por defecto del servicio.
+  const [pesosElegidos, setPesosElegidos] = useState<{
+    licitacionId: string
+    pesos: CriteriosScoringDto
+  } | null>(null)
+  const [errorPesos, setErrorPesos] = useState<string | null>(null)
+  const pesosAplicados =
+    pesosElegidos && pesosElegidos.licitacionId === licitacionIdParam ? pesosElegidos.pesos : undefined
 
   const [confirmandoCotizacionId, setConfirmandoCotizacionId] = useState<string | null>(null)
   const [adjudicandoCotizacionId, setAdjudicandoCotizacionId] = useState<string | null>(null)
@@ -125,12 +136,18 @@ export function LicitacionesComprasPage() {
       }
 
       try {
-        const datos = await listarCotizaciones(licitacionIdParam)
+        const datos = await listarCotizaciones(licitacionIdParam, pesosAplicados)
         if (cancelado) return
         setCotizaciones(datos)
-      } catch {
+      } catch (err) {
         if (!cancelado) {
-          setErrorCotizaciones('No se pudieron cargar las cotizaciones. Intentá nuevamente.')
+          if (pesosAplicados && err instanceof ApiError && err.status === 400) {
+            // El servicio rechazó los pesos: se vuelve a los de por defecto y se avisa.
+            setErrorPesos(err.detail ?? 'El servicio rechazó esos pesos.')
+            setPesosElegidos(null)
+          } else {
+            setErrorCotizaciones('No se pudieron cargar las cotizaciones. Intentá nuevamente.')
+          }
         }
       } finally {
         if (!cancelado) {
@@ -143,7 +160,9 @@ export function LicitacionesComprasPage() {
     return () => {
       cancelado = true
     }
-  }, [licitacionIdParam, intentoCotizaciones])
+  // pesosAplicados cambia de identidad solo cuando la persona toca "Recalcular".
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [licitacionIdParam, intentoCotizaciones, pesosElegidos])
 
   function irATituloDeCotizaciones() {
     const titulo = tituloCotizacionesRef.current
@@ -349,6 +368,24 @@ export function LicitacionesComprasPage() {
             </p>
           </section>
 
+          {!errorCotizaciones && (cotizaciones.length > 0 || pesosAplicados) && cotizaciones[0]?.ponderacionesScoring && (
+            <PonderacionesScoring
+              key={JSON.stringify(cotizaciones[0].ponderacionesScoring)}
+              ponderacionesActuales={cotizaciones[0].ponderacionesScoring}
+              hayPesosPropios={pesosAplicados !== undefined}
+              recalculando={cargandoCotizaciones}
+              errorServicio={errorPesos}
+              alRecalcular={(pesos) => {
+                setErrorPesos(null)
+                setPesosElegidos({ licitacionId: licitacionSeleccionada.licitacionId, pesos })
+              }}
+              alRestablecer={() => {
+                setErrorPesos(null)
+                setPesosElegidos(null)
+              }}
+            />
+          )}
+
           {cargandoCotizaciones && <p role="status">Cargando cotizaciones…</p>}
 
           {!cargandoCotizaciones && errorCotizaciones && (
@@ -435,8 +472,8 @@ export function LicitacionesComprasPage() {
                         <dd>{cot.plazoEntregaDias ? `${cot.plazoEntregaDias} días` : 'Inmediato'}</dd>
                       </div>
                       <div>
-                        <dt>Puntaje</dt>
-                        <dd className={styles.puntaje}>{cot.puntajeTotal} pts</dd>
+                        <dt>Calificación de la oferta</dt>
+                        <dd className={styles.puntaje}>{cot.puntajeTotal} de 100</dd>
                       </div>
                       {cot.calificacionProveedor != null && (
                         <div>
@@ -466,7 +503,7 @@ export function LicitacionesComprasPage() {
                     </details>
                       {cot.desglosePuntaje && (
                         <details className={styles.detalleItems}>
-                          <summary>Cómo se calculó el puntaje</summary>
+                          <summary>Cómo se calculó la calificación</summary>
                           <ul className={styles.listaDetalle}>
                             {CRITERIOS.map(({ clave, etiqueta }) => (
                               <li key={clave}>

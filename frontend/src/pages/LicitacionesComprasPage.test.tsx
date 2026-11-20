@@ -127,8 +127,8 @@ describe('LicitacionesComprasPage', () => {
     expect(screen.getByText('10 días')).toBeInTheDocument()
 
     // Puntajes
-    expect(screen.getByText('92.5 pts')).toBeInTheDocument()
-    expect(screen.getByText('78 pts')).toBeInTheDocument()
+    expect(screen.getByText('92.5 de 100')).toBeInTheDocument()
+    expect(screen.getByText('78 de 100')).toBeInTheDocument()
 
     // Oferta destacada señalizada solo a la ganadora (esGanadora: true)
     expect(screen.getByText('★ Oferta destacada')).toBeInTheDocument()
@@ -378,7 +378,7 @@ describe('LicitacionesComprasPage', () => {
       expect(within(tarjeta).getByText('Precio total')).toBeInTheDocument()
       expect(within(tarjeta).getByText('Flete')).toBeInTheDocument()
       expect(within(tarjeta).getByText('Plazo de entrega')).toBeInTheDocument()
-      expect(within(tarjeta).getByText('Puntaje')).toBeInTheDocument()
+      expect(within(tarjeta).getByText('Calificación de la oferta')).toBeInTheDocument()
       expect(
         within(tarjeta).getByRole('button', { name: /^Adjudicar a proveedor / }),
       ).toBeInTheDocument()
@@ -461,7 +461,7 @@ describe('LicitacionesComprasPage', () => {
         within(lista).getByRole('button', { name: 'Adjudicar a proveedor Corralón San Martín' }),
       ).toBeInTheDocument()
 
-      await user.click(within(lista).getByText('Cómo se calculó el puntaje'))
+      await user.click(within(lista).getByText('Cómo se calculó la calificación'))
       expect(within(lista).getByText('40 pts · peso 50 %')).toBeInTheDocument()
       expect(within(lista).getByText('10 pts · peso 10 %')).toBeInTheDocument()
     })
@@ -473,7 +473,7 @@ describe('LicitacionesComprasPage', () => {
 
       expect(within(lista).getByText('f7a8b9c0')).toBeInTheDocument()
       expect(within(lista).queryByText('Calificación del proveedor')).not.toBeInTheDocument()
-      expect(within(lista).queryByText('Cómo se calculó el puntaje')).not.toBeInTheDocument()
+      expect(within(lista).queryByText('Cómo se calculó la calificación')).not.toBeInTheDocument()
     })
   })
 

@@ -1,0 +1,95 @@
+.contenedor {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 2px solid var(--borde);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.titulo {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.sinCalificar {
+  font-weight: 400;
+  color: var(--texto-suave);
+}
+
+.botones {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.boton {
+  min-width: 0;
+  padding: 0;
+  flex: 0 0 auto;
+  width: 52px;
+  min-height: 52px; /* área de toque cómoda */
+  font-size: 2rem;
+  line-height: 1;
+  background: transparent;
+  color: #cbd5e1; /* estrella vacía */
+  border: 0;
+  box-shadow: none;
+}
+
+/* Estrellas hasta la elegida: si elegís 4, se pintan la 1, 2, 3 y 4. */
+.llena {
+  color: #f59e0b;
+}
+
+.boton:focus-visible {
+  outline: 3px solid var(--azul);
+  outline-offset: 2px;
+}
+
+.guardar {
+  width: 100%;
+  min-height: 48px;
+  font-size: 1rem;
+}
+
+.guardada {
+  margin: 0.5rem 0 0;
+  color: #15803d;
+  font-weight: 600;
+}
+
+.error {
+  margin: 0.5rem 0 0;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+/* IMPORTANTE: va al FINAL del archivo; si va antes, las reglas base (.boton, .guardar) la pisan. */
+/* En pantallas anchas: título, botones 1–5 y Guardar van en una sola fila. */
+@media (min-width: 900px) {
+  .contenedor {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+  }
+
+  .titulo {
+    margin: 0;
+    flex: 1 1 auto;
+  }
+
+  .botones {
+    margin-bottom: 0;
+  }
+
+  .guardar {
+    width: auto;
+    white-space: nowrap;
+    padding-inline: 1.25rem;
+  }
+}

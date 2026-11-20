@@ -61,7 +61,7 @@ export interface CotizacionResponseDto {
   ponderacionesScoring?: CriteriosScoringDto | null
 }
 
-/** Los cuatro criterios del scoring (PROPUESTA de contrato, pendiente de implementar en Licitaciones). */
+/** Los cuatro criterios del scoring multivariable (contrato: CriteriosScoringDto). */
 export interface CriteriosScoringDto {
   precio: number
   flete: number
@@ -94,4 +94,12 @@ export interface OrdenCompraListadoDto {
   fueDespachada: boolean
   /** Cuándo se marcó el despacho; null mientras no se despachó. */
   fechaDespacho?: string | null
+}
+
+/** Calificación vigente de un proveedor (contrato: CalificacionProveedorResponseDto, #88). */
+export interface CalificacionProveedorResponseDto {
+  proveedorId: string
+  /** Entero de 1 a 5. */
+  calificacion: number
+  fechaActualizacion: string
 }
