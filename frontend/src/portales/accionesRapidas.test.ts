@@ -16,6 +16,7 @@ describe('accionesParaRol', () => {
       'Nueva requisición',
       'Recibir mercadería',
       'Historial de requisiciones',
+      'Presupuesto',
     ])
   })
 
@@ -27,6 +28,7 @@ describe('accionesParaRol', () => {
       'Ver obras',
       'Licitaciones y cotizaciones',
       'Órdenes de compra',
+      'Presupuesto',
     ])
   })
 
@@ -40,6 +42,7 @@ describe('accionesParaRol', () => {
       'Ver obras',
       'Licitaciones y cotizaciones',
       'Órdenes de compra',
+      'Presupuesto',
       'Licitaciones abiertas',
     ])
   })
@@ -54,6 +57,13 @@ describe('accionesParaRol', () => {
   it('el Comprador entra al asistente por su portal (/compras/asistente) y el Capataz por el suyo', () => {
     expect(accionesParaRol('Comprador')[0].ruta).toBe('/compras/asistente')
     expect(accionesParaRol('Capataz')[0].ruta).toBe('/obra/asistente')
+  })
+
+  it('el Presupuesto del Capataz va por su portal y el de Comprador y Admin por Gestión y Compras', () => {
+    const ruta = (rol: string) => accionesParaRol(rol).find((a) => a.texto === 'Presupuesto')?.ruta
+    expect(ruta('Capataz')).toBe('/obra/presupuesto')
+    expect(ruta('Comprador')).toBe('/compras/presupuesto')
+    expect(ruta('Admin')).toBe('/compras/presupuesto')
   })
 
   it('el Proveedor no tiene botones (su Inicio es la lista de licitaciones) y un rol desconocido tampoco', () => {

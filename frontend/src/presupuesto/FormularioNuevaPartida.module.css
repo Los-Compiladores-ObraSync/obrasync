@@ -1,0 +1,77 @@
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0 0 1.5rem;
+  padding: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+  border: 2px solid var(--borde);
+  border-radius: 8px;
+  background-color: #ffffff;
+}
+
+.titulo {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.campo label {
+  font-weight: 700;
+  font-size: 1.0625rem;
+}
+
+.campo input {
+  min-height: 44px;
+  padding: 0.625rem 0.875rem;
+  font-size: 1.0625rem;
+  border: 2px solid var(--borde);
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: var(--texto);
+}
+
+.campo input:focus {
+  outline: none;
+  border-color: var(--azul);
+}
+
+.campo input[aria-invalid='true'] {
+  border-color: #b91c1c;
+}
+
+.ayuda {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--texto-suave);
+}
+
+.errorCampo {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #991b1b;
+}
+
+.errorApi {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background-color: #fef2f2;
+  border: 2px solid #fca5a5;
+  color: #991b1b;
+  font-weight: 600;
+}
+
+/* El botón principal usa el estilo global de la app (naranja, tamaño de toque); acá solo se acomoda. */
+.boton {
+  align-self: stretch;
+  min-height: 56px;
+  font-size: 1.125rem;
+}

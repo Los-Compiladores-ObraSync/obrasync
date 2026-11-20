@@ -127,9 +127,6 @@
   min-width: 44px;
   padding: 0.5rem 1.25rem;
   border-radius: 8px;
-  background-color: var(--azul);
-  color: #ffffff;
-  border: none;
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
@@ -204,16 +201,13 @@
   min-width: 44px;
   padding: 0.5rem 1.25rem;
   border-radius: 8px;
-  background-color: #15803d;
-  color: #ffffff;
-  border: none;
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
 }
 
 .botonConfirmarLiberacion:hover:not(:disabled) {
-  background-color: #166534;
+  opacity: 0.9;
 }
 
 .botonConfirmarLiberacion:disabled {
@@ -229,16 +223,16 @@
   min-width: 44px;
   padding: 0.5rem 1.25rem;
   border-radius: 8px;
-  background-color: transparent;
-  color: var(--texto);
-  border: 2px solid var(--borde);
+  background-color: #ffffff;
+  color: var(--azul);
+  border: 2px solid var(--azul);
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
 }
 
 .botonCancelar:hover:not(:disabled) {
-  background-color: #f1f5f9;
+  border-color: var(--azul);
 }
 
 /* ── Selector de Obra y Tablero de Desvíos ──────────────────────────────── */
@@ -256,7 +250,7 @@
 
 .selectObra {
   width: 100%;
-  max-width: 450px;
+  max-width: none;
   min-height: 44px;
   padding: 0.625rem 0.875rem;
   font-size: 1.0625rem;
@@ -393,7 +387,7 @@
   padding: 0.5rem 1.25rem;
   border-radius: 8px;
   border: 2px solid var(--azul);
-  background-color: transparent;
+  background-color: #ffffff;
   color: var(--azul);
   font-size: 1rem;
   font-weight: 700;
@@ -401,7 +395,7 @@
 }
 
 .botonReintentar:hover {
-  background-color: rgba(30, 58, 138, 0.05);
+  border-color: var(--azul);
 }
 
 .estadoMensaje {

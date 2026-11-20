@@ -54,6 +54,7 @@ describe('InicioPage', () => {
       'href',
       '/obra/requisiciones',
     )
+    expect(screen.getByRole('link', { name: 'Presupuesto' })).toHaveAttribute('href', '/obra/presupuesto')
     expect(screen.queryByRole('region', { name: 'Resumen de aprobaciones' })).not.toBeInTheDocument()
     expect(screen.queryByText('Licitaciones abiertas')).not.toBeInTheDocument()
   })
@@ -64,6 +65,7 @@ describe('InicioPage', () => {
     expect(await screen.findByRole('region', { name: 'Resumen de aprobaciones' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Asistente' })).toHaveAttribute('href', '/compras/asistente')
     expect(screen.getByRole('link', { name: 'Ver obras' })).toHaveAttribute('href', '/compras/obras')
+    expect(screen.getByRole('link', { name: 'Presupuesto' })).toHaveAttribute('href', '/compras/presupuesto')
     // Los botones pasan a ser secundarios cuando hay tarjeta de aprobaciones.
     expect(screen.getByRole('link', { name: 'Ver obras' })).toHaveClass('accion-secundaria')
     expect(screen.queryByRole('link', { name: 'Nueva requisición' })).not.toBeInTheDocument()
@@ -75,6 +77,7 @@ describe('InicioPage', () => {
     expect(await screen.findByRole('region', { name: 'Resumen de aprobaciones' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Nueva requisición' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Nueva obra' })).toHaveAttribute('href', '/compras/obras/nueva')
+    expect(screen.getByRole('link', { name: 'Presupuesto' })).toHaveAttribute('href', '/compras/presupuesto')
   })
 
   it('Proveedor: ve directamente las licitaciones abiertas y ningún botón de acciones', async () => {

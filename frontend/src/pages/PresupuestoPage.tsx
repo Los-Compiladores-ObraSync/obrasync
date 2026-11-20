@@ -4,6 +4,7 @@ import { ApiError } from '../api/ApiError'
 import { AuthContext } from '../auth/sessionContext'
 import { useBloqueadas } from '../notificaciones/useBloqueadas'
 import { formatearPesos } from '../presupuesto/formatoPesos'
+import { FormularioNuevaPartida } from '../presupuesto/FormularioNuevaPartida'
 import {
   liberarOrdenCompra,
   obtenerPartidas,
@@ -31,7 +32,16 @@ function mensajeDeErrorLiberar(err: unknown): string {
   return 'No se pudo conectar con el servidor. Intentá nuevamente.'
 }
 
-export function PresupuestoPage() {
+interface PropsPresupuestoPage {
+  /** Adónde lleva la flecha de volver (por defecto, a Gestión y Compras). */
+  volverA?: string
+  textoVolver?: string
+}
+
+export function PresupuestoPage({
+  volverA = '/compras',
+  textoVolver = '← Volver a compras',
+}: PropsPresupuestoPage = {}) {
   const auth = useContext(AuthContext)
   const {
     bloqueadas: ordenesBloqueadas,
@@ -41,6 +51,8 @@ export function PresupuestoPage() {
     huboError: errorBloqueadas,
   } = useBloqueadas()
   const esAdmin = auth?.usuario?.rol === 'Admin'
+  // Cargar partidas: Comprador y Admin (el backend también lo exige, #161)
+  const puedeCargarPartidas = esAdmin || auth?.usuario?.rol === 'Comprador'
 
   const [searchParams, setSearchParams] = useSearchParams()
   const obraParam = searchParams.get('obraId') ?? ''
@@ -196,13 +208,18 @@ export function PresupuestoPage() {
     }
   }
 
+  function handlePartidaCreada(partida: PartidaPresupuestaria) {
+    setPartidas((previas) => [...previas, partida])
+    setMensajeExito(`Partida ${partida.codigoPartida} cargada correctamente.`)
+  }
+
   const hayPeticionEnVuelo = liberandoId !== null
   const nombresObras = Object.fromEntries(obras.map((o) => [o.id, o.nombre]))
 
   return (
-    <section className={`${styles.contenedor} pantalla-ancha`}>
-      <Link to="/compras" className={styles.volver}>
-        ← Volver a compras
+    <section className={styles.contenedor}>
+      <Link to={volverA} className={styles.volver}>
+        {textoVolver}
       </Link>
       <h1 className={styles.titulo}>Tablero de desvíos presupuestarios</h1>
       <p className={styles.intro}>
@@ -367,6 +384,14 @@ export function PresupuestoPage() {
           ))}
         </select>
       </div>
+
+      {puedeCargarPartidas && obraSeleccionadaId && (
+        <FormularioNuevaPartida
+          key={obraSeleccionadaId}
+          obraId={obraSeleccionadaId}
+          onCreada={handlePartidaCreada}
+        />
+      )}
 
       {cargando && (
         <p role="status" className={styles.estadoMensaje}>
