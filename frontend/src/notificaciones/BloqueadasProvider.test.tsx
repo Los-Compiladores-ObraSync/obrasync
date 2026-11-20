@@ -105,9 +105,12 @@ describe('BloqueadasProvider', () => {
     )
 
     renderizar('Comprador', 30)
-    await waitFor(() => expect(screen.getByTestId('cantidad')).toHaveTextContent('1'))
 
+    // No se espera ver el "1" intermedio: con un intervalo corto y la máquina cargada, el estado
+    // puede pasar de 1 a 3 entre dos lecturas del test. Se comprueba el resultado y que hubo
+    // más de una consulta (la primera, al montar, y al menos una por el intervalo).
     await waitFor(() => expect(screen.getByTestId('cantidad')).toHaveTextContent('3'))
+    expect(llamadas).toBeGreaterThanOrEqual(2)
   })
 
   it('no consulta periódicamente con la pestaña oculta y retoma al recuperar visibilidad', async () => {
