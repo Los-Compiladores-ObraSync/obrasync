@@ -11,24 +11,26 @@
   margin: 0 auto;
 }
 
-/* Una sola fila: flecha de volver (área de toque de 44 px) y el título. */
+/* "← Volver al inicio" (todo el texto es el botón, no solo la flecha) y debajo el título. */
 .encabezado {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 0.25rem;
 }
 
 .volver {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  margin-left: -0.5rem;
-  font-size: 1.5rem;
+  min-height: 44px; /* área de toque cómoda */
+  font-size: 1.0625rem;
   font-weight: 700;
   color: var(--azul);
   text-decoration: none;
+}
+
+.volver:hover {
+  text-decoration: underline;
 }
 
 .titulo {

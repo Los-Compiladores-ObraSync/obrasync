@@ -36,6 +36,11 @@ export function ComprasPage() {
             Presupuesto
           </Link>
         </li>
+        <li>
+          <Link to="/" className="accion-secundaria">
+            Volver al inicio
+          </Link>
+        </li>
       </ul>
     </section>
   )

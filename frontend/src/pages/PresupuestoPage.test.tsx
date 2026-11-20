@@ -211,11 +211,11 @@ describe('PresupuestoPage', () => {
       expect(alerta).toHaveTextContent(/No tenés permiso/)
     })
 
-    it('tiene enlace accesible para volver a compras', () => {
+    it('tiene enlace accesible para volver al inicio', () => {
       renderPagina()
-      const volver = screen.getByRole('link', { name: '← Volver a compras' })
+      const volver = screen.getByRole('link', { name: '← Volver al inicio' })
       expect(volver).toBeInTheDocument()
-      expect(volver).toHaveAttribute('href', '/compras')
+      expect(volver).toHaveAttribute('href', '/')
     })
   })
 
@@ -756,7 +756,7 @@ describe('PresupuestoPage: carga de partidas (#161)', () => {
       >
         <MemoryRouter initialEntries={['/obra/presupuesto']}>
           <BloqueadasProvider intervaloMs={60_000}>
-            <PresupuestoPage volverA="/" textoVolver="← Volver al inicio" />
+            <PresupuestoPage />
           </BloqueadasProvider>
         </MemoryRouter>
       </AuthContext.Provider>,

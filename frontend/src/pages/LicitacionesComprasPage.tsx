@@ -256,8 +256,8 @@ export function LicitacionesComprasPage() {
 
   return (
     <section className={`${styles.contenedor} pantalla-ancha`}>
-      <Link to="/compras" className={styles.volver}>
-        ← Volver a compras
+      <Link to="/" className={styles.volver}>
+        ← Volver al inicio
       </Link>
       <h1>Licitaciones y cotizaciones</h1>
       <p className="intro">

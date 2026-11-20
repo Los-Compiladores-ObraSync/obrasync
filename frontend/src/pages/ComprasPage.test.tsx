@@ -40,4 +40,14 @@ describe('ComprasPage', () => {
       '/compras/ordenes',
     )
   })
+
+  it('tiene una salida al inicio (la pantalla no queda sin forma de volver)', () => {
+    render(
+      <MemoryRouter>
+        <ComprasPage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('link', { name: 'Volver al inicio' })).toHaveAttribute('href', '/')
+  })
 })
