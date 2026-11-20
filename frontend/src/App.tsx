@@ -4,6 +4,7 @@ import { AuthProvider } from './auth/AuthContext'
 import { LayoutApp } from './layout/LayoutApp'
 import { AprobarRequisicionesPage } from './pages/AprobarRequisicionesPage'
 import { CambiarContrasenaPage } from './pages/CambiarContrasenaPage'
+import { CargaMasivaInsumosPage } from './pages/CargaMasivaInsumosPage'
 import { ComprasPage } from './pages/ComprasPage'
 import { CotizarLicitacionPage } from './pages/CotizarLicitacionPage'
 import { DetalleRequisicionPage } from './pages/DetalleRequisicionPage'
@@ -80,6 +81,7 @@ function App() {
                 <Route path="licitaciones" element={<LicitacionesComprasPage />} />
                 <Route path="ordenes" element={<OrdenesCompraPage />} />
                 <Route path="presupuesto" element={<PresupuestoPage />} />
+                <Route path="insumos/carga" element={<CargaMasivaInsumosPage />} />
                 <Route
                   path="requisiciones/historial"
                   element={

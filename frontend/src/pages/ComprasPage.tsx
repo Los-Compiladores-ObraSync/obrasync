@@ -37,6 +37,11 @@ export function ComprasPage() {
           </Link>
         </li>
         <li>
+          <Link to="/compras/insumos/carga" className="accion-secundaria">
+            Cargar insumos (CSV)
+          </Link>
+        </li>
+        <li>
           <Link to="/" className="accion-secundaria">
             Volver al inicio
           </Link>

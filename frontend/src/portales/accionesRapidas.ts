@@ -67,6 +67,11 @@ const PRESUPUESTO_COMPRAS: AccionRapida = {
   texto: 'Presupuesto',
   ruta: '/compras/presupuesto',
 }
+// Carga masiva del catálogo desde un CSV (#215): solo Comprador y Admin (los roles del alta de insumos).
+const CARGAR_INSUMOS: AccionRapida = {
+  texto: 'Cargar insumos (CSV)',
+  ruta: '/compras/insumos/carga',
+}
 const LICITACIONES_ABIERTAS: AccionRapida = {
   texto: 'Licitaciones abiertas',
   ruta: '/proveedores',
@@ -95,6 +100,7 @@ const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
     LICITACIONES_Y_COTIZACIONES,
     ORDENES_DE_COMPRA,
     PRESUPUESTO_COMPRAS,
+    CARGAR_INSUMOS,
   ],
   Admin: [
     ASISTENTE,
@@ -106,6 +112,7 @@ const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
     LICITACIONES_Y_COTIZACIONES,
     ORDENES_DE_COMPRA,
     PRESUPUESTO_COMPRAS,
+    CARGAR_INSUMOS,
     LICITACIONES_ABIERTAS,
   ],
 

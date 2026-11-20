@@ -41,6 +41,19 @@ describe('ComprasPage', () => {
     )
   })
 
+  it('contiene el enlace a Cargar insumos (CSV) apuntando a /compras/insumos/carga', () => {
+    render(
+      <MemoryRouter>
+        <ComprasPage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('link', { name: 'Cargar insumos (CSV)' })).toHaveAttribute(
+      'href',
+      '/compras/insumos/carga',
+    )
+  })
+
   it('tiene una salida al inicio (la pantalla no queda sin forma de volver)', () => {
     render(
       <MemoryRouter>
