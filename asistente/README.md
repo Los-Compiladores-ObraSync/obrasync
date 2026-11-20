@@ -38,6 +38,22 @@ El borrador no se guarda en ninguna base.
   transporte "Streamable HTTP", URL `http://localhost:5000/api/mcp` y el encabezado `Authorization` con el token
   de un Capataz (login en `POST /api/usuarios/login`).
 
+## Herramientas generadas desde el contrato (#151)
+Un generador propio en C# (`Application/Generadas`) lee los `*-openapi.json` de `contracts/openapi` y arma una herramienta de
+**solo lectura** por cada `GET`. Nombre, descripción y parámetros salen del contrato; si el contrato cambia, las herramientas cambian.
+- **Apagado por defecto** (`HERRAMIENTAS_GENERADAS=false`): ofrecerlas suma definiciones a cada pedido y gasta el cupo compartido de tokens.
+  Para probarlas: poné `HERRAMIENTAS_GENERADAS=true` en el `.env` y `docker compose up -d --build asistente-api`.
+- Los contratos se montan en el contenedor (solo lectura) desde `contracts/openapi`; si cambian, reiniciá el contenedor.
+- Nombres: `consultar_` + la ruta (ej. `consultar_usuarios_proveedores`, `consultar_recepciones_por_id`).
+- Roles: se sacan de "(Roles: ...)" del resumen o de "Roles permitidos: ..." de la descripción. Si el contrato no los declara, queda solo Admin.
+  Cada rol recibe solo lo que el contrato le permite, y al ejecutar se vuelve a verificar. El permiso real lo sigue validando cada API con el JWT del usuario.
+- Se saltean los GET que ya tienen herramienta escrita a mano (devuelven respuestas más cortas) y los que no deben llegar al modelo
+  (por ejemplo el Magic Link, que es un secreto). La lista y el motivo están en `GeneradorHerramientasOpenApi.Excluidos`.
+- Validación antes de llamar: argumentos desconocidos, tipos, rangos, enums y UUID según el contrato; texto libre corto y sin `/ ? & ..`;
+  `tamano` por defecto 10 y tope 20. Respuesta máxima 32 KB, timeout 3 s, errores con código estable. La URL sale de `Gateway:BaseUrl`.
+- Alcance de esta primera versión: lo usa el agente del chat. Exponerlas también en el servidor MCP queda como paso siguiente
+  (hay que registrar herramientas de forma dinámica en el SDK).
+
 ## Capas
 `Api` (controlador, JWT, errores ProblemDetails) · `Application` (el agente, sus límites y la herramienta) ·
 `Infrastructure` (cliente del gateway de IA y lectores de catálogo y obras). No hay capa `Domain` porque el servicio no

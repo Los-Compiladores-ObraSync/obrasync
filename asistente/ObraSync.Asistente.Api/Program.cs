@@ -9,6 +9,7 @@ using Microsoft.OpenApi.Models;
 using ObraSync.Asistente.Api.Mcp;
 using ObraSync.Asistente.Api.Servicios;
 using ObraSync.Asistente.Application;
+using ObraSync.Asistente.Application.Generadas;
 using ObraSync.Asistente.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -54,6 +55,15 @@ builder.Services.AddScoped<HerramientasPresupuestos>();
 builder.Services.AddScoped<HerramientasCompras>();
 builder.Services.AddScoped<HerramientasRecepcion>();
 builder.Services.AddScoped<HerramientasLicitaciones>();
+
+// Herramientas de solo lectura generadas desde contracts/openapi (#151). APAGADO por defecto: ofrecerlas suma
+// definiciones a cada pedido y gasta el cupo compartido de tokens. Se prende con HerramientasGeneradas__Habilitadas=true.
+// Si está apagado o no hay carpeta, el catálogo queda vacío y el asistente se comporta exactamente igual que antes.
+var generadasHabilitadas = builder.Configuration.GetValue<bool>("HerramientasGeneradas:Habilitadas");
+var catalogoGenerado = generadasHabilitadas
+    ? CatalogoHerramientasGeneradas.CargarDeCarpeta(builder.Configuration["HerramientasGeneradas:Carpeta"] ?? "contratos")
+    : Array.Empty<HerramientaGenerada>();
+builder.Services.AddScoped(sp => new HerramientasGeneradas(catalogoGenerado, sp.GetRequiredService<IClienteApiLectura>()));
 builder.Services.AddScoped<Agente>();
 // Lectura de remitos por foto (#209): usa el mismo control de consumo que el chat (el cupo es de todo el grupo).
 builder.Services.AddScoped<ServicioLecturaRemito>(sp => new ServicioLecturaRemito(

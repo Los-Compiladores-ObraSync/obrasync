@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using ObraSync.Asistente.Application.Generadas;
 
 namespace ObraSync.Asistente.Application;
 
@@ -75,6 +76,7 @@ public sealed class Agente
     private readonly HerramientasLicitaciones? _licitaciones;
     private readonly IContextoDePeticion? _contexto;
     private readonly IControlConsumo? _consumo;
+    private readonly HerramientasGeneradas? _generadas;
 
     /// <summary>
     /// "compras", "contexto" y "consumo" son opcionales: sin contexto se atiende como Capataz (el comportamiento de la primera versión).
@@ -87,8 +89,10 @@ public sealed class Agente
         IContextoDePeticion? contexto = null,
         IControlConsumo? consumo = null,
         HerramientasRecepcion? recepciones = null,
-        HerramientasLicitaciones? licitaciones = null)
+        HerramientasLicitaciones? licitaciones = null,
+        HerramientasGeneradas? generadas = null)
     {
+        _generadas = generadas;
         _modelo = modelo;
         _herramientas = herramientas;
         _compras = compras;
@@ -251,7 +255,7 @@ public sealed class Agente
     }
 
     /// <summary>Solo se le muestran al modelo las herramientas de su perfil.</summary>
-    private static JsonArray DefinicionesDe(PerfilAsistente perfil)
+    private JsonArray DefinicionesDe(PerfilAsistente perfil)
     {
         var defs = new JsonArray();
         foreach (var d in HerramientasCatalogo.Definiciones().Concat(HerramientasCompras.Definiciones()).Concat(HerramientasRecepcion.Definiciones()).Concat(HerramientasLicitaciones.Definiciones()))
@@ -260,6 +264,10 @@ public sealed class Agente
             if (nombre is not null && perfil.Herramientas.Contains(nombre))
                 defs.Add(d!.DeepClone());
         }
+        // Las generadas desde el contrato (#151): solo las que el contrato permite a este rol. Sin catálogo no suma nada.
+        if (_generadas is not null)
+            foreach (var d in _generadas.DefinicionesPara(perfil.Rol))
+                defs.Add(d!.DeepClone());
         return defs;
     }
 
@@ -269,6 +277,9 @@ public sealed class Agente
     /// </summary>
     private Task<ResultadoHerramienta> EjecutarAsync(PerfilAsistente perfil, string nombre, string argumentos, CancellationToken ct)
     {
+        if (_generadas is not null && _generadas.EsGenerada(nombre))
+            return _generadas.EjecutarAsync(perfil.Rol, nombre, argumentos, ct);
+
         var esDeCatalogo = nombre is HerramientasCatalogo.BuscarInsumos or HerramientasCatalogo.ArmarBorrador;
         var esDeCompras = HerramientasCompras.Nombres.Contains(nombre);
         var esDeRecepcion = HerramientasRecepcion.Nombres.Contains(nombre);
