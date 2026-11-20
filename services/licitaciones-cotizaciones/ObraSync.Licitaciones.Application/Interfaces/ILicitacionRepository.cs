@@ -17,6 +17,11 @@ public interface ILicitacionRepository
         Licitacion licitacion,
         CancellationToken ct = default);
 
+    /// <summary>La licitación más nueva de una requisición (puede haber más de una si se cerró y se volvió a publicar).</summary>
+    Task<Licitacion?> GetMasRecientePorRequisicionAsync(
+        Guid requisicionId,
+        CancellationToken ct = default);
+
     Task<Licitacion?> GetByIdAsync(
         Guid id,
         CancellationToken cancellationToken = default);

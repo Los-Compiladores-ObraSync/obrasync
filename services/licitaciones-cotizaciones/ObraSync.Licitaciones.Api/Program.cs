@@ -56,8 +56,10 @@ builder.Services.AddScoped<ICalificacionProveedorRepository, CalificacionProveed
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<GetLicitacionesQueryHandler>();
 builder.Services.AddScoped<GetLicitacionByIdQueryHandler>();
+builder.Services.AddScoped<GetSeguimientoRequisicionQueryHandler>();
 builder.Services.AddScoped<CerrarLicitacionCommandHandler>();
 builder.Services.AddScoped<CrearCotizacionCommandHandler>();
+builder.Services.AddScoped<ReemplazarCotizacionCommandHandler>();
 builder.Services.AddScoped<GetCotizacionesByLicitacionIdQueryHandler>();
 builder.Services.AddScoped<GetMisCotizacionesQueryHandler>();
 builder.Services.AddScoped<AdjudicarCotizacionCommandHandler>();

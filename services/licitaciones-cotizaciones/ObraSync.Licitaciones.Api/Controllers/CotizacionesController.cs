@@ -233,11 +233,12 @@ public class CotizacionesController : ControllerBase
     }
 
     /// <summary>
-    /// Consultar la calificación actual de un proveedor: el promedio de las calificaciones recibidas (Roles: Comprador, Admin).
+    /// Consultar la calificación actual de un proveedor: el promedio de las calificaciones recibidas
+    /// (Roles: Comprador, Admin; y el Proveedor, solo la suya).
     /// </summary>
     [HttpGet("proveedores/{proveedorId:guid}/calificacion")]
     [HttpGet("/api/proveedores/{proveedorId:guid}/calificacion")]
-    [Authorize(Roles = "Comprador,Admin")]
+    [Authorize(Roles = "Comprador,Admin,Proveedor")]
     [ProducesResponseType(typeof(CalificacionProveedorResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -253,6 +254,16 @@ public class CotizacionesController : ControllerBase
                 detail: "El identificador del proveedor (proveedorId) es obligatorio y debe ser un GUID válido.",
                 statusCode: StatusCodes.Status400BadRequest,
                 title: "Parámetro proveedorId inválido");
+        }
+
+        // Un Proveedor solo puede ver SU calificación (no la de la competencia).
+        if (User.IsInRole("Proveedor") && !User.IsInRole("Admin") && !User.IsInRole("Comprador")
+            && (!TryGetUserId(out var usuarioId) || usuarioId != proveedorId))
+        {
+            return Problem(
+                detail: "Un proveedor solo puede consultar su propia calificación.",
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Acceso denegado");
         }
 
         if (_getCalificacionHandler is null)
@@ -354,6 +365,53 @@ public class CotizacionesController : ControllerBase
                 detail: ex.Message,
                 statusCode: StatusCodes.Status400BadRequest,
                 title: "Datos de cotización inválidos");
+        }
+    }
+
+    /// <summary>
+    /// Corregir una cotización propia mientras la licitación siga abierta y dentro de plazo (Roles: Proveedor dueño, Admin).
+    /// Usa el mismo cuerpo que al cotizar; licitacionId y proveedorId del cuerpo se ignoran (valen los de la cotización guardada).
+    /// </summary>
+    [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Proveedor,Admin")]
+    [ProducesResponseType(typeof(CotizacionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<CotizacionResponseDto>> CorregirCotizacion(
+        Guid id,
+        [FromBody] CrearCotizacionRequestDto request,
+        [FromServices] ReemplazarCotizacionCommandHandler handler,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetUserId(out var usuarioId))
+        {
+            return Problem(
+                detail: "El token JWT no contiene un claim 'sub' válido con formato GUID.",
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Usuario no identificado");
+        }
+
+        try
+        {
+            var corregida = await handler.Handle(
+                new ReemplazarCotizacionCommand(
+                    id, usuarioId, User.IsInRole("Admin"), request.Flete, request.PlazoEntregaDias, request.Items),
+                cancellationToken);
+            return Ok(corregida);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return Problem(detail: ex.Message, statusCode: StatusCodes.Status404NotFound, title: "Cotización no encontrada");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Problem(detail: ex.Message, statusCode: StatusCodes.Status403Forbidden, title: "Acceso denegado");
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(detail: ex.Message, statusCode: StatusCodes.Status400BadRequest, title: "Datos de cotización inválidos");
         }
     }
 

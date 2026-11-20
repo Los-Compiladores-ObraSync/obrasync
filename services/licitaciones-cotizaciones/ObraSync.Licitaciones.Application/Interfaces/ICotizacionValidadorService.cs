@@ -12,5 +12,6 @@ public interface ICotizacionValidadorService
         int plazoEntregaDias,
         IReadOnlyList<CrearCotizacionItemDto>? items,
         CancellationToken cancellationToken = default,
-        string? proveedorNombre = null);
+        string? proveedorNombre = null,
+        bool permitirReemplazo = false);
 }

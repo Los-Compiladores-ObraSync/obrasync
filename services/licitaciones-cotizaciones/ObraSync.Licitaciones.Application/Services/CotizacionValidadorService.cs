@@ -33,7 +33,8 @@ public class CotizacionValidadorService : ICotizacionValidadorService
         int plazoEntregaDias,
         IReadOnlyList<CrearCotizacionItemDto>? items,
         CancellationToken cancellationToken = default,
-        string? proveedorNombre = null)
+        string? proveedorNombre = null,
+        bool permitirReemplazo = false)
     {
         if (licitacionId == Guid.Empty)
         {
@@ -161,7 +162,8 @@ public class CotizacionValidadorService : ICotizacionValidadorService
         }
 
         // 5. Validar que el proveedor no haya cotizado previamente la misma licitación (409 Conflict)
-        var yaCotizo = await _cotizacionRepository.ExistsByLicitacionAndProveedorAsync(
+        // Al corregir una oferta propia (permitirReemplazo) ya existe una cotización del proveedor: es lo esperado.
+        var yaCotizo = !permitirReemplazo && await _cotizacionRepository.ExistsByLicitacionAndProveedorAsync(
             licitacionId,
             proveedorId,
             cancellationToken);

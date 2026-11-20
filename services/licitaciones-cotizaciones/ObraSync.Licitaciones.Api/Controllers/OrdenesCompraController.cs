@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ObraSync.Licitaciones.Application.DTOs;
+using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Commands;
 using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Queries;
@@ -83,6 +84,33 @@ public class OrdenesCompraController : ControllerBase
         Response.Headers["X-Page-Size"] = p.Tamano.ToString();
 
         return Ok(resultado.Items);
+    }
+
+    /// <summary>
+    /// Último precio unitario pagado por cada artículo pedido, según las órdenes de compra ya emitidas
+    /// (Roles: Comprador, Admin). Un artículo que nunca se compró no aparece en la respuesta.
+    /// </summary>
+    [HttpGet("precios-historicos")]
+    [Authorize(Roles = "Comprador,Admin")]
+    [ProducesResponseType(typeof(IReadOnlyList<PrecioHistoricoDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<IReadOnlyList<PrecioHistoricoDto>>> PreciosHistoricos(
+        [FromQuery] Guid[]? articuloIds,
+        [FromServices] IOrdenCompraRepository repositorio,
+        CancellationToken cancellationToken = default)
+    {
+        const int maximo = 50;
+        if (articuloIds is null || articuloIds.Length == 0 || articuloIds.Length > maximo || articuloIds.Any(id => id == Guid.Empty))
+        {
+            return Problem(
+                detail: $"Indicá entre 1 y {maximo} identificadores de artículo válidos (articuloIds).",
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Solicitud inválida");
+        }
+
+        return Ok(await repositorio.GetUltimosPreciosAsync(articuloIds, cancellationToken));
     }
 
     /// <summary>
