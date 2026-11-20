@@ -104,6 +104,7 @@ export function hayErrores(errores: ErroresRequisicion): boolean {
  * - 'Pendiente' -> 'Aprobación Pendiente'
  * - 'Aprobada' -> 'Aprobada'
  * - 'Rechazada' -> 'Rechazada'
+ * - 'Cancelada' -> 'Cancelada'
  */
 export function mapearEstadoRequisicion(estado: string): string {
   switch (estado) {

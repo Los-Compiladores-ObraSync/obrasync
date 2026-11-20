@@ -82,9 +82,46 @@ describe('NuevaRequisicionPage', () => {
     expect(screen.getByRole('link', { name: 'Volver al historial' })).toHaveAttribute('href', '/obra/requisiciones')
   })
 
+  it('repetir un pedido anterior precarga los mismos materiales y crea una requisición NUEVA (POST)', async () => {
+    iniciarSesionCapataz()
+    const user = userEvent.setup()
+    let payload: Record<string, unknown> | undefined
+    let metodoPut = false
+    server.use(
+      http.put('*/api/requisiciones/:id', () => {
+        metodoPut = true
+        return HttpResponse.json({}, { status: 500 })
+      }),
+      http.post('*/api/requisiciones', async ({ request }) => {
+        payload = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json({
+          requisicionId: 'e1e2e3e4-0000-0000-0000-000000000099', numeroRequisicion: 'REQ-2026-0099', obraId: OBRA_ID,
+          etapa: 'Fundaciones', solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000001',
+          estado: 'Pendiente', observaciones: 'Revisar la cantidad', fechaCreacion: '2026-10-21T12:00:00Z',
+          items: [{ articuloId: ARTICULO_CEMENTO_ID, descripcion: 'Cemento Portland Especial 50kg', cantidad: 25, unidadMedida: 'BOLSA' }],
+        }, { status: 201 })
+      }),
+    )
+    render(
+      <MemoryRouter initialEntries={[`/obra/requisicion/nueva?repetir=${RECHAZADA_ID}`]}>
+        <NuevaRequisicionPage />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByRole('heading', { name: 'Repetir pedido' })).toBeInTheDocument()
+    expect(screen.getByRole('note')).toHaveTextContent('Cargamos los mismos materiales de tu pedido anterior')
+    expect(screen.getByLabelText('Obra')).toHaveValue(OBRA_ID)
+    expect(screen.getByLabelText('Insumo #1')).toHaveValue(ARTICULO_CEMENTO_ID)
+    expect(screen.getByLabelText('Cantidad')).toHaveValue(25)
+
+    await user.click(screen.getByRole('button', { name: 'Enviar requisición' }))
+    expect(await screen.findByRole('heading', { name: 'Requisición enviada con éxito' })).toBeInTheDocument()
+    expect(payload).toMatchObject({ obraId: OBRA_ID, items: [{ articuloId: ARTICULO_CEMENTO_ID, cantidad: 25 }] })
+    expect(metodoPut).toBe(false)
+  })
+
   it.each([
     [403, 'La requisición no pertenece al Capataz o no tenés permiso para editarla.'],
-    [409, 'La requisición ya no está en estado Rechazada y no puede editarse.'],
+    [409, 'La requisición ya fue aprobada, rechazada o cancelada y no puede editarse.'],
   ])('informa claramente el error %s al reenviar', async (status, mensaje) => {
     iniciarSesionCapataz()
     server.use(http.put('*/api/requisiciones/:id', () => HttpResponse.json({ title: 'Error', status }, { status })))

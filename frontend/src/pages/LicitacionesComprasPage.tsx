@@ -4,6 +4,7 @@ import { ApiError } from '../api/ApiError'
 import {
   calcularPrecioTotalCotizacion,
   calcularTotalConFlete,
+  compararConPrecioPrevio,
   desglosarCotizacion,
   estrellasDePuntaje,
   formatoPrecio,
@@ -14,12 +15,15 @@ import {
   adjudicarLicitacion,
   listarCotizaciones,
   listarLicitaciones,
+  obtenerPreciosHistoricos,
 } from '../licitaciones/licitacionesService'
+import type { PrecioPrevio } from '../licitaciones/cotizacionesCalculos'
 import type {
   CotizacionResponseDto,
   CriteriosScoringDto,
   LicitacionResponseDto,
 } from '../licitaciones/licitacionesTipos'
+import { AccionesLicitacionAbierta } from '../licitaciones/AccionesLicitacionAbierta'
 import { PonderacionesScoring } from '../licitaciones/PonderacionesScoring'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { cantidadConUnidad } from '../requisiciones/unidades'
@@ -71,6 +75,8 @@ export function LicitacionesComprasPage() {
   const [intentoLicitaciones, setIntentoLicitaciones] = useState(0)
 
   const [cotizaciones, setCotizaciones] = useState<CotizacionResponseDto[]>([])
+  // Lo que se pagó la última vez por cada material del pliego. Si no se puede traer, la comparación simplemente no se muestra.
+  const [preciosPrevios, setPreciosPrevios] = useState<Map<string, PrecioPrevio>>(new Map())
   const [cargandoCotizaciones, setCargandoCotizaciones] = useState(false)
   const [errorCotizaciones, setErrorCotizaciones] = useState<string | null>(null)
   const [intentoCotizaciones, setIntentoCotizaciones] = useState(0)
@@ -124,6 +130,26 @@ export function LicitacionesComprasPage() {
   // Licitación seleccionada actual
   const licitacionSeleccionada =
     licitaciones.find((l) => l.licitacionId === licitacionIdParam) ?? null
+
+  // Lo que se pagó antes por los materiales del pliego (para comparar cada oferta con la última compra)
+  const idsDeMateriales = licitacionSeleccionada?.items.map((m) => m.articuloId).join(',') ?? ''
+  useEffect(() => {
+    let cancelado = false
+    if (!idsDeMateriales) {
+      setPreciosPrevios(new Map())
+      return
+    }
+    obtenerPreciosHistoricos(idsDeMateriales.split(','))
+      .then((lista) => {
+        if (!cancelado) setPreciosPrevios(new Map(lista.map((p) => [p.articuloId, p])))
+      })
+      .catch(() => {
+        if (!cancelado) setPreciosPrevios(new Map())
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [idsDeMateriales])
 
   // Cargar cotizaciones cuando hay una licitación seleccionada
   useEffect(() => {
@@ -356,6 +382,18 @@ export function LicitacionesComprasPage() {
             )}
           </div>
 
+          {licitacionSeleccionada.estado === 'Abierta' && (
+            <AccionesLicitacionAbierta
+              key={licitacionSeleccionada.licitacionId}
+              licitacion={licitacionSeleccionada}
+              onActualizada={(actualizada) =>
+                setLicitaciones((actuales) =>
+                  actuales.map((l) => (l.licitacionId === actualizada.licitacionId ? { ...l, ...actualizada } : l)),
+                )
+              }
+            />
+          )}
+
           <section className={styles.resumenPliego} aria-label="Resumen del pliego">
             <h3 className={styles.tituloResumen}>Qué se pidió</h3>
             <ul className={styles.listaPliego}>
@@ -509,6 +547,15 @@ export function LicitacionesComprasPage() {
                               {linea.precioUnitario === undefined
                                 ? 'No cotizó este material'
                                 : `${formatoPrecio(linea.precioUnitario)} c/u = ${formatoPrecio(linea.subtotal)}`}
+                              {linea.precioUnitario !== undefined && (() => {
+                                const previo = preciosPrevios.get(linea.articuloId)
+                                const comparacion = compararConPrecioPrevio(linea.precioUnitario, previo)
+                                return comparacion && previo ? (
+                                  <small className={styles.comparacionPrevia}>
+                                    {' '}· {comparacion.texto} ({formatoPrecio(previo.ultimoPrecioUnitario)} c/u)
+                                  </small>
+                                ) : null
+                              })()}
                             </span>
                           </li>
                         ))}

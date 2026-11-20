@@ -75,6 +75,10 @@ export function RecepcionPage() {
   const [fecha, setFecha] = useState(hoyComoTexto)
   const [observaciones, setObservaciones] = useState('')
   const [cantidades, setCantidades] = useState<Record<string, string>>({})
+  // Mercadería dañada o con diferencias: por material se marca el problema y se describe qué pasó.
+  // Faltantes no necesitan marca: si llegó menos de lo pedido, el resto queda como saldo pendiente.
+  const [conProblema, setConProblema] = useState<Record<string, boolean>>({})
+  const [notasProblema, setNotasProblema] = useState<Record<string, string>>({})
   const [erroresCantidad, setErroresCantidad] = useState<Record<string, string | undefined>>({})
   const [historial, setHistorial] = useState<RecepcionHistorial[]>([])
   const [cargandoHistorial, setCargandoHistorial] = useState(false)
@@ -192,6 +196,8 @@ export function RecepcionPage() {
     setFecha(hoyComoTexto())
     setObservaciones('')
     setCantidades(Object.fromEntries(orden.items.map((item) => [item.articuloId, String(saldoPendiente(item))])))
+    setConProblema({})
+    setNotasProblema({})
     setErroresCantidad({})
     setHistorial([])
     setCargandoHistorial(true)
@@ -224,6 +230,7 @@ export function RecepcionPage() {
       if (texto.trim() === '' || !Number.isFinite(valor)) nuevosErrores[item.articuloId] = 'Ingresá una cantidad válida.'
       else if (valor < 0) nuevosErrores[item.articuloId] = 'La cantidad no puede ser negativa.'
       else if (valor > saldoPendiente(item)) nuevosErrores[item.articuloId] = `No puede superar el saldo de ${saldoPendiente(item)}.`
+      else if (conProblema[item.articuloId] && (notasProblema[item.articuloId] ?? '').trim() === '') nuevosErrores[item.articuloId] = 'Contanos qué pasó con este material (por ejemplo: 3 bolsas rotas).'
     })
     if (elegida.items.every((item) => Number(cantidades[item.articuloId] ?? 0) === 0)) {
       nuevosErrores.general = 'Ingresá una cantidad mayor que cero en al menos un artículo.'
@@ -253,7 +260,8 @@ export function RecepcionPage() {
           cantidadEsperada: item.cantidadEsperada,
           cantidadRecibida: Number(cantidades[item.articuloId] ?? 0),
           unidadMedida: item.unidadMedida,
-          conforme: true,
+          conforme: !conProblema[item.articuloId],
+          observacion: conProblema[item.articuloId] ? (notasProblema[item.articuloId] ?? '').trim().slice(0, 500) : null,
         })),
       })
       setRegistrada(creada)
@@ -343,7 +351,7 @@ export function RecepcionPage() {
           {historial.map((recepcion) => (
             <div key={recepcion.id} className={styles.historialItem}>
               <strong>Remito {recepcion.numeroRemito ?? 'sin número'}</strong> · {fechaDeHistorial(recepcion.fechaRecepcion)} · {recepcion.estado === 2 ? 'Parcial' : recepcion.estado === 3 ? 'Completa' : recepcion.estado === undefined ? 'Estado no disponible' : 'Estado ' + recepcion.estado}
-              {(recepcion.detalles ?? []).length > 0 && <ul className={styles.items}>{recepcion.detalles?.map((detalle, indice) => <li key={detalle.id ?? detalle.articuloId ?? indice}>{detalle.descripcionArticulo ?? 'Artículo'}: {cantidadConUnidad(detalle.cantidadRecibida ?? 0, detalle.unidadMedida ?? '')}</li>)}</ul>}
+              {(recepcion.detalles ?? []).length > 0 && <ul className={styles.items}>{recepcion.detalles?.map((detalle, indice) => <li key={detalle.id ?? detalle.articuloId ?? indice}>{detalle.descripcionArticulo ?? 'Artículo'}: {cantidadConUnidad(detalle.cantidadRecibida ?? 0, detalle.unidadMedida ?? '')}{detalle.conforme === false && <strong> · Con problemas{detalle.observacion ? `: ${detalle.observacion}` : ''}</strong>}</li>)}</ul>}
             </div>
           ))}
         </section>
@@ -365,6 +373,31 @@ export function RecepcionPage() {
               <label htmlFor={`cantidad-${item.articuloId}`} className={styles.label}>{item.descripcionArticulo} · {item.unidadMedida} — recibido en esta entrega</label>
               <p className={styles.ayuda}>Pedido: {item.cantidadEsperada} · Ya recibidas: {item.cantidadRecibida} · Saldo: {saldoPendiente(item)}</p>
               <input id={`cantidad-${item.articuloId}`} className={`${styles.input}${erroresCantidad[item.articuloId] ? ` ${styles.inputInvalido}` : ''}`} type="number" min="0" max={saldoPendiente(item)} step="any" inputMode="decimal" value={cantidades[item.articuloId] ?? ''} onChange={(e) => { setCantidades((prev) => ({ ...prev, [item.articuloId]: e.target.value })); setErroresCantidad((prev) => ({ ...prev, [item.articuloId]: undefined, general: undefined })) }} aria-invalid={!!erroresCantidad[item.articuloId]} aria-describedby={erroresCantidad[item.articuloId] ? `cantidad-error-${item.articuloId}` : undefined} />
+              <label className={styles.checkProblema}>
+                <input
+                  type="checkbox"
+                  checked={!!conProblema[item.articuloId]}
+                  onChange={(e) => {
+                    setConProblema((prev) => ({ ...prev, [item.articuloId]: e.target.checked }))
+                    setErroresCantidad((prev) => ({ ...prev, [item.articuloId]: undefined }))
+                  }}
+                />
+                Llegó dañado o con diferencias
+              </label>
+              {conProblema[item.articuloId] && (
+                <input
+                  type="text"
+                  className={styles.input}
+                  aria-label={`Qué pasó con ${item.descripcionArticulo}`}
+                  placeholder="Ej: 3 bolsas rotas, llegó mojado…"
+                  maxLength={500}
+                  value={notasProblema[item.articuloId] ?? ''}
+                  onChange={(e) => {
+                    setNotasProblema((prev) => ({ ...prev, [item.articuloId]: e.target.value }))
+                    setErroresCantidad((prev) => ({ ...prev, [item.articuloId]: undefined }))
+                  }}
+                />
+              )}
               {erroresCantidad[item.articuloId] && <p id={`cantidad-error-${item.articuloId}`} className={styles.errorCampo} role="alert">{erroresCantidad[item.articuloId]}</p>}
             </div>
           ))}

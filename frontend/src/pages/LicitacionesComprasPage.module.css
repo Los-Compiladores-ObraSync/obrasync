@@ -530,3 +530,9 @@
     margin-top: 0;
   }
 }
+
+.comparacionPrevia {
+  display: block;
+  color: var(--texto-suave);
+  font-size: 0.9375rem;
+}

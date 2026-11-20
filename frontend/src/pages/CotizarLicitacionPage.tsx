@@ -1,8 +1,13 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { useAuth } from '../auth/useAuth'
-import { crearCotizacion, obtenerLicitacion } from '../licitaciones/licitacionesService'
+import {
+  corregirCotizacion,
+  crearCotizacion,
+  obtenerLicitacion,
+  obtenerMisCotizaciones,
+} from '../licitaciones/licitacionesService'
 import type { CrearCotizacionRequestDto, LicitacionResponseDto } from '../licitaciones/licitacionesTipos'
 import {
   hayErroresCotizacion,
@@ -19,6 +24,9 @@ import styles from './CotizarLicitacionPage.module.css'
 export function CotizarLicitacionPage() {
   const { id } = useParams<{ id: string }>()
   const { usuario } = useAuth()
+  // ?corregir=<cotizacionId>: el Proveedor corrige una oferta que ya envió (antes del cierre).
+  const [busqueda] = useSearchParams()
+  const cotizacionACorregir = busqueda.get('corregir')
 
   const [licitacion, setLicitacion] = useState<LicitacionResponseDto | null>(null)
   const [cargandoLicitacion, setCargandoLicitacion] = useState(true)
@@ -56,6 +64,16 @@ export function CotizarLicitacionPage() {
         const datos = await obtenerLicitacion(id)
         if (cancelado) return
         setLicitacion(datos)
+        if (cotizacionACorregir) {
+          const mias = await obtenerMisCotizaciones()
+          if (cancelado) return
+          const previa = mias.find((c) => c.cotizacionId === cotizacionACorregir)
+          if (previa) {
+            setFlete(String(previa.flete))
+            setPlazoEntregaDias(String(previa.plazoEntregaDias))
+            setPrecios(Object.fromEntries(previa.items.map((i) => [i.articuloId, String(i.precioUnitario)])))
+          }
+        }
       } catch (err) {
         if (cancelado) return
         if (err instanceof ApiError && err.status === 404) {
@@ -78,7 +96,7 @@ export function CotizarLicitacionPage() {
     return () => {
       cancelado = true
     }
-  }, [id, intento])
+  }, [id, intento, cotizacionACorregir])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -122,7 +140,11 @@ export function CotizarLicitacionPage() {
     }
 
     try {
-      await crearCotizacion(dto)
+      if (cotizacionACorregir) {
+        await corregirCotizacion(cotizacionACorregir, dto)
+      } else {
+        await crearCotizacion(dto)
+      }
       setEnviadoExitoso(true)
     } catch (err) {
       let mensaje = 'Ocurrió un error al enviar la cotización. Intentá nuevamente.'
@@ -197,11 +219,13 @@ export function CotizarLicitacionPage() {
     return (
       <section className={styles.contenedor}>
         <div className={styles.tarjetaConfirmacion} role="status">
-          <h2 className={styles.tituloExito}>¡Cotización enviada con éxito!</h2>
+          <h2 className={styles.tituloExito}>
+            {cotizacionACorregir ? '¡Cotización corregida con éxito!' : '¡Cotización enviada con éxito!'}
+          </h2>
           <p>
             Tu cotización para la licitación{' '}
             <strong>{licitacion.numeroRequisicion ?? licitacion.licitacionId}</strong> fue
-            registrada correctamente.
+            {cotizacionACorregir ? 'fue actualizada correctamente.' : 'fue registrada correctamente.'}
           </p>
           <Link to="/proveedores" className={styles.enlaceVolver}>
             Volver a licitaciones
@@ -216,7 +240,9 @@ export function CotizarLicitacionPage() {
       <Link to="/proveedores" className={styles.volver}>
         ← Volver a licitaciones
       </Link>
-      <h1>Cotizar {licitacion.numeroRequisicion ?? 'licitación'}</h1>
+      <h1>
+        {cotizacionACorregir ? 'Corregir cotización de' : 'Cotizar'} {licitacion.numeroRequisicion ?? 'licitación'}
+      </h1>
 
       {errorServidor && (
         <div className={styles.errorApi} role="alert">
@@ -376,7 +402,7 @@ export function CotizarLicitacionPage() {
           className={styles.botonEnviar}
           disabled={enviando || esBloqueante}
         >
-          {enviando ? 'Enviando…' : 'Enviar cotización'}
+          {enviando ? 'Enviando…' : cotizacionACorregir ? 'Guardar cambios' : 'Enviar cotización'}
         </button>
       </form>
     </section>

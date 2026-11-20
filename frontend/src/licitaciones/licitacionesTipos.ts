@@ -120,3 +120,26 @@ export interface CalificacionProveedorResponseDto {
   cantidadCalificaciones: number
   fechaActualizacion: string
 }
+
+/**
+ * Una cotización propia del Proveedor (contrato: MiCotizacionResponseDto, GET /api/cotizaciones/mias).
+ * estadoResultado: "Enviada" (licitación abierta, sin definir), "Gano", "NoGano" o "LicitacionCerrada".
+ */
+export interface MiCotizacionDto {
+  cotizacionId: string
+  licitacionId: string
+  proveedorId: string
+  numeroRequisicion: string
+  obraId: string
+  fechaLimiteCotizacion: string
+  estadoLicitacion: string
+  subtotalItems: number
+  flete: number
+  costoTotal: number
+  coberturaParcial: boolean
+  plazoEntregaDias: number
+  fechaCreacion: string
+  items: CrearCotizacionItemDto[]
+  esGanadora: boolean
+  estadoResultado: string
+}

@@ -1158,7 +1158,7 @@ export const handlers: RequestHandler[] = [
     if (req.solicitanteId !== 'a1b2c3d4-0000-0000-0000-000000000001') {
       return HttpResponse.json({ title: 'Acceso denegado', status: 403 }, { status: 403 })
     }
-    if (req.estado !== 'Rechazada') {
+    if (req.estado !== 'Rechazada' && req.estado !== 'Pendiente') {
       return HttpResponse.json({ title: 'Conflicto de estado', status: 409 }, { status: 409 })
     }
     const body = await request.json() as { etapa?: string | null; observaciones?: string | null; items: { articuloId: string; cantidad: number }[] }
@@ -1174,6 +1174,40 @@ export const handlers: RequestHandler[] = [
     req.estado = 'Pendiente'
     req.motivoRechazo = null
     req.fechaRechazo = null
+    return HttpResponse.json(req, { status: 200 })
+  }),
+
+  // Contrato: GET /api/licitaciones/seguimiento/{requisicionId} → 200 SeguimientoRequisicionDto
+  // Para la requisición aprobada de ejemplo (0009) simula una licitación abierta con 2 ofertas; el resto, sin licitación.
+  http.get('*/api/licitaciones/seguimiento/:requisicionId', ({ params }) => {
+    const requisicionId = String(params.requisicionId)
+    if (requisicionId === 'd1d2d3d4-0000-0000-0000-000000000009') {
+      return HttpResponse.json({
+        requisicionId,
+        licitacionId: 'e1e2e3e4-0000-0000-0000-000000000001',
+        estadoLicitacion: 'Abierta',
+        fechaLimiteCotizacion: new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString(),
+        cantidadCotizaciones: 2,
+        ordenesCompra: [],
+      })
+    }
+    return HttpResponse.json({ requisicionId, licitacionId: null, estadoLicitacion: null, fechaLimiteCotizacion: null, cantidadCotizaciones: 0, ordenesCompra: [] })
+  }),
+
+  // Contrato: POST /api/requisiciones/{id}/cancelar → 200 | 403 | 404 | 409 ProblemDetails
+  http.post('*/api/requisiciones/:id/cancelar', ({ params }) => {
+    const req = requisicionesMock.find((r) => r.requisicionId === params.id)
+    if (!req) return HttpResponse.json({ title: 'No encontrada', status: 404 }, { status: 404 })
+    if (req.solicitanteId !== 'a1b2c3d4-0000-0000-0000-000000000001') {
+      return HttpResponse.json({ title: 'Acceso denegado', status: 403 }, { status: 403 })
+    }
+    if (req.estado !== 'Pendiente') {
+      return HttpResponse.json(
+        { title: 'Conflicto', status: 409, detail: 'Solo se pueden cancelar requisiciones pendientes.' },
+        { status: 409 },
+      )
+    }
+    req.estado = 'Cancelada'
     return HttpResponse.json(req, { status: 200 })
   }),
 
@@ -1654,6 +1688,116 @@ export const handlers: RequestHandler[] = [
 
   // Contrato: POST /api/licitaciones/{licitacionId}/adjudicar con body {"cotizacionId": "<guid>"}
   // → 200 OrdenCompraResponseDto | 400 | 404 | 409 ProblemDetails
+  // Contrato: GET /api/cotizaciones/mias → 200 MiCotizacionDto[] (solo las del proveedor de la sesión)
+  http.get('*/api/cotizaciones/mias', ({ request }) => {
+    const proveedorId = USUARIOS_MOCK.find((u) => u.rol === 'Proveedor')?.id
+    const mias = cotizacionesMock
+      .filter((c) => c.proveedorId === proveedorId)
+      .map((c) => {
+        const lic = licitacionesMock.find((l) => l.licitacionId === c.licitacionId)
+        const subtotal = c.items.reduce((acc, i) => acc + i.precioUnitario, 0)
+        return {
+          cotizacionId: c.cotizacionId,
+          licitacionId: c.licitacionId,
+          proveedorId: c.proveedorId,
+          numeroRequisicion: lic?.numeroRequisicion ?? '',
+          obraId: lic?.obraId ?? '',
+          fechaLimiteCotizacion: lic?.fechaLimiteCotizacion ?? '',
+          estadoLicitacion: lic?.estado ?? 'Abierta',
+          subtotalItems: subtotal,
+          flete: c.flete ?? 0,
+          costoTotal: subtotal + (c.flete ?? 0),
+          coberturaParcial: false,
+          plazoEntregaDias: c.plazoEntregaDias ?? 0,
+          fechaCreacion: c.fechaCreacion,
+          items: c.items,
+          esGanadora: c.esGanadora,
+          estadoResultado: c.esGanadora ? 'Gano' : lic?.estado === 'Abierta' ? 'Enviada' : 'NoGano',
+        }
+      })
+    return responderPaginado(request, mias)
+  }),
+
+  // Contrato: PUT /api/cotizaciones/{id} → 200 | 400 | 403 | 404 ProblemDetails
+  http.put('*/api/cotizaciones/:id', async ({ params, request }) => {
+    const cot = cotizacionesMock.find((c) => c.cotizacionId === params.id)
+    if (!cot) return HttpResponse.json({ title: 'No encontrada', status: 404 }, { status: 404 })
+    const lic = licitacionesMock.find((l) => l.licitacionId === cot.licitacionId)
+    if (!lic || lic.estado !== 'Abierta') {
+      return HttpResponse.json(
+        { title: 'Datos inválidos', status: 400, detail: 'La licitación ya no recibe cotizaciones.' },
+        { status: 400 },
+      )
+    }
+    const body = (await request.json().catch(() => ({}))) as {
+      flete?: number
+      plazoEntregaDias?: number
+      items?: Array<{ articuloId: string; precioUnitario: number }>
+    }
+    cot.flete = body.flete ?? cot.flete
+    cot.plazoEntregaDias = body.plazoEntregaDias ?? cot.plazoEntregaDias
+    cot.items = body.items ?? cot.items
+    return HttpResponse.json(cot, { status: 200 })
+  }),
+
+  // Contrato: GET /api/proveedores/{id}/calificacion → 200 | 404 (sin calificaciones todavía)
+  http.get('*/api/proveedores/:proveedorId/calificacion', ({ params }) => {
+    const proveedorId = params.proveedorId as string
+    const promedio = promedioDeProveedor(proveedorId)
+    if (promedio === null) return HttpResponse.json({ title: 'No encontrada', status: 404 }, { status: 404 })
+    return HttpResponse.json({
+      proveedorId,
+      calificacion: promedio,
+      cantidadCalificaciones: calificacionesMock.get(proveedorId)?.size ?? 0,
+      fechaActualizacion: new Date().toISOString(),
+    })
+  }),
+
+  // Contrato: GET /api/ordenes-compra/precios-historicos?articuloIds=… → 200 PrecioHistoricoDto[]
+  // Simula que el primer insumo del catálogo ya se compró antes, a $1.000 menos que lo habitual de las ofertas de ejemplo.
+  http.get('*/api/ordenes-compra/precios-historicos', ({ request }) => {
+    const ids = new URL(request.url).searchParams.getAll('articuloIds')
+    return HttpResponse.json(
+      ids
+        .filter((id) => id === MOCK_CATALOGO[0].articuloId)
+        .map((articuloId) => ({ articuloId, ultimoPrecioUnitario: 8000, fechaEmision: '2026-10-01T12:00:00Z' })),
+    )
+  }),
+
+  // Contrato: POST /api/licitaciones/{id}/extender → 200 | 400 | 404 | 409 ProblemDetails
+  http.post('*/api/licitaciones/:id/extender', async ({ params, request }) => {
+    const licitacion = licitacionesMock.find((l) => l.licitacionId === params.id)
+    if (!licitacion) return HttpResponse.json({ title: 'No encontrada', status: 404 }, { status: 404 })
+    if (licitacion.estado !== 'Abierta') {
+      return HttpResponse.json({ title: 'Conflicto', status: 409 }, { status: 409 })
+    }
+    const body = (await request.json().catch(() => ({}))) as { fechaLimiteCotizacion?: string }
+    const nueva = body.fechaLimiteCotizacion ? new Date(body.fechaLimiteCotizacion) : null
+    if (!nueva || Number.isNaN(nueva.getTime()) || nueva <= new Date(licitacion.fechaLimiteCotizacion)) {
+      return HttpResponse.json(
+        { title: 'Solicitud inválida', status: 400, detail: 'La nueva fecha límite tiene que ser posterior a la actual.' },
+        { status: 400 },
+      )
+    }
+    licitacion.fechaLimiteCotizacion = nueva.toISOString()
+    return HttpResponse.json(licitacion, { status: 200 })
+  }),
+
+  // Contrato: POST /api/licitaciones/{id}/cerrar → 200 | 400 | 404 | 409 ProblemDetails
+  http.post('*/api/licitaciones/:id/cerrar', async ({ params, request }) => {
+    const licitacion = licitacionesMock.find((l) => l.licitacionId === params.id)
+    if (!licitacion) return HttpResponse.json({ title: 'No encontrada', status: 404 }, { status: 404 })
+    if (licitacion.estado !== 'Abierta') {
+      return HttpResponse.json({ title: 'Conflicto', status: 409 }, { status: 409 })
+    }
+    const body = (await request.json().catch(() => ({}))) as { motivo?: string }
+    if (!body.motivo?.trim()) {
+      return HttpResponse.json({ title: 'Solicitud inválida', status: 400, detail: 'El motivo de cierre es obligatorio.' }, { status: 400 })
+    }
+    licitacion.estado = 'Cerrada'
+    return HttpResponse.json(licitacion, { status: 200 })
+  }),
+
   http.post('*/api/licitaciones/:licitacionId/adjudicar', async ({ params, request }) => {
     const licitacionId = params.licitacionId as string
     const lic = licitacionesMock.find((l) => l.licitacionId === licitacionId)

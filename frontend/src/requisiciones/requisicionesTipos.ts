@@ -40,7 +40,7 @@ export interface RequisicionItemDto {
   unidadMedida: string
 }
 
-export type EstadoRequisicion = 'Pendiente' | 'Aprobada' | 'Rechazada'
+export type EstadoRequisicion = 'Pendiente' | 'Aprobada' | 'Rechazada' | 'Cancelada'
 
 export interface RequisicionResponseDto {
   requisicionId: string

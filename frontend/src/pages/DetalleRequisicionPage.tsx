@@ -5,7 +5,7 @@ import { useAuth } from '../auth/useAuth'
 import { publicarLicitacion } from '../licitaciones/licitacionesService'
 import { fechaLocalEnDias, finDelDiaEnUtc } from '../licitaciones/plazoCotizacion'
 import { fechaLarga } from '../requisiciones/formatoFecha'
-import { obtenerObras, obtenerRequisicion } from '../requisiciones/requisicionesService'
+import { cancelarRequisicion, obtenerObras, obtenerRequisicion } from '../requisiciones/requisicionesService'
 import type { RequisicionResponseDto } from '../requisiciones/requisicionesTipos'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './DetalleRequisicionPage.module.css'
@@ -19,12 +19,15 @@ const CLASE_POR_ESTADO: Record<string, string> = {
   Pendiente: styles.pendiente,
   Aprobada: styles.aprobada,
   Rechazada: styles.rechazada,
+  Cancelada: styles.cancelada,
 }
 
 type ErrorDetalle = 'noExiste' | 'falla'
 
 /** Roles que pueden publicar la licitación (el backend lo exige igual: es solo comodidad de pantalla). */
 const ROLES_QUE_PUBLICAN = ['Comprador', 'Admin']
+/** Roles que cargan requisiciones (y por eso pueden repetir un pedido anterior). */
+const ROLES_QUE_CARGAN = ['Capataz', 'Admin']
 const DIAS_PLAZO_POR_DEFECTO = 7
 
 type ResultadoPublicacion =
@@ -58,6 +61,9 @@ export function DetalleRequisicionPage({ volverA }: DetalleRequisicionPageProps)
   // Publicación de la licitación (solo Comprador/Admin, sobre una requisición aprobada)
   const [fechaLimite, setFechaLimite] = useState(() => fechaLocalEnDias(DIAS_PLAZO_POR_DEFECTO))
   const [publicando, setPublicando] = useState(false)
+  const [confirmandoCancelar, setConfirmandoCancelar] = useState(false)
+  const [cancelando, setCancelando] = useState(false)
+  const [errorCancelar, setErrorCancelar] = useState<string | null>(null)
   const [resultado, setResultado] = useState<ResultadoPublicacion | null>(null)
 
   useEffect(() => {
@@ -107,6 +113,38 @@ export function DetalleRequisicionPage({ volverA }: DetalleRequisicionPageProps)
     usuario !== null &&
     usuario !== undefined &&
     ROLES_QUE_PUBLICAN.includes(usuario.rol)
+
+  const puedeRepetir =
+    requisicion !== null &&
+    usuario !== null &&
+    usuario !== undefined &&
+    ROLES_QUE_CARGAN.includes(usuario.rol)
+
+  // Editar o cancelar mientras Compras todavía no la aprobó. Solo su dueño (o un Admin).
+  const puedeModificar =
+    requisicion?.estado === 'Pendiente' &&
+    usuario !== null &&
+    usuario !== undefined &&
+    ROLES_QUE_CARGAN.includes(usuario.rol)
+
+  async function cancelar() {
+    if (!requisicion || cancelando) return
+    setCancelando(true)
+    setErrorCancelar(null)
+    try {
+      const actualizada = await cancelarRequisicion(requisicion.requisicionId)
+      setRequisicion(actualizada)
+      setConfirmandoCancelar(false)
+    } catch (err) {
+      setErrorCancelar(
+        err instanceof ApiError && err.status === 409
+          ? 'Compras ya la aprobó o rechazó: no se puede cancelar. Recargá la pantalla.'
+          : 'No se pudo cancelar el pedido. Intentá nuevamente.',
+      )
+    } finally {
+      setCancelando(false)
+    }
+  }
 
   async function publicar() {
     if (!requisicion || !fechaLimite || publicando) return
@@ -183,6 +221,51 @@ export function DetalleRequisicionPage({ volverA }: DetalleRequisicionPageProps)
               </li>
             ))}
           </ul>
+
+          {puedeRepetir && requisicion.estado === 'Aprobada' && (
+            <Link
+              to={`/obra/requisiciones/${encodeURIComponent(requisicion.requisicionId)}/seguimiento`}
+              className={styles.botonRepetir}
+            >
+              ¿Qué pasó con mi pedido?
+            </Link>
+          )}
+
+          {puedeRepetir && (
+            <Link
+              to={`/obra/requisicion/nueva?repetir=${encodeURIComponent(requisicion.requisicionId)}`}
+              className={styles.botonRepetir}
+            >
+              Repetir este pedido
+            </Link>
+          )}
+
+          {puedeModificar && (
+            <section className={styles.acciones} aria-label="Editar o cancelar el pedido">
+              <Link
+                to={`/obra/requisicion/nueva?editar=${encodeURIComponent(requisicion.requisicionId)}&volver=${encodeURIComponent(`${volverA}/${requisicion.requisicionId}`)}`}
+                className={styles.botonRepetir}
+              >
+                Editar este pedido
+              </Link>
+              {!confirmandoCancelar ? (
+                <button type="button" className={styles.botonCancelar} onClick={() => setConfirmandoCancelar(true)}>
+                  Cancelar este pedido
+                </button>
+              ) : (
+                <div role="group" aria-label="Confirmar cancelación" className={styles.confirmar}>
+                  <p>¿Seguro? Compras ya no lo va a ver para aprobar.</p>
+                  <button type="button" className={styles.botonCancelar} onClick={cancelar} disabled={cancelando}>
+                    {cancelando ? 'Cancelando…' : 'Sí, cancelar el pedido'}
+                  </button>
+                  <button type="button" className={styles.botonRepetir} onClick={() => setConfirmandoCancelar(false)} disabled={cancelando}>
+                    No, dejarlo como está
+                  </button>
+                </div>
+              )}
+              {errorCancelar && <p role="alert" className={styles.errorCancelar}>{errorCancelar}</p>}
+            </section>
+          )}
 
           {puedePublicar && (
             <section className={styles.publicar} aria-label="Publicar licitación">

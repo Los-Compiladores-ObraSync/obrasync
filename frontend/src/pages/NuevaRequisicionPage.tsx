@@ -73,7 +73,7 @@ function mensajeDeErrorApi(err: unknown, editando = false): string {
       return err.detail ?? 'La obra o algún artículo ya no existe. Recargá la página e intentá de nuevo.'
     }
     if (err.status === 409) {
-      if (editando) return 'La requisición ya no está en estado Rechazada y no puede editarse.'
+      if (editando) return 'La requisición ya fue aprobada, rechazada o cancelada y no puede editarse.'
       return err.detail ?? 'La requisición entra en conflicto con el estado actual. Revisá los datos.'
     }
   }
@@ -83,8 +83,12 @@ function mensajeDeErrorApi(err: unknown, editando = false): string {
 export function NuevaRequisicionPage() {
   const [params] = useSearchParams()
   const requisicionIdEdicion = params.get('editar')
+  // "Repetir un pedido anterior": precarga los mismos materiales, pero crea una requisición NUEVA
+  // (no toca la original). Sirve con cualquier estado del pedido de origen.
+  const requisicionIdRepetir = requisicionIdEdicion ? null : params.get('repetir')
+  const idOrigen = requisicionIdEdicion ?? requisicionIdRepetir
   const rutaHistorial = params.get('volver') || '/obra/requisiciones'
-  const [cargandoEdicion, setCargandoEdicion] = useState(!!requisicionIdEdicion)
+  const [cargandoEdicion, setCargandoEdicion] = useState(!!idOrigen)
   const [obras, setObras] = useState<ObraResumen[]>([])
   // Catálogo sin búsqueda: llega de a una página (#172) y "Ver más" pide la siguiente.
   const [catalogo, setCatalogo] = useState<InsumoCatalogo[]>([])
@@ -166,13 +170,13 @@ export function NuevaRequisicionPage() {
   }, [])
 
   useEffect(() => {
-    if (!requisicionIdEdicion) return
+    if (!idOrigen) return
     let cancelado = false
-    obtenerRequisicion(requisicionIdEdicion)
+    obtenerRequisicion(idOrigen)
       .then((requisicion) => {
         if (cancelado) return
-        if (requisicion.estado !== 'Rechazada') {
-          setErrorCarga('La requisición ya no está en estado Rechazada y no puede editarse.')
+        if (requisicionIdEdicion && requisicion.estado !== 'Rechazada' && requisicion.estado !== 'Pendiente') {
+          setErrorCarga('La requisición ya fue aprobada o cancelada y no puede editarse.')
         } else {
           setObraId(requisicion.obraId)
           setEtapa(requisicion.etapa ?? '')
@@ -194,12 +198,16 @@ export function NuevaRequisicionPage() {
       })
       .catch((err: unknown) => {
         if (!cancelado) setErrorCarga(err instanceof ApiError && err.status === 403
-          ? 'La requisición no pertenece al Capataz o no tenés permiso para editarla.'
-          : 'No se pudo cargar la requisición para editarla.')
+          ? (requisicionIdRepetir
+              ? 'Ese pedido no es tuyo o no tenés permiso para repetirlo.'
+              : 'La requisición no pertenece al Capataz o no tenés permiso para editarla.')
+          : (requisicionIdRepetir
+              ? 'No se pudo cargar el pedido anterior para repetirlo.'
+              : 'No se pudo cargar la requisición para editarla.'))
       })
       .finally(() => { if (!cancelado) setCargandoEdicion(false) })
     return () => { cancelado = true }
-  }, [requisicionIdEdicion])
+  }, [idOrigen, requisicionIdEdicion, requisicionIdRepetir])
 
   // Búsqueda de insumos (#57): se le pregunta al servidor con ?search=. Con el
   // buscador vacío no se pide nada: se usa el catálogo completo ya cargado.
@@ -540,7 +548,19 @@ export function NuevaRequisicionPage() {
       <Link to="/" className={styles.volver}>
         ← Volver al inicio
       </Link>
-      <h1>{requisicionIdEdicion ? 'Editar y reenviar requisición' : 'Nueva requisición'}</h1>
+      <h1>
+        {requisicionIdEdicion
+          ? 'Editar y reenviar requisición'
+          : requisicionIdRepetir
+            ? 'Repetir pedido'
+            : 'Nueva requisición'}
+      </h1>
+      {requisicionIdRepetir && (
+        <p className={styles.aviso} role="note">
+          Cargamos los mismos materiales de tu pedido anterior. Revisalos, ajustá lo que haga falta y
+          enviá: se crea un pedido nuevo.
+        </p>
+      )}
 
       <form className={styles.formulario} onSubmit={handleSubmit} noValidate>
         {apiError && (

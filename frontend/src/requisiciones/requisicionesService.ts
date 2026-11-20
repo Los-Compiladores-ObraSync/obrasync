@@ -85,7 +85,7 @@ export function obtenerRequisicion(id: string): Promise<RequisicionResponseDto> 
   return apiFetch<RequisicionResponseDto>(`/api/requisiciones/${encodeURIComponent(id)}`)
 }
 
-/** PUT /api/requisiciones/{id}: edita y reenvía una requisición rechazada. */
+/** PUT /api/requisiciones/{id}: corrige una requisición Pendiente, o edita y reenvía una Rechazada. */
 export function editarYReenviarRequisicion(
   id: string,
   dto: EditarRequisicionRequestDto,
@@ -94,6 +94,17 @@ export function editarYReenviarRequisicion(
     method: 'PUT',
     body: JSON.stringify(dto),
   })
+}
+
+/**
+ * Cancela una requisición que todavía está Pendiente (antes de que Compras la apruebe).
+ * Fuente: POST /api/requisiciones/{id}/cancelar (Capataz dueño, Admin)
+ */
+export function cancelarRequisicion(id: string): Promise<RequisicionResponseDto> {
+  return apiFetch<RequisicionResponseDto>(
+    `/api/requisiciones/${encodeURIComponent(id)}/cancelar`,
+    { method: 'POST' },
+  )
 }
 
 /**
