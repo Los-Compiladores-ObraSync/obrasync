@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ObraSync.Asistente.Application;
+using ObraSync.Asistente.Application.Generadas;
 
 namespace ObraSync.Asistente.Infrastructure;
 
@@ -60,6 +61,12 @@ public static class DependencyInjection
             sp.GetRequiredService<IContextoDePeticion>()));
 
         services.AddScoped<IConsultorOrdenesBloqueadas>(sp => new OrdenesBloqueadasGateway(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient("catalogo"),
+            sp.GetRequiredService<ConfiguracionApi>(),
+            sp.GetRequiredService<IContextoDePeticion>()));
+
+        // Herramientas generadas desde contracts/openapi (#151): un solo cliente de lectura genérico.
+        services.AddScoped<IClienteApiLectura>(sp => new ApiLecturaGateway(
             sp.GetRequiredService<IHttpClientFactory>().CreateClient("catalogo"),
             sp.GetRequiredService<ConfiguracionApi>(),
             sp.GetRequiredService<IContextoDePeticion>()));
