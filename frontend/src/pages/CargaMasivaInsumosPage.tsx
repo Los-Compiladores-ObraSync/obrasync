@@ -124,8 +124,8 @@ export function CargaMasivaInsumosPage() {
             </li>
           </ul>
           <p className={styles.ayuda}>
-            Columnas obligatorias: codigo, descripcion y unidadMedida. Opcionales: moneda, precioReferencia
-            y activo (si o no). Hasta {MAX_FILAS} filas por archivo.
+            Columnas obligatorias: Código, Descripción y Unidad de medida. Opcionales: Moneda, Precio de
+            referencia y Activo (si o no). Hasta {MAX_FILAS} filas por archivo.
           </p>
 
           <div className={styles.campo}>

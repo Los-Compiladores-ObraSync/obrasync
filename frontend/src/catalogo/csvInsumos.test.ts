@@ -26,11 +26,25 @@ describe('parsearCsv', () => {
 })
 
 describe('validarCsv', () => {
-  it('la plantilla descargable es válida y trae 2 insumos', () => {
+  it('la plantilla descargable trae solo los encabezados: subida tal cual no carga ningún insumo', () => {
+    expect(PLANTILLA_CSV.trim()).toBe('Código;Descripción;Unidad de medida;Moneda;Precio de referencia;Activo')
     const resultado = validarCsv(PLANTILLA_CSV)
+    expect(resultado.insumos).toEqual([])
+    expect(resultado.errorGeneral).toContain('no tiene filas')
+  })
+
+  it('los encabezados de la plantilla se reconocen: completada, la plantilla se lee bien', () => {
+    const resultado = validarCsv(`${PLANTILLA_CSV}MAT-1;Cemento;BOLSA;ARS;1.500,50;si\r\n`)
     expect(resultado.errorGeneral).toBeNull()
     expect(resultado.errores).toEqual([])
-    expect(resultado.insumos.map((i) => i.datos.codigo)).toEqual(['MAT-EJ-001', 'MAT-EJ-002'])
+    expect(resultado.insumos[0].datos).toEqual({
+      codigo: 'MAT-1',
+      descripcion: 'Cemento',
+      unidadMedida: 'BOLSA',
+      moneda: 'ARS',
+      precioReferencia: 1500.5,
+      activo: true,
+    })
   })
 
   it('convierte el precio en formato argentino y el activo si/no, y pasa la moneda en mayúsculas', () => {
@@ -58,7 +72,7 @@ describe('validarCsv', () => {
 
   it('si faltan columnas obligatorias, no carga nada y dice cuáles', () => {
     const resultado = validarCsv('codigo;descripcion\nMAT-1;Cemento')
-    expect(resultado.errorGeneral).toContain('unidadMedida')
+    expect(resultado.errorGeneral).toContain('Unidad de medida')
     expect(resultado.insumos).toEqual([])
   })
 

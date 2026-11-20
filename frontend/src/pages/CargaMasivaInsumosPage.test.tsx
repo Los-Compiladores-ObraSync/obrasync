@@ -38,7 +38,7 @@ describe('CargaMasivaInsumosPage (#215)', () => {
     const enlace = screen.getByRole('link', { name: 'Descargar la plantilla' })
     expect(enlace).toHaveAttribute('download', 'plantilla-insumos.csv')
     expect(decodeURIComponent(enlace.getAttribute('href') ?? '')).toContain(
-      'codigo;descripcion;unidadMedida;moneda;precioReferencia;activo',
+      'Código;Descripción;Unidad de medida;Moneda;Precio de referencia;Activo',
     )
     expect(screen.getByRole('link', { name: '← Volver al inicio' })).toHaveAttribute('href', '/')
   })
@@ -122,7 +122,7 @@ describe('CargaMasivaInsumosPage (#215)', () => {
 
     await subir(user, 'codigo;descripcion\nMAT-1;Cemento')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Faltan columnas obligatorias: unidadMedida')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Faltan columnas obligatorias: Unidad de medida')
     expect(screen.queryByRole('button', { name: /^Cargar \d/ })).not.toBeInTheDocument()
   })
 
