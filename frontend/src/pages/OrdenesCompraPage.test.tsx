@@ -55,10 +55,7 @@ describe('OrdenesCompraPage (#205)', () => {
     expect(within(filas[2]).getByText('Despachada')).toBeInTheDocument()
     expect(within(filas[2]).getByText('Despachada el 13 de noviembre de 2026')).toBeInTheDocument()
     expect(within(filas[0]).getByText('Torre Alvear')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '← Volver a Gestión y Compras' })).toHaveAttribute(
-      'href',
-      '/compras',
-    )
+    expect(screen.getByRole('link', { name: '← Volver al inicio' })).toHaveAttribute('href', '/')
   })
 
   it('solo las órdenes sin despachar tienen el botón "Marcar como despachada"', async () => {
