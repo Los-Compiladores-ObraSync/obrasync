@@ -11,7 +11,8 @@ public enum EstadoRequisicion
 {
     Pendiente = 1,
     Aprobada = 2,
-    Rechazada = 3
+    Rechazada = 3,
+    Cancelada = 4
 }
 
 public static class EstadoRequisicionExtensions
@@ -21,6 +22,7 @@ public static class EstadoRequisicionExtensions
         EstadoRequisicion.Pendiente => ConstantesEstado.Pendiente,
         EstadoRequisicion.Aprobada => ConstantesEstado.Aprobada,
         EstadoRequisicion.Rechazada => ConstantesEstado.Rechazada,
+        EstadoRequisicion.Cancelada => ConstantesEstado.Cancelada,
         _ => throw new ArgumentOutOfRangeException(nameof(estado), estado, "Estado de requisición desconocido.")
     };
 
@@ -48,6 +50,12 @@ public static class EstadoRequisicionExtensions
         if (string.Equals(normalizado, ConstantesEstado.Rechazada, StringComparison.OrdinalIgnoreCase))
         {
             estado = EstadoRequisicion.Rechazada;
+            return true;
+        }
+
+        if (string.Equals(normalizado, ConstantesEstado.Cancelada, StringComparison.OrdinalIgnoreCase))
+        {
+            estado = EstadoRequisicion.Cancelada;
             return true;
         }
 

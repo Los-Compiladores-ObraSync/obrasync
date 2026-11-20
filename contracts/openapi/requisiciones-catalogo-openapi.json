@@ -324,7 +324,7 @@
           {
             "name": "estado",
             "in": "query",
-            "description": "Filtrar requisiciones por estado (ej: Pendiente, Aprobada, Rechazada).",
+            "description": "Filtrar requisiciones por estado (ej: Pendiente, Aprobada, Rechazada, Cancelada).",
             "required": false,
             "schema": {
               "type": "string",
@@ -736,8 +736,8 @@
         "tags": [
           "Requisiciones"
         ],
-        "summary": "Editar y reenviar una requisición rechazada conservando su número y el historial de rechazos (Roles: Capataz dueño, Admin)",
-        "description": "Permite al Capataz solicitante dueño de la requisición (o a un Admin) editar los ítems, la etapa y las observaciones de una requisición en estado Rechazada y reenviarla a estado Pendiente, conservando su número y asentando el rechazo anterior en historialRechazos.",
+        "summary": "Editar una requisición pendiente, o corregir y reenviar una rechazada (Roles: Capataz dueño, Admin)",
+        "description": "Permite al Capataz dueño (o a un Admin) editar ítems, etapa y observaciones. Si está Rechazada vuelve a Pendiente y el rechazo anterior queda en historialRechazos; si está Pendiente se corrige sin cambiar de estado. Aprobada, Rechazada ya cancelada o Cancelada devuelven 409.",
         "parameters": [
           {
             "name": "id",
@@ -1197,6 +1197,129 @@
           }
         }
       }
+    },
+    "/api/requisiciones/{id}/cancelar": {
+      "post": {
+        "tags": [
+          "Requisiciones"
+        ],
+        "summary": "Cancelar una requisición pendiente antes de que Compras la apruebe (Roles: Capataz dueño, Admin)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identificador único (GUID) de la requisición a cancelar.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success (Requisición cancelada)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequisicionResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (No es el capataz dueño ni Admin)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found (Requisición inexistente)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (La requisición no está en estado Pendiente)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "description": "Pasa la requisición de Pendiente a Cancelada. No se puede cancelar una aprobada (ya está en Licitaciones) ni una rechazada o ya cancelada: devuelve 409."
+      }
     }
   },
   "components": {
@@ -1447,7 +1570,7 @@
           },
           "estado": {
             "type": "string",
-            "description": "Estado actual de la requisición (Pendiente, Aprobada, Rechazada)."
+            "description": "Estado actual de la requisición (Pendiente, Aprobada, Rechazada, Cancelada)."
           },
           "observaciones": {
             "type": "string",
