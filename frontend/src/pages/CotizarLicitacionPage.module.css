@@ -16,10 +16,6 @@
   text-decoration: none;
 }
 
-.volver:hover {
-  text-decoration: underline;
-}
-
 .formulario {
   display: flex;
   flex-direction: column;
@@ -175,7 +171,6 @@
 
 .enlaceVolver:hover {
   border-color: var(--azul);
-  text-decoration: underline;
 }
 
 .errorApi {

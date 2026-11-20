@@ -29,10 +29,6 @@
   text-decoration: none;
 }
 
-.volver:hover {
-  text-decoration: underline;
-}
-
 .titulo {
   margin: 0;
   font-size: 1.375rem;
