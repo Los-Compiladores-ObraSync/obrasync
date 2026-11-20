@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import type { RequestHandler } from 'msw'
 import { hoyComoTexto } from '../obras/fechaEnPalabras'
+import type { RecepcionHistorial } from '../recepciones/recepcionesTipos'
 
 // Token simulado con la estructura real de JWT (header.payload.firma).
 // La firma es falsa y los claims son de ejemplo: el frontend no decodifica el token,
@@ -245,32 +246,41 @@ export function reiniciarRequisicionesMock() {
 }
 
 // Órdenes de compra pendientes de recibir (pantalla de recepción del Capataz).
-// En memoria: al registrar una recepción total, la orden sale de la lista hasta recargar.
+// En memoria: mantiene saldos e historial mientras la demo está abierta.
 function crearOrdenesPendientesMock() {
   return [
     {
       ordenCompraId: 'e1e2e3e4-0000-0000-0000-000000000001',
       obraId: OBRA_MOCK_ID,
       items: [
-        { articuloId: MOCK_CATALOGO[0].articuloId, descripcionArticulo: MOCK_CATALOGO[0].descripcion, cantidadEsperada: 80, cantidadRecibida: 0, unidadMedida: MOCK_CATALOGO[0].unidadMedida },
-        { articuloId: MOCK_CATALOGO[1].articuloId, descripcionArticulo: MOCK_CATALOGO[1].descripcion, cantidadEsperada: 12, cantidadRecibida: 0, unidadMedida: MOCK_CATALOGO[1].unidadMedida },
+        { articuloId: MOCK_CATALOGO[0].articuloId, descripcionArticulo: MOCK_CATALOGO[0].descripcion, cantidadEsperada: 80, cantidadRecibida: 0, cantidadPendiente: 80, unidadMedida: MOCK_CATALOGO[0].unidadMedida },
+        { articuloId: MOCK_CATALOGO[1].articuloId, descripcionArticulo: MOCK_CATALOGO[1].descripcion, cantidadEsperada: 12, cantidadRecibida: 0, cantidadPendiente: 12, unidadMedida: MOCK_CATALOGO[1].unidadMedida },
       ],
     },
     {
       ordenCompraId: 'e1e2e3e4-0000-0000-0000-000000000002',
       obraId: OBRA_MOCK_ID,
       items: [
-        { articuloId: MOCK_CATALOGO[2].articuloId, descripcionArticulo: MOCK_CATALOGO[2].descripcion, cantidadEsperada: 40, cantidadRecibida: 0, unidadMedida: MOCK_CATALOGO[2].unidadMedida },
+        { articuloId: MOCK_CATALOGO[2].articuloId, descripcionArticulo: MOCK_CATALOGO[2].descripcion, cantidadEsperada: 40, cantidadRecibida: 0, cantidadPendiente: 40, unidadMedida: MOCK_CATALOGO[2].unidadMedida },
       ],
     },
   ]
 }
 
 let ordenesPendientesMock = crearOrdenesPendientesMock()
+let recepcionesMock: Record<string, RecepcionHistorial[]> = {}
+let ordenesCompletadasMock = new Set<string>()
 
 /** Solo para tests: vuelve las órdenes pendientes simuladas a su estado inicial. */
-export function reiniciarRecepcionesMock() {
+export function reiniciarRecepcionesMock(opciones: { cantidadCementoInicial?: number } = {}) {
   ordenesPendientesMock = crearOrdenesPendientesMock()
+  if (opciones.cantidadCementoInicial !== undefined) {
+    const cemento = ordenesPendientesMock[0].items[0]
+    cemento.cantidadEsperada = opciones.cantidadCementoInicial
+    cemento.cantidadPendiente = opciones.cantidadCementoInicial
+  }
+  recepcionesMock = {}
+  ordenesCompletadasMock = new Set()
 }
 
 // Órdenes de compra simuladas para la pantalla de despacho de Compras (#205).
@@ -1186,6 +1196,15 @@ export const handlers: RequestHandler[] = [
     return responderPaginado(request, lista)
   }),
 
+  http.get('*/api/recepciones', ({ request }) => {
+    const url = new URL(request.url)
+    const ordenCompraId = url.searchParams.get('ordenCompraId')
+    const lista = ordenCompraId
+      ? recepcionesMock[ordenCompraId] ?? []
+      : Object.values(recepcionesMock).flat()
+    return responderPaginado(request, lista)
+  }),
+
   // Contrato: POST /api/asistente/remito/leer (multipart, campo "imagen") → 200 LecturaRemitoDto | 400 | 429 | 503
   // Lectura SIMULADA: no hay modelo de IA. Devuelve siempre el mismo remito de ayer; los casos de "no se pudo leer",
   // 429 y 503 se configuran en los tests con server.use().
@@ -1202,8 +1221,7 @@ export const handlers: RequestHandler[] = [
   }),
 
   // Contrato: POST /api/recepciones → 201 RecepcionDto | 400 | 409 ProblemDetails
-  // Solo acepta recepciones TOTALES (como el backend en este sprint). Errores de red, 403 y 409
-  // se configuran en los tests con server.use().
+  // Simula recepciones parciales y totales con saldo acumulado e historial.
   http.post('*/api/recepciones', async ({ request }) => {
     const body = (await request.json()) as {
       obraId?: string
@@ -1211,7 +1229,13 @@ export const handlers: RequestHandler[] = [
       numeroRemito?: string
       fechaRecepcion?: string
       observaciones?: string | null
-      detalles?: { articuloId: string; cantidadEsperada: number; cantidadRecibida: number }[]
+      detalles?: { articuloId: string; descripcionArticulo: string; cantidadEsperada: number; cantidadRecibida: number; unidadMedida: string; conforme: boolean }[]
+    }
+    if (body.ordenCompraId && ordenesCompletadasMock.has(body.ordenCompraId)) {
+      return HttpResponse.json(
+        { title: 'Conflicto', status: 409, detail: 'La orden de compra ya fue recibida por completo.' },
+        { status: 409 },
+      )
     }
     const orden = ordenesPendientesMock.find((o) => o.ordenCompraId === body.ordenCompraId)
     if (!orden) {
@@ -1226,27 +1250,51 @@ export const handlers: RequestHandler[] = [
         { status: 400 },
       )
     }
-    if (body.detalles.some((d) => d.cantidadRecibida !== d.cantidadEsperada)) {
+    if ((recepcionesMock[orden.ordenCompraId] ?? []).some((r) => r.numeroRemito === body.numeroRemito?.trim())) return HttpResponse.json({ title: 'Conflicto', status: 409, detail: 'El número de remito ya se usó en esta orden.' }, { status: 409 })
+    if (body.detalles.some((d) => !Number.isFinite(d.cantidadRecibida) || d.cantidadRecibida < 0)) {
       return HttpResponse.json(
-        { title: 'Entrega parcial', status: 400, detail: 'La recepción parcial todavía no está disponible.' },
+        { title: 'Cantidad inválida', status: 400, detail: 'La cantidad recibida no puede ser negativa.' },
         { status: 400 },
       )
     }
-
-    ordenesPendientesMock = ordenesPendientesMock.filter((o) => o.ordenCompraId !== orden.ordenCompraId)
-    return HttpResponse.json(
-      {
-        id: 'f1f2f3f4-0000-0000-0000-000000000001',
-        obraId: orden.obraId,
-        ordenCompraId: orden.ordenCompraId,
+    if (!body.detalles.some((d) => d.cantidadRecibida > 0)) return HttpResponse.json({ title: 'Cantidad inválida', status: 400, detail: 'Al menos un artículo debe tener cantidad recibida mayor que cero.' }, { status: 400 })
+    const articulosEnviados = new Set(body.detalles.map((detalle) => detalle.articuloId))
+    if (articulosEnviados.size !== body.detalles.length || articulosEnviados.size !== orden.items.length || orden.items.some((item) => !articulosEnviados.has(item.articuloId))) {
+      return HttpResponse.json({ title: 'Datos inválidos', status: 400, detail: 'La recepción debe incluir todos los artículos de la orden, una sola vez cada uno.' }, { status: 400 })
+    }
+    const detalleValidado = body.detalles.map((detalle) => {
+      const item = orden.items.find((i) => i.articuloId === detalle.articuloId)
+      return { detalle, item }
+    })
+    if (detalleValidado.some(({ detalle, item }) => !item || detalle.cantidadEsperada !== item.cantidadEsperada || detalle.cantidadRecibida > item.cantidadPendiente)) return HttpResponse.json({ title: 'Cantidad inválida', status: 400, detail: 'La cantidad recibida supera el saldo pendiente o el detalle no coincide con la orden.' }, { status: 400 })
+    const cantidadesPorArticulo = new Map(body.detalles.map((detalle) => [detalle.articuloId, detalle.cantidadRecibida]))
+    const completos = orden.items.every((item) => item.cantidadRecibida + (cantidadesPorArticulo.get(item.articuloId) ?? 0) >= item.cantidadEsperada)
+    const idRecepcion = crypto.randomUUID()
+    const creada: RecepcionHistorial = {
+        id: idRecepcion, obraId: orden.obraId, ordenCompraId: orden.ordenCompraId,
         recepcionadoPorUsuarioId: 'a1b2c3d4-0000-0000-0000-000000000001',
-        numeroRemito: body.numeroRemito.trim(),
-        fechaRecepcion: body.fechaRecepcion,
-        estado: 3,
-        observaciones: body.observaciones ?? null,
-        createdAt: new Date().toISOString(),
-        updatedAt: null,
-      },
+        numeroRemito: body.numeroRemito.trim(), fechaRecepcion: body.fechaRecepcion,
+        estado: completos ? 3 : 2, observaciones: body.observaciones ?? null,
+        createdAt: new Date().toISOString(), updatedAt: null,
+        detalles: body.detalles.map((detalle) => ({
+          ...detalle,
+          id: crypto.randomUUID(),
+          recepcionId: idRecepcion,
+          createdAt: new Date().toISOString(),
+          updatedAt: null,
+        })),
+      }
+    recepcionesMock[orden.ordenCompraId] = [...(recepcionesMock[orden.ordenCompraId] ?? []), creada]
+    orden.items = orden.items.map((item) => {
+      const cantidadRecibida = cantidadesPorArticulo.get(item.articuloId) ?? 0
+      return { ...item, cantidadRecibida: item.cantidadRecibida + cantidadRecibida, cantidadPendiente: item.cantidadPendiente - cantidadRecibida }
+    })
+    if (completos) {
+      ordenesCompletadasMock.add(orden.ordenCompraId)
+      ordenesPendientesMock = ordenesPendientesMock.filter((o) => o.ordenCompraId !== orden.ordenCompraId)
+    }
+    return HttpResponse.json(
+      creada,
       { status: 201 },
     )
   }),
