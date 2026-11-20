@@ -4,8 +4,8 @@ import { ApiError } from '../api/ApiError'
 import { esFechaFutura, esFechaPasada, fechaEnPalabras, hoyComoTexto } from '../obras/fechaEnPalabras'
 import { fechaAIso } from '../obras/validacionObra'
 import { ErrorDeImagen, reducirImagen } from '../recepciones/imagenRemito'
-import { leerRemitoDeFoto, obtenerOrdenesPendientes, registrarRecepcion } from '../recepciones/recepcionesService'
-import type { OrdenPendiente, RecepcionRegistrada } from '../recepciones/recepcionesTipos'
+import { leerRemitoDeFoto, obtenerHistorialRecepciones, obtenerOrdenesPendientes, registrarRecepcion } from '../recepciones/recepcionesService'
+import type { ItemOrdenPendiente, OrdenPendiente, RecepcionHistorial, RecepcionRegistrada } from '../recepciones/recepcionesTipos'
 import {
   hayErrores,
   LARGO_MAXIMO_OBSERVACIONES,
@@ -16,9 +16,6 @@ import {
 import { obtenerObras } from '../requisiciones/requisicionesService'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './RecepcionPage.module.css'
-
-// Cuántos materiales se ven en cada tarjeta de la lista (el resto se resume en "y N más").
-const ITEMS_VISIBLES_EN_TARJETA = 3
 
 function mensajeDeErrorApi(err: unknown): string {
   if (err instanceof ApiError) {
@@ -31,6 +28,18 @@ function mensajeDeErrorApi(err: unknown): string {
     }
   }
   return 'No se pudo conectar con el servidor. Intentá nuevamente.'
+}
+
+/** Muestra el día escrito en el date-time, sin convertirlo a la zona local y cambiar el día. */
+function fechaDeHistorial(fechaRecepcion?: string | null): string {
+  if (!fechaRecepcion || !Number.isFinite(Date.parse(fechaRecepcion))) return 'Fecha no disponible'
+  const diaISO = /^(\d{4}-\d{2}-\d{2})T/.exec(fechaRecepcion)?.[1]
+  if (!diaISO) return 'Fecha no disponible'
+  return fechaEnPalabras(diaISO) || 'Fecha no disponible'
+}
+
+function saldoPendiente(item: ItemOrdenPendiente): number {
+  return item.cantidadPendiente ?? Math.max(item.cantidadEsperada - item.cantidadRecibida, 0)
 }
 
 /** Estado de la lectura del remito por foto (#209). */
@@ -51,9 +60,7 @@ function mensajeDeErrorFoto(err: unknown): string {
   return 'No se pudo leer el remito. Cargalo a mano.'
 }
 
-/** Recibir mercadería en obra (#82): el Capataz elige la orden de compra que llegó y carga el
- *  remito. Por ahora solo se registra la recepción TOTAL: el contrato rechaza las entregas
- *  parciales hasta el Sprint 3 (#90), así que las cantidades se muestran y no se editan. */
+/** Recibir mercadería en obra: permite registrar entregas parciales y consultar su historial. */
 export function RecepcionPage() {
   const [ordenes, setOrdenes] = useState<OrdenPendiente[]>([])
   const [nombresObras, setNombresObras] = useState<Record<string, string>>({})
@@ -67,6 +74,11 @@ export function RecepcionPage() {
   const [numeroRemito, setNumeroRemito] = useState('')
   const [fecha, setFecha] = useState(hoyComoTexto)
   const [observaciones, setObservaciones] = useState('')
+  const [cantidades, setCantidades] = useState<Record<string, string>>({})
+  const [erroresCantidad, setErroresCantidad] = useState<Record<string, string | undefined>>({})
+  const [historial, setHistorial] = useState<RecepcionHistorial[]>([])
+  const [cargandoHistorial, setCargandoHistorial] = useState(false)
+  const [errorHistorial, setErrorHistorial] = useState(false)
   const [errores, setErrores] = useState<ErroresRecepcion>({})
   const [errorApi, setErrorApi] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
@@ -74,6 +86,19 @@ export function RecepcionPage() {
   // cambia en el próximo render y un segundo toque podría colarse antes.
   const enviandoRef = useRef(false)
   const [registrada, setRegistrada] = useState<RecepcionRegistrada | null>(null)
+
+  useEffect(() => {
+    if (!elegida) return
+    let cancelado = false
+    obtenerHistorialRecepciones(elegida.ordenCompraId).then((lista) => {
+      if (!cancelado) setHistorial(lista)
+    }).catch(() => {
+      if (!cancelado) setErrorHistorial(true)
+    }).finally(() => {
+      if (!cancelado) setCargandoHistorial(false)
+    })
+    return () => { cancelado = true }
+  }, [elegida])
 
   // Foto del remito (#209): opcional. Lee el número y la fecha y los carga como SUGERENCIA editable.
   const [foto, setFoto] = useState<EstadoFoto>({ tipo: 'inactivo' })
@@ -166,6 +191,11 @@ export function RecepcionPage() {
     setNumeroRemito('')
     setFecha(hoyComoTexto())
     setObservaciones('')
+    setCantidades(Object.fromEntries(orden.items.map((item) => [item.articuloId, String(saldoPendiente(item))])))
+    setErroresCantidad({})
+    setHistorial([])
+    setCargandoHistorial(true)
+    setErrorHistorial(false)
     setErrores({})
     setErrorApi(null)
   }
@@ -187,10 +217,23 @@ export function RecepcionPage() {
 
     // 1. Validación local: no llama a la API si hay errores de campo.
     const erroresForm = validarRecepcion({ numeroRemito, fecha, observaciones })
+    const nuevosErrores: Record<string, string | undefined> = {}
+    elegida.items.forEach((item) => {
+      const texto = cantidades[item.articuloId] ?? ''
+      const valor = Number(texto)
+      if (texto.trim() === '' || !Number.isFinite(valor)) nuevosErrores[item.articuloId] = 'Ingresá una cantidad válida.'
+      else if (valor < 0) nuevosErrores[item.articuloId] = 'La cantidad no puede ser negativa.'
+      else if (valor > saldoPendiente(item)) nuevosErrores[item.articuloId] = `No puede superar el saldo de ${saldoPendiente(item)}.`
+    })
+    if (elegida.items.every((item) => Number(cantidades[item.articuloId] ?? 0) === 0)) {
+      nuevosErrores.general = 'Ingresá una cantidad mayor que cero en al menos un artículo.'
+    }
+    setErroresCantidad(nuevosErrores)
     if (hayErrores(erroresForm)) {
       setErrores(erroresForm)
       return
     }
+    if (Object.keys(nuevosErrores).length) return
     setErrores({})
     setErrorApi(null)
     enviandoRef.current = true
@@ -203,12 +246,12 @@ export function RecepcionPage() {
         numeroRemito: numeroRemito.trim(),
         fechaRecepcion: fechaAIso(fecha),
         observaciones: observaciones.trim() || null,
-        // Recepción total: llegó lo comprado y está conforme (el contrato rechaza lo demás).
+        // Se envían todos los ítems y la cantidadEsperada original según el contrato.
         detalles: elegida.items.map((item) => ({
           articuloId: item.articuloId,
           descripcionArticulo: item.descripcionArticulo,
           cantidadEsperada: item.cantidadEsperada,
-          cantidadRecibida: item.cantidadEsperada,
+          cantidadRecibida: Number(cantidades[item.articuloId] ?? 0),
           unidadMedida: item.unidadMedida,
           conforme: true,
         })),
@@ -229,6 +272,13 @@ export function RecepcionPage() {
         <div className={styles.confirmacion} role="status">
           <h1 className={styles.tituloExito}>Recepción registrada</h1>
           <p className={styles.dato}>
+            {registrada.estado === 3
+              ? 'La orden quedó recibida por completo.'
+              : registrada.estado === 2
+                ? 'Recepción parcial: todavía queda mercadería pendiente.'
+                : 'Se registró la recepción.'}
+          </p>
+          <p className={styles.dato}>
             <strong>Remito:</strong> {registrada.numeroRemito}
           </p>
           <p className={styles.dato}>
@@ -237,7 +287,7 @@ export function RecepcionPage() {
           <ul className={styles.items}>
             {elegida.items.map((item) => (
               <li key={item.articuloId}>
-                {cantidadConUnidad(item.cantidadEsperada, item.unidadMedida)} ·{' '}
+                {cantidadConUnidad(Number(cantidades[item.articuloId] ?? 0), item.unidadMedida)} ·{' '}
                 {item.descripcionArticulo}
               </li>
             ))}
@@ -273,15 +323,29 @@ export function RecepcionPage() {
         <p className={styles.obra}>Obra: {nombreDeObra(elegida.obraId)}</p>
 
         <section className={styles.tarjeta} aria-label="Materiales de la orden">
-          <p className={styles.subtitulo}>Tiene que haber llegado:</p>
+          <p className={styles.subtitulo}>Materiales y saldo pendiente:</p>
           <ul className={styles.items}>
             {elegida.items.map((item) => (
               <li key={item.articuloId}>
-                {cantidadConUnidad(item.cantidadEsperada, item.unidadMedida)} ·{' '}
-                {item.descripcionArticulo}
+                {item.descripcionArticulo}: Pedido {cantidadConUnidad(item.cantidadEsperada, item.unidadMedida)} ·
+                Recibido {cantidadConUnidad(item.cantidadRecibida, item.unidadMedida)} ·
+                Pendiente {cantidadConUnidad(saldoPendiente(item), item.unidadMedida)}
               </li>
             ))}
           </ul>
+        </section>
+
+        <section className={styles.tarjeta} aria-label="Historial de recepciones">
+          <p className={styles.subtitulo}>Entregas anteriores</p>
+          {cargandoHistorial && <p role="status">Cargando historial…</p>}
+          {errorHistorial && <p role="alert">No se pudo cargar el historial. Podés reintentar eligiendo la orden nuevamente.</p>}
+          {!cargandoHistorial && !errorHistorial && historial.length === 0 && <p className={styles.dato}>Todavía no hay entregas registradas.</p>}
+          {historial.map((recepcion) => (
+            <div key={recepcion.id} className={styles.historialItem}>
+              <strong>Remito {recepcion.numeroRemito ?? 'sin número'}</strong> · {fechaDeHistorial(recepcion.fechaRecepcion)} · {recepcion.estado === 2 ? 'Parcial' : recepcion.estado === 3 ? 'Completa' : recepcion.estado === undefined ? 'Estado no disponible' : 'Estado ' + recepcion.estado}
+              {(recepcion.detalles ?? []).length > 0 && <ul className={styles.items}>{recepcion.detalles?.map((detalle, indice) => <li key={detalle.id ?? detalle.articuloId ?? indice}>{detalle.descripcionArticulo ?? 'Artículo'}: {cantidadConUnidad(detalle.cantidadRecibida ?? 0, detalle.unidadMedida ?? '')}</li>)}</ul>}
+            </div>
+          ))}
         </section>
 
         <form
@@ -295,6 +359,15 @@ export function RecepcionPage() {
               {errorApi}
             </p>
           )}
+          {erroresCantidad.general && <p className={styles.errorApi} role="alert">{erroresCantidad.general}</p>}
+          {elegida.items.map((item) => (
+            <div className={styles.grupo} key={item.articuloId}>
+              <label htmlFor={`cantidad-${item.articuloId}`} className={styles.label}>{item.descripcionArticulo} · {item.unidadMedida} — recibido en esta entrega</label>
+              <p className={styles.ayuda}>Pedido: {item.cantidadEsperada} · Ya recibidas: {item.cantidadRecibida} · Saldo: {saldoPendiente(item)}</p>
+              <input id={`cantidad-${item.articuloId}`} className={`${styles.input}${erroresCantidad[item.articuloId] ? ` ${styles.inputInvalido}` : ''}`} type="number" min="0" max={saldoPendiente(item)} step="any" inputMode="decimal" value={cantidades[item.articuloId] ?? ''} onChange={(e) => { setCantidades((prev) => ({ ...prev, [item.articuloId]: e.target.value })); setErroresCantidad((prev) => ({ ...prev, [item.articuloId]: undefined, general: undefined })) }} aria-invalid={!!erroresCantidad[item.articuloId]} aria-describedby={erroresCantidad[item.articuloId] ? `cantidad-error-${item.articuloId}` : undefined} />
+              {erroresCantidad[item.articuloId] && <p id={`cantidad-error-${item.articuloId}`} className={styles.errorCampo} role="alert">{erroresCantidad[item.articuloId]}</p>}
+            </div>
+          ))}
 
           {/* Foto del remito (#209): opcional. Carga el número y la fecha como sugerencia; la persona los revisa. */}
           <div className={styles.fotoRemito}>
@@ -413,11 +486,8 @@ export function RecepcionPage() {
             disabled={enviando || foto.tipo === 'leyendo'}
             aria-busy={enviando}
           >
-            {enviando ? 'Guardando…' : 'Llegó todo: confirmar recepción'}
+            {enviando ? 'Guardando…' : 'Confirmar recepción'}
           </button>
-          <p className={styles.nota}>
-            ¿No llegó todo? Todavía no se puede registrar una entrega parcial: avisale a Compras.
-          </p>
         </form>
       </section>
     )
@@ -457,21 +527,23 @@ export function RecepcionPage() {
       {!cargando && !errorCarga && ordenes.length > 0 && (
         <ul className={styles.lista}>
           {ordenes.map((orden) => {
-            const visibles = orden.items.slice(0, ITEMS_VISIBLES_EN_TARJETA)
-            const restantes = orden.items.length - visibles.length
+            const tieneRecepciones = orden.items.some((item) => item.cantidadRecibida > 0)
             return (
               <li key={orden.ordenCompraId}>
                 <button type="button" className={styles.orden} onClick={() => elegirOrden(orden)}>
                   <span className={styles.ordenObra}>{nombreDeObra(orden.obraId)}</span>
-                  {visibles.map((item) => (
+                  {orden.etapa && <span className={styles.ordenItem}>Etapa: {orden.etapa}</span>}
+                  {tieneRecepciones && <span className={styles.ordenItem}>Recepción parcial: quedan materiales pendientes</span>}
+                  {orden.items.map((item) => {
+                    const recibida = item.cantidadRecibida ?? 0
+                    const pendiente = saldoPendiente(item)
+                    return (
                     <span key={item.articuloId} className={styles.ordenItem}>
-                      {cantidadConUnidad(item.cantidadEsperada, item.unidadMedida)} ·{' '}
-                      {item.descripcionArticulo}
+                      {item.descripcionArticulo}: Pedido {cantidadConUnidad(item.cantidadEsperada, item.unidadMedida)} ·
+                      Recibido {cantidadConUnidad(recibida, item.unidadMedida)} ·
+                      Pendiente {cantidadConUnidad(pendiente, item.unidadMedida)}
                     </span>
-                  ))}
-                  {restantes > 0 && (
-                    <span className={styles.ordenItem}>y {restantes} más</span>
-                  )}
+                  )})}
                 </button>
               </li>
             )

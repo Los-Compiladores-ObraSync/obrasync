@@ -8,8 +8,9 @@ export interface ItemOrdenPendiente {
   articuloId: string
   descripcionArticulo: string
   cantidadEsperada: number
-  /** Lo ya recibido en total (hoy siempre 0: no hay recepciones parciales hasta el Sprint 3). */
   cantidadRecibida: number
+  /** OpenAPI la expone como propiedad opcional; el frontend puede derivarla del total y acumulado. */
+  cantidadPendiente?: number
   unidadMedida: string
 }
 
@@ -55,11 +56,34 @@ export interface LecturaRemito {
 
 /** Lo que devuelve POST /api/recepciones (RecepcionDto, solo lo que usa la pantalla). */
 export interface RecepcionRegistrada {
-  id: string
-  obraId: string
-  ordenCompraId: string
-  numeroRemito: string
-  fechaRecepcion: string
+  id?: string
+  obraId?: string
+  ordenCompraId?: string
+  numeroRemito?: string
+  fechaRecepcion?: string | null
+  recepcionadoPorUsuarioId?: string
   /** 1 = Pendiente, 2 = Parcial, 3 = Completa, 4 = Rechazada. */
-  estado: number
+  estado?: number
+  detalles?: DetalleRecepcion[]
+  observaciones?: string | null
+  createdAt?: string
+  updatedAt?: string | null
+}
+
+export interface DetalleRecepcion {
+  id?: string
+  recepcionId?: string
+  articuloId?: string
+  descripcionArticulo?: string
+  cantidadEsperada?: number
+  cantidadRecibida?: number
+  unidadMedida?: string
+  conforme?: boolean
+  observacion?: string | null
+  createdAt?: string
+  updatedAt?: string | null
+}
+
+export interface RecepcionHistorial extends RecepcionRegistrada {
+  detalles?: DetalleRecepcion[]
 }

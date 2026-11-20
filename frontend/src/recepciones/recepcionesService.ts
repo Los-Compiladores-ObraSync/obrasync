@@ -1,6 +1,6 @@
 import { apiFetch, apiFetchPagina, TIEMPO_LIMITE_ASISTENTE_MS } from '../api/client'
 import { conPaginacion, traerTodas } from '../api/paginacion'
-import type { CrearRecepcionRequest, LecturaRemito, OrdenPendiente, RecepcionRegistrada } from './recepcionesTipos'
+import type { CrearRecepcionRequest, LecturaRemito, OrdenPendiente, RecepcionHistorial, RecepcionRegistrada } from './recepcionesTipos'
 
 /**
  * Órdenes de compra que todavía no se recibieron por completo.
@@ -14,10 +14,10 @@ export function obtenerOrdenesPendientes(): Promise<OrdenPendiente[]> {
 }
 
 /**
- * Registra una recepción TOTAL contra una orden de compra, con su remito.
+ * Registra una recepción total o parcial contra una orden de compra, con su remito.
  * Fuente: POST /api/recepciones (solo Capataz y Admin).
  *
- * Errores: 400 si los datos no sirven o si la entrega es parcial (todavía no está disponible);
+ * Errores: 400 si los datos no sirven o se excede el saldo;
  * 409 si la orden ya se recibió por completo o el número de remito ya se usó en esa orden.
  */
 export function registrarRecepcion(datos: CrearRecepcionRequest): Promise<RecepcionRegistrada> {
@@ -25,6 +25,13 @@ export function registrarRecepcion(datos: CrearRecepcionRequest): Promise<Recepc
     method: 'POST',
     body: JSON.stringify(datos),
   })
+}
+
+/** Historial completo de recepciones de una orden, respetando la paginación del API. */
+export function obtenerHistorialRecepciones(ordenCompraId: string): Promise<RecepcionHistorial[]> {
+  return traerTodas((pagina) =>
+    apiFetchPagina<RecepcionHistorial>(conPaginacion(`/api/recepciones?ordenCompraId=${encodeURIComponent(ordenCompraId)}`, pagina)),
+  )
 }
 
 /**

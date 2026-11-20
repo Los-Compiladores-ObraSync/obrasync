@@ -76,6 +76,12 @@
   color: var(--texto-suave);
 }
 
+.historialItem {
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--borde);
+  font-size: 1rem;
+}
+
 .tarjeta {
   margin-bottom: 1rem;
   padding: 1.25rem;
