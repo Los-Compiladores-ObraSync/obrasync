@@ -40,9 +40,17 @@ public static class DependencyInjection
         {
             services.AddScoped<IObraAsignacionValidator, HttpObraAsignacionValidator>();
         }
+        else if (configuration.GetValue<bool>("RabbitMQ:UseInMemory"))
+        {
+            // Solo en pruebas aisladas (broker en memoria): ahí no hay servicio de Usuarios para consultar
+            services.AddScoped<IObraAsignacionValidator, ValidadorObraAsignacionDeshabilitado>();
+        }
         else
         {
-            services.AddScoped<IObraAsignacionValidator, ValidadorObraAsignacionDeshabilitado>();
+            // Fallar cerrado: sin esta URL el control de obra asignada quedaría apagado y cualquier capataz vería todas las obras
+            throw new InvalidOperationException(
+                "Falta la configuración UsuariosObras:BaseUrl (variable UsuariosObras__BaseUrl). " +
+                "Sin ella no se puede verificar la obra asignada al capataz.");
         }
 
         services.AddApplicationServices();

@@ -120,8 +120,12 @@ builder.Services.AddMassTransit(x =>
 });
 
 // Solo VALIDAMOS el token, no lo emitimos (eso lo hace Usuarios)
-var secret = builder.Configuration["Jwt:Secret"]
-    ?? throw new InvalidOperationException("Falta la variable de entorno Jwt__Secret");
+var secret = builder.Configuration["Jwt:Secret"];
+if (string.IsNullOrWhiteSpace(secret))
+{
+    throw new InvalidOperationException(
+        "El secreto JWT ('Jwt:Secret') no está configurado. Debe definirse con la variable de entorno Jwt__Secret.");
+}
 
 // Emisor y audiencia esperados en el token (#136). Los emite Usuarios (JwtProvider); los 4 servicios los validan.
 // Se pueden cambiar con las variables Jwt__Issuer y Jwt__Audience (tienen que ser iguales en todos los servicios).
