@@ -96,12 +96,13 @@ export function ListaLicitaciones({ tituloTarjeta = 'h2' }: Props) {
                   ) : (
                     <Link
                       to={`/proveedores/licitaciones/${lic.licitacionId}`}
-                      className={styles.boton}
+                      // "accion-grande" es el botón naranja de toda la app para los enlaces que se ven
+                      // como botón (fondo, texto blanco, relieve y efecto al tocar).
+                      className="accion-grande"
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
+                        flex: 1,
+                        minHeight: 64, // igual de alto que el recuadro "Ya cotizada"
                         justifyContent: 'center',
-                        textDecoration: 'none',
                       }}
                     >
                       Cotizar

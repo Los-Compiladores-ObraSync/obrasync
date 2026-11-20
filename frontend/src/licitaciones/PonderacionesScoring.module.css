@@ -18,7 +18,9 @@
 
 .campos {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* Tantas columnas como entren (mínimo 230px cada una): en el celular quedan una abajo de otra.
+     minmax(0, 1fr) evita que el contenido estire la columna. */
+  grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
   gap: 0.75rem;
 }
 
@@ -26,16 +28,40 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.etiqueta {
   font-weight: 600;
 }
 
-  .campo input {
-    min-height: 48px;
-    font-size: 1.0625rem;
-    padding: 0 0.75rem;
-    border: 2px solid var(--borde);
-    border-radius: 8px;
-  }
+.estrellas {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.estrella {
+  min-width: 0;
+  padding: 0;
+  flex: 0 0 auto;
+  width: 44px;
+  min-height: 48px; /* área de toque cómoda */
+  font-size: 1.875rem;
+  line-height: 1;
+  background: transparent;
+  color: #cbd5e1; /* estrella vacía */
+  border: 0;
+  box-shadow: none;
+}
+
+/* Estrellas hasta la elegida: si elegís 4, se pintan la 1, 2, 3 y 4. */
+.llena {
+  color: #f59e0b;
+}
+
+.estrella:focus-visible {
+  outline: 3px solid var(--azul);
+  outline-offset: 2px;
+}
 
 .acciones {
   display: flex;

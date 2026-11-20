@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import type { CotizacionResponseDto } from './licitacionesTipos'
 import {
   calcularPrecioTotalCotizacion,
   calcularTotalConFlete,
   desglosarCotizacion,
+  estrellasDePuntaje,
   formatoPrecio,
   marcasDeComparacion,
+  ordenarPorCalificacion,
 } from './cotizacionesCalculos'
 
 describe('cotizacionesCalculos', () => {
@@ -170,5 +173,78 @@ describe('cotizacionesCalculos', () => {
 
       expect(marcas.get('c-4')).toEqual(['Más barata', 'Flete más bajo', 'Entrega más rápida'])
     })
+  })
+})
+
+describe('ordenarPorCalificacion', () => {
+  function oferta(
+    id: string,
+    puntajeTotal: number,
+    extra: Partial<CotizacionResponseDto> = {},
+  ): CotizacionResponseDto {
+    return {
+      cotizacionId: id,
+      licitacionId: 'lic-1',
+      proveedorId: `prov-${id}`,
+      flete: 0,
+      plazoEntregaDias: 5,
+      fechaCreacion: '2026-11-01T10:00:00Z',
+      items: [],
+      puntajeTotal,
+      esGanadora: false,
+      ...extra,
+    } as CotizacionResponseDto
+  }
+
+  it('deja arriba la de mayor calificación', () => {
+    const lista = [oferta('a', 40), oferta('b', 90), oferta('c', 65)]
+
+    expect(ordenarPorCalificacion(lista).map((o) => o.cotizacionId)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('con la misma calificación gana la que entrega más rápido, y después la que se cotizó antes', () => {
+    const lista = [
+      oferta('lenta', 80, { plazoEntregaDias: 10 }),
+      oferta('tarde', 80, { plazoEntregaDias: 3, fechaCreacion: '2026-11-05T10:00:00Z' }),
+      oferta('temprano', 80, { plazoEntregaDias: 3, fechaCreacion: '2026-11-02T10:00:00Z' }),
+    ]
+
+    expect(ordenarPorCalificacion(lista).map((o) => o.cotizacionId)).toEqual([
+      'temprano',
+      'tarde',
+      'lenta',
+    ])
+  })
+
+  it('la oferta destacada va siempre primera', () => {
+    const lista = [oferta('a', 70), oferta('b', 70, { esGanadora: true })]
+
+    expect(ordenarPorCalificacion(lista)[0].cotizacionId).toBe('b')
+  })
+
+  it('no modifica la lista original', () => {
+    const lista = [oferta('a', 10), oferta('b', 20)]
+
+    ordenarPorCalificacion(lista)
+
+    expect(lista.map((o) => o.cotizacionId)).toEqual(['a', 'b'])
+  })
+})
+
+describe('estrellasDePuntaje', () => {
+  it('cada estrella son 20 puntos, redondeando', () => {
+    expect(estrellasDePuntaje(100)).toBe(5)
+    expect(estrellasDePuntaje(97.5)).toBe(5)
+    expect(estrellasDePuntaje(70)).toBe(4) // 3,5 redondea hacia arriba
+    expect(estrellasDePuntaje(50)).toBe(3)
+    expect(estrellasDePuntaje(29)).toBe(1)
+    expect(estrellasDePuntaje(9)).toBe(0)
+    expect(estrellasDePuntaje(0)).toBe(0)
+  })
+
+  it('nunca se sale de 0 a 5', () => {
+    expect(estrellasDePuntaje(130)).toBe(5)
+    expect(estrellasDePuntaje(-20)).toBe(0)
+    expect(estrellasDePuntaje(Number.NaN)).toBe(0)
   })
 })

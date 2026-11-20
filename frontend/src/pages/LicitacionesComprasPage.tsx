@@ -5,8 +5,10 @@ import {
   calcularPrecioTotalCotizacion,
   calcularTotalConFlete,
   desglosarCotizacion,
+  estrellasDePuntaje,
   formatoPrecio,
   marcasDeComparacion,
+  ordenarPorCalificacion,
 } from '../licitaciones/cotizacionesCalculos'
 import {
   adjudicarLicitacion,
@@ -29,6 +31,14 @@ const CRITERIOS = [
   { clave: 'plazo', etiqueta: 'Plazo de entrega' },
   { clave: 'calificacion', etiqueta: 'Calificación del proveedor' },
 ] as const
+
+/** Qué puntaje del desglose del servicio corresponde a cada criterio. */
+const CLAVES_DESGLOSE = {
+  precio: 'puntajePrecio',
+  flete: 'puntajeFlete',
+  plazo: 'puntajePlazo',
+  calificacion: 'puntajeCalificacion',
+} as const
 
 /** 12,5 / 8 / 92,25: hasta dos decimales, con coma. */
 function formatoNumero(valor: number): string {
@@ -241,6 +251,9 @@ export function LicitacionesComprasPage() {
     ? marcasDeComparacion(cotizaciones, licitacionSeleccionada)
     : new Map<string, string[]>()
 
+  // La mejor oferta arriba: con otros pesos cambia el orden. El servicio las manda por fecha.
+  const cotizacionesOrdenadas = ordenarPorCalificacion(cotizaciones)
+
   return (
     <section className={`${styles.contenedor} pantalla-ancha`}>
       <Link to="/compras" className={styles.volver}>
@@ -414,7 +427,7 @@ export function LicitacionesComprasPage() {
                 licitacionSeleccionada.numeroRequisicion ?? 'licitación'
               }`}
             >
-              {cotizaciones.map((cot) => {
+              {cotizacionesOrdenadas.map((cot) => {
                 // Si el servicio ya calculó los importes (contrato), se usan esos; si no, se calculan acá.
                 const precioTotal =
                   cot.subtotalItems ?? calcularPrecioTotalCotizacion(cot, licitacionSeleccionada)
@@ -471,12 +484,12 @@ export function LicitacionesComprasPage() {
                         <dt>Plazo de entrega</dt>
                         <dd>{cot.plazoEntregaDias ? `${cot.plazoEntregaDias} días` : 'Inmediato'}</dd>
                       </div>
-                      <div>
+                      <div className={styles.datoCalificacion}>
                         <dt>Calificación de la oferta</dt>
-                        <dd className={styles.puntaje}>{cot.puntajeTotal} de 100</dd>
+                        <dd className={styles.puntaje}>{formatoNumero(cot.puntajeTotal)} de 100</dd>
                       </div>
                       {cot.calificacionProveedor != null && (
-                        <div>
+                        <div className={styles.datoCalificacion}>
                           <dt>Calificación del proveedor</dt>
                           <dd>{formatoNumero(cot.calificacionProveedor)}</dd>
                         </div>
@@ -501,23 +514,51 @@ export function LicitacionesComprasPage() {
                         ))}
                       </ul>
                     </details>
-                      {cot.desglosePuntaje && (
+                      {cot.desgloseScoring ? (
                         <details className={styles.detalleItems}>
-                          <summary>Cómo se calculó la calificación</summary>
+                          <summary>Calificación por criterio</summary>
+                          <p className={styles.ayudaEstrellas}>
+                            Las estrellas comparan esta oferta con las demás en cada criterio.
+                          </p>
+                          <ul className={styles.listaDetalle}>
+                            {CRITERIOS.map(({ clave, etiqueta }) => {
+                              const estrellas = estrellasDePuntaje(cot.desgloseScoring![CLAVES_DESGLOSE[clave]])
+                              return (
+                                <li key={clave}>
+                                  <span>{etiqueta}</span>
+                                  <span className={styles.lineaEstrellas}>
+                                    <span
+                                      role="img"
+                                      aria-label={`${estrellas} de 5 estrellas`}
+                                      className={styles.estrellas}
+                                    >
+                                      {'★'.repeat(estrellas)}
+                                      <span className={styles.estrellaVacia}>
+                                        {'★'.repeat(5 - estrellas)}
+                                      </span>
+                                    </span>
+                                  </span>
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        </details>
+                      ) : (
+                        cot.desglosePuntaje && (
+                        <details className={styles.detalleItems}>
+                          <summary>Calificación por criterio</summary>
                           <ul className={styles.listaDetalle}>
                             {CRITERIOS.map(({ clave, etiqueta }) => (
                               <li key={clave}>
                                 <span>{etiqueta}</span>
                                 <span className={styles.lineaPrecio}>
                                   {formatoNumero(cot.desglosePuntaje![clave])} pts
-                                  {cot.ponderacionesScoring
-                                    ? ` · peso ${Math.round(cot.ponderacionesScoring[clave] * 100)} %`
-                                    : ''}
                                 </span>
                               </li>
                             ))}
                           </ul>
                         </details>
+                        )
                       )}
                     </div>
                     <p className={styles.fechaCotizacion}>

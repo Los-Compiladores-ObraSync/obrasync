@@ -59,6 +59,20 @@ export interface CotizacionResponseDto {
   desglosePuntaje?: CriteriosScoringDto | null
   /** Peso de cada criterio (0 a 1) con el que se calculó el puntaje. */
   ponderacionesScoring?: CriteriosScoringDto | null
+  /** Qué tan buena es la oferta en cada criterio (0 a 100, comparada con las demás) y el peso aplicado. */
+  desgloseScoring?: DesgloseScoringDto | null
+}
+
+/** Contrato: DesgloseScoringDto. Los puntajes van de 0 a 100 y no dependen del peso; los pesos van de 0 a 1. */
+export interface DesgloseScoringDto {
+  puntajePrecio: number
+  puntajePlazo: number
+  puntajeFlete: number
+  puntajeCalificacion: number
+  pesoPrecio: number
+  pesoPlazo: number
+  pesoFlete: number
+  pesoCalificacion: number
 }
 
 /** Los cuatro criterios del scoring multivariable (contrato: CriteriosScoringDto). */

@@ -8,6 +8,7 @@ import { server } from '../mocks/server'
 import { LicitacionesComprasPage } from './LicitacionesComprasPage'
 
 const LIC_ABIERTA_ID = 'b1b2c3d4-1111-0000-0000-000000000001'
+const CRITERIOS = ['Precio', 'Flete', 'Plazo de entrega', 'Calificación del proveedor']
 
 function renderPagina() {
   return render(
@@ -20,11 +21,23 @@ function renderPagina() {
 }
 
 async function esperarPanel() {
-  return screen.findByRole('region', { name: 'Importancia de cada criterio' })
+  return screen.findByRole('region', { name: '¿Qué buscas en una oferta?' })
 }
 
-function escribir(campo: HTMLElement, valor: string) {
-  return userEvent.clear(campo).then(() => (valor ? userEvent.type(campo, valor) : undefined))
+function grupo(panel: HTMLElement, criterio: string) {
+  return within(panel).getByRole('group', { name: criterio })
+}
+
+/** Cuántas estrellas tiene elegidas un criterio: la que está marcada (aria-pressed), o 0. */
+function estrellasElegidas(panel: HTMLElement, criterio: string): number {
+  const marcada = within(grupo(panel, criterio))
+    .getAllByRole('button')
+    .find((b) => b.getAttribute('aria-pressed') === 'true')
+  return marcada ? Number(marcada.getAttribute('aria-label')!.split(' ')[0]) : 0
+}
+
+async function elegir(panel: HTMLElement, criterio: string, estrellas: number) {
+  await userEvent.click(within(grupo(panel, criterio)).getByRole('button', { name: `${estrellas} de 5` }))
 }
 
 describe('LicitacionesComprasPage: ponderaciones del scoring (#156)', () => {
@@ -37,18 +50,15 @@ describe('LicitacionesComprasPage: ponderaciones del scoring (#156)', () => {
     server.events.removeAllListeners()
   })
 
-  it('muestra los pesos por defecto del servicio como porcentajes', async () => {
+  it('muestra los pesos por defecto del servicio como estrellas (5, 2, 2 y 1)', async () => {
     renderPagina()
     const panel = await esperarPanel()
 
-    expect(within(panel).getByLabelText('Precio (%)')).toHaveValue('50')
-    expect(within(panel).getByLabelText('Flete (%)')).toHaveValue('20')
-    expect(within(panel).getByLabelText('Plazo de entrega (%)')).toHaveValue('20')
-    expect(within(panel).getByLabelText('Calificación del proveedor (%)')).toHaveValue('10')
+    expect(CRITERIOS.map((c) => estrellasElegidas(panel, c))).toEqual([5, 2, 2, 1])
     expect(within(panel).queryByRole('button', { name: 'Valores por defecto' })).not.toBeInTheDocument()
   })
 
-  it('recalcula pidiendo al servicio los pesos elegidos y ofrece volver a los de por defecto', async () => {
+  it('recalcula pidiendo al servicio las estrellas elegidas y ofrece volver a los de por defecto', async () => {
     const user = userEvent.setup()
     const consultas: URLSearchParams[] = []
     server.events.on('request:start', ({ request }) => {
@@ -58,32 +68,42 @@ describe('LicitacionesComprasPage: ponderaciones del scoring (#156)', () => {
 
     renderPagina()
     const panel = await esperarPanel()
-    await escribir(within(panel).getByLabelText('Precio (%)'), '100')
-    await escribir(within(panel).getByLabelText('Flete (%)'), '0')
-    await escribir(within(panel).getByLabelText('Plazo de entrega (%)'), '0')
-    await escribir(within(panel).getByLabelText('Calificación del proveedor (%)'), '0')
+    // Flete, plazo y calificación en 0 (tocar la estrella elegida la apaga); precio queda en 5.
+    await elegir(panel, 'Flete', 2)
+    await elegir(panel, 'Plazo de entrega', 2)
+    await elegir(panel, 'Calificación del proveedor', 1)
     await user.click(within(panel).getByRole('button', { name: 'Recalcular' }))
 
-    await waitFor(() => expect(consultas.some((q) => q.get('pesoPrecio') === '100')).toBe(true))
-    const conPesos = consultas.find((q) => q.get('pesoPrecio') === '100')!
+    await waitFor(() => expect(consultas.some((q) => q.get('pesoPrecio') === '5')).toBe(true))
+    const conPesos = consultas.find((q) => q.get('pesoPrecio') === '5')!
     expect(conPesos.get('pesoFlete')).toBe('0')
     expect(conPesos.get('pesoPlazo')).toBe('0')
     expect(conPesos.get('pesoCalificacion')).toBe('0')
 
-    // El servicio normaliza: 100/0/0/0 vuelve como 1/0/0/0 y se muestra como 100 %.
+    // El servicio normaliza: 5/0/0/0 vuelve como 1/0/0/0 y se muestra como 5 estrellas en precio.
     const panelNuevo = await esperarPanel()
-    expect(within(panelNuevo).getByLabelText('Precio (%)')).toHaveValue('100')
+    expect(CRITERIOS.map((c) => estrellasElegidas(panelNuevo, c))).toEqual([5, 0, 0, 0])
 
     await user.click(within(panelNuevo).getByRole('button', { name: 'Valores por defecto' }))
     await waitFor(async () =>
-      expect(within(await esperarPanel()).getByLabelText('Precio (%)')).toHaveValue('50'),
+      expect(estrellasElegidas(await esperarPanel(), 'Flete')).toBe(2),
     )
     expect(
       within(await esperarPanel()).queryByRole('button', { name: 'Valores por defecto' }),
     ).not.toBeInTheDocument()
   })
 
-  it('no llama al servicio si todos los pesos son 0 y explica el motivo', async () => {
+  it('se pueden cambiar las estrellas de un criterio', async () => {
+    renderPagina()
+    const panel = await esperarPanel()
+
+    await elegir(panel, 'Flete', 4)
+    expect(estrellasElegidas(panel, 'Flete')).toBe(4)
+    await elegir(panel, 'Flete', 4)
+    expect(estrellasElegidas(panel, 'Flete')).toBe(0)
+  })
+
+  it('no llama al servicio si todos tienen 0 estrellas y explica el motivo', async () => {
     const user = userEvent.setup()
     let consultasConPesos = 0
     server.events.on('request:start', ({ request }) => {
@@ -92,36 +112,16 @@ describe('LicitacionesComprasPage: ponderaciones del scoring (#156)', () => {
 
     renderPagina()
     const panel = await esperarPanel()
-    for (const etiqueta of [
-      'Precio (%)',
-      'Flete (%)',
-      'Plazo de entrega (%)',
-      'Calificación del proveedor (%)',
-    ]) {
-      await escribir(within(panel).getByLabelText(etiqueta), '0')
-    }
+    await elegir(panel, 'Precio', 5)
+    await elegir(panel, 'Flete', 2)
+    await elegir(panel, 'Plazo de entrega', 2)
+    await elegir(panel, 'Calificación del proveedor', 1)
     await user.click(within(panel).getByRole('button', { name: 'Recalcular' }))
 
     expect(await within(panel).findByRole('alert')).toHaveTextContent(
-      'Al menos un criterio tiene que pesar más de 0.',
+      'Al menos un criterio debe tener una estrella.',
     )
     expect(consultasConPesos).toBe(0)
-  })
-
-  it('avisa cuál campo está mal si escribís un texto o lo dejás vacío', async () => {
-    const user = userEvent.setup()
-    renderPagina()
-    const panel = await esperarPanel()
-
-    await escribir(within(panel).getByLabelText('Flete (%)'), 'abc')
-    await user.click(within(panel).getByRole('button', { name: 'Recalcular' }))
-    expect(await within(panel).findByRole('alert')).toHaveTextContent(
-      'Flete: escribí un número de 0 o más.',
-    )
-
-    await escribir(within(panel).getByLabelText('Flete (%)'), '')
-    await user.click(within(panel).getByRole('button', { name: 'Recalcular' }))
-    expect(within(panel).getByRole('alert')).toHaveTextContent('Flete: escribí un número de 0 o más.')
   })
 
   it('si el servicio rechaza los pesos (400), muestra su mensaje y vuelve a los valores por defecto', async () => {
@@ -155,6 +155,6 @@ describe('LicitacionesComprasPage: ponderaciones del scoring (#156)', () => {
     await user.click(within(panel).getByRole('button', { name: 'Recalcular' }))
 
     expect(await screen.findByText('Pesos rechazados por el servicio.')).toBeInTheDocument()
-    expect(within(await esperarPanel()).getByLabelText('Precio (%)')).toHaveValue('50')
+    expect(estrellasElegidas(await esperarPanel(), 'Precio')).toBe(5)
   })
 })
