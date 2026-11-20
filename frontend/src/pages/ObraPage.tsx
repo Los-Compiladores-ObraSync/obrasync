@@ -26,6 +26,11 @@ export function ObraPage() {
             Historial de requisiciones
           </Link>
         </li>
+        <li>
+          <Link to="/obra/presupuesto" className="accion-grande">
+            Presupuesto
+          </Link>
+        </li>
       </ul>
     </section>
   )

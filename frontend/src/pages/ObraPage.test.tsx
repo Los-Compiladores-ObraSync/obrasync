@@ -19,6 +19,7 @@ describe('ObraPage', () => {
     ['Asistente', '/obra/asistente'],
     ['Recibir mercadería', '/obra/recepcion'],
     ['Historial de requisiciones', '/obra/requisiciones'],
+    ['Presupuesto', '/obra/presupuesto'],
   ])('tiene el enlace "%s" que lleva a %s', (nombre, ruta) => {
     render(
       <MemoryRouter>

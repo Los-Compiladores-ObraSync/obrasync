@@ -57,6 +57,16 @@ const ORDENES_DE_COMPRA: AccionRapida = {
   texto: 'Órdenes de compra',
   ruta: '/compras/ordenes',
 }
+// Partidas presupuestarias por obra y etapa (#161). Misma pantalla en dos portales: el Capataz la ve
+// desde el suyo (solo consulta) y Comprador y Admin desde Gestión y Compras (también cargan partidas).
+const PRESUPUESTO_OBRA: AccionRapida = {
+  texto: 'Presupuesto',
+  ruta: '/obra/presupuesto',
+}
+const PRESUPUESTO_COMPRAS: AccionRapida = {
+  texto: 'Presupuesto',
+  ruta: '/compras/presupuesto',
+}
 const LICITACIONES_ABIERTAS: AccionRapida = {
   texto: 'Licitaciones abiertas',
   ruta: '/proveedores',
@@ -70,7 +80,13 @@ const LICITACIONES_Y_COTIZACIONES: AccionRapida = {
 // Quien aprueba requisiciones (Comprador y Admin) ve primero la tarjeta "Tenés N requisiciones para
 // aprobar" (ResumenAprobacion), así que acá van solo las opciones secundarias.
 const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
-  Capataz: [ASISTENTE, NUEVA_REQUISICION, RECIBIR_MERCADERIA, HISTORIAL_REQUISICIONES_OBRA],
+  Capataz: [
+    ASISTENTE,
+    NUEVA_REQUISICION,
+    RECIBIR_MERCADERIA,
+    HISTORIAL_REQUISICIONES_OBRA,
+    PRESUPUESTO_OBRA,
+  ],
   Comprador: [
     ASISTENTE_COMPRAS,
     HISTORIAL_REQUISICIONES_COMPRAS,
@@ -78,6 +94,7 @@ const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
     VER_OBRAS,
     LICITACIONES_Y_COTIZACIONES,
     ORDENES_DE_COMPRA,
+    PRESUPUESTO_COMPRAS,
   ],
   Admin: [
     ASISTENTE,
@@ -88,6 +105,7 @@ const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
     VER_OBRAS,
     LICITACIONES_Y_COTIZACIONES,
     ORDENES_DE_COMPRA,
+    PRESUPUESTO_COMPRAS,
     LICITACIONES_ABIERTAS,
   ],
 

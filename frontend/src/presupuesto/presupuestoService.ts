@@ -1,6 +1,7 @@
 import { apiFetch, apiFetchPagina } from '../api/client'
 import { conPaginacion, TAMANO_PAGINA, traerTodas } from '../api/paginacion'
 import type {
+  CrearPartidaRequest,
   FiltrosPartidas,
   LiberarOrdenCompraRequest,
   OrdenCompraBloqueada,
@@ -22,6 +23,21 @@ export function obtenerPartidas(filtros: FiltrosPartidas = {}): Promise<PartidaP
   return traerTodas((pagina) =>
     apiFetchPagina<PartidaPresupuestaria>(conPaginacion(rutaBase, pagina)),
   )
+}
+
+/**
+ * Da de alta una partida presupuestaria para una obra y etapa (#161).
+ * Roles: Comprador y Admin.
+ * Fuente: POST /api/presupuestos/partidas
+ *
+ * Errores: 400 datos inválidos; 401 sin sesión; 403 rol sin permiso;
+ * 409 ya existe una partida con ese código o para esa etapa en la obra.
+ */
+export function crearPartida(datos: CrearPartidaRequest): Promise<PartidaPresupuestaria> {
+  return apiFetch<PartidaPresupuestaria>('/api/presupuestos/partidas', {
+    method: 'POST',
+    body: JSON.stringify(datos),
+  })
 }
 
 /**

@@ -19,6 +19,21 @@ export interface PartidaPresupuestaria {
   createdAt: string
 }
 
+/** Cuerpo de POST /api/presupuestos/partidas (CrearPartidaPresupuestariaRequest). Roles: Admin, Comprador. */
+export interface CrearPartidaRequest {
+  obraId: string
+  /** Opcional (máx. 200). Sin etapa, la partida es general de la obra. */
+  etapa: string | null
+  /** Máx. 50 caracteres */
+  codigoPartida: string
+  /** Máx. 250 caracteres */
+  descripcion: string
+  /** Mayor o igual a cero */
+  montoAsignado: number
+  /** Máx. 10 caracteres; el backend usa ARS por defecto */
+  moneda: string
+}
+
 /** Filtros opcionales para consultar partidas presupuestarias */
 export interface FiltrosPartidas {
   obraId?: string

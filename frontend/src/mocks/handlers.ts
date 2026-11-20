@@ -1682,6 +1682,76 @@ export const handlers: RequestHandler[] = [
     return responderPaginado(request, filtradas)
   }),
 
+  // Contrato: POST /api/presupuestos/partidas → 201 PartidaPresupuestariaDto (Admin, Comprador).
+  // 400 datos inválidos, 403 rol sin permiso, 409 código repetido en la obra (#161).
+  http.post('*/api/presupuestos/partidas', async ({ request }) => {
+    const rol = rolDelJwt(request)
+    if (!rol) {
+      return HttpResponse.json(
+        { title: 'No autenticado', status: 401, detail: 'Se requiere un token JWT válido.' },
+        { status: 401 },
+      )
+    }
+    if (rol !== 'Comprador' && rol !== 'Admin') {
+      return HttpResponse.json(
+        { title: 'Prohibido', status: 403, detail: 'Solo Comprador o Admin pueden cargar partidas.' },
+        { status: 403 },
+      )
+    }
+    const cuerpo = (await request.json().catch(() => null)) as {
+      obraId?: string
+      etapa?: string | null
+      codigoPartida?: string
+      descripcion?: string
+      montoAsignado?: number
+      moneda?: string
+    } | null
+    if (
+      !cuerpo ||
+      !cuerpo.obraId ||
+      !cuerpo.codigoPartida ||
+      !cuerpo.descripcion ||
+      typeof cuerpo.montoAsignado !== 'number' ||
+      cuerpo.montoAsignado < 0
+    ) {
+      return HttpResponse.json(
+        { title: 'Solicitud inválida', status: 400, detail: 'Datos de la partida inválidos o incompletos.' },
+        { status: 400 },
+      )
+    }
+    const repetida = partidasMock.some(
+      (p) =>
+        p.obraId === cuerpo.obraId &&
+        (p.codigoPartida.toLowerCase() === cuerpo.codigoPartida!.toLowerCase() ||
+          (cuerpo.etapa != null && p.etapa === cuerpo.etapa)),
+    )
+    if (repetida) {
+      return HttpResponse.json(
+        {
+          title: 'Conflicto',
+          status: 409,
+          detail: 'Ya existe una partida con ese código o para esa etapa en la obra.',
+        },
+        { status: 409 },
+      )
+    }
+    const nueva = {
+      id: crypto.randomUUID(),
+      obraId: cuerpo.obraId,
+      etapa: cuerpo.etapa ?? null,
+      codigoPartida: cuerpo.codigoPartida,
+      descripcion: cuerpo.descripcion,
+      montoAsignado: cuerpo.montoAsignado,
+      montoComprometido: 0,
+      montoEjecutado: 0,
+      montoDisponible: cuerpo.montoAsignado,
+      moneda: cuerpo.moneda ?? 'ARS',
+      createdAt: new Date().toISOString(),
+    }
+    partidasMock.push(nueva as (typeof partidasMock)[number])
+    return HttpResponse.json(nueva, { status: 201 })
+  }),
+
   // Contrato: GET /api/recepciones/ordenes-bloqueadas?obraId=&pagina=&tamano=
   // → 200 OrdenBloqueadaDto[] con X-Total-Count y encabezados de paginación.
   http.get('*/api/recepciones/ordenes-bloqueadas', ({ request }) => {

@@ -703,3 +703,84 @@ describe('PresupuestoPage', () => {
     })
   })
 })
+
+describe('PresupuestoPage: carga de partidas (#161)', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setToken(MOCK_TOKEN_ADMIN)
+    reiniciarPresupuestoMock()
+    vi.restoreAllMocks()
+    vi.spyOn(modoSimulado, 'estaEnModoSimulado').mockReturnValue(true)
+  })
+
+  it('el Comprador carga una partida y aparece en la lista sin recargar', async () => {
+    const user = userEvent.setup()
+    renderPagina(usuarioComprador)
+
+    await seleccionarObra(user, 'Torre Alvear')
+    await screen.findByRole('heading', { level: 2, name: 'Estructura' })
+
+    await user.type(screen.getByLabelText('Código de la partida'), 'TER-001')
+    await user.type(screen.getByLabelText('Descripción'), 'Pintura y revestimientos')
+    await user.type(screen.getByLabelText(/Etapa/), 'Terminaciones')
+    await user.type(screen.getByLabelText(/Monto asignado/), '2.500.000')
+    await user.click(screen.getByRole('button', { name: 'Guardar partida' }))
+
+    const encabezado = await screen.findByRole('heading', { level: 2, name: 'Terminaciones' })
+    const tarjeta = encabezado.closest('li')!
+    expect(within(tarjeta).getByText(/Código:\s*TER-001/)).toBeInTheDocument()
+    expect(within(tarjeta).getAllByText(/\$\s*2\.500\.000,00/).length).toBeGreaterThan(0)
+    expect(screen.getByText('Partida TER-001 cargada correctamente.')).toBeInTheDocument()
+  })
+
+  it('no muestra el formulario si no hay obra seleccionada', async () => {
+    renderPagina(usuarioComprador)
+    await screen.findByLabelText('Obra')
+    expect(screen.queryByRole('form', { name: 'Cargar partida presupuestaria' })).not.toBeInTheDocument()
+  })
+
+  it('el Capataz entra por su portal: solo consulta y vuelve al inicio', async () => {
+    const user = userEvent.setup()
+    render(
+      <AuthContext.Provider
+        value={{
+          usuario: {
+            id: 'a1b2c3d4-0000-0000-0000-000000000001',
+            nombreCompleto: 'Carlos Pérez',
+            email: 'capataz@obrasync.com',
+            rol: 'Capataz',
+          },
+          login: () => {},
+          logout: () => {},
+        }}
+      >
+        <MemoryRouter initialEntries={['/obra/presupuesto']}>
+          <BloqueadasProvider intervaloMs={60_000}>
+            <PresupuestoPage volverA="/" textoVolver="← Volver al inicio" />
+          </BloqueadasProvider>
+        </MemoryRouter>
+      </AuthContext.Provider>,
+    )
+
+    expect(screen.getByRole('link', { name: '← Volver al inicio' })).toHaveAttribute('href', '/')
+    await seleccionarObra(user, 'Torre Alvear')
+    await screen.findByRole('heading', { level: 2, name: 'Estructura' })
+    expect(screen.queryByRole('button', { name: 'Guardar partida' })).not.toBeInTheDocument()
+  })
+
+  it('un Capataz no ve el formulario de carga', async () => {
+    const user = userEvent.setup()
+    renderPagina({
+      id: 'a1b2c3d4-0000-0000-0000-000000000001',
+      nombreCompleto: 'Carlos Pérez',
+      email: 'capataz@obrasync.com',
+      rol: 'Capataz',
+    })
+
+    await seleccionarObra(user, 'Torre Alvear')
+    await screen.findByRole('heading', { level: 2, name: 'Estructura' })
+
+    expect(screen.queryByRole('form', { name: 'Cargar partida presupuestaria' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Guardar partida' })).not.toBeInTheDocument()
+  })
+})
