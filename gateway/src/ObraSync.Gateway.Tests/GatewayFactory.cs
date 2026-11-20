@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Builder;
 using Yarp.ReverseProxy.Forwarder;
 
 namespace ObraSync.Gateway.Tests;
@@ -14,15 +16,58 @@ namespace ObraSync.Gateway.Tests;
 public class GatewayFactory : WebApplicationFactory<Program>
 {
     public ServicioDestinoFalso Destino { get; } = new();
+    public RegistroLogs Logs { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureTestServices(services =>
         {
             services.AddSingleton<IForwarderHttpClientFactory>(new ClienteHttpFalsoFactory(Destino));
+            services.AddSingleton<IStartupFilter>(new IpRemotaDePruebaStartupFilter());
+            services.AddSingleton<ILoggerProvider>(Logs);
         });
+        builder.UseSetting("Logging:LogLevel:Yarp", "Trace");
     }
 }
+
+internal sealed class IpRemotaDePruebaStartupFilter : IStartupFilter
+{
+    public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+    {
+        app.Use(async (context, continuation) =>
+        {
+            if (IPAddress.TryParse(context.Request.Headers["X-Test-Remote-IP"], out var ip))
+                context.Connection.RemoteIpAddress = ip;
+            await continuation();
+        });
+        next(app);
+    };
+}
+
+public sealed class RegistroLogs : ILoggerProvider
+{
+    private readonly object _sync = new();
+    private readonly List<EntradaLog> _entries = new();
+    public IReadOnlyList<EntradaLog> Entradas { get { lock (_sync) return _entries.ToArray(); } }
+    public string Texto { get { lock (_sync) return string.Join("\n", _entries.Select(e => e.Texto)); } }
+    public void Limpiar() { lock (_sync) _entries.Clear(); }
+    public ILogger CreateLogger(string categoryName) => new Logger(this, categoryName);
+    public void Dispose() { }
+
+    private sealed class Logger(RegistroLogs owner, string category) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            var message = $"{formatter(state, exception)} {exception}";
+            lock (owner._sync) owner._entries.Add(new EntradaLog(category, eventId, logLevel, message));
+        }
+    }
+}
+
+public record EntradaLog(string Categoria, EventId EventId, LogLevel Nivel, string Texto);
 
 /// <summary>Lo que el servicio de destino recibió del gateway.</summary>
 public record PedidoRecibido(Uri Uri, string? CorrelationId);
@@ -31,6 +76,7 @@ public record PedidoRecibido(Uri Uri, string? CorrelationId);
 public class ServicioDestinoFalso : HttpMessageHandler
 {
     public PedidoRecibido? UltimoPedido { get; private set; }
+    public int CantidadPedidos { get; private set; }
 
     /// <summary>Código con el que responde el servicio falso (por defecto 200).</summary>
     public HttpStatusCode Estado { get; set; } = HttpStatusCode.OK;
@@ -41,6 +87,7 @@ public class ServicioDestinoFalso : HttpMessageHandler
     public void Reiniciar()
     {
         UltimoPedido = null;
+        CantidadPedidos = 0;
         Estado = HttpStatusCode.OK;
         Falla = null;
     }
@@ -48,6 +95,7 @@ public class ServicioDestinoFalso : HttpMessageHandler
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         request.Headers.TryGetValues("X-Correlation-ID", out var valores);
+        CantidadPedidos++;
         UltimoPedido = new PedidoRecibido(request.RequestUri!, valores?.FirstOrDefault());
 
         if (Falla is not null)

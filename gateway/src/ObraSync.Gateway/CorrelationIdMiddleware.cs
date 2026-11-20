@@ -24,7 +24,9 @@ public class CorrelationIdMiddleware
         var correlationId = context.Request.Headers[HeaderName].FirstOrDefault();
 
         // Si no viene, o viene vacío o demasiado largo, generamos uno nuevo.
-        if (string.IsNullOrWhiteSpace(correlationId) || correlationId.Length > LongitudMaxima)
+        if (string.IsNullOrWhiteSpace(correlationId)
+            || correlationId.Length > LongitudMaxima
+            || correlationId.Any(caracter => !char.IsAsciiLetterOrDigit(caracter) && caracter is not '-' and not '_'))
         {
             correlationId = Guid.NewGuid().ToString();
             context.Request.Headers[HeaderName] = correlationId;

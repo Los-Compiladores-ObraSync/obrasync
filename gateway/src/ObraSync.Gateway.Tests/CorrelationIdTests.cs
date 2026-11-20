@@ -52,6 +52,20 @@ public class CorrelationIdTests : IClassFixture<GatewayFactory>
     }
 
     [Fact]
+    public async Task Con_caracteres_no_seguros_el_gateway_reemplaza_el_correlation_id()
+    {
+        var client = _factory.CreateClient();
+        var pedido = new HttpRequestMessage(HttpMethod.Get, Ruta);
+        pedido.Headers.Add(Header, "id inseguro!");
+
+        var respuesta = await client.SendAsync(pedido);
+
+        var id = respuesta.Headers.GetValues(Header).Single();
+        Assert.NotEqual("id inseguro!", id);
+        Assert.True(Guid.TryParse(id, out _));
+    }
+
+    [Fact]
     public async Task El_servicio_de_destino_recibe_el_mismo_id_que_se_devuelve_al_cliente()
     {
         var client = _factory.CreateClient();
