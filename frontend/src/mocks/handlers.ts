@@ -820,6 +820,65 @@ export const handlers: RequestHandler[] = [
     return responderPaginado(request, resultado)
   }),
 
+  // Contrato: POST /api/catalogo/insumos → 201 InsumoCatalogoDto (Comprador, Admin) (#215).
+  // 400 datos inválidos, 401 sin sesión, 403 rol sin permiso, 409 código repetido.
+  // No agrega el insumo a MOCK_CATALOGO: así las otras pantallas y pruebas ven siempre el mismo catálogo.
+  http.post('*/api/catalogo/insumos', async ({ request }) => {
+    const rol = rolDelJwt(request)
+    if (!rol) {
+      return HttpResponse.json(
+        { title: 'No autenticado', status: 401, detail: 'Se requiere un token JWT válido.' },
+        { status: 401 },
+      )
+    }
+    if (rol !== 'Comprador' && rol !== 'Admin') {
+      return HttpResponse.json(
+        { title: 'Prohibido', status: 403, detail: 'Solo Comprador o Admin pueden cargar insumos.' },
+        { status: 403 },
+      )
+    }
+    const cuerpo = (await request.json().catch(() => null)) as {
+      codigo?: string
+      descripcion?: string
+      unidadMedida?: string
+      moneda?: string
+      precioReferencia?: number | null
+      activo?: boolean
+    } | null
+    if (
+      !cuerpo ||
+      !cuerpo.codigo ||
+      !cuerpo.descripcion ||
+      !cuerpo.unidadMedida ||
+      (cuerpo.moneda !== undefined && cuerpo.moneda !== 'ARS') ||
+      (typeof cuerpo.precioReferencia === 'number' && cuerpo.precioReferencia < 0)
+    ) {
+      return HttpResponse.json(
+        { title: 'Solicitud inválida', status: 400, detail: 'Datos de insumo inválidos o divisa no permitida.' },
+        { status: 400 },
+      )
+    }
+    const codigo = cuerpo.codigo
+    if (MOCK_CATALOGO.some((i) => i.codigo.toLowerCase() === codigo.toLowerCase())) {
+      return HttpResponse.json(
+        { title: 'Conflicto', status: 409, detail: `Ya existe un insumo con el código ${codigo}.` },
+        { status: 409 },
+      )
+    }
+    return HttpResponse.json(
+      {
+        articuloId: crypto.randomUUID(),
+        codigo,
+        descripcion: cuerpo.descripcion,
+        unidadMedida: cuerpo.unidadMedida,
+        moneda: cuerpo.moneda ?? 'ARS',
+        precioReferencia: cuerpo.precioReferencia ?? null,
+        activo: cuerpo.activo ?? true,
+      },
+      { status: 201 },
+    )
+  }),
+
   // Contrato: GET /api/obras → 200 Obra[] (Admin, Comprador, Capataz)
   http.get('*/api/obras', ({ request }) => {
     return responderPaginado(request, obrasMock)

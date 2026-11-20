@@ -29,6 +29,7 @@ describe('accionesParaRol', () => {
       'Licitaciones y cotizaciones',
       'Órdenes de compra',
       'Presupuesto',
+      'Cargar insumos (CSV)',
     ])
   })
 
@@ -43,6 +44,7 @@ describe('accionesParaRol', () => {
       'Licitaciones y cotizaciones',
       'Órdenes de compra',
       'Presupuesto',
+      'Cargar insumos (CSV)',
       'Licitaciones abiertas',
     ])
   })
