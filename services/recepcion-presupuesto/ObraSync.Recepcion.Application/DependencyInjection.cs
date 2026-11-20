@@ -14,6 +14,7 @@ public static class DependencyInjection
         services.AddScoped<ObtenerOrdenesPendientesQueryHandler>();
         services.AddScoped<ObtenerOrdenesBloqueadasQueryHandler>();
         services.AddScoped<LiberarOrdenCompraCommandHandler>();
+        services.AddScoped<LiquidarOrdenCompraCommandHandler>();
 
         // Partidas presupuestarias (#93, #154)
         services.AddScoped<CrearPartidaPresupuestariaCommandHandler>();

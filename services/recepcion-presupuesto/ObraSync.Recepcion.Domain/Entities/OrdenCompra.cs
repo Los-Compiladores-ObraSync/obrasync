@@ -25,6 +25,11 @@ public class OrdenCompra : BaseEntity
     public DateTime? LiberadaEn { get; private set; }
     public string? MotivoLiberacion { get; private set; }
 
+    // Auditoría de liquidación administrativa (#92): quién (sub del token) y cuándo (UTC)
+    public Guid? LiquidadaPorUsuarioId { get; private set; }
+    public DateTime? LiquidadaEn { get; private set; }
+    public bool EstaLiquidada => LiquidadaEn.HasValue;
+
     // Visibilidad presupuestaria cuando no se encuentra partida (#196)
     public bool SinPartidaPresupuestaria { get; set; }
 
@@ -299,5 +304,43 @@ public class OrdenCompra : BaseEntity
         }
 
         return historialSaldos;
+    }
+
+    /// <summary>
+    /// Liquida administrativamente la orden de compra solo si no existe saldo pendiente de recepción (#92, criterio CU-06).
+    /// </summary>
+    public void Liquidar(
+        Guid usuarioId,
+        IReadOnlyDictionary<Guid, decimal>? cantidadesRecibidas = null)
+    {
+        if (usuarioId == Guid.Empty)
+        {
+            throw new ArgumentException("El identificador del usuario que liquida la orden es obligatorio.", nameof(usuarioId));
+        }
+
+        if (EstaBloqueada)
+        {
+            throw new TransicionEstadoInvalidaException(
+                "La orden de compra se encuentra bloqueada por desvío presupuestario y no puede liquidarse.");
+        }
+
+        if (EstaLiquidada)
+        {
+            throw new TransicionEstadoInvalidaException(
+                "La orden de compra ya fue liquidada.");
+        }
+
+        var saldosPendientes = CalcularSaldosPendientes(cantidadesRecibidas);
+        var itemsConSaldo = saldosPendientes.Where(kv => kv.Value > 0m).ToList();
+        if (itemsConSaldo.Count > 0)
+        {
+            throw new TransicionEstadoInvalidaException(
+                $"No se puede liquidar el excedente no entregado: la orden de compra tiene saldo pendiente de recepción en {itemsConSaldo.Count} artículo(s).");
+        }
+
+        var ahora = DateTime.UtcNow;
+        LiquidadaPorUsuarioId = usuarioId;
+        LiquidadaEn = ahora;
+        UpdatedAt = ahora;
     }
 }

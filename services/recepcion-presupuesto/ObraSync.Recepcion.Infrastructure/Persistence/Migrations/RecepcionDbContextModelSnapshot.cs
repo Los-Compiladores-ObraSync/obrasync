@@ -273,6 +273,12 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("LiberadaPorUsuarioId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("LiquidadaEn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LiquidadaPorUsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("MontoTotal")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
