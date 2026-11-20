@@ -158,9 +158,9 @@ describe('HistorialRequisicionesPage - filtros', () => {
     renderPagina(comprador)
 
     await screen.findByText('REQ-2026-0011')
-    // El filtro de Estado son 3 botones (#213), ninguno activo al empezar.
+    // El filtro de Estado son 4 botones (#213, más Cancelada), ninguno activo al empezar.
     const botones = within(screen.getByRole('group', { name: 'Estado' })).getAllByRole('button')
-    expect(botones.map((b) => b.textContent)).toEqual(['Pendiente', 'Aprobada', 'Rechazada'])
+    expect(botones.map((b) => b.textContent)).toEqual(['Pendiente', 'Aprobada', 'Rechazada', 'Cancelada'])
     expect(estadosActivos()).toEqual([])
 
     expect(await screen.findByRole('option', { name: 'Torre Alvear' })).toBeInTheDocument()

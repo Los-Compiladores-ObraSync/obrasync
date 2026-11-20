@@ -54,10 +54,11 @@ namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers
                 throw new UnauthorizedAccessException("Solo el capataz solicitante dueño de la requisición o un administrador pueden editarla y reenviarla.");
             }
 
-            // Solo se permite editar una requisición en estado Rechazada
-            if (!string.Equals(requisicion.Estado, EstadoRequisicion.Rechazada, StringComparison.OrdinalIgnoreCase))
+            // Se puede editar una Rechazada (y reenviarla) o una Pendiente (antes de que Compras la apruebe)
+            if (!string.Equals(requisicion.Estado, EstadoRequisicion.Rechazada, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(requisicion.Estado, EstadoRequisicion.Pendiente, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException($"Solo se pueden editar y reenviar requisiciones en estado '{EstadoRequisicion.Rechazada}'. Estado actual: '{requisicion.Estado}'.");
+                throw new InvalidOperationException($"Solo se pueden editar requisiciones en estado '{EstadoRequisicion.Pendiente}' o '{EstadoRequisicion.Rechazada}'. Estado actual: '{requisicion.Estado}'.");
             }
 
             var insumos = await _insumoRepository.GetByIdsAsync(articuloIds, cancellationToken);

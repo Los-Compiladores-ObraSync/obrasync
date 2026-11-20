@@ -161,14 +161,31 @@ namespace ObraSync.Requisiciones.Domain.Entities
                 fechaEfectiva));
         }
 
+        /// <summary>
+        /// Anula una requisición que todavía no se aprobó (Pendiente). Una aprobada ya pasó a Licitaciones
+        /// y una rechazada ya está cerrada para Compras: en esos estados no se puede cancelar.
+        /// </summary>
+        public void Cancelar()
+        {
+            if (!string.Equals(Estado, EstadoRequisicion.Pendiente, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"Solo se pueden cancelar requisiciones pendientes. Estado actual: '{Estado}'.");
+
+            Estado = EstadoRequisicion.Cancelada;
+        }
+
+        /// <summary>
+        /// Edita los datos de la requisición. Sirve para una Rechazada (se corrige y vuelve a Pendiente, y queda el historial
+        /// de rechazos) y para una Pendiente (se corrige antes de que Compras la apruebe; sigue Pendiente).
+        /// </summary>
         public void Reenviar(
             IEnumerable<RequisicionItem> nuevosItems,
             string? etapa = null,
             string? observaciones = null)
         {
-            if (!string.Equals(Estado, EstadoRequisicion.Rechazada, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(Estado, EstadoRequisicion.Rechazada, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(Estado, EstadoRequisicion.Pendiente, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException($"Solo se pueden editar y reenviar requisiciones en estado '{EstadoRequisicion.Rechazada}'. Estado actual: '{Estado}'.");
+                throw new InvalidOperationException($"Solo se pueden editar requisiciones en estado '{EstadoRequisicion.Pendiente}' o '{EstadoRequisicion.Rechazada}'. Estado actual: '{Estado}'.");
             }
 
             var listaItems = nuevosItems?.ToList() ?? new List<RequisicionItem>();

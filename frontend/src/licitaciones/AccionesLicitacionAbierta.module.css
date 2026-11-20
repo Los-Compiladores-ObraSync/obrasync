@@ -1,0 +1,35 @@
+.acciones {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--borde);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.titulo { margin: 0; font-size: 1.125rem; }
+.fila { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.etiqueta { font-weight: 700; }
+.fecha, .motivo { min-height: 48px; padding: 0 0.75rem; font-size: 1.0625rem; border: 2px solid var(--borde); border-radius: 10px; }
+.motivo { width: 100%; box-sizing: border-box; }
+
+.boton, .botonPeligro {
+  min-height: 48px; /* tamaño cómodo para tocar con guantes */
+  padding: 0 1.25rem;
+  border: 2px solid #1f3864;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1f3864;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.botonPeligro { border-color: #991b1b; color: #991b1b; }
+.confirmar { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; width: 100%; }
+.ayuda { margin: 0; color: var(--texto-suave); }
+.error { margin: 0; color: #991b1b; }
+.aviso { margin: 0; color: #15803d; font-weight: 700; }

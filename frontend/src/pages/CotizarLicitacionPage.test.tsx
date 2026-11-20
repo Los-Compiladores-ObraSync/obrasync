@@ -20,10 +20,11 @@ const LIC_ABIERTA_ID = 'b1b2c3d4-1111-0000-0000-000000000001'
 function renderPagina(
   licitacionId = LIC_ABIERTA_ID,
   usuario: SesionUsuario = proveedor,
+  busqueda = '',
 ) {
   return render(
     <AuthContext.Provider value={{ usuario, login: () => {}, logout: () => {} }}>
-      <MemoryRouter initialEntries={[`/proveedores/licitaciones/${licitacionId}`]}>
+      <MemoryRouter initialEntries={[`/proveedores/licitaciones/${licitacionId}${busqueda}`]}>
         <Routes>
           <Route
             path="/proveedores/licitaciones/:id"
@@ -268,5 +269,57 @@ describe('CotizarLicitacionPage', () => {
       'href',
       '/proveedores',
     )
+  })
+
+  it('con ?corregir carga la oferta anterior y la guarda con PUT', async () => {
+    const user = userEvent.setup()
+    let putUrl = ''
+    let putBody: { flete?: number; items?: Array<{ precioUnitario: number }> } = {}
+
+    server.use(
+      http.get('*/api/cotizaciones/mias', () =>
+        HttpResponse.json([
+          {
+            cotizacionId: 'c9999999-0000-0000-0000-000000000009',
+            licitacionId: LIC_ABIERTA_ID,
+            proveedorId: proveedor.id,
+            numeroRequisicion: 'REQ-2026-0011',
+            obraId: 'o1',
+            fechaLimiteCotizacion: '2099-01-01T12:00:00Z',
+            estadoLicitacion: 'Abierta',
+            subtotalItems: 0,
+            flete: 7000,
+            costoTotal: 7000,
+            coberturaParcial: false,
+            plazoEntregaDias: 4,
+            fechaCreacion: '2026-11-10T12:00:00Z',
+            items: [],
+            esGanadora: false,
+            estadoResultado: 'Enviada',
+          },
+        ]),
+      ),
+      http.put('*/api/cotizaciones/:id', async ({ request }) => {
+        putUrl = request.url
+        putBody = (await request.json()) as typeof putBody
+        return HttpResponse.json({}, { status: 200 })
+      }),
+    )
+
+    renderPagina(LIC_ABIERTA_ID, proveedor, '?corregir=c9999999-0000-0000-0000-000000000009')
+
+    expect(await screen.findByRole('heading', { name: /Corregir cotización de/ })).toBeInTheDocument()
+    expect(await screen.findByLabelText(/Costo de flete/)).toHaveValue('7000')
+
+    for (const campo of screen.getAllByLabelText(/Precio unitario/)) {
+      await user.clear(campo)
+      await user.type(campo, '1000')
+    }
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    expect(await screen.findByText('¡Cotización corregida con éxito!')).toBeInTheDocument()
+    expect(putUrl).toContain('/api/cotizaciones/c9999999-0000-0000-0000-000000000009')
+    expect(putBody.flete).toBe(7000)
+    expect(putBody.items?.every((i) => i.precioUnitario === 1000)).toBe(true)
   })
 })

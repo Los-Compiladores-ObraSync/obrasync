@@ -272,3 +272,16 @@
   font-weight: 700;
   line-height: 1.4;
 }
+
+.checkProblema {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px; /* tamaño cómodo para tocar con guantes */
+  font-size: 1.0625rem;
+}
+
+.checkProblema input {
+  width: 1.5rem;
+  height: 1.5rem;
+}

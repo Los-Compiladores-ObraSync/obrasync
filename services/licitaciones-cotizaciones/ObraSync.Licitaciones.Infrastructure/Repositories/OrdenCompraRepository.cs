@@ -37,6 +37,32 @@ public class OrdenCompraRepository : IOrdenCompraRepository
         return orden;
     }
 
+    public async Task<IReadOnlyList<PrecioHistoricoDto>> GetUltimosPreciosAsync(
+        IReadOnlyCollection<Guid> articuloIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (articuloIds.Count == 0)
+        {
+            return Array.Empty<PrecioHistoricoDto>();
+        }
+
+        var ids = articuloIds.Distinct().ToList();
+
+        // Un renglón por (orden, artículo); de cada artículo se queda con el de la orden más nueva.
+        var ultimos = await _context.OrdenesCompra
+            .AsNoTracking()
+            .SelectMany(oc => oc.Items
+                .Where(i => ids.Contains(i.ArticuloId))
+                .Select(i => new { i.ArticuloId, i.PrecioUnitario, oc.FechaEmision }))
+            .GroupBy(x => x.ArticuloId)
+            .Select(g => g.OrderByDescending(x => x.FechaEmision).First())
+            .ToListAsync(cancellationToken);
+
+        return ultimos
+            .Select(x => new PrecioHistoricoDto(x.ArticuloId, x.PrecioUnitario, x.FechaEmision))
+            .ToList();
+    }
+
     public Task UpdateAsync(OrdenCompra ordenCompra, CancellationToken cancellationToken = default)
     {
         var entry = _context.Entry(ordenCompra);

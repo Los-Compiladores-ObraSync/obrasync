@@ -1,5 +1,6 @@
 import { apiFetch, apiFetchPagina } from '../api/client'
 import { conPaginacion, traerTodas } from '../api/paginacion'
+import type { PrecioPrevio } from './cotizacionesCalculos'
 import type {
   CalificacionProveedorResponseDto,
   CrearCotizacionRequestDto,
@@ -7,6 +8,7 @@ import type {
   CotizacionResponseDto,
   CriteriosScoringDto,
   LicitacionResponseDto,
+  MiCotizacionDto,
   OrdenCompraAdjudicadaDto,
   OrdenCompraListadoDto,
 } from './licitacionesTipos'
@@ -139,4 +141,70 @@ export function despacharOrdenCompra(id: string): Promise<OrdenCompraListadoDto>
   return apiFetch<OrdenCompraListadoDto>(`/api/ordenes-compra/${encodeURIComponent(id)}/despachar`, {
     method: 'POST',
   })
+}
+
+/**
+ * Extiende el plazo de cotización de una licitación abierta.
+ * Fuente: POST /api/licitaciones/{id}/extender (Comprador, Admin). 400 si la fecha no es posterior, 409 si ya no está abierta.
+ */
+export function extenderLicitacion(id: string, fechaLimiteCotizacion: string): Promise<LicitacionResponseDto> {
+  return apiFetch<LicitacionResponseDto>(`/api/licitaciones/${encodeURIComponent(id)}/extender`, {
+    method: 'POST',
+    body: JSON.stringify({ fechaLimiteCotizacion }),
+  })
+}
+
+/**
+ * Cierra una licitación abierta sin adjudicar (cierra también sus Magic Links pendientes).
+ * Fuente: POST /api/licitaciones/{id}/cerrar (Comprador, Admin). El motivo es obligatorio (hasta 500 caracteres).
+ */
+export function cerrarLicitacion(id: string, motivo: string): Promise<LicitacionResponseDto> {
+  return apiFetch<LicitacionResponseDto>(`/api/licitaciones/${encodeURIComponent(id)}/cerrar`, {
+    method: 'POST',
+    body: JSON.stringify({ motivo }),
+  })
+}
+
+/**
+ * Último precio unitario pagado por cada artículo (según las órdenes de compra emitidas).
+ * Fuente: GET /api/ordenes-compra/precios-historicos?articuloIds=… (Comprador, Admin). Un artículo que nunca se compró no aparece.
+ */
+export function obtenerPreciosHistoricos(articuloIds: string[]): Promise<PrecioPrevio[]> {
+  if (articuloIds.length === 0) return Promise.resolve([])
+  const consulta = articuloIds.map((id) => `articuloIds=${encodeURIComponent(id)}`).join('&')
+  return apiFetch<PrecioPrevio[]>(`/api/ordenes-compra/precios-historicos?${consulta}`)
+}
+
+/**
+ * Las cotizaciones que envió el Proveedor que inició sesión, con su resultado.
+ * Fuente: GET /api/cotizaciones/mias (Proveedor, Admin)
+ */
+export function obtenerMisCotizaciones(): Promise<MiCotizacionDto[]> {
+  return traerTodas((pagina) =>
+    apiFetchPagina<MiCotizacionDto>(conPaginacion('/api/cotizaciones/mias', pagina)),
+  )
+}
+
+/**
+ * Corrige una cotización propia mientras la licitación siga abierta y dentro de plazo.
+ * Fuente: PUT /api/cotizaciones/{id} (Proveedor dueño, Admin). Errores: 400 (cerrada/vencida/ítems), 403, 404.
+ */
+export function corregirCotizacion(
+  cotizacionId: string,
+  dto: CrearCotizacionRequestDto,
+): Promise<CotizacionResponseDto> {
+  return apiFetch<CotizacionResponseDto>(`/api/cotizaciones/${encodeURIComponent(cotizacionId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(dto),
+  })
+}
+
+/**
+ * La calificación vigente de un proveedor. El Proveedor puede pedir solo la suya.
+ * Fuente: GET /api/proveedores/{id}/calificacion. 404 si todavía nadie lo calificó.
+ */
+export function obtenerCalificacionProveedor(proveedorId: string): Promise<CalificacionProveedorResponseDto> {
+  return apiFetch<CalificacionProveedorResponseDto>(
+    `/api/proveedores/${encodeURIComponent(proveedorId)}/calificacion`,
+  )
 }

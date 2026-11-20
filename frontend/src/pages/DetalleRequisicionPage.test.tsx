@@ -113,6 +113,64 @@ describe('DetalleRequisicionPage', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'REQ-2026-0011' })).toBeInTheDocument()
   })
 
+  it('el Capataz puede repetir su pedido: el enlace lleva al formulario con el pedido precargado', async () => {
+    renderPagina(capataz, ID_PENDIENTE)
+
+    const repetir = await screen.findByRole('link', { name: 'Repetir este pedido' })
+    expect(repetir).toHaveAttribute('href', `/obra/requisicion/nueva?repetir=${ID_PENDIENTE}`)
+  })
+
+  it('el Capataz puede editar su pedido pendiente: el enlace lleva al formulario en modo edición', async () => {
+    renderPagina(capataz, ID_PENDIENTE)
+
+    const editar = await screen.findByRole('link', { name: 'Editar este pedido' })
+    expect(editar.getAttribute('href')).toContain(`/obra/requisicion/nueva?editar=${ID_PENDIENTE}`)
+  })
+
+  it('cancelar un pedido pendiente pide confirmación y lo deja Cancelado', async () => {
+    const user = userEvent.setup()
+    renderPagina(capataz, ID_PENDIENTE)
+
+    await user.click(await screen.findByRole('button', { name: 'Cancelar este pedido' }))
+    // Todavía no se canceló: primero hay que confirmar
+    expect(screen.getByRole('group', { name: 'Confirmar cancelación' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Sí, cancelar el pedido' }))
+
+    expect(await screen.findByText('Cancelada')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancelar este pedido' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Editar este pedido' })).not.toBeInTheDocument()
+  })
+
+  it('si Compras ya la aprobó, cancelar muestra un aviso claro (409)', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.post('*/api/requisiciones/:id/cancelar', () =>
+        HttpResponse.json({ title: 'Conflicto', status: 409 }, { status: 409 }),
+      ),
+    )
+    renderPagina(capataz, ID_PENDIENTE)
+
+    await user.click(await screen.findByRole('button', { name: 'Cancelar este pedido' }))
+    await user.click(screen.getByRole('button', { name: 'Sí, cancelar el pedido' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Compras ya la aprobó o rechazó')
+  })
+
+  it('el Comprador no ve editar ni cancelar', async () => {
+    renderPagina(comprador, ID_PENDIENTE)
+
+    await screen.findByRole('heading', { level: 1, name: 'REQ-2026-0011' })
+    expect(screen.queryByRole('button', { name: 'Cancelar este pedido' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Editar este pedido' })).not.toBeInTheDocument()
+  })
+
+  it('el Comprador no ve el botón de repetir pedido (no carga requisiciones)', async () => {
+    renderPagina(comprador, ID_APROBADA)
+
+    await screen.findByRole('heading', { level: 1, name: 'REQ-2026-0009' })
+    expect(screen.queryByRole('link', { name: 'Repetir este pedido' })).not.toBeInTheDocument()
+  })
+
   it('el Capataz no ve la de otra persona: se muestra como si no existiera', async () => {
     renderPagina(capataz, ID_RECHAZADA)
 

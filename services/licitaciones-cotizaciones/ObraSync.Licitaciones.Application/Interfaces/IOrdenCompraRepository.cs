@@ -15,6 +15,11 @@ public interface IOrdenCompraRepository
         IReadOnlyCollection<Guid> licitacionIds,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Para cada artículo pedido, el precio unitario de su orden de compra más reciente (si tuvo alguna).</summary>
+    Task<IReadOnlyList<PrecioHistoricoDto>> GetUltimosPreciosAsync(
+        IReadOnlyCollection<Guid> articuloIds,
+        CancellationToken cancellationToken = default);
+
     Task<PaginaDe<OrdenCompra>> GetFilteredAsync(
         Guid? obraId = null,
         Guid? licitacionId = null,

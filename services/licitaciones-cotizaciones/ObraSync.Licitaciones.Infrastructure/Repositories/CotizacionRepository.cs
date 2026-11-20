@@ -93,6 +93,20 @@ public class CotizacionRepository : ICotizacionRepository
         await _context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<Cotizacion?> GetPropiaParaEditarAsync(Guid cotizacionId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Cotizaciones
+            .Include(c => c.Items)
+            .FirstOrDefaultAsync(c => c.CotizacionId == cotizacionId, cancellationToken);
+    }
+
+    public void ReemplazarItems(Cotizacion cotizacion, IReadOnlyList<CotizacionItem> nuevos)
+    {
+        var set = _context.Set<CotizacionItem>();
+        set.RemoveRange(cotizacion.Items.ToList());
+        set.AddRange(nuevos);
+    }
+
     public async Task<Cotizacion?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _context.Cotizaciones

@@ -9,6 +9,7 @@ import { ComprasPage } from './pages/ComprasPage'
 import { CotizarLicitacionPage } from './pages/CotizarLicitacionPage'
 import { DetalleRequisicionPage } from './pages/DetalleRequisicionPage'
 import { HistorialRequisicionesPage } from './pages/HistorialRequisicionesPage'
+import { SeguimientoPedidoPage } from './pages/SeguimientoPedidoPage'
 import { InicioPage } from './pages/InicioPage'
 import { LicitacionesComprasPage } from './pages/LicitacionesComprasPage'
 import { OrdenesCompraPage } from './pages/OrdenesCompraPage'
@@ -19,6 +20,8 @@ import { NuevaRequisicionPage } from './pages/NuevaRequisicionPage'
 import { ObraPage } from './pages/ObraPage'
 import { ObrasPage } from './pages/ObrasPage'
 import { PresupuestoPage } from './pages/PresupuestoPage'
+import { MisCotizacionesPage } from './pages/MisCotizacionesPage'
+import { MisOrdenesProveedorPage } from './pages/MisOrdenesProveedorPage'
 import { ProveedoresPage } from './pages/ProveedoresPage'
 import { RecepcionPage } from './pages/RecepcionPage'
 import { RecuperarContrasenaPage } from './pages/RecuperarContrasenaPage'
@@ -70,6 +73,7 @@ function App() {
                   path="requisiciones/:id"
                   element={<DetalleRequisicionPage volverA="/obra/requisiciones" />}
                 />
+                <Route path="requisiciones/:id/seguimiento" element={<SeguimientoPedidoPage />} />
               </Route>
               <Route path="compras" element={<SoloPortal portalId="compras" />}>
                 <Route index element={<ComprasPage />} />
@@ -99,6 +103,8 @@ function App() {
               <Route path="proveedores" element={<SoloPortal portalId="proveedores" />}>
                 <Route index element={<ProveedoresPage />} />
                 <Route path="licitaciones/:id" element={<CotizarLicitacionPage />} />
+                <Route path="mis-cotizaciones" element={<MisCotizacionesPage />} />
+                <Route path="mis-ordenes" element={<MisOrdenesProveedorPage />} />
               </Route>
             </Route>
           </Route>

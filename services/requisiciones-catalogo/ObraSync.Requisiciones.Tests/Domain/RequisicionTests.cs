@@ -101,6 +101,71 @@ namespace ObraSync.Requisiciones.Tests.Domain
             Assert.NotNull(requisicion.FechaAprobacion);
         }
 
+        private static Requisicion NuevaPendiente() => new(
+            Guid.NewGuid(),
+            "REQ-2026-0090",
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            new[]
+            {
+                new RequisicionItem(Guid.NewGuid(), Guid.Empty, Guid.NewGuid(), "Cemento", 80m, UnidadesMedida.Bolsa)
+            },
+            "Estructura");
+
+        [Fact]
+        public void Cancelar_RequisicionPendiente_PasaACancelada()
+        {
+            var requisicion = NuevaPendiente();
+
+            requisicion.Cancelar();
+
+            Assert.Equal(EstadoRequisicion.Cancelada, requisicion.Estado);
+        }
+
+        [Fact]
+        public void Cancelar_RequisicionAprobadaOCancelada_LanzaInvalidOperationException()
+        {
+            var aprobada = NuevaPendiente();
+            aprobada.Aprobar(Guid.NewGuid());
+            Assert.Throws<InvalidOperationException>(() => aprobada.Cancelar());
+
+            var cancelada = NuevaPendiente();
+            cancelada.Cancelar();
+            Assert.Throws<InvalidOperationException>(() => cancelada.Cancelar());
+        }
+
+        [Fact]
+        public void Reenviar_RequisicionPendiente_CambiaLosDatosYSigueSiendoPendiente()
+        {
+            var requisicion = NuevaPendiente();
+            var nuevoArticulo = Guid.NewGuid();
+
+            requisicion.Reenviar(
+                new[] { new RequisicionItem(Guid.NewGuid(), requisicion.Id, nuevoArticulo, "Cal", 15m, UnidadesMedida.Bolsa) },
+                "Terminaciones",
+                "Corregida");
+
+            Assert.Equal(EstadoRequisicion.Pendiente, requisicion.Estado);
+            Assert.Equal("Terminaciones", requisicion.Etapa);
+            var item = Assert.Single(requisicion.Items);
+            Assert.Equal(nuevoArticulo, item.ArticuloId);
+            Assert.Empty(requisicion.HistorialRechazos);
+        }
+
+        [Fact]
+        public void Reenviar_RequisicionAprobadaOCancelada_LanzaInvalidOperationException()
+        {
+            var items = new[] { new RequisicionItem(Guid.NewGuid(), Guid.Empty, Guid.NewGuid(), "Cal", 15m, UnidadesMedida.Bolsa) };
+
+            var aprobada = NuevaPendiente();
+            aprobada.Aprobar(Guid.NewGuid());
+            Assert.Throws<InvalidOperationException>(() => aprobada.Reenviar(items));
+
+            var cancelada = NuevaPendiente();
+            cancelada.Cancelar();
+            Assert.Throws<InvalidOperationException>(() => cancelada.Reenviar(items));
+        }
+
         [Fact]
         public void Aprobar_RequisicionYaAprobada_DebeLanzarInvalidOperationException()
         {

@@ -198,6 +198,31 @@ public class CalificacionProveedorYPonderacionesTests
         Assert.Equal("corr-calif-404", json.RootElement.GetProperty("correlationId").GetString());
     }
 
+    [Fact]
+    public async Task GetCalificacion_ProveedorVeSoloLaSuya()
+    {
+        await using var factory = CreateFactory($"TestDb_CalifPropia_{Guid.NewGuid()}");
+        var proveedorId = Guid.NewGuid();
+
+        var comprador = factory.CreateClient();
+        comprador.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GenerateJwt("Comprador"));
+        await comprador.PutAsJsonAsync(
+            $"/api/cotizaciones/proveedores/{proveedorId}/calificacion",
+            new UpsertCalificacionProveedorRequestDto(4));
+
+        var propio = factory.CreateClient();
+        propio.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GenerateJwt("Proveedor", proveedorId));
+        var otro = factory.CreateClient();
+        otro.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GenerateJwt("Proveedor", Guid.NewGuid()));
+
+        var miaResp = await propio.GetAsync($"/api/proveedores/{proveedorId}/calificacion");
+        var ajenaResp = await otro.GetAsync($"/api/proveedores/{proveedorId}/calificacion");
+
+        Assert.Equal(HttpStatusCode.OK, miaResp.StatusCode);
+        Assert.Equal(4m, (await miaResp.Content.ReadFromJsonAsync<CalificacionProveedorResponseDto>())!.Calificacion);
+        Assert.Equal(HttpStatusCode.Forbidden, ajenaResp.StatusCode);
+    }
+
     [Theory]
     [InlineData("Capataz")]
     [InlineData("Proveedor")]

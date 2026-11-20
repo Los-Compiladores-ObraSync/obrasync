@@ -5,11 +5,17 @@
     "version": "1.0",
     "description": "API del microservicio de Licitaciones y Cotizaciones de ObraSync Enterprise. Gestión de pliegos de licitación, recepción y validación de cotizaciones, matriz comparativa con scoring multicriterio y costos totales (CU-06/CU-07), emisión de órdenes de compra y cotización mediante enlaces temporales seguros de un solo uso (Magic Links)."
   },
-  "security": [{ "bearerAuth": [] }],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
   "paths": {
     "/api/licitaciones": {
       "get": {
-        "tags": ["Licitaciones"],
+        "tags": [
+          "Licitaciones"
+        ],
         "summary": "Listar pliegos con filtros opcionales (Roles: Comprador, Proveedor, Admin)",
         "parameters": [
           {
@@ -17,28 +23,43 @@
             "in": "query",
             "description": "Filtrar pliegos por el identificador de la obra.",
             "required": false,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
           {
             "name": "estado",
             "in": "query",
             "description": "Filtrar pliegos por estado.",
             "required": false,
-            "schema": { "type": "string", "nullable": true }
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
           },
           {
             "name": "pagina",
             "in": "query",
             "description": "Número de página (1 en adelante).",
             "required": false,
-            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
           },
           {
             "name": "tamano",
             "in": "query",
             "description": "Cantidad de elementos por página (entre 1 y 50).",
             "required": false,
-            "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 50 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50
+            }
           }
         ],
         "responses": {
@@ -47,39 +68,57 @@
             "headers": {
               "X-Total-Count": {
                 "description": "Total de elementos que coinciden con el filtro",
-                "schema": { "type": "integer" }
+                "schema": {
+                  "type": "integer"
+                }
               },
               "X-Page": {
                 "description": "Página actual",
-                "schema": { "type": "integer" }
+                "schema": {
+                  "type": "integer"
+                }
               },
               "X-Page-Size": {
                 "description": "Tamaño de página aplicado",
-                "schema": { "type": "integer" }
+                "schema": {
+                  "type": "integer"
+                }
               }
             },
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/LicitacionResponseDto" }
+                  "items": {
+                    "$ref": "#/components/schemas/LicitacionResponseDto"
+                  }
                 }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       },
       "post": {
-        "tags": ["Licitaciones"],
+        "tags": [
+          "Licitaciones"
+        ],
         "summary": "Publicar un pliego a partir de una requisición aprobada, con el plazo para cotizar (Roles: Comprador, Admin). 404 si la requisición no existe o no está aprobada (acá solo se guardan requisiciones aprobadas, es el mismo caso; el 400 por 'no aprobada' no se usa). 400 si la fecha límite no es futura (UTC). 409 si ya hay una licitación Abierta para esa requisición.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CrearLicitacionRequestDto" }
+              "schema": {
+                "$ref": "#/components/schemas/CrearLicitacionRequestDto"
+              }
             }
           }
         },
@@ -88,21 +127,35 @@
             "description": "Created",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/LicitacionResponseDto" }
+                "schema": {
+                  "$ref": "#/components/schemas/LicitacionResponseDto"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
         }
       }
     },
     "/api/licitaciones/{id}": {
       "get": {
-        "tags": ["Licitaciones"],
+        "tags": [
+          "Licitaciones"
+        ],
         "summary": "Obtener un pliego por Id (Roles: Comprador, Proveedor, Admin)",
         "parameters": [
           {
@@ -110,7 +163,10 @@
             "in": "path",
             "description": "Identificador único (GUID) del pliego.",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -118,19 +174,29 @@
             "description": "Success",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/LicitacionResponseDto" }
+                "schema": {
+                  "$ref": "#/components/schemas/LicitacionResponseDto"
+                }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/cotizaciones": {
       "get": {
-        "tags": ["Cotizaciones"],
+        "tags": [
+          "Cotizaciones"
+        ],
         "summary": "Listar las cotizaciones de un pliego para la matriz comparativa con scoring multivariable (Roles: Comprador, Admin)",
         "description": "Calcula el scoring multivariable de las cotizaciones del pliego considerando precio, flete, plazo y calificación del proveedor (normalizada como (calificacion - 1) / 4; 0 si no tiene calificación, manteniendo el peso en el divisor). Permite sobreescribir las ponderaciones por defecto de configuración enviando pesoPrecio, pesoFlete, pesoPlazo y/o pesoCalificacion (>= 0 y suma > 0; se normalizan dividiendo por la suma total).",
         "parameters": [
@@ -139,49 +205,77 @@
             "in": "query",
             "description": "Identificador del pliego del que se listan las cotizaciones.",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
           {
             "name": "pagina",
             "in": "query",
             "description": "Número de página (1 en adelante).",
             "required": false,
-            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
           },
           {
             "name": "tamano",
             "in": "query",
             "description": "Cantidad de elementos por página (entre 1 y 50).",
             "required": false,
-            "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 50 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50
+            }
           },
           {
             "name": "pesoPrecio",
             "in": "query",
             "description": "Peso relativo del criterio Precio (>= 0). Si se omite, se usa el valor por defecto configurado en Scoring:PesoPrecio (0.50).",
             "required": false,
-            "schema": { "type": "number", "format": "double", "minimum": 0 }
+            "schema": {
+              "type": "number",
+              "format": "double",
+              "minimum": 0
+            }
           },
           {
             "name": "pesoFlete",
             "in": "query",
             "description": "Peso relativo del criterio Flete (>= 0). Si se omite, se usa el valor por defecto configurado en Scoring:PesoFlete (0.20).",
             "required": false,
-            "schema": { "type": "number", "format": "double", "minimum": 0 }
+            "schema": {
+              "type": "number",
+              "format": "double",
+              "minimum": 0
+            }
           },
           {
             "name": "pesoPlazo",
             "in": "query",
             "description": "Peso relativo del criterio Plazo de entrega (>= 0). Si se omite, se usa el valor por defecto configurado en Scoring:PesoPlazo (0.20).",
             "required": false,
-            "schema": { "type": "number", "format": "double", "minimum": 0 }
+            "schema": {
+              "type": "number",
+              "format": "double",
+              "minimum": 0
+            }
           },
           {
             "name": "pesoCalificacion",
             "in": "query",
             "description": "Peso relativo del criterio Calificación del proveedor (>= 0). Si se omite, se usa el valor por defecto configurado en Scoring:PesoCalificacion (0.10).",
             "required": false,
-            "schema": { "type": "number", "format": "double", "minimum": 0 }
+            "schema": {
+              "type": "number",
+              "format": "double",
+              "minimum": 0
+            }
           }
         ],
         "responses": {
@@ -190,40 +284,60 @@
             "headers": {
               "X-Total-Count": {
                 "description": "Total de elementos que coinciden con el filtro",
-                "schema": { "type": "integer" }
+                "schema": {
+                  "type": "integer"
+                }
               },
               "X-Page": {
                 "description": "Página actual",
-                "schema": { "type": "integer" }
+                "schema": {
+                  "type": "integer"
+                }
               },
               "X-Page-Size": {
                 "description": "Tamaño de página aplicado",
-                "schema": { "type": "integer" }
+                "schema": {
+                  "type": "integer"
+                }
               }
             },
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/CotizacionResponseDto" }
+                  "items": {
+                    "$ref": "#/components/schemas/CotizacionResponseDto"
+                  }
                 }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       },
       "post": {
-        "tags": ["Cotizaciones"],
+        "tags": [
+          "Cotizaciones"
+        ],
         "summary": "Cargar una cotización para un pliego (Roles: Proveedor, Admin)",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CrearCotizacionRequestDto" }
+              "schema": {
+                "$ref": "#/components/schemas/CrearCotizacionRequestDto"
+              }
             }
           }
         },
@@ -232,20 +346,32 @@
             "description": "Created",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CotizacionResponseDto" }
+                "schema": {
+                  "$ref": "#/components/schemas/CotizacionResponseDto"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
     "/api/cotizaciones/mias": {
       "get": {
-        "tags": ["Cotizaciones"],
+        "tags": [
+          "Cotizaciones"
+        ],
         "summary": "Listar las cotizaciones propias del proveedor autenticado y su resultado de adjudicación (Roles: Proveedor, Admin)",
         "description": "Permite a un Proveedor consultar únicamente sus propias cotizaciones (tomando su identificador del claim 'sub' del token JWT) y conocer si su oferta fue adjudicada, sin exponer cotizaciones ni precios de otros proveedores. Un Admin puede indicar opcionalmente proveedorId por query string.",
         "parameters": [
@@ -254,21 +380,33 @@
             "in": "query",
             "description": "Identificador del proveedor a consultar (solo aplicable para el rol Admin; para Proveedor se utiliza siempre el claim 'sub' del JWT).",
             "required": false,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
           {
             "name": "pagina",
             "in": "query",
             "description": "Número de página (1 en adelante).",
             "required": false,
-            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
           },
           {
             "name": "tamano",
             "in": "query",
             "description": "Cantidad de elementos por página (entre 1 y 50).",
             "required": false,
-            "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 50 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50
+            }
           }
         ],
         "responses": {
@@ -277,44 +415,63 @@
             "headers": {
               "X-Total-Count": {
                 "description": "Total de elementos que coinciden con el filtro",
-                "schema": { "type": "integer" }
+                "schema": {
+                  "type": "integer"
+                }
               },
               "X-Page": {
                 "description": "Página actual",
-                "schema": { "type": "integer" }
+                "schema": {
+                  "type": "integer"
+                }
               },
               "X-Page-Size": {
                 "description": "Tamaño de página aplicado",
-                "schema": { "type": "integer" }
+                "schema": {
+                  "type": "integer"
+                }
               }
             },
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/MiCotizacionResponseDto" }
+                  "items": {
+                    "$ref": "#/components/schemas/MiCotizacionResponseDto"
+                  }
                 }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
     "/api/cotizaciones/proveedores/{proveedorId}/calificacion": {
       "get": {
-        "tags": ["Cotizaciones"],
+        "tags": [
+          "Cotizaciones"
+        ],
         "summary": "Consultar la calificación vigente de un proveedor (Roles: Comprador, Admin)",
-        "description": "Devuelve la calificación vigente del proveedor: el promedio (1 a 5, con hasta 2 decimales) de las calificaciones recibidas de distintos usuarios, y cuántas son. Si el proveedor todavía no tiene ninguna, responde 404 Not Found con ProblemDetails.",
+        "description": "Devuelve la calificación vigente del proveedor: el promedio (1 a 5, con hasta 2 decimales) de las calificaciones recibidas de distintos usuarios, y cuántas son. Si el proveedor todavía no tiene ninguna, responde 404 Not Found con ProblemDetails. Roles: Comprador, Admin; el Proveedor solo puede consultar la suya (si no, 403).",
         "parameters": [
           {
             "name": "proveedorId",
             "in": "path",
             "description": "Identificador único (GUID) del proveedor.",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -322,17 +479,27 @@
             "description": "Success",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CalificacionProveedorResponseDto" }
+                "schema": {
+                  "$ref": "#/components/schemas/CalificacionProveedorResponseDto"
+                }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       },
       "put": {
-        "tags": ["Cotizaciones"],
+        "tags": [
+          "Cotizaciones"
+        ],
         "summary": "Cargar o actualizar la calificación que el usuario autenticado le da a un proveedor, en escala de 1 a 5 (Roles: Comprador, Admin)",
         "description": "Registra o actualiza (upsert idempotente, una fila por proveedorId y usuario, tomado del claim 'sub' del JWT) la calificación entre 1 y 5 que el usuario le da al proveedor. Si otro usuario califica, se suma su calificación; la respuesta devuelve el promedio vigente del proveedor, que es el que se usa en el scoring de comparativas (#88).",
         "parameters": [
@@ -341,14 +508,19 @@
             "in": "path",
             "description": "Identificador único (GUID) del proveedor.",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpsertCalificacionProveedorRequestDto" }
+              "schema": {
+                "$ref": "#/components/schemas/UpsertCalificacionProveedorRequestDto"
+              }
             }
           }
         },
@@ -357,19 +529,29 @@
             "description": "Calificación registrada o actualizada exitosamente.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CalificacionProveedorResponseDto" }
+                "schema": {
+                  "$ref": "#/components/schemas/CalificacionProveedorResponseDto"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
     "/api/licitaciones/{licitacionId}/adjudicar": {
       "post": {
-        "tags": ["Licitaciones"],
+        "tags": [
+          "Licitaciones"
+        ],
         "summary": "Adjudicar una cotización y emitir la Orden de Compra",
         "description": "Permite a un Comprador o Administrador adjudicar una cotización ganadora para una licitación.",
         "parameters": [
@@ -389,7 +571,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["cotizacionId"],
+                "required": [
+                  "cotizacionId"
+                ],
                 "properties": {
                   "cotizacionId": {
                     "type": "string",
@@ -418,7 +602,9 @@
     },
     "/api/licitaciones/{id}/cerrar": {
       "post": {
-        "tags": ["Licitaciones"],
+        "tags": [
+          "Licitaciones"
+        ],
         "summary": "Cerrar o cancelar una licitación abierta sin adjudicar (Roles: Comprador, Admin)",
         "description": "Permite a un Comprador o Administrador cerrar una licitación en estado Abierta indicando el motivo, sin generar Orden de Compra ni emitir eventos, e invalidando sus Magic Links pendientes.",
         "parameters": [
@@ -436,7 +622,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CerrarLicitacionRequestDto" }
+              "schema": {
+                "$ref": "#/components/schemas/CerrarLicitacionRequestDto"
+              }
             }
           }
         },
@@ -445,28 +633,45 @@
             "description": "Licitación cerrada exitosamente sin adjudicar.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/LicitacionResponseDto" }
+                "schema": {
+                  "$ref": "#/components/schemas/LicitacionResponseDto"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
         }
       }
     },
     "/api/licitaciones/{licitacionId}/magic-links": {
       "post": {
-        "tags": ["MagicLinks"],
+        "tags": [
+          "MagicLinks"
+        ],
         "summary": "Generar un enlace temporal de un solo uso (Magic Link) para que un proveedor cotice (Roles: Comprador, Admin)",
         "parameters": [
           {
             "name": "licitacionId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "requestBody": {
@@ -475,9 +680,14 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["proveedorId"],
+                "required": [
+                  "proveedorId"
+                ],
                 "properties": {
-                  "proveedorId": { "type": "string", "format": "uuid" },
+                  "proveedorId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
                   "proveedorNombre": {
                     "type": "string",
                     "nullable": true,
@@ -496,7 +706,14 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["token", "hash", "url", "fechaDeVencimiento", "expiresIn", "horasVigencia"],
+                  "required": [
+                    "token",
+                    "hash",
+                    "url",
+                    "fechaDeVencimiento",
+                    "expiresIn",
+                    "horasVigencia"
+                  ],
                   "properties": {
                     "token": {
                       "type": "string",
@@ -529,11 +746,21 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
         }
       }
     },
@@ -581,7 +808,9 @@
     },
     "/api/licitaciones/magic-links/{hash}/cotizar": {
       "post": {
-        "tags": ["MagicLinks"],
+        "tags": [
+          "MagicLinks"
+        ],
         "summary": "Cotizar un pliego utilizando un Magic Link de un solo uso (Público / AllowAnonymous)",
         "security": [],
         "parameters": [
@@ -590,7 +819,9 @@
             "in": "path",
             "required": true,
             "description": "Token temporal de un solo uso recibido por el proveedor.",
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -599,20 +830,45 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["items", "flete", "plazoEntregaDias"],
+                "required": [
+                  "items",
+                  "flete",
+                  "plazoEntregaDias"
+                ],
                 "properties": {
-                  "flete": { "type": "number", "format": "double", "minimum": 0 },
-                  "plazoEntregaDias": { "type": "integer", "format": "int32", "minimum": 1 },
+                  "flete": {
+                    "type": "number",
+                    "format": "double",
+                    "minimum": 0
+                  },
+                  "plazoEntregaDias": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 1
+                  },
                   "items": {
                     "type": "array",
                     "minItems": 1,
                     "items": {
                       "type": "object",
-                      "required": ["precioUnitario"],
+                      "required": [
+                        "precioUnitario"
+                      ],
                       "properties": {
-                        "licitacionItemId": { "type": "string", "format": "uuid" },
-                        "articuloId": { "type": "string", "format": "uuid" },
-                        "precioUnitario": { "type": "number", "format": "double", "exclusiveMinimum": true, "minimum": 0 },
+                        "licitacionItemId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "articuloId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "precioUnitario": {
+                          "type": "number",
+                          "format": "double",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
                         "presentacionOfrecida": {
                           "type": "string",
                           "maxLength": 100,
@@ -639,19 +895,29 @@
             "description": "Cotización validada y registrada exitosamente.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CotizacionResponseDto" }
+                "schema": {
+                  "$ref": "#/components/schemas/CotizacionResponseDto"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
         }
       }
     },
     "/api/ordenes-compra": {
       "get": {
-        "tags": ["OrdenesCompra"],
+        "tags": [
+          "OrdenesCompra"
+        ],
         "summary": "Listar órdenes de compra con su estado de despacho (Roles: Comprador, Admin, Proveedor)",
         "description": "Permite consultar las órdenes de compra emitidas y despachadas con paginación estándar y filtros opcionales. Si quien consulta es un Proveedor, solo visualiza sus propias órdenes de compra.",
         "parameters": [
@@ -660,42 +926,62 @@
             "in": "query",
             "description": "Filtrar órdenes de compra por identificador de obra.",
             "required": false,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
           {
             "name": "licitacionId",
             "in": "query",
             "description": "Filtrar órdenes de compra por identificador de licitación.",
             "required": false,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
           {
             "name": "proveedorId",
             "in": "query",
             "description": "Filtrar órdenes de compra por identificador de proveedor (ignorado si consulta un Proveedor; se usa su propio usuarioId).",
             "required": false,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
           {
             "name": "estado",
             "in": "query",
             "description": "Filtrar por estado de la orden de compra (Emitida o Despachada).",
             "required": false,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "pagina",
             "in": "query",
             "description": "Número de página (1 en adelante).",
             "required": false,
-            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
           },
           {
             "name": "tamano",
             "in": "query",
             "description": "Cantidad de elementos por página (entre 1 y 50).",
             "required": false,
-            "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 50 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50
+            }
           }
         ],
         "responses": {
@@ -704,35 +990,51 @@
             "headers": {
               "X-Total-Count": {
                 "description": "Total de elementos que coinciden con el filtro",
-                "schema": { "type": "integer" }
+                "schema": {
+                  "type": "integer"
+                }
               },
               "X-Page": {
                 "description": "Página actual",
-                "schema": { "type": "integer" }
+                "schema": {
+                  "type": "integer"
+                }
               },
               "X-Page-Size": {
                 "description": "Tamaño de página aplicado",
-                "schema": { "type": "integer" }
+                "schema": {
+                  "type": "integer"
+                }
               }
             },
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/OrdenCompraListadoDto" }
+                  "items": {
+                    "$ref": "#/components/schemas/OrdenCompraListadoDto"
+                  }
                 }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
     "/api/ordenes-compra/{id}/despachar": {
       "post": {
-        "tags": ["OrdenesCompra"],
+        "tags": [
+          "OrdenesCompra"
+        ],
         "summary": "Marcar una orden de compra como despachada (Roles: Comprador, Admin)",
         "description": "Permite a un Comprador o Administrador marcar una orden de compra como despachada, registrando la fecha de despacho UTC y publicando OrdenCompraDespachadaEvent. Devuelve 404 si no existe o 409 si ya estaba despachada.",
         "parameters": [
@@ -752,22 +1054,235 @@
             "description": "Orden de compra marcada como despachada exitosamente.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/OrdenCompraListadoDto" }
+                "schema": {
+                  "$ref": "#/components/schemas/OrdenCompraListadoDto"
+                }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
           "409": {
             "description": "Conflict (La orden de compra ya fue despachada)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
               }
             }
           }
         }
+      }
+    },
+    "/api/licitaciones/seguimiento/{requisicionId}": {
+      "get": {
+        "tags": [
+          "Licitaciones"
+        ],
+        "summary": "Seguimiento de una requisición aprobada: licitación, ofertas y órdenes de compra (Roles: Capataz, Comprador, Admin)",
+        "description": "Devuelve la licitación más reciente de la requisición, cuántas cotizaciones recibió y las órdenes de compra emitidas. Si todavía no hay licitación responde 200 con licitacionId nulo. La recepción en obra se consulta en el servicio de Recepción.",
+        "parameters": [
+          {
+            "name": "requisicionId",
+            "in": "path",
+            "description": "Identificador (GUID) de la requisición.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeguimientoRequisicionDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/licitaciones/{id}/extender": {
+      "post": {
+        "tags": [
+          "Licitaciones"
+        ],
+        "summary": "Extender el plazo de cotización de una licitación abierta (Roles: Comprador, Admin)",
+        "description": "Mueve la fecha límite a una fecha futura y posterior a la actual. Solo licitaciones Abiertas; en otro estado responde 409.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtenderLicitacionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Licitación cerrada exitosamente sin adjudicar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LicitacionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/ordenes-compra/precios-historicos": {
+      "get": {
+        "tags": [
+          "OrdenesCompra"
+        ],
+        "summary": "Último precio pagado por artículo, según las órdenes de compra emitidas (Roles: Comprador, Admin)",
+        "description": "Para cada articuloId pedido (1 a 50) devuelve el precio unitario de su orden de compra más reciente. Los artículos que nunca se compraron no aparecen.",
+        "parameters": [
+          {
+            "name": "articuloIds",
+            "in": "query",
+            "required": true,
+            "description": "Identificadores (GUID) de los artículos. Se repite el parámetro por cada uno.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1,
+              "maxItems": 50
+            },
+            "style": "form",
+            "explode": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PrecioHistoricoDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/cotizaciones/{id}": {
+      "put": {
+        "tags": [
+          "Cotizaciones"
+        ],
+        "summary": "Corregir una cotización propia antes del cierre (Roles: Proveedor dueño, Admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearCotizacionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "200": {
+            "description": "Success (cotización corregida)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CotizacionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "description": "Reemplaza precios, flete y plazo de una cotización ya enviada, conservando su identificador. La licitación tiene que seguir Abierta y dentro de plazo (si no, 400). licitacionId y proveedorId del cuerpo se ignoran.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Identificador (GUID) de la cotización.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
       }
     }
   },
@@ -783,29 +1298,64 @@
     "responses": {
       "BadRequest": {
         "description": "Bad Request (Datos de entrada inválidos)",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } }
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
       },
       "Unauthorized": {
         "description": "Unauthorized",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } }
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
       },
       "Forbidden": {
         "description": "Forbidden (Rol no autorizado)",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } }
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
       },
       "NotFound": {
         "description": "Not Found (Recurso inexistente)",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } }
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
       },
       "Conflict": {
         "description": "Conflict (Ya existe una licitación abierta para la requisición)",
-        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } }
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
       }
     },
     "schemas": {
       "PliegoItemDto": {
         "type": "object",
-        "required": ["articuloId", "descripcion", "cantidad", "unidadMedida"],
+        "required": [
+          "articuloId",
+          "descripcion",
+          "cantidad",
+          "unidadMedida"
+        ],
         "properties": {
           "articuloId": {
             "type": "string",
@@ -873,7 +1423,10 @@
       },
       "CrearLicitacionRequestDto": {
         "type": "object",
-        "required": ["requisicionId", "fechaLimiteCotizacion"],
+        "required": [
+          "requisicionId",
+          "fechaLimiteCotizacion"
+        ],
         "properties": {
           "requisicionId": {
             "type": "string",
@@ -890,7 +1443,15 @@
       },
       "LicitacionResponseDto": {
         "type": "object",
-        "required": ["licitacionId", "requisicionId", "obraId", "estado", "fechaCreacion", "fechaLimiteCotizacion", "items"],
+        "required": [
+          "licitacionId",
+          "requisicionId",
+          "obraId",
+          "estado",
+          "fechaCreacion",
+          "fechaLimiteCotizacion",
+          "items"
+        ],
         "properties": {
           "fechaLimiteCotizacion": {
             "type": "string",
@@ -940,7 +1501,9 @@
           "items": {
             "type": "array",
             "minItems": 1,
-            "items": { "$ref": "#/components/schemas/PliegoItemDto" },
+            "items": {
+              "$ref": "#/components/schemas/PliegoItemDto"
+            },
             "description": "Materiales a cotizar."
           },
           "yaCotizada": {
@@ -953,7 +1516,9 @@
       },
       "CerrarLicitacionRequestDto": {
         "type": "object",
-        "required": ["motivo"],
+        "required": [
+          "motivo"
+        ],
         "properties": {
           "motivo": {
             "type": "string",
@@ -966,7 +1531,10 @@
       },
       "CrearCotizacionItemDto": {
         "type": "object",
-        "required": ["articuloId", "precioUnitario"],
+        "required": [
+          "articuloId",
+          "precioUnitario"
+        ],
         "properties": {
           "articuloId": {
             "type": "string",
@@ -1006,7 +1574,11 @@
       },
       "CrearCotizacionRequestDto": {
         "type": "object",
-        "required": ["licitacionId", "proveedorId", "items"],
+        "required": [
+          "licitacionId",
+          "proveedorId",
+          "items"
+        ],
         "properties": {
           "licitacionId": {
             "type": "string",
@@ -1033,7 +1605,9 @@
           "items": {
             "type": "array",
             "minItems": 1,
-            "items": { "$ref": "#/components/schemas/CrearCotizacionItemDto" },
+            "items": {
+              "$ref": "#/components/schemas/CrearCotizacionItemDto"
+            },
             "description": "Precios ofertados por artículo."
           }
         },
@@ -1041,7 +1615,19 @@
       },
       "CotizacionResponseDto": {
         "type": "object",
-        "required": ["cotizacionId", "licitacionId", "proveedorId", "subtotalItems", "flete", "costoTotal", "esMasBarata", "fechaCreacion", "items", "puntajeTotal", "esGanadora"],
+        "required": [
+          "cotizacionId",
+          "licitacionId",
+          "proveedorId",
+          "subtotalItems",
+          "flete",
+          "costoTotal",
+          "esMasBarata",
+          "fechaCreacion",
+          "items",
+          "puntajeTotal",
+          "esGanadora"
+        ],
         "properties": {
           "cotizacionId": {
             "type": "string",
@@ -1093,7 +1679,9 @@
           },
           "items": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/CrearCotizacionItemDto" },
+            "items": {
+              "$ref": "#/components/schemas/CrearCotizacionItemDto"
+            },
             "description": "Precios ofertados por artículo."
           },
           "puntajeTotal": {
@@ -1120,17 +1708,29 @@
           },
           "desglosePuntaje": {
             "nullable": true,
-            "allOf": [{ "$ref": "#/components/schemas/CriteriosScoringDto" }],
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CriteriosScoringDto"
+              }
+            ],
             "description": "Puntos (0 a 100, 2 decimales) que aportó cada criterio al puntajeTotal. Es el cálculo real del scoring (peso × valor normalizado ÷ suma de pesos); la suma de los cuatro da exactamente puntajeTotal."
           },
           "ponderacionesScoring": {
             "nullable": true,
-            "allOf": [{ "$ref": "#/components/schemas/CriteriosScoringDto" }],
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CriteriosScoringDto"
+              }
+            ],
             "description": "Peso de cada criterio con el que se calculó el puntaje (#197 / #206)."
           },
           "desgloseScoring": {
             "nullable": true,
-            "allOf": [{ "$ref": "#/components/schemas/DesgloseScoringDto" }],
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DesgloseScoringDto"
+              }
+            ],
             "description": "Desagregación detallada por criterio (puntajes normalizados 0 a 100 respecto a la mejor oferta y pesos configurados aplicados, #197)."
           }
         },
@@ -1150,26 +1750,67 @@
         ],
         "description": "Puntaje individual obtenido en cada criterio (escala 0 a 100) y peso configurado aplicado (#197).",
         "properties": {
-          "puntajePrecio": { "type": "number", "format": "double" },
-          "puntajePlazo": { "type": "number", "format": "double" },
-          "puntajeFlete": { "type": "number", "format": "double" },
-          "puntajeCalificacion": { "type": "number", "format": "double" },
-          "pesoPrecio": { "type": "number", "format": "double" },
-          "pesoPlazo": { "type": "number", "format": "double" },
-          "pesoFlete": { "type": "number", "format": "double" },
-          "pesoCalificacion": { "type": "number", "format": "double" }
+          "puntajePrecio": {
+            "type": "number",
+            "format": "double"
+          },
+          "puntajePlazo": {
+            "type": "number",
+            "format": "double"
+          },
+          "puntajeFlete": {
+            "type": "number",
+            "format": "double"
+          },
+          "puntajeCalificacion": {
+            "type": "number",
+            "format": "double"
+          },
+          "pesoPrecio": {
+            "type": "number",
+            "format": "double"
+          },
+          "pesoPlazo": {
+            "type": "number",
+            "format": "double"
+          },
+          "pesoFlete": {
+            "type": "number",
+            "format": "double"
+          },
+          "pesoCalificacion": {
+            "type": "number",
+            "format": "double"
+          }
         },
         "additionalProperties": false
       },
       "CriteriosScoringDto": {
         "type": "object",
-        "required": ["precio", "flete", "plazo", "calificacion"],
+        "required": [
+          "precio",
+          "flete",
+          "plazo",
+          "calificacion"
+        ],
         "description": "Un valor por cada criterio del scoring multivariable (ver CotizacionResponseDto.desglosePuntaje y ponderacionesScoring).",
         "properties": {
-          "precio": { "type": "number", "format": "double" },
-          "flete": { "type": "number", "format": "double" },
-          "plazo": { "type": "number", "format": "double" },
-          "calificacion": { "type": "number", "format": "double" }
+          "precio": {
+            "type": "number",
+            "format": "double"
+          },
+          "flete": {
+            "type": "number",
+            "format": "double"
+          },
+          "plazo": {
+            "type": "number",
+            "format": "double"
+          },
+          "calificacion": {
+            "type": "number",
+            "format": "double"
+          }
         },
         "additionalProperties": false
       },
@@ -1224,7 +1865,11 @@
           },
           "estadoLicitacion": {
             "type": "string",
-            "enum": ["Abierta", "Cerrada", "Adjudicada"],
+            "enum": [
+              "Abierta",
+              "Cerrada",
+              "Adjudicada"
+            ],
             "description": "Estado actual de la licitación asociada."
           },
           "subtotalItems": {
@@ -1258,7 +1903,9 @@
           },
           "items": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/CrearCotizacionItemDto" },
+            "items": {
+              "$ref": "#/components/schemas/CrearCotizacionItemDto"
+            },
             "description": "Ítems y precios unitarios ofertados por el proveedor."
           },
           "esGanadora": {
@@ -1267,7 +1914,12 @@
           },
           "estadoResultado": {
             "type": "string",
-            "enum": ["Enviada", "Gano", "NoGano", "LicitacionCerrada"],
+            "enum": [
+              "Enviada",
+              "Gano",
+              "NoGano",
+              "LicitacionCerrada"
+            ],
             "description": "Estado de resultado para el portal de proveedores: 'Enviada' si la licitación sigue Abierta, 'Gano' si fue Adjudicada a esta cotización, 'NoGano' si fue Adjudicada a otra oferta, o 'LicitacionCerrada' si cerró sin adjudicarse."
           }
         },
@@ -1338,7 +1990,9 @@
       },
       "UpsertCalificacionProveedorRequestDto": {
         "type": "object",
-        "required": ["calificacion"],
+        "required": [
+          "calificacion"
+        ],
         "properties": {
           "calificacion": {
             "type": "integer",
@@ -1352,7 +2006,12 @@
       },
       "CalificacionProveedorResponseDto": {
         "type": "object",
-        "required": ["proveedorId", "calificacion", "cantidadCalificaciones", "fechaActualizacion"],
+        "required": [
+          "proveedorId",
+          "calificacion",
+          "cantidadCalificaciones",
+          "fechaActualizacion"
+        ],
         "properties": {
           "proveedorId": {
             "type": "string",
@@ -1383,11 +2042,27 @@
       "ProblemDetails": {
         "type": "object",
         "properties": {
-          "type": { "type": "string", "nullable": true },
-          "title": { "type": "string", "nullable": true },
-          "status": { "type": "integer", "format": "int32", "nullable": true },
-          "detail": { "type": "string", "nullable": true },
-          "instance": { "type": "string", "nullable": true },
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
+          },
           "correlationId": {
             "type": "string",
             "nullable": true,
@@ -1395,6 +2070,120 @@
           }
         },
         "additionalProperties": {}
+      },
+      "SeguimientoOrdenCompraDto": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ordenCompraId",
+          "estado",
+          "fechaEmision",
+          "proveedorId"
+        ],
+        "properties": {
+          "ordenCompraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "estado": {
+            "type": "string",
+            "description": "Emitida o Despachada."
+          },
+          "fechaEmision": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fechaDespacho": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "proveedorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "proveedorNombre": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SeguimientoRequisicionDto": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requisicionId",
+          "cantidadCotizaciones",
+          "ordenesCompra"
+        ],
+        "properties": {
+          "requisicionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "licitacionId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "estadoLicitacion": {
+            "type": "string",
+            "nullable": true,
+            "description": "Abierta, Cerrada o Adjudicada. Nulo si todavía no hay licitación."
+          },
+          "fechaLimiteCotizacion": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cantidadCotizaciones": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ordenesCompra": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SeguimientoOrdenCompraDto"
+            }
+          }
+        }
+      },
+      "ExtenderLicitacionRequestDto": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fechaLimiteCotizacion"
+        ],
+        "properties": {
+          "fechaLimiteCotizacion": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Nueva fecha límite (UTC). Futura y posterior a la actual."
+          }
+        }
+      },
+      "PrecioHistoricoDto": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "articuloId",
+          "ultimoPrecioUnitario",
+          "fechaEmision"
+        ],
+        "properties": {
+          "articuloId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ultimoPrecioUnitario": {
+            "type": "number",
+            "format": "double"
+          },
+          "fechaEmision": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       }
     }
   }

@@ -17,13 +17,14 @@ interface HistorialRequisicionesPageProps {
   textoVolver: string
 }
 
-// Los tres valores que acepta el backend en el parámetro "estado".
-const ESTADOS: readonly EstadoRequisicion[] = ['Pendiente', 'Aprobada', 'Rechazada']
+// Los valores que acepta el backend en el parámetro "estado".
+const ESTADOS: readonly EstadoRequisicion[] = ['Pendiente', 'Aprobada', 'Rechazada', 'Cancelada']
 
 const CLASE_POR_ESTADO: Record<string, string> = {
   Pendiente: styles.pendiente,
   Aprobada: styles.aprobada,
   Rechazada: styles.rechazada,
+  Cancelada: styles.cancelada,
 }
 
 export function HistorialRequisicionesPage({
@@ -264,6 +265,11 @@ export function HistorialRequisicionesPage({
                 {req.etapa ? ` · Etapa: ${req.etapa}` : ''}
               </p>
               <p className={styles.dato}>Creada el {fechaLarga(req.fechaCreacion)}</p>
+              {esCapataz && req.estado === 'Pendiente' && (
+                <Link className={`${styles.volver} ${styles.accionRechazo}`} to={`/obra/requisicion/nueva?editar=${encodeURIComponent(req.requisicionId)}&volver=${encodeURIComponent(pathname + search)}`}>
+                  Editar
+                </Link>
+              )}
               {esCapataz && req.estado === 'Rechazada' && (
                 <>
                   <p className={styles.dato}>Motivo del rechazo: {req.motivoRechazo ?? 'Sin motivo informado'}</p>

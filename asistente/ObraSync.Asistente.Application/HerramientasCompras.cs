@@ -24,6 +24,8 @@ public sealed class HerramientasCompras
     public const string PrepararAprobacion = "preparar_aprobacion_requisicion";
     public const string PrepararRechazo = "preparar_rechazo_requisicion";
     public const string PrepararPublicacion = "preparar_publicacion_licitacion";
+    /// <summary>Presupuesto de una obra (partidas por etapa) y órdenes de compra bloqueadas por superar la partida. Solo lectura.</summary>
+    public const string ConsultarPresupuesto = "consultar_presupuesto_obra";
 
     /// <summary>El modelo no necesita ver 50 requisiciones: se piden ya acotadas.</summary>
     public const int MaxRequisiciones = 5;
@@ -43,15 +45,22 @@ public sealed class HerramientasCompras
     public static readonly IReadOnlyList<string> Estados = new[] { "Pendiente", "Aprobada", "Rechazada" };
 
     public static readonly IReadOnlyList<string> Nombres =
-        new[] { ListarRequisiciones, VerRequisicion, PrepararAprobacion, PrepararRechazo, PrepararPublicacion };
+        new[] { ListarRequisiciones, VerRequisicion, PrepararAprobacion, PrepararRechazo, PrepararPublicacion, ConsultarPresupuesto };
 
     private readonly IConsultorRequisiciones _requisiciones;
     private readonly IBuscadorObras _obras;
 
-    public HerramientasCompras(IConsultorRequisiciones requisiciones, IBuscadorObras obras)
+    // Opcional: sin ella la herramienta de presupuesto responde "herramienta_no_disponible" (no se rompe nada más).
+    private readonly HerramientasPresupuestos? _presupuestos;
+
+    public HerramientasCompras(
+        IConsultorRequisiciones requisiciones,
+        IBuscadorObras obras,
+        HerramientasPresupuestos? presupuestos = null)
     {
         _requisiciones = requisiciones;
         _obras = obras;
+        _presupuestos = presupuestos;
     }
 
     /// <summary>Descripción de las herramientas que se le muestran al modelo.</summary>
@@ -192,6 +201,36 @@ public sealed class HerramientasCompras
                     ["required"] = new JsonArray("requisicionId", "diasParaCotizar")
                 }
             }
+        },
+        new JsonObject
+        {
+            ["type"] = "function",
+            ["function"] = new JsonObject
+            {
+                ["name"] = ConsultarPresupuesto,
+                ["description"] =
+                    "Consulta el presupuesto de una obra: sus partidas por etapa (presupuestado, comprometido, disponible) y las órdenes de compra " +
+                    "que quedaron BLOQUEADAS por superar la partida de su etapa. Se pide con el nombre de la obra (y, si la persona quiere, una etapa). " +
+                    "Si la obra es ambigua o no existe, devuelve las opciones: preguntale cuál. Solo lectura: las cifras las calcula el sistema.",
+                ["parameters"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["obra"] = new JsonObject
+                        {
+                            ["type"] = "string",
+                            ["description"] = "Nombre de la obra, por ejemplo: Torre Alvear."
+                        },
+                        ["etapa"] = new JsonObject
+                        {
+                            ["type"] = "string",
+                            ["description"] = "Opcional. Nombre de la etapa para filtrar, por ejemplo: Estructura."
+                        }
+                    },
+                    ["required"] = new JsonArray("obra")
+                }
+            }
         }
     };
 
@@ -204,8 +243,50 @@ public sealed class HerramientasCompras
             PrepararAprobacion => PrepararAprobacionAsync(argumentosJson, ct),
             PrepararRechazo => PrepararRechazoAsync(argumentosJson, ct),
             PrepararPublicacion => PrepararPublicacionAsync(argumentosJson, ct),
+            ConsultarPresupuesto => ConsultarPresupuestoAsync(argumentosJson, ct),
             _ => Task.FromResult(ResultadoHerramienta.Error("herramienta_desconocida"))
         };
+
+    /// <summary>
+    /// Resuelve la obra por nombre (la API ya filtra por rol) y delega en la consulta de presupuestos, que es la misma
+    /// que usa el servidor MCP: así chat y MCP muestran siempre las mismas cifras.
+    /// </summary>
+    private async Task<ResultadoHerramienta> ConsultarPresupuestoAsync(string argumentosJson, CancellationToken ct)
+    {
+        if (_presupuestos is null)
+            return ResultadoHerramienta.Error("herramienta_no_disponible");
+        if (!TryLeerArgumentos(argumentosJson, out var args))
+            return ResultadoHerramienta.Error("argumentos_invalidos");
+
+        var textoObra = Acotar(LeerTexto(args["obra"]));
+        var textoEtapa = Acotar(LeerTexto(args["etapa"]));
+
+        var resObras = await _obras.ListarAsync(ct);
+        if (resObras.Error is not null || resObras.Obras is null)
+            return ResultadoHerramienta.Error(resObras.Error ?? "obras_no_disponibles");
+
+        if (textoObra is null)
+            return ResultadoHerramienta.ErrorConDetalle("obra_requerida", "obras", NombresDeObras(resObras.Obras));
+
+        var coinciden = resObras.Obras.Where(o => string.Equals(o.Nombre.Trim(), textoObra, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (coinciden.Count == 0)
+            coinciden = resObras.Obras.Where(o => o.Nombre.Contains(textoObra, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (coinciden.Count == 0)
+            return ResultadoHerramienta.ErrorConDetalle("obra_no_encontrada", "obras", NombresDeObras(resObras.Obras));
+        if (coinciden.Count > 1)
+            return ResultadoHerramienta.ErrorConDetalle("obra_ambigua", "obras", NombresDeObras(coinciden));
+
+        return await _presupuestos.ConsultarAsync(coinciden[0].Id.ToString(), textoEtapa, ct);
+    }
+
+    private static JsonArray NombresDeObras(IEnumerable<ObraAsistente> obras)
+    {
+        var arr = new JsonArray();
+        foreach (var o in obras.Take(10))
+            arr.Add(o.Nombre);
+        return arr;
+    }
 
     private async Task<ResultadoHerramienta> ListarAsync(string argumentosJson, CancellationToken ct)
     {

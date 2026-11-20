@@ -91,6 +91,11 @@
   color: #991b1b;
 }
 
+.cancelada {
+  background: #f1f5f9;
+  color: #475569;
+}
+
 .errorApi {
   margin: 0 0 1rem;
   padding: 0.75rem 1rem;
@@ -149,4 +154,55 @@
   font-size: 1.0625rem;
   font-weight: 700;
   line-height: 1.4;
+}
+
+.botonRepetir {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px; /* tamaño cómodo para tocar con guantes */
+  padding: 0 1.25rem;
+  margin-top: 0.5rem;
+  border: 2px solid #1f3864;
+  border-radius: 10px;
+  color: #1f3864;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.acciones {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.confirmar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.confirmar p {
+  margin: 0;
+}
+
+.botonCancelar {
+  min-height: 48px;
+  padding: 0 1.25rem;
+  border: 2px solid #991b1b;
+  border-radius: 10px;
+  background: #fff;
+  color: #991b1b;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.errorCancelar {
+  margin: 0;
+  color: #991b1b;
 }

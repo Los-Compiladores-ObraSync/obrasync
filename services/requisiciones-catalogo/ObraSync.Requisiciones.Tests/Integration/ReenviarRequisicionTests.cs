@@ -239,7 +239,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
         }
 
         [Fact]
-        public async Task PutRequisicion_EnEstadoPendienteOAprobada_Devuelve409ConflictConProblemDetailsYCorrelationId()
+        public async Task PutRequisicion_EnPendienteSeEdita_YEnAprobadaDevuelve409ConflictConProblemDetailsYCorrelationId()
         {
             using var factory = CreateIsolatedFactory();
             var capatazId = Guid.NewGuid();
@@ -277,11 +277,16 @@ namespace ObraSync.Requisiciones.Tests.Integration
                 }
             };
 
-            // 1. Intentar editar mientras está Pendiente -> 409 Conflict
+            // 1. Editar mientras está Pendiente -> 200 y sigue Pendiente (antes de que Compras la apruebe)
             var putPendienteResp = await clientCapataz.PutAsJsonAsync(
                 $"/api/requisiciones/{creada.RequisicionId}",
                 editPayload);
-            await AssertProblemDetailsAsync(putPendienteResp, HttpStatusCode.Conflict, correlationId);
+            Assert.Equal(HttpStatusCode.OK, putPendienteResp.StatusCode);
+            var editada = await putPendienteResp.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(editada);
+            Assert.Equal(EstadoRequisicion.Pendiente, editada.Estado);
+            Assert.Equal("Terminaciones", editada.Etapa);
+            Assert.Equal(creada.NumeroRequisicion, editada.NumeroRequisicion);
 
             // 2. Comprador aprueba la requisición -> Intentar editar estando Aprobada -> 409 Conflict
             var aprobarResp = await clientComprador.PostAsync(
@@ -293,6 +298,87 @@ namespace ObraSync.Requisiciones.Tests.Integration
                 $"/api/requisiciones/{creada.RequisicionId}",
                 editPayload);
             await AssertProblemDetailsAsync(putAprobadaResp, HttpStatusCode.Conflict, correlationId);
+        }
+
+        [Fact]
+        public async Task CancelarRequisicion_PendienteDelDueno_PasaACancelada_YYaNoSePuedeAprobarNiEditarNiCancelarDeNuevo()
+        {
+            using var factory = CreateIsolatedFactory();
+            var capatazId = Guid.NewGuid();
+            var correlationId = Guid.NewGuid().ToString();
+
+            var clientCapataz = factory.CreateClient();
+            clientCapataz.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
+            clientCapataz.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", capatazId));
+
+            var clientComprador = factory.CreateClient();
+            clientComprador.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Comprador", Guid.NewGuid()));
+
+            var crearResp = await clientCapataz.PostAsJsonAsync("/api/requisiciones", new CrearRequisicionRequestDto
+            {
+                ObraId = Guid.NewGuid(),
+                Etapa = "Estructura",
+                Items = new List<CrearRequisicionItemDto> { new() { ArticuloId = CementoSeedId, Cantidad = 30m } }
+            });
+            var creada = await crearResp.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(creada);
+
+            var cancelarResp = await clientCapataz.PostAsync($"/api/requisiciones/{creada.RequisicionId}/cancelar", null);
+            Assert.Equal(HttpStatusCode.OK, cancelarResp.StatusCode);
+            var cancelada = await cancelarResp.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(cancelada);
+            Assert.Equal(EstadoRequisicion.Cancelada, cancelada.Estado);
+
+            // Una cancelada no se puede aprobar, ni editar, ni volver a cancelar
+            var aprobarResp = await clientComprador.PostAsync($"/api/requisiciones/{creada.RequisicionId}/aprobar", null);
+            Assert.Equal(HttpStatusCode.Conflict, aprobarResp.StatusCode);
+
+            var putResp = await clientCapataz.PutAsJsonAsync($"/api/requisiciones/{creada.RequisicionId}", new EditarRequisicionRequestDto
+            {
+                Items = new List<CrearRequisicionItemDto> { new() { ArticuloId = CalSeedId, Cantidad = 5m } }
+            });
+            await AssertProblemDetailsAsync(putResp, HttpStatusCode.Conflict, correlationId);
+
+            var otraVez = await clientCapataz.PostAsync($"/api/requisiciones/{creada.RequisicionId}/cancelar", null);
+            await AssertProblemDetailsAsync(otraVez, HttpStatusCode.Conflict, correlationId);
+        }
+
+        [Fact]
+        public async Task CancelarRequisicion_AprobadaDevuelve409_YOtroCapatazDevuelve403_YCompradorNoPuede()
+        {
+            using var factory = CreateIsolatedFactory();
+            var capatazId = Guid.NewGuid();
+
+            var clientCapataz = factory.CreateClient();
+            clientCapataz.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", capatazId));
+            var clientOtro = factory.CreateClient();
+            clientOtro.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", Guid.NewGuid()));
+            var clientComprador = factory.CreateClient();
+            clientComprador.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Comprador", Guid.NewGuid()));
+
+            var crearResp = await clientCapataz.PostAsJsonAsync("/api/requisiciones", new CrearRequisicionRequestDto
+            {
+                ObraId = Guid.NewGuid(),
+                Items = new List<CrearRequisicionItemDto> { new() { ArticuloId = CementoSeedId, Cantidad = 10m } }
+            });
+            var creada = await crearResp.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(creada);
+
+            Assert.Equal(HttpStatusCode.Forbidden,
+                (await clientOtro.PostAsync($"/api/requisiciones/{creada.RequisicionId}/cancelar", null)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden,
+                (await clientComprador.PostAsync($"/api/requisiciones/{creada.RequisicionId}/cancelar", null)).StatusCode);
+
+            Assert.Equal(HttpStatusCode.OK,
+                (await clientComprador.PostAsync($"/api/requisiciones/{creada.RequisicionId}/aprobar", null)).StatusCode);
+
+            Assert.Equal(HttpStatusCode.Conflict,
+                (await clientCapataz.PostAsync($"/api/requisiciones/{creada.RequisicionId}/cancelar", null)).StatusCode);
         }
 
         [Fact]

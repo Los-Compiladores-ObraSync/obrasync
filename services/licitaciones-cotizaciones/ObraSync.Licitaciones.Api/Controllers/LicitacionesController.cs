@@ -21,17 +21,20 @@ public class LicitacionesController : ControllerBase
     private readonly ILicitacionService _service;
     private readonly GetLicitacionesQueryHandler _getLicitacionesHandler;
     private readonly GetLicitacionByIdQueryHandler _getByIdHandler;
+    private readonly GetSeguimientoRequisicionQueryHandler _seguimientoHandler;
     private readonly IMediator _mediator;
 
     public LicitacionesController(
         ILicitacionService service,
         GetLicitacionesQueryHandler getLicitacionesHandler,
         GetLicitacionByIdQueryHandler getByIdHandler,
+        GetSeguimientoRequisicionQueryHandler seguimientoHandler,
         IMediator mediator)
     {
         _service = service;
         _getLicitacionesHandler = getLicitacionesHandler;
         _getByIdHandler = getByIdHandler;
+        _seguimientoHandler = seguimientoHandler;
         _mediator = mediator;
     }
 
@@ -86,6 +89,24 @@ public class LicitacionesController : ControllerBase
         Response.Headers["X-Page-Size"] = p.Tamano.ToString();
 
         return Ok(resultado.Items);
+    }
+
+    /// <summary>
+    /// Seguimiento de una requisición aprobada: licitación, ofertas recibidas y órdenes de compra (Roles: Capataz, Comprador, Admin).
+    /// Si todavía no hay licitación responde 200 con los campos vacíos. Para el Capataz, el dueño de la requisición
+    /// se verifica en el servicio de Requisiciones (la pantalla consulta primero la requisición, que sí filtra por dueño).
+    /// </summary>
+    [HttpGet("seguimiento/{requisicionId:guid}")]
+    [Authorize(Roles = "Capataz,Comprador,Admin")]
+    [ProducesResponseType(typeof(SeguimientoRequisicionDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<SeguimientoRequisicionDto>> Seguimiento(
+        Guid requisicionId,
+        CancellationToken cancellationToken = default)
+    {
+        var dto = await _seguimientoHandler.Handle(new GetSeguimientoRequisicionQuery(requisicionId), cancellationToken);
+        return Ok(dto);
     }
 
     /// <summary>
@@ -216,6 +237,50 @@ public class LicitacionesController : ControllerBase
                 detail: ex.Message,
                 statusCode: StatusCodes.Status400BadRequest,
                 title: "Solicitud inválida");
+        }
+    }
+
+    /// <summary>
+    /// Extender el plazo de cotización de una licitación abierta (Roles: Comprador, Admin).
+    /// </summary>
+    [HttpPost("{id:guid}/extender")]
+    [Authorize(Roles = "Comprador,Admin")]
+    [ProducesResponseType(typeof(LicitacionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Extender(
+        Guid id,
+        [FromBody] ExtenderLicitacionRequestDto? request,
+        CancellationToken cancellationToken)
+    {
+        if (request is null || request.FechaLimiteCotizacion == default)
+        {
+            return Problem(
+                detail: "La nueva fecha límite de cotización es obligatoria.",
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Solicitud inválida");
+        }
+
+        try
+        {
+            var resultado = await _mediator.Send(
+                new ExtenderLicitacionCommand(id, request.FechaLimiteCotizacion), cancellationToken);
+            return Ok(resultado);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return Problem(detail: ex.Message, statusCode: StatusCodes.Status404NotFound, title: "Recurso no encontrado");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Problem(detail: ex.Message, statusCode: StatusCodes.Status409Conflict, title: "Conflicto al extender la licitación");
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(detail: ex.Message, statusCode: StatusCodes.Status400BadRequest, title: "Solicitud inválida");
         }
     }
 

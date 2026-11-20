@@ -125,3 +125,29 @@ export function estrellasDePuntaje(puntaje: number): number {
   if (!Number.isFinite(puntaje)) return 0
   return Math.min(5, Math.max(0, Math.round(puntaje / 20)))
 }
+
+/** Último precio unitario que se pagó por un artículo (de GET /api/ordenes-compra/precios-historicos). */
+export interface PrecioPrevio {
+  articuloId: string
+  ultimoPrecioUnitario: number
+  fechaEmision: string
+}
+
+/**
+ * Compara el precio cotizado con el último que se pagó por el mismo artículo.
+ * Devuelve la diferencia en % (positivo = más caro que antes) y un texto corto, o null si no hay con qué comparar.
+ * Un cambio de menos de 0,5 % se considera "igual": no vale la pena marcarlo.
+ */
+export function compararConPrecioPrevio(
+  precioCotizado: number,
+  previo: Pick<PrecioPrevio, 'ultimoPrecioUnitario'> | undefined,
+): { porcentaje: number; texto: string } | null {
+  if (!previo || !(previo.ultimoPrecioUnitario > 0) || !Number.isFinite(precioCotizado)) return null
+  const porcentaje = ((precioCotizado - previo.ultimoPrecioUnitario) / previo.ultimoPrecioUnitario) * 100
+  const redondeado = Math.round(Math.abs(porcentaje))
+  if (Math.abs(porcentaje) < 0.5) return { porcentaje, texto: 'igual que la última compra' }
+  return {
+    porcentaje,
+    texto: porcentaje > 0 ? `${redondeado} % más caro que la última compra` : `${redondeado} % más barato que la última compra`,
+  }
+}

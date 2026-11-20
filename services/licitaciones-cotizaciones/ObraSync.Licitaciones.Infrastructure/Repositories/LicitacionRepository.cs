@@ -36,6 +36,15 @@ public class LicitacionRepository : ILicitacionRepository
         await _context.SaveChangesAsync(ct);
     }
 
+    public Task<Licitacion?> GetMasRecientePorRequisicionAsync(
+        Guid requisicionId,
+        CancellationToken ct = default) =>
+        _context.Licitaciones
+            .AsNoTracking()
+            .Where(l => l.RequisicionId == requisicionId)
+            .OrderByDescending(l => l.FechaCreacion)
+            .FirstOrDefaultAsync(ct);
+
     public async Task<Licitacion?> GetByIdAsync(
         Guid id,
         CancellationToken cancellationToken = default)

@@ -13,6 +13,7 @@ public class EnumsTests
     [InlineData(EnumEstadoRequisicion.Pendiente, ConstantesEstadoRequisicion.Pendiente)]
     [InlineData(EnumEstadoRequisicion.Aprobada, ConstantesEstadoRequisicion.Aprobada)]
     [InlineData(EnumEstadoRequisicion.Rechazada, ConstantesEstadoRequisicion.Rechazada)]
+    [InlineData(EnumEstadoRequisicion.Cancelada, ConstantesEstadoRequisicion.Cancelada)]
     public void EstadoRequisicion_ConversionConString_MantieneEquivalenciaConConstantes(
         EnumEstadoRequisicion estadoEnum,
         string constanteEsperada)

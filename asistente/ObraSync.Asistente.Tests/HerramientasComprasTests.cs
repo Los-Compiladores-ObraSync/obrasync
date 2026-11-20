@@ -16,7 +16,7 @@ public class HerramientasComprasTests
     private static JsonObject Datos(ResultadoHerramienta r) => (JsonObject)r.Datos;
 
     [Fact]
-    public void Las_definiciones_son_las_cinco_y_el_estado_es_una_lista_cerrada()
+    public void Las_definiciones_son_las_seis_y_el_estado_es_una_lista_cerrada()
     {
         var defs = HerramientasCompras.Definiciones();
 
@@ -25,12 +25,91 @@ public class HerramientasComprasTests
             new[]
             {
                 "listar_requisiciones", "ver_requisicion", "preparar_aprobacion_requisicion",
-                "preparar_rechazo_requisicion", "preparar_publicacion_licitacion"
+                "preparar_rechazo_requisicion", "preparar_publicacion_licitacion", "consultar_presupuesto_obra"
             },
             nombres);
         var estados = defs[0]!["function"]!["parameters"]!["properties"]!["estado"]!["enum"]!.AsArray()
             .Select(n => n!.GetValue<string>());
         Assert.Equal(HerramientasCompras.Estados, estados);
+    }
+
+    // ── Presupuesto de una obra (consultar_presupuesto_obra) ────────────────────────────────────────
+
+    private sealed class PartidasFalsas : IConsultorPresupuestos
+    {
+        public Guid? UltimaObraId { get; private set; }
+        public string? UltimaEtapa { get; private set; }
+
+        public Task<ResultadoPartidasPresupuestarias> ListarPartidasAsync(Guid obraId, string? etapa, CancellationToken ct)
+        {
+            UltimaObraId = obraId;
+            UltimaEtapa = etapa;
+            var partida = new PartidaPresupuestariaAsistente(
+                Guid.NewGuid(), obraId, "Estructura", "EST-01", "Hormigón", 100000m, 25000m, 10000m, 75000m, "ARS");
+            return Task.FromResult(ResultadoPartidasPresupuestarias.Bien(new[] { partida }, 1));
+        }
+    }
+
+    private sealed class SinBloqueadas : IConsultorOrdenesBloqueadas
+    {
+        public Task<ResultadoOrdenesBloqueadas> ListarAsync(Guid obraId, int pagina, int tamano, CancellationToken ct) =>
+            Task.FromResult(ResultadoOrdenesBloqueadas.Bien(Array.Empty<OrdenCompraBloqueadaAsistente>(), 0));
+    }
+
+    private static (HerramientasCompras Herramientas, PartidasFalsas Partidas) ArmarConPresupuesto()
+    {
+        var partidas = new PartidasFalsas();
+        var presupuestos = new HerramientasPresupuestos(partidas, new SinBloqueadas());
+        return (new HerramientasCompras(new ConsultorFalso(), new ObrasFalsas(), presupuestos), partidas);
+    }
+
+    [Fact]
+    public async Task Presupuesto_resuelve_la_obra_por_nombre_y_consulta_sus_partidas()
+    {
+        var (h, partidas) = ArmarConPresupuesto();
+
+        var r = await h.EjecutarAsync(
+            HerramientasCompras.ConsultarPresupuesto, "{\"obra\":\"torre\",\"etapa\":\"Estructura\"}", default);
+
+        Assert.True(r.Ok);
+        Assert.Equal(ObrasFalsas.IdTorre, partidas.UltimaObraId);
+        Assert.Equal("Estructura", partidas.UltimaEtapa);
+    }
+
+    [Fact]
+    public async Task Presupuesto_con_obra_que_no_existe_devuelve_las_opciones_y_no_consulta()
+    {
+        var (h, partidas) = ArmarConPresupuesto();
+
+        var r = await h.EjecutarAsync(HerramientasCompras.ConsultarPresupuesto, "{\"obra\":\"Edificio Fantasma\"}", default);
+
+        Assert.False(r.Ok);
+        Assert.Equal("obra_no_encontrada", Datos(r)["error"]!.GetValue<string>());
+        Assert.NotEmpty(Datos(r)["obras"]!.AsArray());
+        Assert.Null(partidas.UltimaObraId);
+    }
+
+    [Fact]
+    public async Task Presupuesto_sin_nombre_de_obra_pide_elegir_una()
+    {
+        var (h, partidas) = ArmarConPresupuesto();
+
+        var r = await h.EjecutarAsync(HerramientasCompras.ConsultarPresupuesto, "{}", default);
+
+        Assert.False(r.Ok);
+        Assert.Equal("obra_requerida", Datos(r)["error"]!.GetValue<string>());
+        Assert.Null(partidas.UltimaObraId);
+    }
+
+    [Fact]
+    public async Task Presupuesto_sin_la_herramienta_de_presupuestos_responde_no_disponible()
+    {
+        var (h, _, _) = Armar();
+
+        var r = await h.EjecutarAsync(HerramientasCompras.ConsultarPresupuesto, "{\"obra\":\"Torre\"}", default);
+
+        Assert.False(r.Ok);
+        Assert.Equal("herramienta_no_disponible", Datos(r)["error"]!.GetValue<string>());
     }
 
     [Fact]

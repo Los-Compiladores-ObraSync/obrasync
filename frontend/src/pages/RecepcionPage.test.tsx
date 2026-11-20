@@ -142,6 +142,39 @@ describe('RecepcionPage', () => {
     expect(detalles.every((d) => d.cantidadRecibida === d.cantidadEsperada && d.conforme)).toBe(true)
   })
 
+  it('marcar un material como dañado exige contar qué pasó y se manda conforme:false con la nota', async () => {
+    let cuerpo: unknown
+    server.use(
+      http.post(RUTA_RECEPCIONES, async ({ request }) => {
+        cuerpo = await request.json()
+        return HttpResponse.json(
+          { id: 'x', obraId: 'o', ordenCompraId: 'oc', numeroRemito: 'R-9', fechaRecepcion: '2026-11-03T00:00:00.000Z', estado: 3 },
+          { status: 201 },
+        )
+      }),
+    )
+    const user = userEvent.setup()
+    renderPagina()
+
+    await elegirPrimeraOrden(user)
+    await user.type(screen.getByLabelText('Número de remito'), 'R-9')
+    const marcas = screen.getAllByRole('checkbox', { name: 'Llegó dañado o con diferencias' })
+    await user.click(marcas[0])
+
+    // Sin contar qué pasó no se puede confirmar
+    await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
+    expect(await screen.findByText(/Contanos qué pasó con este material/)).toBeInTheDocument()
+    expect(cuerpo).toBeUndefined()
+
+    await user.type(screen.getByRole('textbox', { name: /Qué pasó con/ }), '3 bolsas rotas')
+    await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
+    await screen.findByRole('heading', { level: 1, name: 'Recepción registrada' })
+
+    const detalles = (cuerpo as { detalles: { conforme: boolean; observacion: string | null }[] }).detalles
+    expect(detalles[0]).toMatchObject({ conforme: false, observacion: '3 bolsas rotas' })
+    expect(detalles[1]).toMatchObject({ conforme: true, observacion: null })
+  })
+
   it('el mock rechaza omitir artículos y deja intacto el saldo de la orden', async () => {
     const orden = (await obtenerOrdenesPendientes())[0]
     await expect(registrarRecepcion({

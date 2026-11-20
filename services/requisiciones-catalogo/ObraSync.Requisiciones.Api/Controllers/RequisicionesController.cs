@@ -27,6 +27,7 @@ namespace ObraSync.Requisiciones.Api.Controllers
         private readonly AprobarRequisicionCommandHandler _aprobarHandler;
         private readonly RechazarRequisicionCommandHandler _rechazarHandler;
         private readonly ReenviarRequisicionCommandHandler? _reenviarHandler;
+        private readonly CancelarRequisicionCommandHandler? _cancelarHandler;
         private readonly IObraAsignacionValidator? _obraAsignacionValidator;
 
         public RequisicionesController(
@@ -36,7 +37,8 @@ namespace ObraSync.Requisiciones.Api.Controllers
             AprobarRequisicionCommandHandler aprobarHandler,
             RechazarRequisicionCommandHandler rechazarHandler,
             IObraAsignacionValidator? obraAsignacionValidator = null,
-            ReenviarRequisicionCommandHandler? reenviarHandler = null)
+            ReenviarRequisicionCommandHandler? reenviarHandler = null,
+            CancelarRequisicionCommandHandler? cancelarHandler = null)
         {
             _createHandler = createHandler;
             _getRequisicionesHandler = getRequisicionesHandler;
@@ -45,6 +47,7 @@ namespace ObraSync.Requisiciones.Api.Controllers
             _rechazarHandler = rechazarHandler;
             _obraAsignacionValidator = obraAsignacionValidator;
             _reenviarHandler = reenviarHandler;
+            _cancelarHandler = cancelarHandler;
         }
 
         /// <summary>
@@ -186,7 +189,7 @@ namespace ObraSync.Requisiciones.Api.Controllers
         }
 
         /// <summary>
-        /// Editar y reenviar una requisición rechazada conservando su número y el historial de rechazos (Roles: Capataz dueño, Admin)
+        /// Editar una requisición pendiente, o corregir y reenviar una rechazada conservando su número y el historial de rechazos (Roles: Capataz dueño, Admin)
         /// </summary>
         [HttpPut("{id:guid}")]
         [Authorize(Roles = "Capataz,Admin")]
@@ -226,6 +229,39 @@ namespace ObraSync.Requisiciones.Api.Controllers
                 cancellationToken);
 
             return Ok(reenviada);
+        }
+
+        /// <summary>
+        /// Cancelar una requisición pendiente antes de que Compras la apruebe (Roles: Capataz dueño, Admin)
+        /// </summary>
+        [HttpPost("{id:guid}/cancelar")]
+        [Authorize(Roles = "Capataz,Admin")]
+        [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        public async Task<ActionResult<RequisicionResponseDto>> CancelarRequisicion(
+            Guid id,
+            CancellationToken cancellationToken = default)
+        {
+            if (!TryGetUserId(out var usuarioId))
+            {
+                return Problem(
+                    detail: "El token JWT no contiene un claim 'sub' válido con formato GUID.",
+                    statusCode: StatusCodes.Status401Unauthorized,
+                    title: "Usuario no identificado");
+            }
+
+            var handler = _cancelarHandler
+                ?? HttpContext?.RequestServices.GetService(typeof(CancelarRequisicionCommandHandler)) as CancelarRequisicionCommandHandler
+                ?? throw new NotSupportedException("No se encontró el servicio CancelarRequisicionCommandHandler.");
+
+            var cancelada = await handler.Handle(
+                new CancelarRequisicionCommand(id, usuarioId, User.IsInRole("Admin")),
+                cancellationToken);
+
+            return Ok(cancelada);
         }
 
         /// <summary>
