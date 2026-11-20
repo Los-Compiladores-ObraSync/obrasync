@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
+import { CalificacionProveedor } from '../licitaciones/CalificacionProveedor'
 import { despacharOrdenCompra, listarOrdenesCompra } from '../licitaciones/licitacionesService'
 import type { OrdenCompraListadoDto } from '../licitaciones/licitacionesTipos'
 import { fechaLarga } from '../requisiciones/formatoFecha'
@@ -182,6 +183,15 @@ export function OrdenesCompraPage() {
                 <p className={styles.dato}>Emitida el {fechaLarga(orden.fechaEmision)}</p>
                 {orden.fueDespachada && orden.fechaDespacho && (
                   <p className={styles.dato}>Despachada el {fechaLarga(orden.fechaDespacho)}</p>
+                )}
+
+                {orden.fueDespachada && (
+                  <CalificacionProveedor
+                    proveedorId={orden.proveedorId}
+                    nombreProveedor={`el proveedor de la orden ${codigo}`}
+                    titulo={`¿Cómo cumplió el proveedor de la orden ${codigo}?`}
+                    alGuardar={() => undefined}
+                  />
                 )}
 
                 {!orden.fueDespachada && !confirmando && (

@@ -35,6 +35,14 @@ function problema(status: number, detail: string) {
 describe('OrdenesCompraPage (#205)', () => {
   beforeEach(() => reiniciarOrdenesCompraMock())
 
+  it('solo las órdenes despachadas se pueden calificar (se califica a quien ya cumplió)', async () => {
+    renderPagina()
+    await tarjetas()
+
+    // En el mock hay una sola orden despachada y dos sin despachar.
+    expect(screen.getAllByRole('button', { name: 'Guardar calificación' })).toHaveLength(1)
+  })
+
   it('lista las órdenes con la obra y su estado: primero las que faltan despachar', async () => {
     renderPagina()
 
@@ -59,7 +67,7 @@ describe('OrdenesCompraPage (#205)', () => {
     const filas = await tarjetas()
     expect(within(filas[0]).getByRole('button', { name: /^Marcar como despachada/ })).toBeInTheDocument()
     expect(within(filas[1]).getByRole('button', { name: /^Marcar como despachada/ })).toBeInTheDocument()
-    expect(within(filas[2]).queryByRole('button')).not.toBeInTheDocument()
+    expect(within(filas[2]).queryByRole('button', { name: /^Marcar como despachada/ })).not.toBeInTheDocument()
   })
 
   it('pide confirmación y, al confirmar, despacha la orden y lo avisa', async () => {
