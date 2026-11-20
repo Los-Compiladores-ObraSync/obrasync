@@ -12,13 +12,12 @@ export const MAX_FILAS = 500
 export const MAX_BYTES = 1_000_000
 
 /**
- * Plantilla descargable. Usa ";" como separador porque es lo que Excel en español guarda como CSV
- * (la coma ya se usa para los decimales: 8500,50). El lector acepta "," o ";".
+ * Plantilla descargable: SOLO los encabezados, sin filas de ejemplo. Si trajera ejemplos, quien la suba sin
+ * borrarlos cargaría insumos falsos en el catálogo real. Usa ";" como separador porque es lo que Excel en
+ * español guarda como CSV (la coma ya se usa para los decimales: 8500,50). El lector acepta "," o ";".
  */
-export const PLANTILLA_CSV =
-  'codigo;descripcion;unidadMedida;moneda;precioReferencia;activo\r\n' +
-  'MAT-EJ-001;Cemento Portland 50kg;BOLSA;ARS;8500,50;si\r\n' +
-  'MAT-EJ-002;Arena fina a granel;M3;ARS;15000;si\r\n'
+// Los encabezados con tildes y espacios se ven mejor en Excel; el lector los reconoce igual (ver normalizarEncabezado).
+export const PLANTILLA_CSV = 'Código;Descripción;Unidad de medida;Moneda;Precio de referencia;Activo\r\n'
 
 export interface InsumoParaCargar {
   /** Número de fila en el archivo (el encabezado es la fila 1, igual que en la planilla). */
@@ -109,6 +108,16 @@ const COLUMNAS: Record<string, Columna> = {
 
 const OBLIGATORIAS: readonly Columna[] = ['codigo', 'descripcion', 'unidadMedida']
 
+// Cómo se llama cada columna obligatoria en la plantilla (es lo que lee la persona en el mensaje de error).
+const ETIQUETAS: Record<Columna, string> = {
+  codigo: 'Código',
+  descripcion: 'Descripción',
+  unidadMedida: 'Unidad de medida',
+  moneda: 'Moneda',
+  precioReferencia: 'Precio de referencia',
+  activo: 'Activo',
+}
+
 function normalizarEncabezado(texto: string): string {
   return texto
     .normalize('NFD')
@@ -146,7 +155,7 @@ export function validarCsv(textoOriginal: string): ResultadoValidacion {
   const faltantes = OBLIGATORIAS.filter((columna) => !posicion.has(columna))
   if (faltantes.length > 0) {
     return vacio(
-      `Faltan columnas obligatorias: ${faltantes.join(', ')}. Descargá la plantilla y usá esos encabezados.`,
+      `Faltan columnas obligatorias: ${faltantes.map((columna) => ETIQUETAS[columna]).join(', ')}. Descargá la plantilla y usá esos encabezados.`,
     )
   }
 
