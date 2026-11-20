@@ -84,6 +84,25 @@ public class MagicLinkRepository : IMagicLinkRepository
         }
     }
 
+    public async Task LiberarAsync(Guid magicLinkId, CancellationToken cancellationToken = default)
+    {
+        // Deshace el consumo cuando la cotización no se pudo guardar: el enlace vuelve a quedar usable
+        if (_context.Database.IsRelational())
+        {
+            await _context.MagicLinks
+                .Where(x => x.Id == magicLinkId)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.FechaDeUso, (DateTime?)null), cancellationToken);
+            return;
+        }
+
+        var link = await _context.MagicLinks.FirstOrDefaultAsync(x => x.Id == magicLinkId, cancellationToken);
+        if (link != null)
+        {
+            link.FechaDeUso = null;
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+    }
+
     public async Task InvalidarPendientesPorLicitacionIdAsync(
         Guid licitacionId,
         DateTime ahoraUtc,

@@ -75,7 +75,7 @@ public class RequisicionAprobadaConsumer : IConsumer<RequisicionAprobadaEvent>
                     Id = Guid.NewGuid(),
                     ArticuloId = i.ArticuloId,
                     Descripcion = i.Descripcion ?? "",
-                    Cantidad = (decimal)i.Cantidad,
+                    Cantidad = i.Cantidad,
                     UnidadMedida = i.UnidadMedida
                 }).ToList()
             });

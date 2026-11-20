@@ -84,8 +84,18 @@ public class CotizarConMagicLinkCommandHandler : IRequestHandler<CotizarConMagic
         }
 
         // 5. Persistir la cotización con todos sus ítems en la base de datos
-        await _cotizacionRepository.AddAsync(cotizacion, cancellationToken);
-        await _cotizacionRepository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _cotizacionRepository.AddAsync(cotizacion, cancellationToken);
+            await _cotizacionRepository.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            // Si la cotización no se guardó, el enlace no puede quedar gastado: el proveedor tiene que poder reintentar.
+            // CancellationToken.None a propósito: la liberación tiene que correr aunque el pedido se haya cancelado.
+            await _magicLinkRepository.LiberarAsync(magicLink.Id, CancellationToken.None);
+            throw;
+        }
 
         return dto;
     }
