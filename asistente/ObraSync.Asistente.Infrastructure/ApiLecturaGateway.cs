@@ -14,7 +14,12 @@ namespace ObraSync.Asistente.Infrastructure;
 /// </summary>
 public sealed class ApiLecturaGateway : IClienteApiLectura
 {
-    public const int MaxBytes = 32 * 1024;
+    /// <summary>
+    /// Tope de la respuesta. 12 KB son unos 3.000 tokens: el cupo del grupo es de 10.000 tokens por MINUTO (#144),
+    /// así que una respuesta de 32 KB podía gastarlo casi entero y pausar el asistente. Si no entra, el modelo recibe
+    /// respuesta_demasiado_grande y se lo dice a la persona (que puede pedir menos resultados).
+    /// </summary>
+    public const int MaxBytes = 12 * 1024;
     public static readonly TimeSpan TiempoApi = TimeSpan.FromSeconds(3);
 
     private readonly HttpClient _http;

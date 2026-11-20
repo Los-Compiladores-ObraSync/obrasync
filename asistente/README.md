@@ -50,7 +50,7 @@ Un generador propio en C# (`Application/Generadas`) lee los `*-openapi.json` de 
 - Se saltean los GET que ya tienen herramienta escrita a mano (devuelven respuestas más cortas) y los que no deben llegar al modelo
   (por ejemplo el Magic Link, que es un secreto). La lista y el motivo están en `GeneradorHerramientasOpenApi.Excluidos`.
 - Validación antes de llamar: argumentos desconocidos, tipos, rangos, enums y UUID según el contrato; texto libre corto y sin `/ ? & ..`;
-  `tamano` por defecto 10 y tope 20. Respuesta máxima 32 KB, timeout 3 s, errores con código estable. La URL sale de `Gateway:BaseUrl`.
+  `tamano` por defecto 10 y tope 20. Respuesta máxima 12 KB (unos 3.000 tokens: el cupo es de 10.000 por minuto), timeout 3 s, errores con código estable. La URL sale de `Gateway:BaseUrl`.
 - Alcance de esta primera versión: lo usa el agente del chat. Exponerlas también en el servidor MCP queda como paso siguiente
   (hay que registrar herramientas de forma dinámica en el SDK).
 

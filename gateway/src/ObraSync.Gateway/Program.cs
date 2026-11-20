@@ -16,24 +16,24 @@ builder.Services.AddSingleton<IForwarderHttpClientFactory, ForwarderConResilienc
 // El equipo debe confirmar estos valores antes de considerarlos definitivos.
 var magicLinkRateLimit = builder.Configuration.GetSection("MagicLinkRateLimit").Get<MagicLinkRateLimitOptions>()
     ?? new MagicLinkRateLimitOptions();
+var authRateLimit = builder.Configuration.GetSection("AuthRateLimit").Get<AuthRateLimitOptions>()
+    ?? new AuthRateLimitOptions();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, IPAddress>(httpContext =>
+    // Cada grupo de rutas públicas tiene su propia ventana por IP (la clave lleva el prefijo del grupo).
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
     {
-        if (!MagicLinkGatewayRequest.EsMagicLink(httpContext.Request))
-            return RateLimitPartition.GetNoLimiter<IPAddress>(IPAddress.None);
+        var ip = (httpContext.Connection.RemoteIpAddress ?? IPAddress.None).ToString();
 
-        return RateLimitPartition.GetSlidingWindowLimiter(
-            httpContext.Connection.RemoteIpAddress ?? IPAddress.None,
-            _ => new SlidingWindowRateLimiterOptions
-            {
-                PermitLimit = magicLinkRateLimit.PermitLimit,
-                Window = TimeSpan.FromSeconds(magicLinkRateLimit.WindowSeconds),
-                SegmentsPerWindow = magicLinkRateLimit.SegmentsPerWindow,
-                QueueLimit = 0,
-                AutoReplenishment = true
-            });
+        if (MagicLinkGatewayRequest.EsMagicLink(httpContext.Request))
+            return Ventana("magic:" + ip, magicLinkRateLimit.PermitLimit, magicLinkRateLimit.WindowSeconds, magicLinkRateLimit.SegmentsPerWindow);
+
+        // Login, registro y recuperación de contraseña: frenan la fuerza bruta y el abuso de correos.
+        if (AutenticacionPublicaGatewayRequest.Es(httpContext.Request))
+            return Ventana("auth:" + ip, authRateLimit.PermitLimit, authRateLimit.WindowSeconds, authRateLimit.SegmentsPerWindow);
+
+        return RateLimitPartition.GetNoLimiter("sin-limite");
     });
     options.OnRejected = async (context, _) =>
     {
@@ -50,6 +50,16 @@ builder.Services.AddRateLimiter(options =>
         await context.HttpContext.Response.WriteAsync(cuerpo, context.HttpContext.RequestAborted);
     };
 });
+
+static RateLimitPartition<string> Ventana(string clave, int permisos, int segundos, int segmentos) =>
+    RateLimitPartition.GetSlidingWindowLimiter(clave, _ => new SlidingWindowRateLimiterOptions
+    {
+        PermitLimit = permisos,
+        Window = TimeSpan.FromSeconds(segundos),
+        SegmentsPerWindow = segmentos,
+        QueueLimit = 0,
+        AutoReplenishment = true
+    });
 
 // YARP: carga las rutas y los destinos desde la sección "ReverseProxy" de appsettings.json
 builder.Services.AddReverseProxy()

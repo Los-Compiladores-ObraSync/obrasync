@@ -32,11 +32,16 @@ namespace ObraSync.Requisiciones.Infrastructure.Services
         private readonly HttpClient _httpClient;
         private readonly string _baseUrl;
         private readonly ILogger<HttpObraAsignacionValidator>? _logger;
+        private readonly TimeSpan _retrasoBase;
+
+        // La consulta es un GET (no cambia nada), así que reintentarla es seguro.
+        private const int MaxReintentos = 2;
 
         public HttpObraAsignacionValidator(
             IConfiguration configuration,
             HttpClient? httpClient = null,
-            ILogger<HttpObraAsignacionValidator>? logger = null)
+            ILogger<HttpObraAsignacionValidator>? logger = null,
+            TimeSpan? retrasoBase = null)
         {
             var baseUrl = configuration["UsuariosObras:BaseUrl"];
             if (string.IsNullOrWhiteSpace(baseUrl))
@@ -48,6 +53,7 @@ namespace ObraSync.Requisiciones.Infrastructure.Services
             _baseUrl = baseUrl;
             _httpClient = httpClient ?? SharedHttpClient;
             _logger = logger;
+            _retrasoBase = retrasoBase ?? TimeSpan.FromMilliseconds(200);
         }
 
         public async Task<bool> EstaAsignadaACapatazAsync(
@@ -57,32 +63,57 @@ namespace ObraSync.Requisiciones.Infrastructure.Services
             CancellationToken cancellationToken = default)
         {
             var endpoint = $"{_baseUrl.TrimEnd('/')}/api/Obras";
-            using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
+            HttpResponseMessage response = null!;
+            for (var intento = 0; ; intento++)
+            {
+                // Un HttpRequestMessage no se puede reenviar: se arma uno nuevo en cada intento.
+                using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
 
-            if (!string.IsNullOrWhiteSpace(authorizationHeader)
-                && AuthenticationHeaderValue.TryParse(authorizationHeader, out var authHeader))
-            {
-                request.Headers.Authorization = authHeader;
-            }
+                if (!string.IsNullOrWhiteSpace(authorizationHeader)
+                    && AuthenticationHeaderValue.TryParse(authorizationHeader, out var authHeader))
+                {
+                    request.Headers.Authorization = authHeader;
+                }
 
-            if (!string.IsNullOrWhiteSpace(correlationId))
-            {
-                request.Headers.TryAddWithoutValidation("X-Correlation-ID", correlationId);
-            }
+                if (!string.IsNullOrWhiteSpace(correlationId))
+                {
+                    request.Headers.TryAddWithoutValidation("X-Correlation-ID", correlationId);
+                }
 
-            HttpResponseMessage response;
-            try
-            {
-                response = await _httpClient.SendAsync(request, cancellationToken);
-            }
-            catch (HttpRequestException ex)
-            {
-                throw NoVerificable("no se pudo conectar", correlationId, ex);
-            }
-            catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
-            {
-                // Se venció el tiempo de espera (no fue el cliente quien canceló).
-                throw NoVerificable("no respondió a tiempo", correlationId, ex);
+                var ultimoIntento = intento >= MaxReintentos;
+                string? falla = null;
+                Exception? causa = null;
+                try
+                {
+                    response = await _httpClient.SendAsync(request, cancellationToken);
+                    // Los 5xx son transitorios: se reintentan. El resto (200, 401, 403, 4xx) se resuelve más abajo.
+                    if ((int)response.StatusCode < 500 || ultimoIntento)
+                    {
+                        break;
+                    }
+
+                    falla = $"respondió con el código {(int)response.StatusCode}";
+                    response.Dispose();
+                }
+                catch (HttpRequestException ex)
+                {
+                    if (ultimoIntento) throw NoVerificable("no se pudo conectar", correlationId, ex);
+                    falla = "no se pudo conectar";
+                    causa = ex;
+                }
+                catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+                {
+                    // Se venció el tiempo de espera (no fue el cliente quien canceló).
+                    if (ultimoIntento) throw NoVerificable("no respondió a tiempo", correlationId, ex);
+                    falla = "no respondió a tiempo";
+                    causa = ex;
+                }
+
+                _logger?.LogWarning(causa,
+                    "Reintento {Intento} de {Max} a Usuarios y Obras: {Falla}. CorrelationId={CorrelationId}",
+                    intento + 1, MaxReintentos, falla, correlationId);
+                // Retroceso exponencial: base, base x 2, ...
+                await Task.Delay(TimeSpan.FromTicks(_retrasoBase.Ticks << intento), cancellationToken);
             }
 
             using (response)

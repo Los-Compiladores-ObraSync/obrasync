@@ -17,7 +17,7 @@ public class HttpObraAsignacionValidatorTests
             .AddInMemoryCollection(new Dictionary<string, string?> { ["UsuariosObras:BaseUrl"] = BaseUrl })
             .Build();
 
-        return new HttpObraAsignacionValidator(configuration, new HttpClient(handler));
+        return new HttpObraAsignacionValidator(configuration, new HttpClient(handler), retrasoBase: TimeSpan.FromMilliseconds(1));
     }
 
     private static HttpResponseMessage ListaDeObras(params Guid[] ids)
@@ -114,10 +114,50 @@ public class HttpObraAsignacionValidatorTests
         Assert.Equal("correlacion-123", handler.CorrelationId);
     }
 
+    [Fact]
+    public async Task FallaTransitoria503_SeReintentaYDevuelveElResultado()
+    {
+        var obraId = Guid.NewGuid();
+        var respuestas = new Queue<Func<HttpResponseMessage>>(new Func<HttpResponseMessage>[]
+        {
+            () => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
+            () => ListaDeObras(obraId)
+        });
+        var handler = new FakeHandler(_ => respuestas.Dequeue()());
+
+        var asignada = await CrearValidador(handler).EstaAsignadaACapatazAsync(obraId, "Bearer token", "corr-1");
+
+        Assert.True(asignada);
+        Assert.Equal(2, handler.Llamadas);
+    }
+
+    [Fact]
+    public async Task Error5xxPersistente_ReintentaDosVecesYLanzaNoVerificable()
+    {
+        var handler = new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+
+        await Assert.ThrowsAsync<ObraAsignacionNoVerificableException>(() =>
+            CrearValidador(handler).EstaAsignadaACapatazAsync(Guid.NewGuid(), "Bearer token", "corr-1"));
+
+        Assert.Equal(3, handler.Llamadas);
+    }
+
+    [Fact]
+    public async Task Respuesta403_NoSeReintenta()
+    {
+        var handler = new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.Forbidden));
+
+        var asignada = await CrearValidador(handler).EstaAsignadaACapatazAsync(Guid.NewGuid(), "Bearer token", "corr-1");
+
+        Assert.False(asignada);
+        Assert.Equal(1, handler.Llamadas);
+    }
+
     private sealed class FakeHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _respuesta;
 
+        public int Llamadas { get; private set; }
         public string? UrlSolicitada { get; private set; }
         public string? Authorization { get; private set; }
         public string? CorrelationId { get; private set; }
@@ -129,6 +169,7 @@ public class HttpObraAsignacionValidatorTests
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            Llamadas++;
             UrlSolicitada = request.RequestUri?.ToString();
             Authorization = request.Headers.Authorization?.ToString();
             CorrelationId = request.Headers.TryGetValues("X-Correlation-ID", out var valores)
