@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ObraSync.Licitaciones.Application.MagicLinks.Commands.CotizarConMagicLink;
 using ObraSync.Licitaciones.Application.MagicLinks.Commands.GenerarMagicLink;
+using ObraSync.Licitaciones.Application.MagicLinks.Queries.ObtenerPliegoPorMagicLink;
 
 namespace ObraSync.Licitaciones.Api.Controllers;
 
@@ -65,6 +66,45 @@ public class MagicLinksController : ControllerBase
                 detail: ex.Message,
                 statusCode: StatusCodes.Status400BadRequest,
                 title: "Datos de enlace inválidos");
+        }
+    }
+
+    /// <summary>
+    /// Ver el pliego al que da acceso un Magic Link, sin consumirlo (#158). Es público: el proveedor entra sin usuario.
+    /// </summary>
+    [HttpGet("magic-links/{hash}")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(PliegoMagicLinkResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ObtenerPliegoConMagicLink(string hash, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var pliego = await _mediator.Send(new ObtenerPliegoPorMagicLinkQuery(hash), cancellationToken);
+            return Ok(pliego);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Enlace o licitación no encontrada");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Enlace en conflicto");
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Enlace no disponible");
         }
     }
 

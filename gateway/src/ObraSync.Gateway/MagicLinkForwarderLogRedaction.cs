@@ -5,7 +5,7 @@ using Yarp.ReverseProxy.Forwarder;
 namespace ObraSync.Gateway;
 
 /// <summary>
-/// Suppresses only YARP HttpForwarder's event 9 for Magic Link requests. YARP 2.3.0
+/// Suppresses only YARP HttpForwarder's event 9 for Magic Link requests (cotizar y ver el pliego). YARP 2.3.0
 /// formats the destination's absolute URI into that event. Other events and routes
 /// pass through the original logger unchanged.
 /// </summary>
@@ -34,7 +34,7 @@ public sealed class MagicLinkForwarderLogger<T> : ILogger<T>
         if (eventId.Id == ForwardingEventId
             && typeof(T).FullName == ForwarderCategory
             && context is not null
-            && MagicLinkGatewayRequest.EsCotizacion(context.Request))
+            && MagicLinkGatewayRequest.EsMagicLink(context.Request))
         {
             return;
         }
@@ -45,6 +45,22 @@ public sealed class MagicLinkForwarderLogger<T> : ILogger<T>
 
 public static class MagicLinkGatewayRequest
 {
+    private const string Prefijo = "/api/licitaciones/magic-links/";
+
+    /// <summary>Cualquier pedido público que lleva el token del enlace en la URL: cotizar (POST) o ver el pliego (GET, #158).</summary>
+    public static bool EsMagicLink(HttpRequest request) => EsCotizacion(request) || EsPliego(request);
+
+    /// <summary>GET /api/licitaciones/magic-links/{hash}: el proveedor abre su enlace y ve el pliego. Sin segmentos extra.</summary>
+    public static bool EsPliego(HttpRequest request)
+    {
+        var path = request.Path.Value;
+        return HttpMethods.IsGet(request.Method)
+            && path is not null
+            && path.StartsWith(Prefijo, StringComparison.OrdinalIgnoreCase)
+            && path.Length > Prefijo.Length
+            && path.IndexOf('/', Prefijo.Length) < 0;
+    }
+
     public static bool EsCotizacion(HttpRequest request)
     {
         const string prefijo = "/api/licitaciones/magic-links/";

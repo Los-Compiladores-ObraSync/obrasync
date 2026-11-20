@@ -10,16 +10,19 @@ public class MagicLinkGatewayTests : IClassFixture<GatewayFactory>
 
     public MagicLinkGatewayTests(GatewayFactory factory) => _factory = factory;
 
+    /// <summary>Si no es una IP válida, deriva una estable (198.18.x.y) para que cada prueba tenga su propia partición.</summary>
+    private static string IpDePrueba(string ip)
+    {
+        if (IPAddress.TryParse(ip, out _)) return ip;
+        var bytes = System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(ip));
+        return $"198.18.{bytes[0]}.{bytes[1]}";
+    }
+
     private HttpRequestMessage CrearPedido(string ip, string? forwardedFor = null, string? hash = null)
     {
         var ruta = hash is null ? Ruta : $"/api/licitaciones/magic-links/{hash}/cotizar";
         var request = new HttpRequestMessage(HttpMethod.Post, ruta) { Content = new StringContent("{}") };
-        if (!IPAddress.TryParse(ip, out _))
-        {
-            var bytes = System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(ip));
-            ip = $"198.18.{bytes[0]}.{bytes[1]}";
-        }
-        request.Headers.Add("X-Test-Remote-IP", ip);
+        request.Headers.Add("X-Test-Remote-IP", IpDePrueba(ip));
         request.Headers.Add("X-Correlation-ID", "magic-test-159");
         if (forwardedFor is not null) request.Headers.Add("X-Forwarded-For", forwardedFor);
         return request;
@@ -164,6 +167,69 @@ public class MagicLinkGatewayTests : IClassFixture<GatewayFactory>
 
         Assert.Equal("magic-test-159", response.Headers.GetValues("X-Correlation-ID").Single());
         Assert.Equal("magic-test-159", _factory.Destino.UltimoPedido?.CorrelationId);
+    }
+
+    private static HttpRequestMessage CrearPedidoPliego(string ip, string hash)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, $"/api/licitaciones/magic-links/{hash}");
+        request.Headers.Add("X-Test-Remote-IP", IpDePrueba(ip));
+        request.Headers.Add("X-Correlation-ID", "magic-test-158");
+        return request;
+    }
+
+    [Fact]
+    public async Task Get_del_pliego_se_reenvia_sin_jwt_y_el_hash_no_aparece_en_logs()
+    {
+        var hash = Guid.NewGuid().ToString("N");
+        _factory.Destino.Reiniciar();
+        _factory.Logs.Limpiar();
+        using var client = _factory.CreateClient();
+        using var request = CrearPedidoPliego(Guid.NewGuid().ToString("N"), hash);
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Null(request.Headers.Authorization);
+        Assert.Equal(5003, _factory.Destino.UltimoPedido?.Uri.Port);
+        Assert.Equal($"/api/licitaciones/magic-links/{hash}", _factory.Destino.UltimoPedido?.Uri.AbsolutePath);
+        Assert.DoesNotContain(hash, _factory.Logs.Texto, StringComparison.Ordinal);
+        Assert.Contains("GET", _factory.Logs.Texto);
+        Assert.Contains("forwarded", _factory.Logs.Texto);
+        Assert.DoesNotContain(_factory.Logs.Entradas, EsEventoForwarding);
+    }
+
+    [Fact]
+    public async Task Get_del_pliego_tambien_tiene_limite_por_ip_y_devuelve_429()
+    {
+        var ip = Guid.NewGuid().ToString("N");
+        _factory.Destino.Reiniciar();
+        using var client = _factory.CreateClient();
+        for (var i = 0; i < 5; i++)
+        {
+            using var ok = await client.SendAsync(CrearPedidoPliego(ip, "token-pliego-rate"));
+            Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        }
+
+        using var rechazada = await client.SendAsync(CrearPedidoPliego(ip, "token-pliego-rate"));
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, rechazada.StatusCode);
+        Assert.DoesNotContain("token-pliego-rate", await rechazada.Content.ReadAsStringAsync());
+        Assert.Equal(5, _factory.Destino.CantidadPedidos);
+    }
+
+    [Fact]
+    public async Task Otros_get_de_licitaciones_no_cuentan_para_el_limite_del_magic_link()
+    {
+        var ip = Guid.NewGuid().ToString("N");
+        _factory.Destino.Reiniciar();
+        using var client = _factory.CreateClient();
+        for (var i = 0; i < 8; i++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/licitaciones/magic-links");
+            request.Headers.Add("X-Test-Remote-IP", IpDePrueba(ip));
+            using var response = await client.SendAsync(request);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
     }
 
     private static bool EsHttpForwarder(EntradaLog entrada) =>
