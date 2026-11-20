@@ -75,7 +75,12 @@ export function ListaLicitaciones({ tituloTarjeta = 'h2' }: Props) {
           {licitaciones.map((lic) => {
             const cantItems = lic.items?.length ?? 0
             const textoItems = `${cantItems} ${cantItems === 1 ? 'ítem' : 'ítems'}`
-            const fechaLimiteTexto = fechaLarga(lic.fechaLimiteCotizacion)
+            // Espacios que no se parten en las dos últimas palabras ("noviembre de 2026"): así el año
+            // no queda solo en otra línea.
+            const fechaLimiteTexto = fechaLarga(lic.fechaLimiteCotizacion).replace(
+              / (\S+) (\S+)$/,
+              '\u00a0$1\u00a0$2',
+            )
 
             return (
               <li key={lic.licitacionId} className={styles.tarjeta}>

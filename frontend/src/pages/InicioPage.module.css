@@ -75,6 +75,21 @@
   font-size: 1.25rem;
 }
 
+/* Licitaciones abiertas del Proveedor: el título queda separado de las tarjetas y estas se
+   acomodan solas al ancho: una columna en el celular y más columnas a medida que hay lugar. */
+.licitaciones {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.licitaciones > ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 1.25rem;
+}
+
 /* Tarjeta destacada del asistente de IA: la función clave de la app, no se puede perder entre los demás botones.
    Fondo azul de la marca, borde naranja y texto grande (se lee con sol y se toca con guantes). */
 .destacada {
