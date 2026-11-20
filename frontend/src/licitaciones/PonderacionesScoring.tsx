@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import {
   CRITERIOS_SCORING,
-  pesosParaCampos,
-  validarPesos,
+  estrellasDePesos,
+  pesosDeEstrellas,
   type ClaveCriterio,
-  type PesosEscritos,
+  type EstrellasPesos,
 } from './ponderaciones'
 import type { CriteriosScoringDto } from './licitacionesTipos'
 import styles from './PonderacionesScoring.module.css'
@@ -23,8 +23,9 @@ interface Props {
 
 /**
  * Deja al Comprador elegir cuánto pesa cada criterio en el puntaje (#156).
- * Los campos son porcentajes; no hace falta que sumen 100: el servicio los normaliza.
- * Ejemplo: 50 / 20 / 20 / 10 y 5 / 2 / 2 / 1 dan el mismo resultado.
+ * Cada criterio se elige con estrellas (0 a 5): lo que importa es la proporción entre ellos, y el
+ * servicio los normaliza. Ejemplo: 5 / 2 / 2 / 1 estrellas equivale a 50 / 20 / 20 / 10 %.
+ * Tocar de nuevo la estrella elegida deja el criterio en 0 (no cuenta).
  */
 export function PonderacionesScoring({
   ponderacionesActuales,
@@ -34,16 +35,17 @@ export function PonderacionesScoring({
   alRecalcular,
   alRestablecer,
 }: Props) {
-  const [campos, setCampos] = useState<PesosEscritos>(() => pesosParaCampos(ponderacionesActuales))
+  const [estrellas, setEstrellas] = useState<EstrellasPesos>(() => estrellasDePesos(ponderacionesActuales))
   const [errorLocal, setErrorLocal] = useState<string | null>(null)
 
-  function cambiar(clave: ClaveCriterio, valor: string) {
-    setCampos((anteriores) => ({ ...anteriores, [clave]: valor }))
+  function elegir(clave: ClaveCriterio, valor: number) {
+    // Tocar la estrella que ya estaba elegida la apaga (el criterio queda en 0).
+    setEstrellas((anteriores) => ({ ...anteriores, [clave]: anteriores[clave] === valor ? 0 : valor }))
     setErrorLocal(null)
   }
 
   function recalcular() {
-    const resultado = validarPesos(campos)
+    const resultado = pesosDeEstrellas(estrellas)
     if (!resultado.ok) {
       setErrorLocal(resultado.mensaje)
       return
@@ -61,24 +63,29 @@ export function PonderacionesScoring({
   const error = errorLocal ?? errorServicio
 
   return (
-    <section className={styles.contenedor} aria-label="Importancia de cada criterio">
-      <h3 className={styles.titulo}>Qué tan importante es cada criterio</h3>
-      <p className={styles.ayuda}>
-        El puntaje suma lo que cada oferta obtiene en precio, flete, plazo y calificación del
-        proveedor. Acá elegís cuánto pesa cada uno (no hace falta que sumen 100).
-      </p>
+    <section className={styles.contenedor} aria-label="¿Qué buscas en una oferta?">
+      <h3 className={styles.titulo}>¿Qué buscas en una oferta?</h3>
+      <p className={styles.ayuda}>Elegí con estrellas qué tanto te importa cada criterio.</p>
       <div className={styles.campos}>
         {CRITERIOS_SCORING.map(({ clave, etiqueta }) => (
-          <label key={clave} className={styles.campo}>
-            <span>{etiqueta} (%)</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={campos[clave]}
-              disabled={recalculando}
-              onChange={(e) => cambiar(clave, e.target.value)}
-            />
-          </label>
+          <div key={clave} role="group" aria-label={etiqueta} className={styles.campo}>
+            <span className={styles.etiqueta}>{etiqueta}</span>
+            <div className={styles.estrellas}>
+              {[1, 2, 3, 4, 5].map((valor) => (
+                <button
+                  key={valor}
+                  type="button"
+                  className={`${styles.estrella} ${valor <= estrellas[clave] ? styles.llena : ''}`}
+                  aria-label={`${valor} de 5`}
+                  aria-pressed={estrellas[clave] === valor}
+                  disabled={recalculando}
+                  onClick={() => elegir(clave, valor)}
+                >
+                  <span aria-hidden="true">★</span>
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
       <div className={styles.acciones}>

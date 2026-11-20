@@ -96,3 +96,32 @@ export function marcasDeComparacion(
 export function formatoPrecio(valor: number): string {
   return `$ ${valor.toLocaleString('es-AR')}`
 }
+
+/**
+ * Ordena las ofertas de la de mayor a menor calificación (puntajeTotal), para que la mejor quede
+ * arriba aunque Compras cambie los pesos. El servicio las manda por fecha de cotización.
+ * Mismo desempate que usa el servicio para elegir la oferta destacada: entrega más rápida y,
+ * si sigue empatado, la que se cotizó antes. La oferta destacada va siempre primera.
+ * Devuelve una copia: no modifica la lista original.
+ */
+export function ordenarPorCalificacion(
+  cotizaciones: CotizacionResponseDto[],
+): CotizacionResponseDto[] {
+  return [...cotizaciones].sort((a, b) => {
+    if (a.esGanadora !== b.esGanadora) return a.esGanadora ? -1 : 1
+    if (a.puntajeTotal !== b.puntajeTotal) return b.puntajeTotal - a.puntajeTotal
+    const plazoA = a.plazoEntregaDias ?? Number.POSITIVE_INFINITY
+    const plazoB = b.plazoEntregaDias ?? Number.POSITIVE_INFINITY
+    if (plazoA !== plazoB) return plazoA < plazoB ? -1 : 1
+    const fechaA = Date.parse(a.fechaCreacion)
+    const fechaB = Date.parse(b.fechaCreacion)
+    if (fechaA !== fechaB) return fechaA - fechaB
+    return a.cotizacionId.localeCompare(b.cotizacionId)
+  })
+}
+
+/** Pasa un puntaje de 0 a 100 a estrellas enteras de 0 a 5 (cada estrella son 20 puntos, redondeando). */
+export function estrellasDePuntaje(puntaje: number): number {
+  if (!Number.isFinite(puntaje)) return 0
+  return Math.min(5, Math.max(0, Math.round(puntaje / 20)))
+}

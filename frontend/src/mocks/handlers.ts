@@ -1512,22 +1512,37 @@ export const handlers: RequestHandler[] = [
     const minPlazo = menor(filtradas.map((c) => c.plazoEntregaDias ?? 0))
     const conPuntaje = filtradas.map((c) => {
       const calificacion = calificacionesMock.get(c.proveedorId) ?? null
-      const puntos = {
-        precio: 100 * ponderaciones.precio * (minTotal / total(c)),
-        flete: 100 * ponderaciones.flete * ((c.flete ?? 0) > 0 ? minFlete / (c.flete ?? 1) : 1),
-        plazo:
-          100 *
-          ponderaciones.plazo *
-          ((c.plazoEntregaDias ?? 0) > 0 ? minPlazo / (c.plazoEntregaDias ?? 1) : 1),
+      // Qué tan buena es la oferta en cada criterio (0 a 1), sin el peso.
+      const crudos = {
+        precio: minTotal / total(c),
+        flete: (c.flete ?? 0) > 0 ? minFlete / (c.flete ?? 1) : 1,
+        plazo: (c.plazoEntregaDias ?? 0) > 0 ? minPlazo / (c.plazoEntregaDias ?? 1) : 1,
         // Sin calificación: puntúa 0 pero su peso igual cuenta en la suma (igual que el servicio).
-        calificacion: 100 * ponderaciones.calificacion * ((calificacion ?? 0) / 5),
+        calificacion: (calificacion ?? 0) / 5,
+      }
+      const puntos = {
+        precio: 100 * ponderaciones.precio * crudos.precio,
+        flete: 100 * ponderaciones.flete * crudos.flete,
+        plazo: 100 * ponderaciones.plazo * crudos.plazo,
+        calificacion: 100 * ponderaciones.calificacion * crudos.calificacion,
       }
       const puntajeTotal =
         Math.round((puntos.precio + puntos.flete + puntos.plazo + puntos.calificacion) * 100) / 100
+      const desgloseScoring = {
+        puntajePrecio: 100 * crudos.precio,
+        puntajeFlete: 100 * crudos.flete,
+        puntajePlazo: 100 * crudos.plazo,
+        puntajeCalificacion: 100 * crudos.calificacion,
+        pesoPrecio: ponderaciones.precio,
+        pesoFlete: ponderaciones.flete,
+        pesoPlazo: ponderaciones.plazo,
+        pesoCalificacion: ponderaciones.calificacion,
+      }
       return {
         ...c,
         calificacionProveedor: calificacion,
         desglosePuntaje: puntos,
+        desgloseScoring,
         ponderacionesScoring: ponderaciones,
         puntajeTotal,
       }

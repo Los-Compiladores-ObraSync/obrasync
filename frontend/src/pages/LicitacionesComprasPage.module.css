@@ -435,6 +435,32 @@
   color: var(--azul);
 }
 
+/* Estrellas por criterio en "Calificación por criterio": llenas en dorado, vacías en gris. */
+.ayudaEstrellas {
+  margin: 0;
+  padding: 0.75rem 1rem 0;
+  font-size: 0.875rem;
+  color: var(--texto-suave);
+}
+
+.lineaEstrellas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+}
+
+.estrellas {
+  font-size: 1.25rem;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  color: #f59e0b;
+}
+
+.estrellaVacia {
+  color: #cbd5e1;
+}
+
 .fechaCotizacion {
   margin: 0;
   font-size: 0.875rem;
@@ -453,7 +479,7 @@
 @media (min-width: 900px) {
   .tarjetaCotizacion {
     display: grid;
-    grid-template-columns: minmax(180px, 1fr) minmax(200px, 1fr) minmax(280px, 1.8fr) minmax(180px, 220px);
+    grid-template-columns: minmax(160px, 1fr) minmax(190px, 1fr) minmax(380px, 2.4fr) minmax(160px, 200px);
     grid-template-areas:
       'quien precio datos accion'
       'marcas precio datos accion'
@@ -476,8 +502,22 @@
     grid-area: precio;
   }
 
+  /* Los datos van ordenados en dos filas parejas: arriba lo que cuesta y cuándo llega (3 columnas),
+     abajo las dos calificaciones (2 columnas), separadas por una línea. Así ninguna etiqueta se parte. */
   .datosCotizacion {
     grid-area: datos;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 1rem 1.25rem;
+  }
+
+  .datosCotizacion > div {
+    grid-column: span 2;
+  }
+
+  .datosCotizacion > .datoCalificacion {
+    grid-column: span 3;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--borde);
   }
 
   .bloqueDetalles {

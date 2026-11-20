@@ -127,7 +127,7 @@ describe('LicitacionesComprasPage', () => {
     expect(screen.getByText('10 días')).toBeInTheDocument()
 
     // Puntajes
-    expect(screen.getByText('92.5 de 100')).toBeInTheDocument()
+    expect(screen.getByText('92,5 de 100')).toBeInTheDocument()
     expect(screen.getByText('78 de 100')).toBeInTheDocument()
 
     // Oferta destacada señalizada solo a la ganadora (esGanadora: true)
@@ -461,9 +461,40 @@ describe('LicitacionesComprasPage', () => {
         within(lista).getByRole('button', { name: 'Adjudicar a proveedor Corralón San Martín' }),
       ).toBeInTheDocument()
 
-      await user.click(within(lista).getByText('Cómo se calculó la calificación'))
-      expect(within(lista).getByText('40 pts · peso 50 %')).toBeInTheDocument()
-      expect(within(lista).getByText('10 pts · peso 10 %')).toBeInTheDocument()
+      await user.click(within(lista).getByText('Calificación por criterio'))
+      expect(within(lista).getByText('40 pts')).toBeInTheDocument()
+      expect(within(lista).getByText('10 pts')).toBeInTheDocument()
+    })
+
+    it('con el desglose del servicio muestra estrellas por criterio, sin porcentajes', async () => {
+      const user = userEvent.setup()
+      const conDesglose = {
+        ...COTIZACION_COMPLETA,
+        desgloseScoring: {
+          puntajePrecio: 100,
+          puntajeFlete: 80,
+          puntajePlazo: 50,
+          puntajeCalificacion: 9,
+          pesoPrecio: 0.5,
+          pesoFlete: 0.2,
+          pesoPlazo: 0.2,
+          pesoCalificacion: 0.1,
+        },
+      }
+      server.use(http.get('*/api/cotizaciones', () => HttpResponse.json([conDesglose])))
+      renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+
+      const lista = await screen.findByRole('list', { name: /^Cotizaciones recibidas para / })
+      await user.click(within(lista).getByText('Calificación por criterio'))
+
+      // 100 → 5 estrellas, 80 → 4, 50 → 3 (2,5 redondea hacia arriba), 9 → 0.
+      expect(within(lista).getByRole('img', { name: '5 de 5 estrellas' })).toBeInTheDocument()
+      expect(within(lista).getByRole('img', { name: '4 de 5 estrellas' })).toBeInTheDocument()
+      expect(within(lista).getByRole('img', { name: '3 de 5 estrellas' })).toBeInTheDocument()
+      expect(within(lista).getByRole('img', { name: '0 de 5 estrellas' })).toBeInTheDocument()
+      expect(within(lista).queryByText(/peso \d+ %/)).not.toBeInTheDocument()
+      // Con estrellas ya no se muestran los puntos sueltos.
+      expect(within(lista).queryByText('40 pts')).not.toBeInTheDocument()
     })
 
     it('sin esos datos muestra el inicio del identificador y no inventa calificación ni desglose', async () => {
@@ -473,7 +504,7 @@ describe('LicitacionesComprasPage', () => {
 
       expect(within(lista).getByText('f7a8b9c0')).toBeInTheDocument()
       expect(within(lista).queryByText('Calificación del proveedor')).not.toBeInTheDocument()
-      expect(within(lista).queryByText('Cómo se calculó la calificación')).not.toBeInTheDocument()
+      expect(within(lista).queryByText('Calificación por criterio')).not.toBeInTheDocument()
     })
   })
 
