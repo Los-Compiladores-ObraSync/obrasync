@@ -34,6 +34,7 @@ public static class GeneradorHerramientasOpenApi
     /// </summary>
     public static readonly IReadOnlyDictionary<string, string> Excluidos = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
+        ["/api/ordenes-compra/precios-historicos"] = "recibe una lista de artículos (parámetro de tipo array), que el generador no soporta; lo usa la pantalla de Compras",
         ["/api/licitaciones/magic-links/{hash}"] = "el hash es un secreto de un solo uso: el modelo no debe poder consultarlo",
         ["/api/asistente/estado"] = "es del propio asistente (consumo de tokens) y es solo del Admin",
         ["/api/requisiciones"] = "ya existe listar_requisiciones",
