@@ -119,4 +119,43 @@ public class AuthControllerTests
         var problem = Assert.IsType<ProblemDetails>(objectResult.Value);
         Assert.Equal("Paginación inválida", problem.Title);
     }
+
+    [Fact]
+    public async Task GetProveedoresActivos_PaginacionValida_Retorna200YHeaders()
+    {
+        // Arrange (#157)
+        var items = new List<ProveedorDto>
+        {
+            new(Guid.NewGuid(), "Corralón Norte"),
+            new(Guid.NewGuid(), "Hierros del Sur")
+        };
+        _authService.GetProveedoresActivosPaginadosAsync(new ParametrosPagina(1, 2))
+            .Returns((items, 5));
+
+        // Act
+        var result = await _controller.GetProveedoresActivos(pagina: 1, tamano: 2);
+
+        // Assert
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Same(items, ok.Value);
+        Assert.Equal("5", _controller.Response.Headers["X-Total-Count"].ToString());
+        Assert.Equal("1", _controller.Response.Headers["X-Page"].ToString());
+        Assert.Equal("2", _controller.Response.Headers["X-Page-Size"].ToString());
+    }
+
+    [Theory]
+    [InlineData(0, 10)]
+    [InlineData(1, 0)]
+    [InlineData(1, 51)]
+    public async Task GetProveedoresActivos_ParametrosInvalidos_Retorna400ProblemDetails(int pagina, int tamano)
+    {
+        // Act (#157)
+        var result = await _controller.GetProveedoresActivos(pagina, tamano);
+
+        // Assert
+        var objectResult = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+        var problem = Assert.IsType<ProblemDetails>(objectResult.Value);
+        Assert.Equal("Paginación inválida", problem.Title);
+    }
 }

@@ -851,6 +851,42 @@ public class ObrasEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal("corr-capataces-182", problem.GetProperty("correlationId").GetString());
     }
 
+    [Fact]
+    public async Task GetProveedores_EndpointHttp_ListaSoloActivosYSoloParaCompradorYAdmin()
+    {
+        // #157: Compras elige de esta lista a quién generarle un Magic Link
+        var activoId = await CrearUsuarioConRolAsync(UserRoles.Proveedor, activo: true);
+        var inactivoId = await CrearUsuarioConRolAsync(UserRoles.Proveedor, activo: false);
+
+        var comprador = _factory.CreateClient();
+        comprador.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Comprador));
+
+        var resp = await comprador.GetAsync("/api/usuarios/proveedores?pagina=1&tamano=50");
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        Assert.True(int.Parse(resp.Headers.GetValues("X-Total-Count").Single()) >= 1);
+        var items = await resp.Content.ReadFromJsonAsync<List<ProveedorDto>>();
+        Assert.NotNull(items);
+        Assert.Contains(items, p => p.Id == activoId);
+        Assert.DoesNotContain(items, p => p.Id == inactivoId);
+
+        var invalida = await comprador.GetAsync("/api/usuarios/proveedores?pagina=0&tamano=10");
+        Assert.Equal(HttpStatusCode.BadRequest, invalida.StatusCode);
+
+        foreach (var rol in new[] { UserRoles.Capataz, UserRoles.Proveedor })
+        {
+            var sinPermiso = _factory.CreateClient();
+            sinPermiso.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken(rol));
+            var prohibido = await sinPermiso.GetAsync("/api/usuarios/proveedores");
+            Assert.Equal(HttpStatusCode.Forbidden, prohibido.StatusCode);
+        }
+
+        var anonimo = _factory.CreateClient();
+        var sinToken = await anonimo.GetAsync("/api/usuarios/proveedores");
+        Assert.Equal(HttpStatusCode.Unauthorized, sinToken.StatusCode);
+    }
+
     // ── Tarjeta #200: Validación de Capataz al crear o editar una obra ────────
 
     private async Task<Guid> CrearUsuarioConRolAsync(string rol, bool activo = true)
