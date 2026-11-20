@@ -24,12 +24,13 @@ public class GetCalificacionProveedorQueryHandler
             throw new ArgumentException("El identificador del proveedor es obligatorio.", nameof(request.ProveedorId));
         }
 
-        var entidad = await _repository.GetByProveedorIdAsync(request.ProveedorId, cancellationToken)
+        var resumen = await _repository.GetResumenAsync(request.ProveedorId, cancellationToken)
             ?? throw new KeyNotFoundException($"El proveedor '{request.ProveedorId}' todavía no tiene una calificación registrada.");
 
         return new CalificacionProveedorResponseDto(
-            entidad.ProveedorId,
-            entidad.Calificacion,
-            DateTime.SpecifyKind(entidad.FechaActualizacion, DateTimeKind.Utc));
+            resumen.ProveedorId,
+            resumen.Promedio,
+            resumen.Cantidad,
+            DateTime.SpecifyKind(resumen.FechaActualizacion, DateTimeKind.Utc));
     }
 }

@@ -44,18 +44,19 @@ public class CalificacionProveedorYPonderacionesTests
         var bodyPut = await putResponse.Content.ReadFromJsonAsync<CalificacionProveedorResponseDto>();
         Assert.NotNull(bodyPut);
         Assert.Equal(proveedorId, bodyPut!.ProveedorId);
-        Assert.Equal(calificacion, bodyPut.Calificacion);
+        Assert.Equal((decimal)calificacion, bodyPut.Calificacion);
+        Assert.Equal(1, bodyPut.CantidadCalificaciones);
 
         var getResponse = await client.GetAsync($"/api/cotizaciones/proveedores/{proveedorId}/calificacion");
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
         var bodyGet = await getResponse.Content.ReadFromJsonAsync<CalificacionProveedorResponseDto>();
         Assert.NotNull(bodyGet);
         Assert.Equal(proveedorId, bodyGet!.ProveedorId);
-        Assert.Equal(calificacion, bodyGet.Calificacion);
+        Assert.Equal((decimal)calificacion, bodyGet.Calificacion);
     }
 
     [Fact]
-    public async Task RecalificarProveedor_ActualizaCalificacionSinDuplicarFilas()
+    public async Task MismoUsuarioQueRecalifica_ActualizaSuCalificacionSinDuplicarFilas()
     {
         var dbName = $"TestDb_Recalif_{Guid.NewGuid()}";
         await using var factory = CreateFactory(dbName);
@@ -76,12 +77,85 @@ public class CalificacionProveedorYPonderacionesTests
 
         var dto = await r2.Content.ReadFromJsonAsync<CalificacionProveedorResponseDto>();
         Assert.NotNull(dto);
-        Assert.Equal(5, dto!.Calificacion);
+        Assert.Equal(5m, dto!.Calificacion);
+        Assert.Equal(1, dto.CantidadCalificaciones);
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LicitacionesDbContext>();
         var totalFilas = await db.CalificacionesProveedores.CountAsync(x => x.ProveedorId == proveedorId);
         Assert.Equal(1, totalFilas);
+    }
+
+    [Fact]
+    public async Task CalificacionesDeUsuariosDistintos_SePromedianYNoSePisan()
+    {
+        var dbName = $"TestDb_CalifPromedio_{Guid.NewGuid()}";
+        await using var factory = CreateFactory(dbName);
+        var proveedorId = Guid.NewGuid();
+
+        // El comprador califica con 4 y después el admin (otro usuario) con 2: el proveedor queda en 3, no en 2.
+        var comprador = factory.CreateClient();
+        comprador.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GenerateJwt("Comprador"));
+        var admin = factory.CreateClient();
+        admin.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GenerateJwt("Admin"));
+
+        var r1 = await comprador.PutAsJsonAsync(
+            $"/api/cotizaciones/proveedores/{proveedorId}/calificacion",
+            new UpsertCalificacionProveedorRequestDto(4));
+        Assert.Equal(HttpStatusCode.OK, r1.StatusCode);
+
+        var r2 = await admin.PutAsJsonAsync(
+            $"/api/cotizaciones/proveedores/{proveedorId}/calificacion",
+            new UpsertCalificacionProveedorRequestDto(2));
+        Assert.Equal(HttpStatusCode.OK, r2.StatusCode);
+
+        var dto = await r2.Content.ReadFromJsonAsync<CalificacionProveedorResponseDto>();
+        Assert.NotNull(dto);
+        Assert.Equal(3m, dto!.Calificacion);
+        Assert.Equal(2, dto.CantidadCalificaciones);
+
+        var consulta = await comprador.GetFromJsonAsync<CalificacionProveedorResponseDto>(
+            $"/api/cotizaciones/proveedores/{proveedorId}/calificacion");
+        Assert.NotNull(consulta);
+        Assert.Equal(3m, consulta!.Calificacion);
+        Assert.Equal(2, consulta.CantidadCalificaciones);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LicitacionesDbContext>();
+        Assert.Equal(2, await db.CalificacionesProveedores.CountAsync(x => x.ProveedorId == proveedorId));
+    }
+
+    [Fact]
+    public async Task Promedio_SeRedondeaADosDecimales_YUnaRecalificacionCambiaSoloLaDeEseUsuario()
+    {
+        var dbName = $"TestDb_CalifRedondeo_{Guid.NewGuid()}";
+        await using var factory = CreateFactory(dbName);
+        var proveedorId = Guid.NewGuid();
+
+        HttpClient ClienteDe(Guid usuario)
+        {
+            var c = factory.CreateClient();
+            c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GenerateJwt("Comprador", usuario));
+            return c;
+        }
+
+        var u1 = ClienteDe(Guid.NewGuid());
+        var u2 = ClienteDe(Guid.NewGuid());
+        var u3 = ClienteDe(Guid.NewGuid());
+        var url = $"/api/cotizaciones/proveedores/{proveedorId}/calificacion";
+
+        await u1.PutAsJsonAsync(url, new UpsertCalificacionProveedorRequestDto(5));
+        await u2.PutAsJsonAsync(url, new UpsertCalificacionProveedorRequestDto(4));
+        var r3 = await u3.PutAsJsonAsync(url, new UpsertCalificacionProveedorRequestDto(4));
+        var dto = await r3.Content.ReadFromJsonAsync<CalificacionProveedorResponseDto>();
+        Assert.Equal(4.33m, dto!.Calificacion); // (5 + 4 + 4) / 3
+        Assert.Equal(3, dto.CantidadCalificaciones);
+
+        // El usuario 1 cambia su 5 por un 1: pesa solo su fila ((1 + 4 + 4) / 3 = 3).
+        var r4 = await u1.PutAsJsonAsync(url, new UpsertCalificacionProveedorRequestDto(1));
+        var dto2 = await r4.Content.ReadFromJsonAsync<CalificacionProveedorResponseDto>();
+        Assert.Equal(3m, dto2!.Calificacion);
+        Assert.Equal(3, dto2.CantidadCalificaciones);
     }
 
     [Theory]
@@ -270,7 +344,7 @@ public class CalificacionProveedorYPonderacionesTests
         Assert.Null(ofertaSinCalifEnPrecio.CalificacionProveedor);
         Assert.Equal(0m, ofertaSinCalifEnPrecio.DesgloseScoring!.PuntajeCalificacion);
 
-        Assert.Equal(5, ofertaCalificadaEnPrecio.CalificacionProveedor);
+        Assert.Equal(5m, ofertaCalificadaEnPrecio.CalificacionProveedor);
         Assert.Equal(100m, ofertaCalificadaEnPrecio.DesgloseScoring!.PuntajeCalificacion);
 
         // 2) Al cambiar los pesos por query para priorizar calificación (pesoPrecio=10, pesoCalificacion=70), cambia la ganadora

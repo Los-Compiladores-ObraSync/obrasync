@@ -453,8 +453,17 @@ function crearCotizacionesMock(): CotizacionMock[] {
 
 let licitacionesMock = crearLicitacionesMock()
 let cotizacionesMock = crearCotizacionesMock()
-// Calificaciones de proveedores (1 a 5) que el Comprador cargó; un proveedor ausente está "sin calificar".
-const calificacionesMock = new Map<string, number>()
+// Calificaciones de proveedores (1 a 5): una por usuario y proveedor, como el servicio. La calificación
+// del proveedor es el promedio; un proveedor ausente está "sin calificar".
+const calificacionesMock = new Map<string, Map<string, number>>()
+
+/** Promedio (2 decimales) de las calificaciones de un proveedor, o null si no tiene. */
+function promedioDeProveedor(proveedorId: string): number | null {
+  const porUsuario = calificacionesMock.get(proveedorId)
+  if (!porUsuario || porUsuario.size === 0) return null
+  const valores = [...porUsuario.values()]
+  return Math.round((valores.reduce((a, b) => a + b, 0) / valores.length) * 100) / 100
+}
 
 /** Solo para tests: vuelve las licitaciones y cotizaciones simuladas a su estado inicial. */
 export function reiniciarLicitacionesMock() {
@@ -1511,14 +1520,14 @@ export const handlers: RequestHandler[] = [
     const minFlete = menor(filtradas.map((c) => c.flete ?? 0))
     const minPlazo = menor(filtradas.map((c) => c.plazoEntregaDias ?? 0))
     const conPuntaje = filtradas.map((c) => {
-      const calificacion = calificacionesMock.get(c.proveedorId) ?? null
+      const calificacion = promedioDeProveedor(c.proveedorId)
       // Qué tan buena es la oferta en cada criterio (0 a 1), sin el peso.
       const crudos = {
         precio: minTotal / total(c),
         flete: (c.flete ?? 0) > 0 ? minFlete / (c.flete ?? 1) : 1,
         plazo: (c.plazoEntregaDias ?? 0) > 0 ? minPlazo / (c.plazoEntregaDias ?? 1) : 1,
-        // Sin calificación: puntúa 0 pero su peso igual cuenta en la suma (igual que el servicio).
-        calificacion: (calificacion ?? 0) / 5,
+        // Igual que el servicio: (calificación - 1) / 4, o 0 si no tiene; su peso igual cuenta en la suma.
+        calificacion: calificacion === null ? 0 : (calificacion - 1) / 4,
       }
       const puntos = {
         precio: 100 * ponderaciones.precio * crudos.precio,
@@ -1570,10 +1579,16 @@ export const handlers: RequestHandler[] = [
       )
     }
     const proveedorId = params.proveedorId as string
-    calificacionesMock.set(proveedorId, valor)
+    // Cada usuario (el token) tiene una sola calificación por proveedor: volver a calificar la reemplaza,
+    // pero la de otro usuario se suma y el proveedor queda con el promedio.
+    const usuario = request.headers.get('authorization') ?? 'sin-token'
+    const porUsuario = calificacionesMock.get(proveedorId) ?? new Map<string, number>()
+    porUsuario.set(usuario, valor)
+    calificacionesMock.set(proveedorId, porUsuario)
     return HttpResponse.json({
       proveedorId,
-      calificacion: valor,
+      calificacion: promedioDeProveedor(proveedorId),
+      cantidadCalificaciones: porUsuario.size,
       fechaActualizacion: new Date().toISOString(),
     })
   }),

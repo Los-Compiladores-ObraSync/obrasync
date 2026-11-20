@@ -54,6 +54,7 @@ export interface CotizacionResponseDto {
   esMasBarata?: boolean
   /** PROPUESTA de contrato (pendiente de Licitaciones): si no vienen, la pantalla no muestra esos datos. */
   proveedorNombre?: string | null
+  /** Promedio de 1 a 5 (con decimales) de las calificaciones recibidas, o null si no tiene. */
   calificacionProveedor?: number | null
   /** Puntos (0 a 100) que aportó cada criterio al puntajeTotal; la suma da puntajeTotal. */
   desglosePuntaje?: CriteriosScoringDto | null
@@ -113,7 +114,9 @@ export interface OrdenCompraListadoDto {
 /** Calificación vigente de un proveedor (contrato: CalificacionProveedorResponseDto, #88). */
 export interface CalificacionProveedorResponseDto {
   proveedorId: string
-  /** Entero de 1 a 5. */
+  /** Promedio de 1 a 5, con hasta 2 decimales, de las calificaciones de distintos usuarios. */
   calificacion: number
+  /** Cuántas calificaciones (de distintos usuarios) forman el promedio. */
+  cantidadCalificaciones: number
   fechaActualizacion: string
 }

@@ -307,7 +307,7 @@
       "get": {
         "tags": ["Cotizaciones"],
         "summary": "Consultar la calificación vigente de un proveedor (Roles: Comprador, Admin)",
-        "description": "Devuelve la calificación registrada (1 a 5) para el proveedor indicado en DB_Licit. Si el proveedor todavía no tiene calificación cargada, responde 404 Not Found con ProblemDetails.",
+        "description": "Devuelve la calificación vigente del proveedor: el promedio (1 a 5, con hasta 2 decimales) de las calificaciones recibidas de distintos usuarios, y cuántas son. Si el proveedor todavía no tiene ninguna, responde 404 Not Found con ProblemDetails.",
         "parameters": [
           {
             "name": "proveedorId",
@@ -333,8 +333,8 @@
       },
       "put": {
         "tags": ["Cotizaciones"],
-        "summary": "Cargar o actualizar la calificación de un proveedor en escala de 1 a 5 (Roles: Comprador, Admin)",
-        "description": "Registra o actualiza (upsert idempotente, una única fila por proveedorId) la calificación del proveedor entre 1 y 5 para el cálculo de scoring en comparativas (#88).",
+        "summary": "Cargar o actualizar la calificación que el usuario autenticado le da a un proveedor, en escala de 1 a 5 (Roles: Comprador, Admin)",
+        "description": "Registra o actualiza (upsert idempotente, una fila por proveedorId y usuario, tomado del claim 'sub' del JWT) la calificación entre 1 y 5 que el usuario le da al proveedor. Si otro usuario califica, se suma su calificación; la respuesta devuelve el promedio vigente del proveedor, que es el que se usa en el scoring de comparativas (#88).",
         "parameters": [
           {
             "name": "proveedorId",
@@ -1028,12 +1028,12 @@
             "description": "Nombre del proveedor tal como figuraba al cotizar (máximo 200 caracteres). Sale del claim 'name' del JWT cuando el proveedor cotiza por su cuenta, o de lo que escribió Compras al generar el Magic Link. null si no se conoce (cotizaciones anteriores, o un Admin que cotiza en nombre de otro proveedor): no se inventa. Si falta, el frontend muestra el comienzo de proveedorId."
           },
           "calificacionProveedor": {
-            "type": "integer",
-            "format": "int32",
+            "type": "number",
+            "format": "decimal",
             "minimum": 1,
             "maximum": 5,
             "nullable": true,
-            "description": "Calificación del proveedor en escala de 1 a 5 (#88). Si el proveedor aún no tiene calificación registrada, viene en null y el scoring normaliza su puntaje de calificación como 0 (manteniendo el peso del criterio en el divisor)."
+            "description": "Calificación del proveedor: promedio (1 a 5, con hasta 2 decimales) de las calificaciones recibidas de distintos usuarios (#88). Si el proveedor aún no tiene calificación registrada, viene en null y el scoring normaliza su puntaje de calificación como 0 (manteniendo el peso del criterio en el divisor)."
           },
           "desglosePuntaje": {
             "nullable": true,
@@ -1269,7 +1269,7 @@
       },
       "CalificacionProveedorResponseDto": {
         "type": "object",
-        "required": ["proveedorId", "calificacion", "fechaActualizacion"],
+        "required": ["proveedorId", "calificacion", "cantidadCalificaciones", "fechaActualizacion"],
         "properties": {
           "proveedorId": {
             "type": "string",
@@ -1277,11 +1277,17 @@
             "description": "Identificador del proveedor calificado."
           },
           "calificacion": {
+            "type": "number",
+            "format": "decimal",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "Calificación vigente del proveedor: promedio (1 a 5, redondeado a 2 decimales) de las calificaciones recibidas de distintos usuarios."
+          },
+          "cantidadCalificaciones": {
             "type": "integer",
             "format": "int32",
             "minimum": 1,
-            "maximum": 5,
-            "description": "Calificación vigente del proveedor (1 a 5)."
+            "description": "Cantidad de calificaciones (de distintos usuarios) que forman el promedio."
           },
           "fechaActualizacion": {
             "type": "string",

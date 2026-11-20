@@ -198,10 +198,20 @@ public class CotizacionesController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError);
         }
 
+        // Cada usuario tiene una sola calificación por proveedor: se identifica por el 'sub' del token.
+        if (!TryGetUserId(out var calificadorId))
+        {
+            return Problem(
+                detail: "No se pudo identificar al usuario que califica (claim 'sub' inválido).",
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Usuario no identificado");
+        }
+
         try
         {
             var command = new ObraSync.Licitaciones.Application.UseCases.Calificaciones.Commands.UpsertCalificacionProveedorCommand(
                 proveedorId,
+                calificadorId,
                 request.Calificacion);
             var resultado = await _upsertCalificacionHandler.Handle(command, cancellationToken);
             return Ok(resultado);
@@ -223,7 +233,7 @@ public class CotizacionesController : ControllerBase
     }
 
     /// <summary>
-    /// Consultar la calificación global actual de un proveedor (Roles: Comprador, Admin).
+    /// Consultar la calificación actual de un proveedor: el promedio de las calificaciones recibidas (Roles: Comprador, Admin).
     /// </summary>
     [HttpGet("proveedores/{proveedorId:guid}/calificacion")]
     [HttpGet("/api/proveedores/{proveedorId:guid}/calificacion")]

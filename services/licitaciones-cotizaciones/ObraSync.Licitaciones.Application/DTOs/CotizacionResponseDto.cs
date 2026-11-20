@@ -6,7 +6,7 @@ public class CotizacionResponseDto
     public Guid LicitacionId { get; set; }
     public Guid ProveedorId { get; set; }
     public string? ProveedorNombre { get; set; }          // NUEVO (#206)
-    public int? CalificacionProveedor { get; set; }      // NUEVO (#206) - escala 1 a 5 o null
+    public decimal? CalificacionProveedor { get; set; }  // NUEVO (#206) - promedio en escala 1 a 5 (con decimales) o null
     public decimal SubtotalItems { get; set; }
     public decimal Flete { get; set; }
     public decimal CostoTotal { get; set; }
