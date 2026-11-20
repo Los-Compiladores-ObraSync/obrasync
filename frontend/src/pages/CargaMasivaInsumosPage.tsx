@@ -106,8 +106,8 @@ export function CargaMasivaInsumosPage() {
 
   return (
     <section className={styles.contenedor}>
-      <Link to="/compras" className={styles.volver}>
-        ← Volver a Gestión y Compras
+      <Link to="/" className={styles.volver}>
+        ← Volver al inicio
       </Link>
       <h1 className={styles.titulo}>Cargar insumos desde un CSV</h1>
       <p className={styles.intro}>

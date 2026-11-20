@@ -40,7 +40,7 @@ describe('CargaMasivaInsumosPage (#215)', () => {
     expect(decodeURIComponent(enlace.getAttribute('href') ?? '')).toContain(
       'codigo;descripcion;unidadMedida;moneda;precioReferencia;activo',
     )
-    expect(screen.getByRole('link', { name: '← Volver a Gestión y Compras' })).toHaveAttribute('href', '/compras')
+    expect(screen.getByRole('link', { name: '← Volver al inicio' })).toHaveAttribute('href', '/')
   })
 
   it('carga las filas válidas y muestra el resumen', async () => {
