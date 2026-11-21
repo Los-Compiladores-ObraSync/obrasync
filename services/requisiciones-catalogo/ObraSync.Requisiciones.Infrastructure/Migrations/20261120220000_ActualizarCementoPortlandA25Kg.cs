@@ -17,37 +17,27 @@ namespace ObraSync.Requisiciones.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.UpdateData(
-                table: "Insumos",
-                keyColumn: "Id",
-                keyValue: new Guid("11111111-1111-1111-1111-111111110001"),
-                column: "Descripcion",
-                value: "Cemento Portland Normal (bolsa 25 kg)");
+            // SQL directo a propósito: esta migración se escribió a mano y no tiene el modelo (.Designer),
+            // y UpdateData lo necesita para conocer los tipos de las columnas (falla con "no entity type mapped").
+            migrationBuilder.Sql(
+                "UPDATE [Insumos] SET [Descripcion] = N'Cemento Portland Normal (bolsa 25 kg)' " +
+                "WHERE [Id] = '11111111-1111-1111-1111-111111110001';");
 
-            migrationBuilder.UpdateData(
-                table: "Insumos",
-                keyColumn: "Id",
-                keyValue: new Guid("11111111-1111-1111-1111-111111110002"),
-                column: "Descripcion",
-                value: "Cemento de Albañilería Plasticor (bolsa 25 kg)");
+            migrationBuilder.Sql(
+                "UPDATE [Insumos] SET [Descripcion] = N'Cemento de Albañilería Plasticor (bolsa 25 kg)' " +
+                "WHERE [Id] = '11111111-1111-1111-1111-111111110002';");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.UpdateData(
-                table: "Insumos",
-                keyColumn: "Id",
-                keyValue: new Guid("11111111-1111-1111-1111-111111110001"),
-                column: "Descripcion",
-                value: "Cemento Portland Normal (bolsa 50 kg)");
+            migrationBuilder.Sql(
+                "UPDATE [Insumos] SET [Descripcion] = N'Cemento Portland Normal (bolsa 50 kg)' " +
+                "WHERE [Id] = '11111111-1111-1111-1111-111111110001';");
 
-            migrationBuilder.UpdateData(
-                table: "Insumos",
-                keyColumn: "Id",
-                keyValue: new Guid("11111111-1111-1111-1111-111111110002"),
-                column: "Descripcion",
-                value: "Cemento de Albañilería Plasticor (bolsa 40 kg)");
+            migrationBuilder.Sql(
+                "UPDATE [Insumos] SET [Descripcion] = N'Cemento de Albañilería Plasticor (bolsa 40 kg)' " +
+                "WHERE [Id] = '11111111-1111-1111-1111-111111110002';");
         }
     }
 }
