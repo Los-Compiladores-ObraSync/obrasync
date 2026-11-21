@@ -38,7 +38,7 @@ public class LiquidarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactor
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<RecepcionDbContext>();
 
-        var item = OrdenCompraItem.Crear(articuloId, cantidadPedida, "bolsas", 500m, "Cemento Portland x 50kg");
+        var item = OrdenCompraItem.Crear(articuloId, cantidadPedida, "bolsas", 500m, "Cemento Portland x 25kg");
 
         var oc = OrdenCompra.Crear(
             id: ocId,
@@ -70,7 +70,7 @@ public class LiquidarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactor
                     {
                         Id = Guid.NewGuid(),
                         ArticuloId = articuloId,
-                        DescripcionArticulo = "Cemento Portland x 50kg",
+                        DescripcionArticulo = "Cemento Portland x 25kg",
                         CantidadEsperada = cantidadPedida,
                         CantidadRecibida = cantidadRecibida,
                         UnidadMedida = "bolsas",

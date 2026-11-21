@@ -120,7 +120,7 @@ public class HerramientasLicitacionesTests
         Assert.Equal("REQ-0002", datos["numeroRequisicion"]!.GetValue<string>());
         var items = datos["items"]!.AsArray();
         Assert.Equal(2, items.Count);
-        Assert.Equal("Cemento Portland 50 kg", items[0]!["descripcion"]!.GetValue<string>());
+        Assert.Equal("Cemento Portland 25 kg", items[0]!["descripcion"]!.GetValue<string>());
         Assert.Equal(20m, items[0]!["cantidad"]!.GetValue<decimal>());
         Assert.Equal("BOLSA", items[0]!["unidadMedida"]!.GetValue<string>());
         Assert.Equal(ConsultorLicitacionesFalso.IdLicitacion, consultor.UltimoId);
@@ -320,7 +320,7 @@ public class HerramientasLicitacionesTests
         Assert.True(b.Resumen.EsGanadora);
         Assert.False(b.Resumen.HayOfertaConMayorPuntaje);
         Assert.Equal(2, b.Resumen.Items.Count);
-        Assert.Equal("Cemento Portland 50 kg", b.Resumen.Items[0].Descripcion);
+        Assert.Equal("Cemento Portland 25 kg", b.Resumen.Items[0].Descripcion);
         // Solo se leyó: la licitación y sus ofertas.
         Assert.Equal(1, consultor.LlamadasDetalle);
         Assert.Equal(1, consultor.LlamadasOfertas);

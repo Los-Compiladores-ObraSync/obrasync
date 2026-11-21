@@ -48,6 +48,9 @@ export function validarFlete(valor: string): string | undefined {
   return undefined
 }
 
+/** Tope razonable para que un error de tipeo (22222) no llegue a Compras. Decisión de pantalla, no del contrato. */
+export const PLAZO_ENTREGA_MAXIMO_DIAS = 365
+
 export function validarPlazoEntregaDias(valor: string): string | undefined {
   const limpio = valor.trim()
   if (!limpio) {
@@ -62,6 +65,9 @@ export function validarPlazoEntregaDias(valor: string): string | undefined {
   const num = Number(limpio)
   if (num <= 0) {
     return 'El plazo de entrega debe ser mayor a 0.'
+  }
+  if (num > PLAZO_ENTREGA_MAXIMO_DIAS) {
+    return `El plazo de entrega no puede superar los ${PLAZO_ENTREGA_MAXIMO_DIAS} días. Revisá que sean días y no otra unidad.`
   }
   return undefined
 }

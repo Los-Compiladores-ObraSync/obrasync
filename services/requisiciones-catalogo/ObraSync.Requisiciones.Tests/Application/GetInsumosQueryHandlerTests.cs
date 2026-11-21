@@ -23,7 +23,7 @@ namespace ObraSync.Requisiciones.Tests.Application
             {
                 new(Guid.NewGuid(), "MAT-ARI-001", "Arena Gruesa Lavada", UnidadesMedida.MetroCubico, true, 28000m),
                 new(Guid.NewGuid(), "MAT-CAL-001", "Cal Hidratada 25kg", UnidadesMedida.Bolsa, true, 4800m),
-                new(Guid.NewGuid(), "MAT-CEM-001", "Cemento Portland Normal 50kg", UnidadesMedida.Bolsa, true, 8500m)
+                new(Guid.NewGuid(), "MAT-CEM-001", "Cemento Portland Normal 25kg", UnidadesMedida.Bolsa, true, 8500m)
             };
 
             repository.GetFilteredAsync(null, true, null, Arg.Any<CancellationToken>())

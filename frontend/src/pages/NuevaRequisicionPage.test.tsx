@@ -63,7 +63,7 @@ describe('NuevaRequisicionPage', () => {
         requisicionId: RECHAZADA_ID, numeroRequisicion: 'REQ-2026-0013', obraId: OBRA_ID,
         etapa: 'Fundaciones', solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000001',
         estado: 'Pendiente', observaciones: 'Revisar la cantidad', fechaCreacion: '2026-10-20T12:00:00Z',
-        items: [{ articuloId: ARTICULO_CEMENTO_ID, descripcion: 'Cemento Portland Especial 50kg', cantidad: 31, unidadMedida: 'BOLSA' }],
+        items: [{ articuloId: ARTICULO_CEMENTO_ID, descripcion: 'Cemento Portland Especial 25kg', cantidad: 31, unidadMedida: 'BOLSA' }],
       })
     }))
     renderEdicion()
@@ -98,7 +98,7 @@ describe('NuevaRequisicionPage', () => {
           requisicionId: 'e1e2e3e4-0000-0000-0000-000000000099', numeroRequisicion: 'REQ-2026-0099', obraId: OBRA_ID,
           etapa: 'Fundaciones', solicitanteId: 'a1b2c3d4-0000-0000-0000-000000000001',
           estado: 'Pendiente', observaciones: 'Revisar la cantidad', fechaCreacion: '2026-10-21T12:00:00Z',
-          items: [{ articuloId: ARTICULO_CEMENTO_ID, descripcion: 'Cemento Portland Especial 50kg', cantidad: 25, unidadMedida: 'BOLSA' }],
+          items: [{ articuloId: ARTICULO_CEMENTO_ID, descripcion: 'Cemento Portland Especial 25kg', cantidad: 25, unidadMedida: 'BOLSA' }],
         }, { status: 201 })
       }),
     )
@@ -150,7 +150,7 @@ describe('NuevaRequisicionPage', () => {
     const selectEtapa = screen.getByLabelText('Etapa de la obra')
     await user.selectOptions(selectEtapa, 'Estructura')
 
-    // Selecciona Insumo "Cemento Portland Especial 50kg"
+    // Selecciona Insumo "Cemento Portland Especial 25kg"
     const selectInsumo = screen.getByLabelText('Insumo #1')
     await user.selectOptions(selectInsumo, ARTICULO_CEMENTO_ID)
 
@@ -177,7 +177,7 @@ describe('NuevaRequisicionPage', () => {
     expect(screen.getByText(/Torre Alvear/)).toBeInTheDocument()
     expect(screen.getByText(/Estructura/)).toBeInTheDocument()
     expect(
-      screen.getByText(/80 bolsas — Cemento Portland Especial 50kg/),
+      screen.getByText(/80 bolsas — Cemento Portland Especial 25kg/),
     ).toBeInTheDocument()
   })
 
@@ -454,7 +454,7 @@ describe('NuevaRequisicionPage', () => {
             items: [
               {
                 articuloId: ARTICULO_CEMENTO_ID,
-                descripcion: 'Cemento Portland Especial 50kg',
+                descripcion: 'Cemento Portland Especial 25kg',
                 cantidad: 80,
                 unidadMedida: 'BOLSA',
               },
@@ -683,7 +683,7 @@ describe('NuevaRequisicionPage - búsqueda con espera (#58)', () => {
             {
               articuloId: ARTICULO_CEMENTO_ID,
               codigo: 'MAT-CEM-001',
-              descripcion: 'Cemento Portland Especial 50kg',
+              descripcion: 'Cemento Portland Especial 25kg',
               unidadMedida: 'BOLSA',
               moneda: 'ARS',
               activo: true,
@@ -766,7 +766,11 @@ describe('NuevaRequisicionPage - resultados a la vista', () => {
 
     await user.click(await screen.findByRole('button', { name: /MAT-CEM-001/ }))
 
-    expect(screen.getByRole('button', { name: /MAT-CEM-001.*ya agregado/ })).toBeDisabled()
+    // Al elegir, el buscador se vacía para buscar otro material; si se busca el mismo, figura como ya agregado.
+    expect(screen.getByLabelText('Buscar insumo')).toHaveValue('')
+    await user.type(screen.getByLabelText('Buscar insumo'), 'cemento')
+
+    expect(await screen.findByRole('button', { name: /MAT-CEM-001.*ya agregado/ })).toBeDisabled()
   })
 })
 
@@ -802,7 +806,7 @@ describe('NuevaRequisicionPage - idempotencia y protección contra doble envío 
             items: [
               {
                 articuloId: ARTICULO_CEMENTO_ID,
-                descripcion: 'Cemento Portland Especial 50kg',
+                descripcion: 'Cemento Portland Especial 25kg',
                 cantidad: 80,
                 unidadMedida: 'BOLSA',
               },

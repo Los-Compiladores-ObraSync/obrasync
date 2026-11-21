@@ -391,7 +391,7 @@ describe('LicitacionesComprasPage', () => {
 
     const resumen = await screen.findByRole('region', { name: 'Resumen del pliego' })
 
-    expect(within(resumen).getByText(/80 bolsas de Cemento Portland Especial 50kg/)).toBeInTheDocument()
+    expect(within(resumen).getByText(/80 bolsas de Cemento Portland Especial 25kg/)).toBeInTheDocument()
     expect(within(resumen).getByText(/15 metros cúbicos \(m³\) de Arena Fina a Granel/)).toBeInTheDocument()
     expect(within(resumen).getByText(/Cotizan hasta el 20 de noviembre de 2026/)).toBeInTheDocument()
     expect(await within(resumen).findByText('2 ofertas recibidas')).toBeInTheDocument()

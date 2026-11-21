@@ -174,7 +174,15 @@
 
 .accionesConfirmacion {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+/* En pantalla ancha la columna de la acción mide ~160-200 px: los dos botones no entran en una
+   fila y se salían de la tarjeta. Cada uno ocupa al menos 140 px y, si no entran juntos, se apilan. */
+.accionesConfirmacion > button {
+  flex: 1 1 140px;
+  min-width: 0;
 }
 
 .botonConfirmar {
@@ -317,6 +325,21 @@
   min-height: 48px;
   padding: 0 1rem;
   font-size: 1rem;
+}
+
+/* La oferta adjudicada se ve verde (el mismo verde de "Confirmar adjudicación"); las demás, apagadas. */
+.botonAdjudicada,
+.botonAdjudicada:disabled {
+  background: #16a34a;
+  color: #ffffff;
+  opacity: 1;
+}
+
+.botonCerrada,
+.botonCerrada:disabled {
+  background: #e2e8f0;
+  color: var(--texto-suave);
+  opacity: 1;
 }
 
 /* Resumen del pliego (lo que se pidió) arriba de las ofertas. */
@@ -482,7 +505,7 @@
    tienen la misma prioridad, y la que está más abajo gana: si esto se mueve antes, la PC vuelve a verse apilada.
    En pantallas anchas cada oferta es una fila de ancho completo (con una sola oferta una columna
    angosta dejaba la pantalla vacía): quién, cuánto, los datos y la acción, uno al lado del otro. */
-@media (min-width: 900px) {
+@media (min-width: 1100px) {
   .tarjetaCotizacion {
     display: grid;
     grid-template-columns: minmax(160px, 1fr) minmax(190px, 1fr) minmax(380px, 2.4fr) minmax(160px, 200px);

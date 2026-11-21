@@ -58,7 +58,7 @@ public class BorradorRequisicionTests
 
         // El resumen de pantalla usa los nombres del catálogo, no lo que escribió el modelo.
         Assert.Equal("Torre Central", b.Resumen.Obra);
-        Assert.Equal("Cemento Portland 50 kg", b.Resumen.Items[0].Descripcion);
+        Assert.Equal("Cemento Portland 25 kg", b.Resumen.Items[0].Descripcion);
         Assert.Equal("BOLSA", b.Resumen.Items[0].UnidadMedida);
     }
 
@@ -68,7 +68,7 @@ public class BorradorRequisicionTests
         var r = await Armar(Args("Torre Central", "Estructura", ("cemento", N(10))));
 
         var visto = r.Datos.ToJsonString();
-        Assert.Contains("Cemento Portland 50 kg", visto);
+        Assert.Contains("Cemento Portland 25 kg", visto);
         Assert.DoesNotContain(IdCemento, visto);
         Assert.DoesNotContain(ObrasFalsas.IdTorre.ToString(), visto);
     }
@@ -123,7 +123,7 @@ public class BorradorRequisicionTests
         var buscador = Substitute.For<IBuscadorInsumos>();
         buscador.BuscarAsync("cemento", Arg.Any<CancellationToken>()).Returns(ResultadoBusqueda.Bien(new[]
         {
-            new Insumo(IdCemento, "MAT-CEM-001", "Cemento Portland 50 kg", "BOLSA"),
+            new Insumo(IdCemento, "MAT-CEM-001", "Cemento Portland 25 kg", "BOLSA"),
             new Insumo(IdArena, "MAT-CEM-002", "Cemento de albañilería 25 kg", "BOLSA")
         }));
 
@@ -142,7 +142,7 @@ public class BorradorRequisicionTests
         var buscador = Substitute.For<IBuscadorInsumos>();
         buscador.BuscarAsync("MAT-CEM-001", Arg.Any<CancellationToken>()).Returns(ResultadoBusqueda.Bien(new[]
         {
-            new Insumo(IdCemento, "MAT-CEM-001", "Cemento Portland 50 kg", "BOLSA"),
+            new Insumo(IdCemento, "MAT-CEM-001", "Cemento Portland 25 kg", "BOLSA"),
             new Insumo(IdArena, "MAT-CEM-0011", "Cemento rápido", "BOLSA")
         }));
 
@@ -155,7 +155,7 @@ public class BorradorRequisicionTests
     [Fact]
     public async Task Insumo_repetido_no_arma_borrador()
     {
-        var r = await Armar(Args("Torre Central", "Estructura", ("cemento", N(3)), ("Cemento Portland 50 kg", N(2))));
+        var r = await Armar(Args("Torre Central", "Estructura", ("cemento", N(3)), ("Cemento Portland 25 kg", N(2))));
 
         Assert.False(r.Ok);
         Assert.Contains("insumo_repetido", r.Datos.ToJsonString());
@@ -331,7 +331,7 @@ public class BorradorRequisicionTests
             ["/api/obras"] = "[{\"id\":\"" + ObrasFalsas.IdTorre + "\",\"nombre\":\"Torre Central\",\"activa\":true," +
                              "\"etapas\":[{\"id\":\"" + Guid.NewGuid() + "\",\"nombreEtapa\":\"Estructura\",\"estado\":\"EnCurso\"}]}]",
             ["/api/catalogo/insumos"] = "[{\"articuloId\":\"" + IdCemento + "\",\"codigo\":\"MAT-CEM-001\"," +
-                                        "\"descripcion\":\"Cemento Portland 50 kg\",\"unidadMedida\":\"BOLSA\"}]"
+                                        "\"descripcion\":\"Cemento Portland 25 kg\",\"unidadMedida\":\"BOLSA\"}]"
         });
         var http = new HttpClient(handler);
         var config = new ConfiguracionApi("http://gateway");

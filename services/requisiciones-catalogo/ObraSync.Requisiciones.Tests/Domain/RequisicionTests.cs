@@ -22,7 +22,7 @@ namespace ObraSync.Requisiciones.Tests.Domain
                     Guid.NewGuid(),
                     requisicionId,
                     articuloCementoId,
-                    "Cemento Portland Normal (bolsa 50 kg)",
+                    "Cemento Portland Normal (bolsa 25 kg)",
                     80m,
                     UnidadesMedida.Bolsa)
             };

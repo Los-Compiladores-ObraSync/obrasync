@@ -372,7 +372,7 @@ public class ScoringConfiguracionYNormalizacionTests : IClassFixture<WebApplicat
                         Id = itemPliegoId,
                         LicitacionId = licitacionId,
                         ArticuloId = articuloId,
-                        Descripcion = "Cemento Portland (bolsa 50 kg)",
+                        Descripcion = "Cemento Portland (bolsa 25 kg)",
                         Cantidad = 2m,
                         UnidadMedida = "BOLSA"
                     }

@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router'
+import { Link, Outlet } from 'react-router'
 import { BloqueadasProvider } from '../notificaciones/BloqueadasProvider'
 import { CampanaConPendientes } from '../notificaciones/CampanaConPendientes'
 import { NovedadesProvider } from '../notificaciones/NovedadesProvider'
@@ -17,10 +17,10 @@ export function LayoutApp() {
         <BloqueadasProvider>
           <header className="app-encabezado">
             <div className={styles.barra}>
-              <span className={`app-marca ${styles.marca}`}>
+              <Link to="/" className={`app-marca ${styles.marca}`} title="Ir al inicio">
                 <img src="/pwa-512x512.png" alt="" className={styles.logo} />
                 OBRA<span>SYNC</span>
-              </span>
+              </Link>
               <div className={styles.acciones}>
                 <CampanaConPendientes />
                 <MenuUsuario />

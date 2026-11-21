@@ -78,7 +78,7 @@ describe('CotizarLicitacionPage', () => {
 
     expect(await screen.findByText('El flete no puede ser negativo.')).toBeInTheDocument()
 
-    const inputPlazo = screen.getByLabelText('Plazo de entrega (días)')
+    const inputPlazo = screen.getByLabelText('Plazo de entrega (en días)')
     await user.click(inputPlazo)
     await user.type(inputPlazo, '3,5')
     await user.tab()
@@ -119,7 +119,7 @@ describe('CotizarLicitacionPage', () => {
     const inputFlete = screen.getByLabelText('Costo de flete ($)')
     await user.type(inputFlete, '500,00')
 
-    const inputPlazo = screen.getByLabelText('Plazo de entrega (días)')
+    const inputPlazo = screen.getByLabelText('Plazo de entrega (en días)')
     await user.type(inputPlazo, '10')
 
     await user.click(screen.getByRole('button', { name: 'Enviar cotización' }))
@@ -172,7 +172,7 @@ describe('CotizarLicitacionPage', () => {
     await user.type(inputsPrecio[0], '1000')
     await user.type(inputsPrecio[1], '200')
     await user.type(screen.getByLabelText('Costo de flete ($)'), '0')
-    await user.type(screen.getByLabelText('Plazo de entrega (días)'), '5')
+    await user.type(screen.getByLabelText('Plazo de entrega (en días)'), '5')
 
     await user.click(screen.getByRole('button', { name: 'Enviar cotización' }))
 
@@ -207,7 +207,7 @@ describe('CotizarLicitacionPage', () => {
     await user.type(inputsPrecio[0], '1000')
     await user.type(inputsPrecio[1], '200')
     await user.type(screen.getByLabelText('Costo de flete ($)'), '100')
-    await user.type(screen.getByLabelText('Plazo de entrega (días)'), '3')
+    await user.type(screen.getByLabelText('Plazo de entrega (en días)'), '3')
 
     await user.click(screen.getByRole('button', { name: 'Enviar cotización' }))
 
@@ -249,7 +249,7 @@ describe('CotizarLicitacionPage', () => {
     await user.type(inputsPrecio[0], '1000')
     await user.type(inputsPrecio[1], '200')
     await user.type(screen.getByLabelText('Costo de flete ($)'), '0')
-    await user.type(screen.getByLabelText('Plazo de entrega (días)'), '5')
+    await user.type(screen.getByLabelText('Plazo de entrega (en días)'), '5')
 
     const boton = screen.getByRole('button', { name: 'Enviar cotización' })
     await Promise.all([user.click(boton), user.click(boton)])

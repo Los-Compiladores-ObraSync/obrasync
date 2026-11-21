@@ -207,7 +207,7 @@ public class AsistenteEndpointTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Equal("crearRequisicion", borrador.GetProperty("accion").GetString());
         Assert.Equal("Nueva requisición", borrador.GetProperty("titulo").GetString());
         Assert.Equal("Torre Central", borrador.GetProperty("resumen").GetProperty("obra").GetString());
-        Assert.Equal("Cemento Portland 50 kg",
+        Assert.Equal("Cemento Portland 25 kg",
             borrador.GetProperty("resumen").GetProperty("items")[0].GetProperty("descripcion").GetString());
 
         var requisicion = borrador.GetProperty("requisicion");

@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { RequisicionesPorLicitar } from '../licitaciones/RequisicionesPorLicitar'
 import { ResumenAprobacion } from '../notificaciones/ResumenAprobacion'
 
 export function ComprasPage() {
@@ -9,6 +10,9 @@ export function ComprasPage() {
 
       {/* Lo principal del Comprador: lo que espera su aprobación. */}
       <ResumenAprobacion />
+
+      {/* Lo siguiente: las ya aprobadas que todavía no se publicaron como licitación. */}
+      <RequisicionesPorLicitar />
 
       <ul className="lista-acciones">
         <li>

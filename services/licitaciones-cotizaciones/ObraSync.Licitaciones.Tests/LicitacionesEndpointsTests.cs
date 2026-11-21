@@ -112,7 +112,7 @@ public class LicitacionesEndpointsTests : IClassFixture<WebApplicationFactory<Pr
                     {
                         Id = Guid.NewGuid(),
                         ArticuloId = Guid.NewGuid(),
-                        Descripcion = "Cemento Portland (bolsa 50 kg)",
+                        Descripcion = "Cemento Portland (bolsa 25 kg)",
                         Cantidad = 80m,
                         UnidadMedida = "BOLSA"
                     }

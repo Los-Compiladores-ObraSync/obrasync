@@ -92,7 +92,7 @@ const MOCK_CATALOGO = [
   {
     articuloId: 'c1c2c3c4-0000-0000-0000-000000000001',
     codigo: 'MAT-CEM-001',
-    descripcion: 'Cemento Portland Especial 50kg',
+    descripcion: 'Cemento Portland Especial 25kg',
     unidadMedida: 'BOLSA',
     moneda: 'ARS',
     precioReferencia: 8500,

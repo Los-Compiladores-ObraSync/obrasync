@@ -47,7 +47,7 @@ internal sealed class BuscadorFalso : IBuscadorInsumos
 {
     private static readonly Insumo[] Catalogo =
     {
-        new("00000000-0000-0000-0000-000000000001", "MAT-CEM-001", "Cemento Portland 50 kg", "BOLSA"),
+        new("00000000-0000-0000-0000-000000000001", "MAT-CEM-001", "Cemento Portland 25 kg", "BOLSA"),
         new("00000000-0000-0000-0000-000000000002", "MAT-ARE-001", "Arena gruesa", "M3"),
         new("00000000-0000-0000-0000-000000000003", "MAT-HIE-008", "Hierro del 8", "UNIDAD"),
     };
@@ -190,7 +190,7 @@ internal sealed class ConsultorFalso : IConsultorRequisiciones
 
     public ResultadoRequisicion ResultadoDetalle { get; set; } = ResultadoRequisicion.Bien(new RequisicionDetalle(
         Pendiente, "Urge para el colado", null,
-        new[] { new ItemRequisicion("Cemento Portland 50 kg", 20, "BOLSA"), new ItemRequisicion("Arena gruesa", 3, "M3") }));
+        new[] { new ItemRequisicion("Cemento Portland 25 kg", 20, "BOLSA"), new ItemRequisicion("Arena gruesa", 3, "M3") }));
 
     public int LlamadasLista { get; private set; }
     public int LlamadasDetalle { get; private set; }
@@ -224,7 +224,7 @@ internal sealed class ConsultorRecepcionesFalso : IConsultorRecepciones
 
     public static OrdenPendiente Orden { get; } = new(IdOrden, ObrasFalsas.IdTorre, "Estructura", new[]
     {
-        new ItemOrdenPendiente(IdArticulo1, "Cemento Portland 50 kg", 80, "BOLSA"),
+        new ItemOrdenPendiente(IdArticulo1, "Cemento Portland 25 kg", 80, "BOLSA"),
         new ItemOrdenPendiente(IdArticulo2, "Arena gruesa", 12, "M3")
     });
 
@@ -285,7 +285,7 @@ internal sealed class ConsultorLicitacionesFalso : IConsultorLicitaciones
     public ResultadoListaLicitaciones ResultadoLista { get; set; } = ResultadoListaLicitaciones.Bien(new[] { Abierta }, 1);
 
     public ResultadoLicitacion ResultadoDetalle { get; set; } = ResultadoLicitacion.Bien(new LicitacionDetalle(
-        Abierta, new[] { new ItemPliego("Cemento Portland 50 kg", 20, "BOLSA"), new ItemPliego("Arena gruesa", 3, "M3") }));
+        Abierta, new[] { new ItemPliego("Cemento Portland 25 kg", 20, "BOLSA"), new ItemPliego("Arena gruesa", 3, "M3") }));
 
     // La API devuelve las más nuevas primero: acá la "B" viene antes que la "A" para probar que la herramienta ordena por puntaje.
     public ResultadoCotizaciones ResultadoOfertas { get; set; } = ResultadoCotizaciones.Bien(new[] { OfertaB, OfertaA }, 2);
