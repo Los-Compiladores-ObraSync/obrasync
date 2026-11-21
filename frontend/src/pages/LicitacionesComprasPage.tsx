@@ -25,7 +25,7 @@ import type {
 } from '../licitaciones/licitacionesTipos'
 import { AccionesLicitacionAbierta } from '../licitaciones/AccionesLicitacionAbierta'
 import { PonderacionesScoring } from '../licitaciones/PonderacionesScoring'
-import { RequisicionesPorLicitar } from '../licitaciones/RequisicionesPorLicitar'
+import { AvisoPorLicitar } from '../licitaciones/RequisicionesPorLicitar'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './LicitacionesComprasPage.module.css'
@@ -305,7 +305,7 @@ export function LicitacionesComprasPage() {
 
       {/* Solo cuando la lista de licitaciones cargó: si no, parecería que ninguna requisición fue licitada. */}
       {!cargandoLicitaciones && !errorLicitaciones && (
-        <RequisicionesPorLicitar licitacionesConocidas={licitaciones} />
+        <AvisoPorLicitar licitaciones={licitaciones} />
       )}
       <p className="intro">
         Consultá las licitaciones abiertas, compará cotizaciones recibidas y adjudicá las compras.

@@ -162,3 +162,9 @@
   line-height: 1;
   color: var(--naranja);
 }
+
+/* Botón del Historial mientras hay requisiciones pendientes: acompaña a la campana (borde y fondo naranja). */
+a.conPendientes {
+  border-color: var(--naranja);
+  background: #fff7ed;
+}

@@ -1,0 +1,16 @@
+.insignia {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.625rem;
+  height: 1.625rem;
+  margin-left: 0.625rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--naranja);
+  color: #ffffff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
+}
