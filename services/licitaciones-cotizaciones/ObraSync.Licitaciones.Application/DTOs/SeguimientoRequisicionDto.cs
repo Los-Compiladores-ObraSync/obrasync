@@ -19,4 +19,8 @@ public record SeguimientoOrdenCompraDto(
     DateTime FechaEmision,
     DateTime? FechaDespacho,
     Guid ProveedorId,
-    string? ProveedorNombre);
+    string? ProveedorNombre,
+    Guid? DespachadaPor = null,
+    DateTime? DespachadaEn = null,
+    DateTime? FechaEstimadaLlegada = null,
+    string? Observacion = null);

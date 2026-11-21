@@ -5,4 +5,7 @@ namespace ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Commands;
 
 public record DespacharOrdenCompraCommand(
     Guid OrdenCompraId,
-    Guid CorrelationId = default) : IRequest<OrdenCompraResponseDto>;
+    Guid UsuarioId,
+    Guid CorrelationId = default,
+    DateTime? FechaEstimadaLlegada = null,
+    string? Observacion = null) : IRequest<OrdenCompraResponseDto>;

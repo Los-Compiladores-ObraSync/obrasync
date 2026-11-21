@@ -85,6 +85,8 @@ public class CotizacionItem
 
 public class OrdenCompra
 {
+    public const int MaxLongitudObservacionDespacho = 200;
+
     public Guid OrdenCompraId { get; set; }
     public Guid LicitacionId { get; set; }
     public Guid CotizacionId { get; set; }
@@ -92,6 +94,9 @@ public class OrdenCompra
     public string Estado { get; set; } = "Emitida";
     public DateTime FechaEmision { get; set; } = DateTime.UtcNow;
     public DateTime? FechaDespacho { get; set; }
+    public Guid? DespachadaPor { get; set; }
+    public DateTime? FechaEstimadaLlegada { get; set; }
+    public string? Observacion { get; set; }
     public decimal TotalFlete { get; set; }
     public List<OrdenCompraItem> Items { get; set; } = new();
 
@@ -99,22 +104,73 @@ public class OrdenCompra
     public Guid ObraId { get; set; }
 
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public DateTime? DespachadaEn
+    {
+        get => FechaDespacho;
+        set => FechaDespacho = value;
+    }
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public bool FueDespachada =>
         string.Equals(Estado, "Despachada", StringComparison.OrdinalIgnoreCase) || FechaDespacho.HasValue;
 
-    public void Despachar(DateTime? fechaDespachoUtc = null)
+    public bool Despachar(
+        Guid despachadaPor,
+        DateTime? fechaDespachoUtc = null,
+        DateTime? fechaEstimadaLlegada = null,
+        string? observacion = null)
     {
-        if (FueDespachada)
+        if (despachadaPor == Guid.Empty)
         {
-            throw new InvalidOperationException("La orden de compra ya fue despachada.");
+            throw new ArgumentException("El identificador del usuario que despacha es obligatorio.", nameof(despachadaPor));
         }
 
-        var instante = fechaDespachoUtc ?? DateTime.UtcNow;
+        // Idempotencia primero (#216): si ya estaba despachada, no falla ni pisa los datos originales.
+        if (FueDespachada)
+        {
+            return false;
+        }
+
+        var instante = NormalizarAUtc(fechaDespachoUtc ?? DateTime.UtcNow);
+
+        DateTime? fechaEstimadaUtc = null;
+        if (fechaEstimadaLlegada.HasValue)
+        {
+            fechaEstimadaUtc = NormalizarAUtc(fechaEstimadaLlegada.Value);
+            if (fechaEstimadaUtc.Value.Date < instante.Date)
+            {
+                throw new ArgumentException(
+                    "La fecha estimada de llegada no puede ser anterior a hoy.",
+                    nameof(fechaEstimadaLlegada));
+            }
+        }
+
+        string? observacionNormalizada = null;
+        if (!string.IsNullOrWhiteSpace(observacion))
+        {
+            observacionNormalizada = observacion.Trim();
+            if (observacionNormalizada.Length > MaxLongitudObservacionDespacho)
+            {
+                throw new ArgumentException(
+                    $"La observación no puede superar los {MaxLongitudObservacionDespacho} caracteres.",
+                    nameof(observacion));
+            }
+        }
+
         Estado = "Despachada";
-        FechaDespacho = instante.Kind == DateTimeKind.Utc
-            ? instante
-            : DateTime.SpecifyKind(instante, DateTimeKind.Utc);
+        FechaDespacho = instante;
+        DespachadaPor = despachadaPor;
+        FechaEstimadaLlegada = fechaEstimadaUtc;
+        Observacion = observacionNormalizada;
+        return true;
     }
+
+    private static DateTime NormalizarAUtc(DateTime fecha) => fecha.Kind switch
+    {
+        DateTimeKind.Utc => fecha,
+        DateTimeKind.Local => fecha.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(fecha, DateTimeKind.Utc)
+    };
 }
 
 public class OrdenCompraItem
