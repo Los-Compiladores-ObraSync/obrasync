@@ -249,3 +249,67 @@
   border: 2px solid #86efac;
   color: #166534;
 }
+
+/* Detalle expandible de la requisición */
+.detalle {
+  margin: 0.25rem 0;
+}
+
+.resumenDetalle {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 700;
+  color: var(--accion);
+  cursor: pointer;
+}
+
+.tablaDetalle {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1rem;
+}
+
+.tablaDetalle th,
+.tablaDetalle td {
+  padding: 0.375rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--borde);
+}
+
+.totalEstimado {
+  margin: 0.5rem 0 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.aclaracion {
+  margin: 0.25rem 0 0;
+  font-size: 0.9375rem;
+  color: var(--texto-suave);
+}
+
+/* Motivos de rechazo frecuentes */
+.motivos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chip {
+  min-height: 44px;
+  padding: 0 0.875rem;
+  border: 2px solid var(--borde);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--texto);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.chipActivo {
+  border-color: #dc2626;
+  background: #fee2e2;
+  font-weight: 700;
+}

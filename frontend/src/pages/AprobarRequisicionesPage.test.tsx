@@ -363,4 +363,30 @@ describe('AprobarRequisicionesPage - paginación (#172)', () => {
 
     expect(screen.queryByText('REQ-2026-0211')).not.toBeInTheDocument()
   })
+
+  it('permite elegir un motivo frecuente de rechazo en vez de escribirlo', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+
+    await screen.findByText('REQ-2026-0011')
+    await user.click(screen.getByRole('button', { name: 'Rechazar REQ-2026-0011' }))
+    await user.click(screen.getByRole('button', { name: 'Cantidad mayor a la necesaria' }))
+
+    expect(screen.getByRole('textbox', { name: /motivo del rechazo/i })).toHaveValue(
+      'Cantidad mayor a la necesaria',
+    )
+    await user.click(screen.getByRole('button', { name: 'Confirmar rechazo' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('fue rechazada')
+  })
+
+  it('el detalle expandible muestra el total estimado con precios de referencia', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+
+    await screen.findByText('REQ-2026-0011')
+    await user.click(screen.getAllByText('Ver detalle completo')[0])
+
+    expect(screen.getAllByRole('columnheader', { name: 'Precio ref.' })[0]).toBeVisible()
+  })
 })

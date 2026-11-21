@@ -10,6 +10,8 @@
     display: inline-flex;
     align-items: center;
     gap: 0;
+    /* Es un enlace al inicio: sin subrayado (el color blanco lo pone .app-marca). */
+    text-decoration: none;
 }
 
 .logo {

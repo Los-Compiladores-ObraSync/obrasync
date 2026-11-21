@@ -25,6 +25,7 @@ import type {
 } from '../licitaciones/licitacionesTipos'
 import { AccionesLicitacionAbierta } from '../licitaciones/AccionesLicitacionAbierta'
 import { PonderacionesScoring } from '../licitaciones/PonderacionesScoring'
+import { RequisicionesPorLicitar } from '../licitaciones/RequisicionesPorLicitar'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './LicitacionesComprasPage.module.css'
@@ -90,6 +91,10 @@ export function LicitacionesComprasPage() {
   const pesosAplicados =
     pesosElegidos && pesosElegidos.licitacionId === licitacionIdParam ? pesosElegidos.pesos : undefined
 
+  const [adjudicadaAca, setAdjudicadaAca] = useState<{
+    licitacionId: string
+    cotizacionId: string
+  } | null>(null)
   const [confirmandoCotizacionId, setConfirmandoCotizacionId] = useState<string | null>(null)
   const [adjudicandoCotizacionId, setAdjudicandoCotizacionId] = useState<string | null>(null)
   const [mensajeExito, setMensajeExito] = useState<string | null>(null)
@@ -255,6 +260,10 @@ export function LicitacionesComprasPage() {
         `¡Licitación adjudicada con éxito! Se emitió la Orden de Compra ${ordenCompra.id}.`,
       )
       setConfirmandoCotizacionId(null)
+      setAdjudicadaAca({
+        licitacionId: licitacionSeleccionada.licitacionId,
+        cotizacionId: cotizacion.cotizacionId,
+      })
       // Actualizamos el estado local de la licitación a Adjudicada
       setLicitaciones((actuales) =>
         actuales.map((l) =>
@@ -272,6 +281,14 @@ export function LicitacionesComprasPage() {
   }
 
   const esLicitacionAdjudicada = licitacionSeleccionada?.estado === 'Adjudicada'
+  // El servicio no dice cuál oferta ganó, así que se recuerda la que se adjudicó en esta pantalla.
+  // Si la licitación se abre ya adjudicada (otra sesión), no se sabe cuál fue y no se marca ninguna.
+  const cotizacionAdjudicadaId =
+    adjudicadaAca !== null &&
+    esLicitacionAdjudicada &&
+    adjudicadaAca.licitacionId === licitacionSeleccionada?.licitacionId
+      ? adjudicadaAca.cotizacionId
+      : null
   const marcasPorCotizacion = licitacionSeleccionada
     ? marcasDeComparacion(cotizaciones, licitacionSeleccionada)
     : new Map<string, string[]>()
@@ -285,6 +302,11 @@ export function LicitacionesComprasPage() {
         ← Volver al inicio
       </Link>
       <h1>Licitaciones y cotizaciones</h1>
+
+      {/* Solo cuando la lista de licitaciones cargó: si no, parecería que ninguna requisición fue licitada. */}
+      {!cargandoLicitaciones && !errorLicitaciones && (
+        <RequisicionesPorLicitar licitacionesConocidas={licitaciones} />
+      )}
       <p className="intro">
         Consultá las licitaciones abiertas, compará cotizaciones recibidas y adjudicá las compras.
       </p>
@@ -639,7 +661,13 @@ export function LicitacionesComprasPage() {
                     ) : (
                       <button
                         type="button"
-                        className={styles.botonAdjudicar}
+                        className={
+                          !esLicitacionAdjudicada
+                            ? styles.botonAdjudicar
+                            : cot.cotizacionId === cotizacionAdjudicadaId
+                              ? `${styles.botonAdjudicar} ${styles.botonAdjudicada}`
+                              : `${styles.botonAdjudicar} ${styles.botonCerrada}`
+                        }
                         disabled={hayOperacionEnVuelo || esLicitacionAdjudicada}
                         onClick={() => {
                           setErrorAccion(null)
@@ -648,7 +676,13 @@ export function LicitacionesComprasPage() {
                         }}
                         aria-label={`Adjudicar a proveedor ${nombreProveedor}`}
                       >
-                        {esLicitacionAdjudicada ? 'Adjudicada' : 'Adjudicar'}
+                        {!esLicitacionAdjudicada
+                          ? 'Adjudicar'
+                          : cot.cotizacionId === cotizacionAdjudicadaId
+                            ? '✓ Adjudicada'
+                            : cotizacionAdjudicadaId
+                              ? 'No adjudicada'
+                              : 'Licitación adjudicada'}
                       </button>
                     )}
                     </div>

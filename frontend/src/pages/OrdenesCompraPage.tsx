@@ -191,6 +191,7 @@ export function OrdenesCompraPage() {
                     nombreProveedor={`el proveedor de la orden ${codigo}`}
                     titulo={`¿Cómo cumplió el proveedor de la orden ${codigo}?`}
                     alGuardar={() => undefined}
+                    claveRecuerdo={`obrasync.calificacion.orden.${orden.id}`}
                   />
                 )}
 

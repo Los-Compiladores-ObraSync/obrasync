@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
+import { traerTodas } from '../api/paginacion'
 import { BotonVerMas } from '../componentes/BotonVerMas'
 import {
   aprobarRequisicion,
   listarRequisiciones,
+  obtenerInsumosCatalogo,
   obtenerObras,
   rechazarRequisicion,
 } from '../requisiciones/requisicionesService'
@@ -12,6 +14,19 @@ import type { RequisicionResponseDto } from '../requisiciones/requisicionesTipos
 import { usePendientes } from '../notificaciones/usePendientes'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './AprobarRequisicionesPage.module.css'
+
+/** Motivos más comunes: se tocan en vez de escribirlos de cero. Después se puede agregar detalle al texto. */
+const MOTIVOS_RECHAZO = [
+  'Falta información en la requisición',
+  'Cantidad mayor a la necesaria',
+  'Material equivocado para la etapa',
+  'Supera el presupuesto de la etapa',
+  'Ya existe otra requisición igual',
+] as const
+
+function formatearPesos(valor: number): string {
+  return `$ ${valor.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`
+}
 
 function mensajeDeErrorAprobar(err: unknown): string {
   if (err instanceof ApiError) {
@@ -57,6 +72,8 @@ export function AprobarRequisicionesPage() {
   const [rechazandoId, setRechazandoId] = useState<string | null>(null)
   const [motivo, setMotivo] = useState('')
   const [errorMotivo, setErrorMotivo] = useState<string | null>(null)
+  // Precio de referencia por artículo (del catálogo): sirve para estimar el costo al decidir.
+  const [preciosReferencia, setPreciosReferencia] = useState<Record<string, number>>({})
   const { refrescar: refrescarCampana } = usePendientes()
 
   // Si se llega desde la campana (?req=<id>), esa requisición va primera y queda marcada.
@@ -99,6 +116,24 @@ export function AprobarRequisicionesPage() {
       cancelado = true
     }
   }, [intento])
+
+  // Los precios son un dato de apoyo: si el catálogo no responde, el detalle se muestra sin ellos.
+  useEffect(() => {
+    let cancelado = false
+    traerTodas((pagina) => obtenerInsumosCatalogo(undefined, false, pagina))
+      .then((insumos) => {
+        if (cancelado) return
+        const precios: Record<string, number> = {}
+        for (const i of insumos) {
+          if (typeof i.precioReferencia === 'number') precios[i.articuloId] = i.precioReferencia
+        }
+        setPreciosReferencia(precios)
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelado = true
+    }
+  }, [])
 
   function reintentar() {
     setErrorCarga(null)
@@ -272,11 +307,78 @@ export function AprobarRequisicionesPage() {
                 ))}
               </ul>
 
+              <details className={styles.detalle}>
+                <summary className={styles.resumenDetalle}>
+                  Ver detalle completo
+                </summary>
+                <p className={styles.dato}>
+                  Creada el {new Date(req.fechaCreacion).toLocaleDateString('es-AR')}
+                </p>
+                <table className={styles.tablaDetalle}>
+                  <thead>
+                    <tr>
+                      <th scope="col">Material</th>
+                      <th scope="col">Cantidad</th>
+                      <th scope="col">Precio ref.</th>
+                      <th scope="col">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {req.items.map((it) => {
+                      const precio = preciosReferencia[it.articuloId]
+                      return (
+                        <tr key={it.articuloId}>
+                          <td>{it.descripcion}</td>
+                          <td>{cantidadConUnidad(it.cantidad, it.unidadMedida)}</td>
+                          <td>{precio === undefined ? '—' : formatearPesos(precio)}</td>
+                          <td>{precio === undefined ? '—' : formatearPesos(precio * it.cantidad)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                {req.items.some((it) => preciosReferencia[it.articuloId] !== undefined) && (
+                  <p className={styles.totalEstimado}>
+                    Total estimado:{' '}
+                    {formatearPesos(
+                      req.items.reduce(
+                        (suma, it) => suma + (preciosReferencia[it.articuloId] ?? 0) * it.cantidad,
+                        0,
+                      ),
+                    )}
+                    {req.items.some((it) => preciosReferencia[it.articuloId] === undefined) &&
+                      ' (sin contar los materiales sin precio de referencia)'}
+                  </p>
+                )}
+                <p className={styles.aclaracion}>
+                  Son precios de referencia del catálogo; el precio real sale de las cotizaciones.
+                </p>
+              </details>
+
               {rechazandoId === req.requisicionId ? (
                 <div className={styles.contenedorRechazo}>
                   <label htmlFor={`motivo-${req.requisicionId}`} className={styles.labelMotivo}>
                     Motivo del rechazo
                   </label>
+                  <div className={styles.motivos} role="group" aria-label="Motivos frecuentes">
+                    {MOTIVOS_RECHAZO.map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        className={
+                          motivo === m ? `${styles.chip} ${styles.chipActivo}` : styles.chip
+                        }
+                        aria-pressed={motivo === m}
+                        disabled={hayPeticionEnVuelo}
+                        onClick={() => {
+                          setMotivo(m)
+                          if (errorMotivo) setErrorMotivo(null)
+                        }}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
                   <textarea
                     id={`motivo-${req.requisicionId}`}
                     className={styles.textareaMotivo}
@@ -286,7 +388,7 @@ export function AprobarRequisicionesPage() {
                       setMotivo(e.target.value)
                       if (errorMotivo) setErrorMotivo(null)
                     }}
-                    placeholder="Escribí el motivo del rechazo"
+                    placeholder="Elegí un motivo de arriba o escribí el tuyo"
                     disabled={hayPeticionEnVuelo}
                   />
                   <div className={styles.contador}>{motivo.length}/500</div>

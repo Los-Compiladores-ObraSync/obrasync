@@ -371,6 +371,10 @@ export function NuevaRequisicionPage() {
         { id: siguienteFilaId.current++, articuloId, cantidad: '' },
       ])
     }
+    // Se vacía el buscador y se deja el cursor ahí: para el siguiente material (cemento, después cal)
+    // no hace falta subir a borrar lo anterior.
+    setBusqueda('')
+    buscadorRef.current?.focus()
   }
 
   function limpiarFormulario() {

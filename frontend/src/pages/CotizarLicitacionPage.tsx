@@ -224,7 +224,7 @@ export function CotizarLicitacionPage() {
           </h2>
           <p>
             Tu cotización para la licitación{' '}
-            <strong>{licitacion.numeroRequisicion ?? licitacion.licitacionId}</strong> fue
+            <strong>{licitacion.numeroRequisicion ?? licitacion.licitacionId}</strong>{' '}
             {cotizacionACorregir ? 'fue actualizada correctamente.' : 'fue registrada correctamente.'}
           </p>
           <Link to="/proveedores" className={styles.enlaceVolver}>
@@ -358,8 +358,11 @@ export function CotizarLicitacionPage() {
 
         <div className={styles.grupo}>
           <label htmlFor="plazoEntregaDias" className={styles.label}>
-            Plazo de entrega (días)
+            Plazo de entrega (en días)
           </label>
+          <p className={styles.ayudaCampo}>
+            Escribí solo el número de días corridos. Por ejemplo, 5 significa cinco días.
+          </p>
           <input
             id="plazoEntregaDias"
             type="text"

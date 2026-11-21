@@ -8,6 +8,7 @@ import { server } from '../mocks/server'
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 afterEach(() => {
   cleanup()
+  window.localStorage.clear()
   server.resetHandlers()
   reiniciarUsuariosMock()
   reiniciarObrasMock()

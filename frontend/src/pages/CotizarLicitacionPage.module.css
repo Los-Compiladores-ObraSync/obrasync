@@ -186,3 +186,9 @@
   flex-direction: column;
   gap: 0.75rem;
 }
+
+.ayudaCampo {
+  margin: 0 0 0.375rem;
+  font-size: 0.9375rem;
+  color: var(--texto-suave);
+}

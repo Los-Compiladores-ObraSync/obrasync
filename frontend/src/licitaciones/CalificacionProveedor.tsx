@@ -5,6 +5,28 @@ import styles from './CalificacionProveedor.module.css'
 
 const ESTRELLAS = [1, 2, 3, 4, 5] as const
 
+/** Lo que este navegador recuerda haber calificado en un pedido (el servicio guarda un solo puntaje por
+ *  proveedor y no sabe de pedidos, así que la pantalla es la que se acuerda de qué pedido ya calificó). */
+function leerRecordada(clave?: string): number | null {
+  if (!clave) return null
+  try {
+    const crudo = window.localStorage.getItem(clave)
+    const n = crudo === null ? NaN : Number(crudo)
+    return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null
+  } catch {
+    return null
+  }
+}
+
+function recordar(clave: string | undefined, valor: number) {
+  if (!clave) return
+  try {
+    window.localStorage.setItem(clave, String(valor))
+  } catch {
+    // Sin almacenamiento solo se pierde la comodidad: la calificación igual quedó guardada en el servicio.
+  }
+}
+
 function mensajeDeError(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 403) return 'No tenés permiso para calificar proveedores.'
@@ -26,6 +48,12 @@ interface Props {
   titulo?: string
   /** Se llama cuando el servicio guardó la calificación, para que la pantalla vuelva a pedir los puntajes. */
   alGuardar: () => void
+  /**
+   * Si se pasa (por ejemplo, una clave por pedido), una vez guardada la calificación el componente queda
+   * fijo en "Calificaste con N de 5" y solo se vuelve a abrir con "Cambiar calificación". Sin esto, el
+   * formulario quedaba siempre abierto y parecía que no se había guardado nada.
+   */
+  claveRecuerdo?: string
 }
 
 /**
@@ -40,10 +68,14 @@ export function CalificacionProveedor({
   calificacionActual,
   titulo,
   alGuardar,
+  claveRecuerdo,
 }: Props) {
-  const [elegida, setElegida] = useState<number | null>(calificacionActual ?? null)
+  const [recordada] = useState(() => leerRecordada(claveRecuerdo))
+  const [elegida, setElegida] = useState<number | null>(recordada ?? calificacionActual ?? null)
   // Lo último que el servicio confirmó: sirve para apagar "Guardar" hasta que se elija otra cosa.
-  const [guardada, setGuardada] = useState<number | null>(calificacionActual ?? null)
+  const [guardada, setGuardada] = useState<number | null>(recordada ?? calificacionActual ?? null)
+  // Fija: ya se calificó este pedido y no se puede volver a guardar sin pedir "Cambiar calificación".
+  const [fija, setFija] = useState(recordada !== null)
   const [mostrarGuardada, setMostrarGuardada] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -68,6 +100,8 @@ export function CalificacionProveedor({
       await guardarCalificacionProveedor(proveedorId, elegida)
       setGuardada(elegida)
       setMostrarGuardada(true)
+      recordar(claveRecuerdo, elegida)
+      if (claveRecuerdo) setFija(true)
       alGuardar()
     } catch (err) {
       setError(mensajeDeError(err))
@@ -94,22 +128,40 @@ export function CalificacionProveedor({
             className={`${styles.boton} ${elegida !== null && valor <= elegida ? styles.llena : ''}`}
             aria-pressed={elegida === valor}
             aria-label={`${valor} de 5`}
-            disabled={guardando}
+            disabled={guardando || fija}
             onClick={() => elegir(valor)}
           >
             <span aria-hidden="true">★</span>
           </button>
         ))}
       </div>
-      <button
-        type="button"
-        className={styles.guardar}
-        disabled={!cambio || guardando}
-        onClick={() => void guardar()}
-      >
-        {guardando ? 'Guardando…' : 'Guardar calificación'}
-      </button>
-      {mostrarGuardada && (
+      {fija ? (
+        <>
+          <p role="status" className={styles.guardada}>
+            Calificaste con {guardada} de 5.
+          </p>
+          <button
+            type="button"
+            className={styles.guardar}
+            onClick={() => {
+              setFija(false)
+              setMostrarGuardada(false)
+            }}
+          >
+            Cambiar calificación
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          className={styles.guardar}
+          disabled={!cambio || guardando}
+          onClick={() => void guardar()}
+        >
+          {guardando ? 'Guardando…' : 'Guardar calificación'}
+        </button>
+      )}
+      {mostrarGuardada && !fija && (
         <p role="status" className={styles.guardada}>
           Calificación guardada.
         </p>
