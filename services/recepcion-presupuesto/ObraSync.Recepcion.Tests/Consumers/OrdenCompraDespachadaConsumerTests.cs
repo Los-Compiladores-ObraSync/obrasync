@@ -271,6 +271,57 @@ public class OrdenCompraDespachadaConsumerTests
         Assert.Equal(0, await db.EventosProcesados.CountAsync());
     }
 
+    [Fact]
+    public async Task EventoConFechaEstimadaYObservacion_GuardaYExponeEnOrdenesPendientes_YEsIdempotente()
+    {
+        await using var db = CreateDbContext($"Desp_217_{Guid.NewGuid()}");
+        var oc = CrearOrden();
+        db.OrdenesCompra.Add(oc);
+        await db.SaveChangesAsync();
+
+        var repo = new OrdenCompraRepository(db);
+        var consumer = new OrdenCompraDespachadaConsumer(db, repo, Substitute.For<ILogger<OrdenCompraDespachadaConsumer>>());
+
+        var eventId = Guid.NewGuid();
+        var fechaDespacho = new DateTime(2026, 11, 21, 14, 0, 0, DateTimeKind.Utc);
+        var fechaEstimada = new DateTime(2026, 11, 24, 12, 0, 0, DateTimeKind.Utc);
+        const string observacion = "Camión con acoplado, llamar al llegar";
+
+        var evento1 = new OrdenCompraDespachadaEvent(
+            EventId: eventId,
+            OccurredAt: fechaDespacho,
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: oc.Id,
+            ObraId: oc.ObraId,
+            FechaDespacho: fechaDespacho,
+            FechaEstimadaLlegada: fechaEstimada,
+            ObservacionDespacho: observacion);
+
+        // Mismo EventId con datos modificados -> idempotencia no debe pisar los datos guardados
+        var eventoDuplicado = evento1 with
+        {
+            FechaEstimadaLlegada = fechaEstimada.AddDays(5),
+            ObservacionDespacho = "Observación distinta"
+        };
+
+        await consumer.Consume(CreateConsumeContext(evento1));
+        await consumer.Consume(CreateConsumeContext(eventoDuplicado));
+
+        var ocEnBd = await db.OrdenesCompra.AsNoTracking().SingleAsync(o => o.Id == oc.Id);
+        Assert.Equal(fechaDespacho, ocEnBd.FechaDespacho);
+        Assert.Equal(fechaEstimada, ocEnBd.FechaEstimadaLlegada);
+        Assert.Equal(observacion, ocEnBd.ObservacionDespacho);
+        Assert.Equal(1, await db.EventosProcesados.CountAsync(e => e.EventId == eventId));
+
+        // El Capataz ve fecha estimada y observación en ordenes-pendientes
+        var pendientesHandler = new ObtenerOrdenesPendientesQueryHandler(db);
+        var pendientes = await pendientesHandler.Handle(new ObtenerOrdenesPendientesQuery(oc.ObraId));
+        var ordenPendiente = Assert.Single(pendientes.Items);
+        Assert.Equal(fechaDespacho, ordenPendiente.FechaDespacho);
+        Assert.Equal(fechaEstimada, ordenPendiente.FechaEstimadaLlegada);
+        Assert.Equal(observacion, ordenPendiente.ObservacionDespacho);
+    }
+
     private sealed class SeguimientoReintentos
     {
         private int _intentos;

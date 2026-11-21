@@ -13,5 +13,5 @@ public record OrdenCompraDespachadaEvent(
     Guid ObraId,
     DateTime FechaDespacho,
     DateTime? FechaEstimadaLlegada = null,
-    string? Observacion = null
+    string? ObservacionDespacho = null
 );

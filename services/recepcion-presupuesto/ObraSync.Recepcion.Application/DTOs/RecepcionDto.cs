@@ -14,10 +14,12 @@ public class RecepcionDto
     public string NumeroRemito { get; set; } = string.Empty;
     public DateTime FechaRecepcion { get; set; }
     public EstadoRecepcion Estado { get; set; }
+    public string? MotivoProblema { get; set; }
     public string? Observaciones { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public List<DetalleRecepcionDto> Detalles { get; set; } = new();
+    public List<FotoRecepcionDto> Fotos { get; set; } = new();
 
     /// <summary>
     /// Mapea desde la entidad de dominio delegando al método de extensión ToDto() en Application.Mappings.

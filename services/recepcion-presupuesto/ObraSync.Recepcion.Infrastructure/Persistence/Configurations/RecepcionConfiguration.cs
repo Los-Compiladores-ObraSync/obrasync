@@ -20,6 +20,9 @@ public class RecepcionConfiguration : IEntityTypeConfiguration<Domain.Entities.R
         builder.Property(r => r.Observaciones)
             .HasMaxLength(500);
 
+        builder.Property(r => r.MotivoProblema)
+            .HasMaxLength(100);
+
         builder.Property(r => r.Estado)
             .IsRequired()
             .HasConversion<int>();
@@ -44,6 +47,12 @@ public class RecepcionConfiguration : IEntityTypeConfiguration<Domain.Entities.R
         builder.HasMany(r => r.Detalles)
             .WithOne(d => d.Recepcion)
             .HasForeignKey(d => d.RecepcionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Fotos de evidencia en tabla aparte (#217)
+        builder.HasMany(r => r.Fotos)
+            .WithOne(f => f.Recepcion)
+            .HasForeignKey(f => f.RecepcionId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

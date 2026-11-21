@@ -11,6 +11,8 @@ public static class DependencyInjection
         services.AddScoped<CrearRecepcionCommandHandler>();
         services.AddScoped<ObtenerRecepcionesQueryHandler>();
         services.AddScoped<ObtenerRecepcionPorIdQueryHandler>();
+        services.AddScoped<ObtenerRecepcionesPorOrdenQueryHandler>();
+        services.AddScoped<ObtenerFotoRecepcionQueryHandler>();
         services.AddScoped<ObtenerOrdenesPendientesQueryHandler>();
         services.AddScoped<ObtenerOrdenesBloqueadasQueryHandler>();
         services.AddScoped<LiberarOrdenCompraCommandHandler>();

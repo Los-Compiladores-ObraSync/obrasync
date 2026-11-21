@@ -100,7 +100,7 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
             ObraId: ordenCompra.ObraId,
             FechaDespacho: ordenCompra.FechaDespacho!.Value,
             FechaEstimadaLlegada: ordenCompra.FechaEstimadaLlegada,
-            Observacion: ordenCompra.Observacion);
+            ObservacionDespacho: ordenCompra.Observacion);
 
         await _publishEndpoint.Publish<OrdenCompraDespachadaEvent>(evento, cancellationToken);
 

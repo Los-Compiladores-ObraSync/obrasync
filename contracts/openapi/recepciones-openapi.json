@@ -132,8 +132,8 @@
         "tags": [
           "Recepciones"
         ],
-        "summary": "Registrar una recepción total o parcial de materiales",
-        "description": "Registra una recepción total o parcial contra una orden de compra despachada y activa, calculando el estado Parcial (2) o Completa (3) según si las cantidades recibidas acumuladas cubren la totalidad de la OC (#90). Rechaza con 400 si la cantidad recibida acumulada por ítem supera lo pedido en la OC o si la recepción tiene todas las cantidades recibidas en 0. El usuario receptor se obtiene del claim sub del JWT. Solo pueden registrar recepciones los roles Capataz y Admin.",
+        "summary": "Registrar una recepción total, parcial o entrega con problema",
+        "description": "Registra una recepción total o parcial contra una orden de compra despachada y activa, calculando el estado Parcial (2) o Completa (3) según si las cantidades recibidas acumuladas cubren la totalidad de la OC (#90). También permite registrar una entrega con problema enviando estado = 4 (Rechazada) junto con un motivoProblema obligatorio (#217), caso en el cual se admiten todas las cantidades en 0 sin modificar el acumulado, el remanente ni el presupuesto (publica RecepcionConProblemaEvent). Una recepción normal sigue exigiendo al menos una cantidad recibida mayor a cero. Para adjuntar fotos de evidencia usar POST /api/recepciones/problemas (multipart/form-data). El usuario receptor se obtiene del claim sub del JWT. Solo pueden registrar recepciones los roles Capataz y Admin.",
         "security": [
           {
             "bearerAuth": []
@@ -235,6 +235,286 @@
           },
           "404": {
             "description": "La recepción no existe.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No se pudo verificar la obra asignada porque Usuarios y Obras no respondió."
+          }
+        }
+      }
+    },
+    "/api/recepciones/problemas": {
+      "post": {
+        "tags": [
+          "Recepciones"
+        ],
+        "summary": "Registrar una entrega con problema con fotos de evidencia (#217)",
+        "description": "Registra una entrega con problema en estado Rechazada (4) sin modificar acumulados, remanente ni presupuesto, permitiendo adjuntar hasta 3 fotos de evidencia en formato JPEG, PNG o WebP (validadas por contenido binario, máx. 2 MB cada una). Límite de tamaño de pedido en Recepción: 8 MB. Publica RecepcionConProblemaEvent con la cantidad de fotos (sin binarios). Roles permitidos: Capataz y Admin (Capataz solo para sus obras asignadas).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "obraId",
+                  "ordenCompraId",
+                  "motivo"
+                ],
+                "properties": {
+                  "obraId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Identificador de la obra."
+                  },
+                  "ordenCompraId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Identificador de la orden de compra."
+                  },
+                  "motivo": {
+                    "type": "string",
+                    "enum": [
+                      "No llegó nada",
+                      "Llegó incompleta",
+                      "Llegó dañada",
+                      "No es lo pedido"
+                    ],
+                    "description": "Motivo obligatorio del problema en la entrega."
+                  },
+                  "detalle": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "nullable": true,
+                    "description": "Detalle opcional del problema (máx. 500 caracteres)."
+                  },
+                  "numeroRemito": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "nullable": true,
+                    "description": "Número de remito opcional. Si se omite, el servicio genera un identificador interno para la entrega con problema."
+                  },
+                  "fechaRecepcion": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true,
+                    "description": "Fecha y hora UTC opcional del registro. Si se omite, se usa la fecha UTC actual del servidor."
+                  },
+                  "fotos": {
+                    "type": "array",
+                    "maxItems": 3,
+                    "description": "Hasta 3 fotos de evidencia (JPEG, PNG o WebP válidas por contenido, máximo 2 MB cada una).",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Entrega con problema registrada correctamente en estado Rechazada (4).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecepcionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Motivo faltante o inválido, detalle mayor a 500 caracteres, más de 3 fotos, archivo vacío o mayor a 2 MB, formato binario no permitido, u orden inexistente.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No se proporcionó un token válido."
+          },
+          "403": {
+            "description": "El usuario no tiene rol Capataz o Admin, o la obra no está asignada al Capataz."
+          },
+          "409": {
+            "description": "La orden de compra está bloqueada, todavía no fue despachada, ya fue recibida por completo o el número de remito está repetido.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "El tamaño total de la solicitud supera el límite permitido de 8 MB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No se pudo verificar la obra asignada porque Usuarios y Obras no respondió."
+          }
+        }
+      }
+    },
+    "/api/recepciones/ordenes/{ordenCompraId}": {
+      "get": {
+        "tags": [
+          "Recepciones"
+        ],
+        "summary": "Consultar recepciones, problemas y fotos de una orden de compra (#217)",
+        "description": "Obtiene el historial cronológico de recepciones de una orden de compra con su estado, motivo de problema y metadatos de fotos, junto con los datos del despacho (fecha estimada de llegada y observación) y los saldos por material. Roles permitidos: Capataz, Comprador, Admin y Proveedor (Capataz solo para sus obras asignadas; Proveedor solo para órdenes propias).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ordenCompraId",
+            "in": "path",
+            "required": true,
+            "description": "Identificador único de la orden de compra.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Historial de recepciones y resumen de la orden de compra.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecepcionesDeOrdenDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No se proporcionó un token válido."
+          },
+          "403": {
+            "description": "Rol no autorizado, obra no asignada al Capataz, o la orden no pertenece al Proveedor autenticado."
+          },
+          "404": {
+            "description": "La orden de compra no existe.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No se pudo verificar la obra asignada porque Usuarios y Obras no respondió."
+          }
+        }
+      }
+    },
+    "/api/recepciones/{id}/fotos/{fotoId}": {
+      "get": {
+        "tags": [
+          "Recepciones"
+        ],
+        "summary": "Descargar foto de evidencia de una recepción (#217)",
+        "description": "Descarga el archivo binario de una foto de evidencia asociada a una entrega con problema, con encabezado Cache-Control privado. Roles permitidos: Capataz, Comprador, Admin y Proveedor (Capataz solo para obras asignadas; Proveedor solo para órdenes propias).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Identificador único de la recepción.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "fotoId",
+            "in": "path",
+            "required": true,
+            "description": "Identificador único de la foto de evidencia.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Imagen de evidencia en formato JPEG, PNG o WebP.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Control de caché privado (private, max-age=3600).",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "description": "nosniff.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No se proporcionó un token válido."
+          },
+          "403": {
+            "description": "Rol no autorizado, obra no asignada al Capataz, o la orden no pertenece al Proveedor autenticado."
+          },
+          "404": {
+            "description": "La foto de evidencia no existe.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -864,13 +1144,11 @@
       },
       "CrearRecepcionRequest": {
         "type": "object",
-        "description": "Datos para registrar una recepción completa. El identificador del usuario receptor se obtiene del JWT y no se envía en el cuerpo.",
+        "description": "Datos para registrar una recepción completa, parcial o entrega con problema (#217). El identificador del usuario receptor se obtiene del JWT y no se envía en el cuerpo.",
         "required": [
           "obraId",
           "ordenCompraId",
-          "numeroRemito",
-          "fechaRecepcion",
-          "detalles"
+          "fechaRecepcion"
         ],
         "properties": {
           "obraId": {
@@ -884,24 +1162,46 @@
           "numeroRemito": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 50
+            "maxLength": 50,
+            "nullable": true,
+            "description": "Obligatorio en recepciones normales. Opcional cuando estado = 4 (Rechazada)."
           },
           "fechaRecepcion": {
             "type": "string",
             "format": "date-time",
             "description": "La fecha no puede superar el dia siguiente a la fecha UTC del servidor. Se permite un dia de tolerancia por la diferencia horaria con Argentina."
           },
+          "estado": {
+            "type": "integer",
+            "enum": [
+              4
+            ],
+            "nullable": true,
+            "description": "Opcional (#217): enviar 4 (Rechazada) para registrar una entrega con problema sin afectar remanente ni presupuesto. Omitir en recepciones normales."
+          },
+          "motivoProblema": {
+            "type": "string",
+            "enum": [
+              "No llegó nada",
+              "Llegó incompleta",
+              "Llegó dañada",
+              "No es lo pedido"
+            ],
+            "nullable": true,
+            "description": "Obligatorio cuando estado = 4 (Rechazada). No debe informarse en recepciones normales."
+          },
           "observaciones": {
             "type": "string",
             "maxLength": 500,
-            "nullable": true
+            "nullable": true,
+            "description": "Observaciones generales o detalle opcional del problema (máx. 500 caracteres)."
           },
           "detalles": {
             "type": "array",
-            "minItems": 1,
             "items": {
               "$ref": "#/components/schemas/CrearDetalleRecepcionRequest"
-            }
+            },
+            "description": "Obligatorio en recepciones normales (al menos un material con cantidadRecibida > 0). En estado = 4 (Rechazada) admite todas las cantidades en 0 o puede omitirse."
           }
         },
         "additionalProperties": false
@@ -1096,6 +1396,17 @@
             ],
             "description": "1 = Pendiente, 2 = Parcial, 3 = Completa, 4 = Rechazada."
           },
+          "motivoProblema": {
+            "type": "string",
+            "enum": [
+              "No llegó nada",
+              "Llegó incompleta",
+              "Llegó dañada",
+              "No es lo pedido"
+            ],
+            "nullable": true,
+            "description": "Motivo tipificado del problema cuando estado = 4 (Rechazada)."
+          },
           "observaciones": {
             "type": "string",
             "maxLength": 500,
@@ -1114,6 +1425,103 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DetalleRecepcionDto"
+            }
+          },
+          "fotos": {
+            "type": "array",
+            "description": "Metadatos de las fotos de evidencia adjuntas a una entrega con problema (#217).",
+            "items": {
+              "$ref": "#/components/schemas/FotoRecepcionDto"
+            }
+          }
+        }
+      },
+      "FotoRecepcionDto": {
+        "type": "object",
+        "description": "Metadatos de una foto de evidencia asociada a una entrega con problema (#217).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nombreArchivo": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "contentType": {
+            "type": "string",
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp"
+            ]
+          },
+          "tamanoBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "orden": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "url": {
+            "type": "string",
+            "description": "Ruta relativa autenticada para descargar la imagen (/api/recepciones/{id}/fotos/{fotoId})."
+          }
+        }
+      },
+      "RecepcionesDeOrdenDto": {
+        "type": "object",
+        "description": "Resumen de una orden de compra con datos de despacho, saldos por material e historial cronológico de recepciones y problemas (#217).",
+        "properties": {
+          "ordenCompraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "obraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "etapa": {
+            "type": "string",
+            "nullable": true
+          },
+          "fechaDespacho": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "fechaEstimadaLlegada": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fecha estimada de llegada informada por el Proveedor al despachar (#216, #217)."
+          },
+          "observacionDespacho": {
+            "type": "string",
+            "maxLength": 200,
+            "nullable": true,
+            "description": "Observación corta informada por el Proveedor al despachar (#216, #217)."
+          },
+          "estaCompleta": {
+            "type": "boolean",
+            "description": "Indica si la orden ya tiene una recepción en estado Completa."
+          },
+          "tieneProblemaAbierto": {
+            "type": "boolean",
+            "description": "Indica si el último evento registrado sobre la orden fue una entrega con problema (Rechazada) aún no superada por una recepción válida posterior."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemOrdenPendienteDto"
+            }
+          },
+          "recepciones": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecepcionDto"
             }
           }
         }
@@ -1187,6 +1595,28 @@
           "sinPartidaPresupuestaria": {
             "type": "boolean",
             "description": "Indica si la orden de compra no encontró partida presupuestaria de etapa ni general de obra."
+          },
+          "fechaDespacho": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fecha y hora UTC en que el Proveedor despachó la orden de compra."
+          },
+          "fechaEstimadaLlegada": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fecha estimada de llegada informada por el Proveedor al despachar (#216, #217)."
+          },
+          "observacionDespacho": {
+            "type": "string",
+            "maxLength": 200,
+            "nullable": true,
+            "description": "Observación corta informada por el Proveedor al despachar (#216, #217)."
+          },
+          "tieneProblemaAbierto": {
+            "type": "boolean",
+            "description": "Indica si la última entrega registrada sobre esta orden fue un problema (Rechazada) sin una recepción válida posterior."
           },
           "items": {
             "type": "array",

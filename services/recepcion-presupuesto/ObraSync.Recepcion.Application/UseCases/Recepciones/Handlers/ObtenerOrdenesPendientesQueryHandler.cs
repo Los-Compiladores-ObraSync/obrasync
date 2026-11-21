@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.DTOs;
 using ObraSync.Recepcion.Application.UseCases.Recepciones.Queries;
+using ObraSync.Recepcion.Domain.Common;
 using ObraSync.Recepcion.Domain.Enums;
 
 namespace ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
@@ -55,10 +56,11 @@ public class ObtenerOrdenesPendientesQueryHandler
 
         var ordenesIds = ordenes.Select(o => o.Id).ToList();
 
-        // Consulta secundaria de recepciones filtrada ÚNICAMENTE por los IDs de la página actual (#185)
+        // Consulta secundaria de recepciones válidas (excluyendo Rechazada, #217) filtrada por los IDs de la página actual (#185)
         var recibidos = await _context.Recepciones
             .AsNoTracking()
-            .Where(r => ordenesIds.Contains(r.OrdenCompraId))
+            .Where(r => ordenesIds.Contains(r.OrdenCompraId) &&
+                        r.Estado != EstadoRecepcion.Rechazada)
             .SelectMany(r => r.Detalles.Select(d => new
             {
                 r.OrdenCompraId,
@@ -66,6 +68,29 @@ public class ObtenerOrdenesPendientesQueryHandler
                 d.CantidadRecibida
             }))
             .ToListAsync(cancellationToken);
+
+        // Estado de la última recepción registrada por orden para informar si hay un problema abierto (#217)
+        var ultimosEstados = await _context.Recepciones
+            .AsNoTracking()
+            .Where(r => ordenesIds.Contains(r.OrdenCompraId))
+            .Select(r => new
+            {
+                r.OrdenCompraId,
+                r.Estado,
+                r.CreatedAt,
+                r.FechaRecepcion,
+                r.Id
+            })
+            .ToListAsync(cancellationToken);
+
+        var ordenConProblemaAbierto = ultimosEstados
+            .GroupBy(r => r.OrdenCompraId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(x => x.CreatedAt)
+                      .ThenByDescending(x => x.FechaRecepcion)
+                      .ThenByDescending(x => x.Id)
+                      .First().Estado == EstadoRecepcion.Rechazada);
 
         var items = ordenes
             .Select(o =>
@@ -83,6 +108,10 @@ public class ObtenerOrdenesPendientesQueryHandler
                     ObraId = o.ObraId,
                     Etapa = o.Etapa,
                     SinPartidaPresupuestaria = o.SinPartidaPresupuestaria,
+                    FechaDespacho = FechaUtc.Normalizar(o.FechaDespacho),
+                    FechaEstimadaLlegada = FechaUtc.Normalizar(o.FechaEstimadaLlegada),
+                    ObservacionDespacho = o.ObservacionDespacho,
+                    TieneProblemaAbierto = ordenConProblemaAbierto.GetValueOrDefault(o.Id, false),
                     Items = o.Items
                         .Select(i =>
                         {

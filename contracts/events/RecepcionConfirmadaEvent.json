@@ -56,6 +56,10 @@
       "format": "date-time",
       "description": "Fecha y hora de recepción de los materiales, en UTC."
     },
+    "ordenCompleta": {
+      "type": "boolean",
+      "description": "Campo aditivo (#217, #222): indica si con esta recepción la orden de compra quedó recibida en su totalidad (true si la recepción resultó Completa; false si resultó Parcial)."
+    },
     "items": {
       "type": "array",
       "description": "Materiales incluidos en la recepción confirmada.",

@@ -244,6 +244,51 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
                     b.ToTable("DetallesRecepcion", (string)null);
                 });
 
+            modelBuilder.Entity("ObraSync.Recepcion.Domain.Entities.FotoRecepcion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("Contenido")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NombreArchivo")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("Orden")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("RecepcionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("TamanoBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecepcionId");
+
+                    b.HasIndex("RecepcionId", "Orden")
+                        .IsUnique();
+
+                    b.ToTable("FotosRecepcion", (string)null);
+                });
+
             modelBuilder.Entity("ObraSync.Recepcion.Domain.Entities.OrdenCompra", b =>
                 {
                     b.Property<Guid>("Id")
@@ -265,6 +310,9 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("FechaDespacho")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FechaEstimadaLlegada")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("LiberadaEn")
@@ -293,6 +341,10 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("ObraId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ObservacionDespacho")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<Guid>("ProveedorId")
                         .HasColumnType("uniqueidentifier");
@@ -441,6 +493,10 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("FechaRecepcion")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("MotivoProblema")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("NumeroRemito")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -528,6 +584,17 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
                     b.Navigation("Recepcion");
                 });
 
+            modelBuilder.Entity("ObraSync.Recepcion.Domain.Entities.FotoRecepcion", b =>
+                {
+                    b.HasOne("ObraSync.Recepcion.Domain.Entities.Recepcion", "Recepcion")
+                        .WithMany("Fotos")
+                        .HasForeignKey("RecepcionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Recepcion");
+                });
+
             modelBuilder.Entity("ObraSync.Recepcion.Domain.Entities.OrdenCompraItem", b =>
                 {
                     b.HasOne("ObraSync.Recepcion.Domain.Entities.OrdenCompra", "OrdenCompra")
@@ -547,6 +614,8 @@ namespace ObraSync.Recepcion.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ObraSync.Recepcion.Domain.Entities.Recepcion", b =>
                 {
                     b.Navigation("Detalles");
+
+                    b.Navigation("Fotos");
                 });
 #pragma warning restore 612, 618
         }

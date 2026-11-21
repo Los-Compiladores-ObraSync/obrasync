@@ -73,6 +73,24 @@ public class ExceptionMiddleware
                 ex.Message,
                 "https://tools.ietf.org/html/rfc9110#section-15.5.2"
             ),
+            BadHttpRequestException ex when ex.StatusCode == StatusCodes.Status413PayloadTooLarge => (
+                StatusCodes.Status413PayloadTooLarge,
+                "Solicitud demasiado grande",
+                "El tamaño total del pedido supera el límite permitido.",
+                "https://tools.ietf.org/html/rfc9110#section-15.5.14"
+            ),
+            InvalidDataException ex when ex.Message.Contains("Multipart body length limit", StringComparison.OrdinalIgnoreCase) => (
+                StatusCodes.Status413PayloadTooLarge,
+                "Solicitud demasiado grande",
+                "El tamaño total de los archivos adjuntos supera el límite permitido.",
+                "https://tools.ietf.org/html/rfc9110#section-15.5.14"
+            ),
+            BadHttpRequestException ex => (
+                ex.StatusCode,
+                "Petición inválida",
+                ex.Message,
+                "https://tools.ietf.org/html/rfc9110#section-15.5.1"
+            ),
             _ => (
                 StatusCodes.Status500InternalServerError,
                 "Error interno del servidor",

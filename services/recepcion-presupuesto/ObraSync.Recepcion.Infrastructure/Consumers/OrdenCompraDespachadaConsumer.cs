@@ -82,7 +82,10 @@ public class OrdenCompraDespachadaConsumer : IConsumer<OrdenCompraDespachadaEven
         }
 
         // ── PASO 4: Marcar despacho (independiente de Estado Activa/Bloqueada) y registrar idempotencia
-        ordenCompra.MarcarComoDespachada(msg.FechaDespacho);
+        ordenCompra.MarcarComoDespachada(
+            msg.FechaDespacho,
+            msg.FechaEstimadaLlegada,
+            msg.ObservacionDespacho);
 
         _db.EventosProcesados.Add(new EventoProcesado
         {

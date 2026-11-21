@@ -7,6 +7,7 @@ public interface IRecepcionDbContext
 {
     DbSet<Domain.Entities.Recepcion> Recepciones { get; }
     DbSet<DetalleRecepcion> DetallesRecepcion { get; }
+    DbSet<FotoRecepcion> FotosRecepcion { get; }
     DbSet<PartidaPresupuestaria> PartidasPresupuestarias { get; }
     DbSet<OrdenCompra> OrdenesCompra { get; }
     DbSet<OrdenCompraItem> OrdenesCompraItems { get; }

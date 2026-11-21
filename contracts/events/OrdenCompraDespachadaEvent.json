@@ -49,15 +49,15 @@
         "null"
       ],
       "format": "date-time",
-      "description": "Fecha estimada de llegada de la mercadería a la obra informada opcionalmente por el proveedor al despachar (en UTC)."
+      "description": "Campo aditivo opcional (#216, #217): fecha estimada de llegada informada por el Proveedor al despachar (en UTC)."
     },
-    "observacion": {
+    "observacionDespacho": {
       "type": [
         "string",
         "null"
       ],
       "maxLength": 200,
-      "description": "Observación corta opcional cargada por el proveedor al despachar (máximo 200 caracteres)."
+      "description": "Campo aditivo opcional (#216, #217): observación corta cargada por el Proveedor al despachar (máx. 200 caracteres)."
     }
   },
   "additionalProperties": false

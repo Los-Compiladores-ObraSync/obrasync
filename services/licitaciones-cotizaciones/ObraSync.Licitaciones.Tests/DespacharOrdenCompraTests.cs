@@ -248,7 +248,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
                 e.ObraId == obraId &&
                 e.FechaDespacho == orden.FechaDespacho.Value &&
                 e.FechaEstimadaLlegada == fechaEstimada &&
-                e.Observacion == observacion),
+                e.ObservacionDespacho == observacion),
             Arg.Any<CancellationToken>());
 
         await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -557,7 +557,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
                 e.ObraId == obraId &&
                 e.FechaDespacho == ocDespachada.FechaDespacho!.Value &&
                 e.FechaEstimadaLlegada == fechaEstimada &&
-                e.Observacion == observacion),
+                e.ObservacionDespacho == observacion),
             Arg.Any<CancellationToken>());
 
         // 4. Comprador ve los datos del despacho en GET /api/ordenes-compra
@@ -625,7 +625,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
                 e.OrdenCompraId == ordenId &&
                 e.ObraId == obraId &&
                 e.FechaEstimadaLlegada == null &&
-                e.Observacion == null),
+                e.ObservacionDespacho == null),
             Arg.Any<CancellationToken>());
     }
 
@@ -803,7 +803,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
             Arg.Is<OrdenCompraDespachadaEvent>(e =>
                 e.OrdenCompraId == ordenId &&
                 e.ObraId == obraId &&
-                e.Observacion == "Ruta alternativa bajo licitaciones"),
+                e.ObservacionDespacho == "Ruta alternativa bajo licitaciones"),
             Arg.Any<CancellationToken>());
     }
 

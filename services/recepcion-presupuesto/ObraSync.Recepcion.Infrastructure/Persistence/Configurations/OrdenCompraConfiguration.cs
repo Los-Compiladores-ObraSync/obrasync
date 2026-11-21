@@ -47,6 +47,11 @@ public class OrdenCompraConfiguration : IEntityTypeConfiguration<OrdenCompra>
 
         builder.Property(o => o.FechaDespacho);
 
+        builder.Property(o => o.FechaEstimadaLlegada);
+
+        builder.Property(o => o.ObservacionDespacho)
+            .HasMaxLength(200);
+
         // Índices para optimizar búsquedas y listados paginados por obra/estado/fecha (#204, #210)
         builder.HasIndex(o => o.ObraId);
         builder.HasIndex(o => o.Estado);
