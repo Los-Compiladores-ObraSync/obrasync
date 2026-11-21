@@ -389,4 +389,17 @@ describe('AprobarRequisicionesPage - paginación (#172)', () => {
 
     expect(screen.getAllByRole('columnheader', { name: 'Precio ref.' })[0]).toBeVisible()
   })
+
+  it('al aprobar ofrece el paso siguiente: publicar la licitación de esa requisición', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+
+    await screen.findByText('REQ-2026-0011')
+    await user.click(screen.getByRole('button', { name: 'Aprobar REQ-2026-0011' }))
+
+    const enlace = await screen.findByRole('link', {
+      name: /Publicar licitación de REQ-2026-0011/,
+    })
+    expect(enlace.getAttribute('href')).toMatch(/^\/compras\/requisiciones\/historial\/.+/)
+  })
 })

@@ -1,8 +1,12 @@
 import { Link } from 'react-router'
+import { InsigniaCantidad } from '../licitaciones/InsigniaCantidad'
 import { RequisicionesPorLicitar } from '../licitaciones/RequisicionesPorLicitar'
+import { useRequisicionesPorLicitar } from '../licitaciones/useRequisicionesPorLicitar'
 import { ResumenAprobacion } from '../notificaciones/ResumenAprobacion'
 
 export function ComprasPage() {
+  const porLicitar = useRequisicionesPorLicitar()
+
   return (
     <section>
       <h1>Gestión y Compras</h1>
@@ -12,12 +16,22 @@ export function ComprasPage() {
       <ResumenAprobacion />
 
       {/* Lo siguiente: las ya aprobadas que todavía no se publicaron como licitación. */}
-      <RequisicionesPorLicitar />
+      <RequisicionesPorLicitar porLicitar={porLicitar} />
 
       <ul className="lista-acciones">
         <li>
           <Link to="/compras/requisiciones/historial" className="accion-secundaria">
-            Historial de requisiciones
+            <span>
+              Historial de requisiciones
+              <InsigniaCantidad
+                cantidad={porLicitar.length}
+                descripcion={
+                  porLicitar.length === 1
+                    ? '1 requisición aprobada espera su licitación'
+                    : `${porLicitar.length} requisiciones aprobadas esperan su licitación`
+                }
+              />
+            </span>
           </Link>
         </li>
         <li>

@@ -1,12 +1,18 @@
 import { Link } from 'react-router'
 import { iniciales } from '../auth/iniciales'
 import { useAuth } from '../auth/useAuth'
+import { InsigniaCantidad } from '../licitaciones/InsigniaCantidad'
 import { ListaLicitaciones } from '../licitaciones/ListaLicitaciones'
 import { ROLES_QUE_VEN_PENDIENTES } from '../notificaciones/configuracionAvisos'
 import { ResumenAprobacion } from '../notificaciones/ResumenAprobacion'
+import { textoPendientes } from '../notificaciones/textos'
+import { usePendientes } from '../notificaciones/usePendientes'
 import { accionesParaRol } from '../portales/accionesRapidas'
 import { portalesParaRol } from '../portales/portales'
 import styles from './InicioPage.module.css'
+
+/** Desde el Historial se abre el detalle de cada requisición, donde se publica su licitación. */
+const RUTA_HISTORIAL_REQUISICIONES = '/compras/requisiciones/historial'
 
 export function InicioPage() {
   const { usuario } = useAuth()
@@ -21,6 +27,9 @@ export function InicioPage() {
   const apruebaRequisiciones = usuario ? ROLES_QUE_VEN_PENDIENTES.includes(usuario.rol) : false
   // El Proveedor cotiza: su Inicio muestra directamente las licitaciones abiertas.
   const cotiza = usuario?.rol === 'Proveedor'
+  // El mismo número que muestra la campana: el Historial es donde se sigue cada requisición.
+  const { cantidad: pendientes } = usePendientes()
+  const resaltarHistorial = apruebaRequisiciones && pendientes > 0
 
   return (
     <>
@@ -76,9 +85,22 @@ export function InicioPage() {
             <li key={accion.ruta}>
               <Link
                 to={accion.ruta}
-                className={apruebaRequisiciones ? 'accion-secundaria' : 'accion-grande'}
+                className={
+                  apruebaRequisiciones
+                    ? accion.ruta === RUTA_HISTORIAL_REQUISICIONES && resaltarHistorial
+                      ? `accion-secundaria ${styles.conPendientes}`
+                      : 'accion-secundaria'
+                    : 'accion-grande'
+                }
               >
-                {accion.texto}
+                {accion.ruta === RUTA_HISTORIAL_REQUISICIONES && resaltarHistorial ? (
+                  <span>
+                    {accion.texto}
+                    <InsigniaCantidad cantidad={pendientes} descripcion={textoPendientes(pendientes)} />
+                  </span>
+                ) : (
+                  accion.texto
+                )}
               </Link>
             </li>
           ))}

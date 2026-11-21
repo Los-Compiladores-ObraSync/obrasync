@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { AuthContext, type SesionUsuario } from '../auth/sessionContext'
@@ -69,6 +69,19 @@ describe('InicioPage', () => {
     // Los botones pasan a ser secundarios cuando hay tarjeta de aprobaciones.
     expect(screen.getByRole('link', { name: 'Ver obras' })).toHaveClass('accion-secundaria')
     expect(screen.queryByRole('link', { name: 'Nueva requisición' })).not.toBeInTheDocument()
+  })
+
+  it('Comprador: el Historial muestra el mismo número de pendientes que la campana', async () => {
+    renderInicio('Comprador')
+
+    const historial = screen.getByRole('link', { name: /Historial de requisiciones/ })
+    expect(await within(historial).findByRole('img', { name: /para aprobar/ })).toBeInTheDocument()
+  })
+
+  it('Capataz: no ve el número de pendientes en ningún botón', async () => {
+    renderInicio('Capataz')
+
+    expect(screen.queryByRole('img', { name: /para aprobar/ })).not.toBeInTheDocument()
   })
 
   it('Admin: ve el resumen de aprobaciones y las acciones de obra y de compras', async () => {

@@ -1,6 +1,8 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
+import { http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
+import { server } from '../mocks/server'
 import { ComprasPage } from './ComprasPage'
 
 describe('ComprasPage', () => {
@@ -62,5 +64,18 @@ describe('ComprasPage', () => {
     )
 
     expect(screen.getByRole('link', { name: 'Volver al inicio' })).toHaveAttribute('href', '/')
+  })
+
+  it('el Historial de requisiciones muestra cuántas aprobadas esperan su licitación', async () => {
+    // Sin ninguna licitación publicada, todas las requisiciones aprobadas están por licitar.
+    server.use(http.get('*/api/licitaciones', () => HttpResponse.json([], { status: 200 })))
+    render(
+      <MemoryRouter>
+        <ComprasPage />
+      </MemoryRouter>,
+    )
+
+    const historial = screen.getByRole('link', { name: /Historial de requisiciones/ })
+    expect(await within(historial).findByRole('img', { name: /su licitación/ })).toBeInTheDocument()
   })
 })

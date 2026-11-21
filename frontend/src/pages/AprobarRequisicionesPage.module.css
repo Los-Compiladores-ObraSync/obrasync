@@ -33,7 +33,9 @@
 @media (min-width: 900px) {
   .lista {
     display: grid;
-    grid-template-columns: repeat(2, 1fr); /* las tarjetas de una fila miden lo mismo */
+    grid-template-columns: repeat(2, 1fr);
+    /* Cada tarjeta mide lo que necesita: al expandir el detalle de una, la de al lado no se estira. */
+    align-items: start;
   }
 }
 
@@ -312,4 +314,39 @@
   border-color: #dc2626;
   background: #fee2e2;
   font-weight: 700;
+}
+
+/* Después de aprobar: el paso que sigue, a un toque de distancia. */
+.siguientePaso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin: 0 0 1rem;
+  padding: 0.875rem 1rem;
+  border-left: 6px solid var(--naranja);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+}
+
+.siguientePasoTexto {
+  margin: 0;
+  flex: 1 1 260px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.siguientePasoBoton {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 1.25rem;
+  border-radius: 10px;
+  background: var(--accion);
+  color: #ffffff;
+  font-weight: 700;
+  text-decoration: none;
 }

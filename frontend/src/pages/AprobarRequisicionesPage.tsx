@@ -69,6 +69,8 @@ export function AprobarRequisicionesPage() {
   } | null>(null)
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
   const [mensajeEstado, setMensajeEstado] = useState<string | null>(null)
+  // La última requisición aprobada desde esta pantalla: se le ofrece el paso siguiente (publicar la licitación).
+  const [aprobadaReciente, setAprobadaReciente] = useState<{ id: string; numero: string } | null>(null)
   const [rechazandoId, setRechazandoId] = useState<string | null>(null)
   const [motivo, setMotivo] = useState('')
   const [errorMotivo, setErrorMotivo] = useState<string | null>(null)
@@ -167,11 +169,13 @@ export function AprobarRequisicionesPage() {
     setOperacionEnVuelo({ tipo: 'aprobar', id: req.requisicionId })
     setErrorAccion(null)
     setMensajeEstado(null)
+    setAprobadaReciente(null)
     try {
       const resultado = await aprobarRequisicion(req.requisicionId)
       setPendientes((actuales) => actuales.filter((r) => r.requisicionId !== req.requisicionId))
       setTotal((t) => (t === undefined ? t : Math.max(0, t - 1)))
       setMensajeEstado(`La requisición ${resultado.numeroRequisicion} fue aprobada.`)
+      setAprobadaReciente({ id: req.requisicionId, numero: resultado.numeroRequisicion })
       // La campana del encabezado tiene que bajar el número enseguida.
       refrescarCampana()
     } catch (err) {
@@ -208,6 +212,7 @@ export function AprobarRequisicionesPage() {
     setOperacionEnVuelo({ tipo: 'rechazar', id: req.requisicionId })
     setErrorAccion(null)
     setMensajeEstado(null)
+    setAprobadaReciente(null)
 
     try {
       const resultado = await rechazarRequisicion(req.requisicionId, motivoLimpio)
@@ -253,6 +258,19 @@ export function AprobarRequisicionesPage() {
         <p className={styles.exito} role="status">
           {mensajeEstado}
         </p>
+      )}
+      {aprobadaReciente && (
+        <div className={styles.siguientePaso}>
+          <p className={styles.siguientePasoTexto}>
+            Siguiente paso: publicá la licitación para que los proveedores puedan cotizar.
+          </p>
+          <Link
+            to={`/compras/requisiciones/historial/${aprobadaReciente.id}`}
+            className={styles.siguientePasoBoton}
+          >
+            Publicar licitación de {aprobadaReciente.numero}
+          </Link>
+        </div>
       )}
       {errorAccion && (
         <p className={styles.errorApi} role="alert">
