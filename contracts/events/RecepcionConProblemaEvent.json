@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:obrasync:events:recepcion-con-problema:v1",
+  "title": "RecepcionConProblemaEvent",
+  "description": "Evento publicado por Recepción y Control Presupuestario cuando el Capataz registra una entrega con problema (estado Rechazada) sin modificar el remanente ni el presupuesto (#217). Consumido por Licitaciones (#218) y Usuarios (#227). Las fotos de evidencia no viajan en el evento; solo se informa la cantidad.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "occurredAt",
+    "correlationId",
+    "ordenCompraId",
+    "recepcionId",
+    "motivo",
+    "cantidadFotos"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador único del evento para garantizar procesamiento idempotente en los consumidores."
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha y hora en que ocurrió el evento (en UTC)."
+    },
+    "correlationId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de correlación propagado desde el API Gateway (X-Correlation-ID) para trazabilidad transversal."
+    },
+    "ordenCompraId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de la orden de compra afectada por el problema de entrega."
+    },
+    "recepcionId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de la recepción registrada en estado Rechazada."
+    },
+    "obraId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "Identificador opcional de la obra asociada a la orden de compra (para notificaciones al Capataz en #227)."
+    },
+    "proveedorId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "Identificador opcional del proveedor dueño de la orden de compra (para notificaciones al Proveedor en #227)."
+    },
+    "motivo": {
+      "type": "string",
+      "enum": [
+        "No llegó nada",
+        "Llegó incompleta",
+        "Llegó dañada",
+        "No es lo pedido"
+      ],
+      "description": "Motivo tipificado del problema en la entrega."
+    },
+    "detalle": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500,
+      "description": "Detalle opcional informado por el Capataz sobre el problema de la entrega (máx. 500 caracteres)."
+    },
+    "cantidadFotos": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3,
+      "description": "Cantidad de fotos de evidencia adjuntas a la recepción con problema (0 a 3). Los binarios se consultan por el endpoint autenticado de Recepción."
+    }
+  },
+  "additionalProperties": false
+}

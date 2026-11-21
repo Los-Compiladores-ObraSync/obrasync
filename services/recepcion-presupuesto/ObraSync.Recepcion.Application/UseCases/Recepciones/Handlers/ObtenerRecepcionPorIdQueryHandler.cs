@@ -24,6 +24,26 @@ public class ObtenerRecepcionPorIdQueryHandler
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == query.Id, cancellationToken);
 
-        return recepcion?.ToDto();
+        if (recepcion is null)
+        {
+            return null;
+        }
+
+        // Proyección liviana sin traer varbinary(max) (#217)
+        var fotos = await _context.FotosRecepcion
+            .AsNoTracking()
+            .Where(f => f.RecepcionId == recepcion.Id)
+            .OrderBy(f => f.Orden)
+            .ThenBy(f => f.CreatedAt)
+            .Select(f => RecepcionMappings.CrearFotoDto(
+                f.Id,
+                f.RecepcionId,
+                f.NombreArchivo,
+                f.ContentType,
+                f.TamanoBytes,
+                f.Orden))
+            .ToListAsync(cancellationToken);
+
+        return recepcion.ToDto(fotos);
     }
 }

@@ -107,4 +107,28 @@ public class ExceptionMiddlewareTests
         using var json = JsonDocument.Parse(cuerpo);
         Assert.True(json.RootElement.TryGetProperty("correlationId", out _));
     }
+
+    [Fact]
+    public async Task BadHttpRequestException413_YMultipartLimit_Devuelven413ProblemDetailsConCorrelationId()
+    {
+        var correlationId = Guid.NewGuid().ToString();
+
+        var (status1, cuerpo1) = await EjecutarAsync(
+            new BadHttpRequestException("Request body too large.", StatusCodes.Status413PayloadTooLarge),
+            correlationId);
+
+        Assert.Equal(StatusCodes.Status413PayloadTooLarge, status1);
+        using var json1 = JsonDocument.Parse(cuerpo1);
+        Assert.Equal(413, json1.RootElement.GetProperty("status").GetInt32());
+        Assert.Equal(correlationId, json1.RootElement.GetProperty("correlationId").GetString());
+
+        var (status2, cuerpo2) = await EjecutarAsync(
+            new InvalidDataException("Multipart body length limit 8388608 exceeded."),
+            correlationId);
+
+        Assert.Equal(StatusCodes.Status413PayloadTooLarge, status2);
+        using var json2 = JsonDocument.Parse(cuerpo2);
+        Assert.Equal(413, json2.RootElement.GetProperty("status").GetInt32());
+        Assert.Equal(correlationId, json2.RootElement.GetProperty("correlationId").GetString());
+    }
 }

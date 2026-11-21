@@ -12,5 +12,16 @@ public interface IRecepcionEventPublisher
         RecepcionEntity recepcion,
         Guid correlationId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Construye y publica el RecepcionConProblemaEvent cuando se registra una entrega con problema
+    /// en estado Rechazada (#217). Las fotos no viajan en el evento; solo la cantidad.
+    /// </summary>
+    Task PublishRecepcionConProblemaAsync(
+        RecepcionEntity recepcion,
+        int cantidadFotos,
+        Guid correlationId,
+        Guid? proveedorId = null,
+        CancellationToken cancellationToken = default);
 }
 

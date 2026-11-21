@@ -1,6 +1,7 @@
 using MassTransit;
 using ObraSync.Contracts.Events;
 using ObraSync.Recepcion.Application.Interfaces;
+using ObraSync.Recepcion.Domain.Enums;
 using RecepcionEntity = ObraSync.Recepcion.Domain.Entities.Recepcion;
 
 namespace ObraSync.Recepcion.Infrastructure.Messaging;
@@ -37,7 +38,35 @@ public class MassTransitRecepcionEventPublisher : IRecepcionEventPublisher
                 d.DescripcionArticulo,
                 d.CantidadEsperada,
                 d.Conforme,
-                d.Observacion)).ToList());
+                d.Observacion)).ToList(),
+            OrdenCompleta: recepcion.Estado == EstadoRecepcion.Completa);
+
+        await _publishEndpoint.Publish(evento, context =>
+        {
+            context.MessageId = evento.EventId;
+            context.CorrelationId = evento.CorrelationId;
+        }, cancellationToken);
+    }
+
+    public async Task PublishRecepcionConProblemaAsync(
+        RecepcionEntity recepcion,
+        int cantidadFotos,
+        Guid correlationId,
+        Guid? proveedorId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var evento = new RecepcionConProblemaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: correlationId,
+            OrdenCompraId: recepcion.OrdenCompraId,
+            RecepcionId: recepcion.Id,
+            Motivo: recepcion.MotivoProblema ?? string.Empty,
+            Detalle: recepcion.Observaciones,
+            CantidadFotos: cantidadFotos,
+            ObraId: recepcion.ObraId,
+            ProveedorId: proveedorId);
+
         await _publishEndpoint.Publish(evento, context =>
         {
             context.MessageId = evento.EventId;
@@ -45,4 +74,3 @@ public class MassTransitRecepcionEventPublisher : IRecepcionEventPublisher
         }, cancellationToken);
     }
 }
-

@@ -42,6 +42,22 @@
       "type": "string",
       "format": "date-time",
       "description": "Fecha y hora en que se registró el despacho de la orden de compra (en UTC)."
+    },
+    "fechaEstimadaLlegada": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "description": "Campo aditivo opcional (#216, #217): fecha estimada de llegada informada por el Proveedor al despachar (en UTC)."
+    },
+    "observacionDespacho": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200,
+      "description": "Campo aditivo opcional (#216, #217): observación corta cargada por el Proveedor al despachar (máx. 200 caracteres)."
     }
   },
   "additionalProperties": false

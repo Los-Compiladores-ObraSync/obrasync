@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using ObraSync.Recepcion.Api.Models;
 using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.DTOs;
 using ObraSync.Recepcion.Application.Exceptions;
@@ -11,6 +12,8 @@ using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Application.UseCases.Recepciones.Commands;
 using ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
 using ObraSync.Recepcion.Application.UseCases.Recepciones.Queries;
+using ObraSync.Recepcion.Domain.Enums;
+using ObraSync.Recepcion.Domain.Recepciones;
 
 namespace ObraSync.Recepcion.Api.Controllers;
 
@@ -26,6 +29,8 @@ public class RecepcionesController : ControllerBase
     private readonly ObtenerOrdenesBloqueadasQueryHandler? _obtenerOrdenesBloqueadasHandler;
     private readonly LiberarOrdenCompraCommandHandler? _liberarOrdenHandler;
     private readonly LiquidarOrdenCompraCommandHandler? _liquidarOrdenHandler;
+    private readonly ObtenerRecepcionesPorOrdenQueryHandler? _obtenerPorOrdenHandler;
+    private readonly ObtenerFotoRecepcionQueryHandler? _obtenerFotoHandler;
     private readonly IObraAsignacionValidator? _obraAsignacionValidator;
 
     [ActivatorUtilitiesConstructor]
@@ -37,7 +42,9 @@ public class RecepcionesController : ControllerBase
         IObraAsignacionValidator? obraAsignacionValidator = null,
         LiberarOrdenCompraCommandHandler? liberarOrdenHandler = null,
         ObtenerOrdenesBloqueadasQueryHandler? obtenerOrdenesBloqueadasHandler = null,
-        LiquidarOrdenCompraCommandHandler? liquidarOrdenHandler = null)
+        LiquidarOrdenCompraCommandHandler? liquidarOrdenHandler = null,
+        ObtenerRecepcionesPorOrdenQueryHandler? obtenerPorOrdenHandler = null,
+        ObtenerFotoRecepcionQueryHandler? obtenerFotoHandler = null)
     {
         _crearHandler = crearHandler;
         _obtenerRecepcionesHandler = obtenerRecepcionesHandler;
@@ -47,6 +54,8 @@ public class RecepcionesController : ControllerBase
         _liberarOrdenHandler = liberarOrdenHandler;
         _obtenerOrdenesBloqueadasHandler = obtenerOrdenesBloqueadasHandler;
         _liquidarOrdenHandler = liquidarOrdenHandler;
+        _obtenerPorOrdenHandler = obtenerPorOrdenHandler;
+        _obtenerFotoHandler = obtenerFotoHandler;
     }
 
     public RecepcionesController(
@@ -65,7 +74,9 @@ public class RecepcionesController : ControllerBase
             obraAsignacionValidator,
             new LiberarOrdenCompraCommandHandler(context),
             new ObtenerOrdenesBloqueadasQueryHandler(context),
-            new LiquidarOrdenCompraCommandHandler(context))
+            new LiquidarOrdenCompraCommandHandler(context),
+            new ObtenerRecepcionesPorOrdenQueryHandler(context),
+            new ObtenerFotoRecepcionQueryHandler(context))
     {
     }
 
@@ -405,7 +416,9 @@ public class RecepcionesController : ControllerBase
                 request.FechaRecepcion,
                 request.Observaciones,
                 request.Detalles,
-                correlationId);
+                correlationId,
+                request.Estado,
+                request.MotivoProblema);
 
             var creada = await _crearHandler.Handle(command, cancellationToken);
             return StatusCode(201, creada);
@@ -418,6 +431,283 @@ public class RecepcionesController : ControllerBase
         {
             return Problem(statusCode: 400, detail: ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Registra una entrega con problema en estado Rechazada (4) permitiendo adjuntar hasta 3 fotos de evidencia (#217).
+    /// No modifica acumulados, remanente ni presupuesto; publica RecepcionConProblemaEvent con la cantidad de fotos.
+    /// Roles permitidos: Capataz y Admin (#189: Capataz solo para sus obras asignadas).
+    /// </summary>
+    [Authorize(Roles = "Capataz,Admin")]
+    [HttpPost("problemas")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(ValidadorFotoEvidencia.MaxTamanoSolicitudMultipartBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = ValidadorFotoEvidencia.MaxTamanoSolicitudMultipartBytes)]
+    public async Task<IActionResult> RegistrarEntregaConProblema(
+        [FromForm] RegistrarEntregaConProblemaFormRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        string? usuarioIdTexto = User.FindFirst("sub")?.Value
+                                 ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (!Guid.TryParse(usuarioIdTexto, out Guid usuarioId) ||
+            usuarioId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var correlationId = GetCorrelationIdFromHeader();
+
+        // #189: El Capataz solo puede registrar problemas en obras asignadas
+        if (EsCapatazSinPrivilegiosSuperiores() && _obraAsignacionValidator != null)
+        {
+            var authHeader = Request?.Headers["Authorization"].ToString();
+            bool asignada;
+            try
+            {
+                asignada = await _obraAsignacionValidator.EstaAsignadaACapatazAsync(
+                    request.ObraId,
+                    authHeader,
+                    correlationId.ToString(),
+                    cancellationToken);
+            }
+            catch (ObraAsignacionNoVerificableException)
+            {
+                return Problem(
+                    detail: "No se pudo verificar que la obra esté asignada al capataz porque el servicio Usuarios y Obras no respondió. Reintentá en unos segundos.",
+                    statusCode: StatusCodes.Status503ServiceUnavailable,
+                    title: "Servicio no disponible");
+            }
+
+            if (!asignada)
+            {
+                return Problem(
+                    detail: "La obra no está asignada al capataz autenticado.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Obra no asignada");
+            }
+        }
+
+        var fotosEntrada = new List<FotoEvidenciaEntrada>();
+        if (request.Fotos is { Count: > 0 })
+        {
+            if (request.Fotos.Count > ValidadorFotoEvidencia.MaxFotosPorRecepcion)
+            {
+                return Problem(
+                    statusCode: StatusCodes.Status400BadRequest,
+                    detail: $"Se permiten como máximo {ValidadorFotoEvidencia.MaxFotosPorRecepcion} fotos por entrega con problema.");
+            }
+
+            foreach (var archivo in request.Fotos)
+            {
+                if (archivo.Length == 0)
+                {
+                    return Problem(
+                        statusCode: StatusCodes.Status400BadRequest,
+                        detail: "La foto de evidencia está vacía.");
+                }
+
+                if (archivo.Length > ValidadorFotoEvidencia.MaxTamanoFotoBytes)
+                {
+                    return Problem(
+                        statusCode: StatusCodes.Status400BadRequest,
+                        detail: "Cada foto de evidencia no puede superar los 2 MB.");
+                }
+
+                var bytes = await LeerArchivoConTopeAsync(archivo, ValidadorFotoEvidencia.MaxTamanoFotoBytes, cancellationToken);
+                if (bytes is null)
+                {
+                    return Problem(
+                        statusCode: StatusCodes.Status400BadRequest,
+                        detail: "Cada foto de evidencia no puede superar los 2 MB.");
+                }
+
+                fotosEntrada.Add(new FotoEvidenciaEntrada(archivo.FileName, bytes));
+            }
+        }
+
+        try
+        {
+            var command = new CrearRecepcionCommand(
+                request.ObraId,
+                request.OrdenCompraId,
+                usuarioId,
+                request.NumeroRemito ?? string.Empty,
+                request.FechaRecepcion ?? DateTime.UtcNow,
+                request.Detalle,
+                Array.Empty<CrearDetalleRecepcionRequest>(),
+                correlationId,
+                EstadoRecepcion.Rechazada,
+                request.Motivo,
+                fotosEntrada);
+
+            var creada = await _crearHandler.Handle(command, cancellationToken);
+            return StatusCode(StatusCodes.Status201Created, creada);
+        }
+        catch (RecepcionConflictoException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status409Conflict, detail: ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Obtiene el historial cronológico de recepciones de una orden de compra con estado, motivo y fotos,
+    /// junto con los datos de despacho y saldos por material (#217).
+    /// Roles permitidos: Capataz (obra asignada), Comprador, Admin y Proveedor (solo dueño de la orden).
+    /// </summary>
+    [Authorize(Roles = "Capataz,Comprador,Admin,Proveedor")]
+    [HttpGet("ordenes/{ordenCompraId:guid}")]
+    public async Task<IActionResult> ObtenerRecepcionesPorOrden(
+        [FromRoute] Guid ordenCompraId,
+        CancellationToken cancellationToken = default)
+    {
+        if (_obtenerPorOrdenHandler is null)
+        {
+            throw new InvalidOperationException("ObtenerRecepcionesPorOrdenQueryHandler no está configurado.");
+        }
+
+        var resultado = await _obtenerPorOrdenHandler.Handle(
+            new ObtenerRecepcionesPorOrdenQuery(ordenCompraId),
+            cancellationToken);
+
+        if (resultado is null)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                detail: "La orden de compra no existe.");
+        }
+
+        if (EsCapatazSinPrivilegiosSuperiores() && _obraAsignacionValidator != null)
+        {
+            var authHeader = Request?.Headers["Authorization"].ToString();
+            var correlationId = GetCorrelationIdFromHeader();
+            bool asignada;
+            try
+            {
+                asignada = await _obraAsignacionValidator.EstaAsignadaACapatazAsync(
+                    resultado.ObraId,
+                    authHeader,
+                    correlationId.ToString(),
+                    cancellationToken);
+            }
+            catch (ObraAsignacionNoVerificableException)
+            {
+                return Problem(
+                    detail: "No se pudo verificar que la obra esté asignada al capataz porque el servicio Usuarios y Obras no respondió. Reintentá en unos segundos.",
+                    statusCode: StatusCodes.Status503ServiceUnavailable,
+                    title: "Servicio no disponible");
+            }
+
+            if (!asignada)
+            {
+                return Problem(
+                    detail: "La obra no está asignada al capataz autenticado.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Obra no asignada");
+            }
+        }
+        else if (EsProveedorSinPrivilegiosSuperiores())
+        {
+            if (!TryObtenerUsuarioId(out var proveedorUsuarioId))
+            {
+                return Unauthorized();
+            }
+
+            if (resultado.ProveedorId != proveedorUsuarioId)
+            {
+                return Problem(
+                    detail: "La orden de compra no pertenece al proveedor autenticado.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Orden no autorizada");
+            }
+        }
+
+        return Ok(resultado);
+    }
+
+    /// <summary>
+    /// Descarga una foto de evidencia asociada a una entrega con problema (#217), con Cache-Control privado.
+    /// Roles permitidos: Capataz (obra asignada), Comprador, Admin y Proveedor (solo dueño de la orden).
+    /// </summary>
+    [Authorize(Roles = "Capataz,Comprador,Admin,Proveedor")]
+    [HttpGet("{id:guid}/fotos/{fotoId:guid}")]
+    public async Task<IActionResult> DescargarFotoRecepcion(
+        [FromRoute] Guid id,
+        [FromRoute] Guid fotoId,
+        CancellationToken cancellationToken = default)
+    {
+        if (_obtenerFotoHandler is null)
+        {
+            throw new InvalidOperationException("ObtenerFotoRecepcionQueryHandler no está configurado.");
+        }
+
+        var foto = await _obtenerFotoHandler.Handle(
+            new ObtenerFotoRecepcionQuery(id, fotoId),
+            cancellationToken);
+
+        if (foto is null)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                detail: "La foto de evidencia no existe.");
+        }
+
+        if (EsCapatazSinPrivilegiosSuperiores() && _obraAsignacionValidator != null)
+        {
+            var authHeader = Request?.Headers["Authorization"].ToString();
+            var correlationId = GetCorrelationIdFromHeader();
+            bool asignada;
+            try
+            {
+                asignada = await _obraAsignacionValidator.EstaAsignadaACapatazAsync(
+                    foto.ObraId,
+                    authHeader,
+                    correlationId.ToString(),
+                    cancellationToken);
+            }
+            catch (ObraAsignacionNoVerificableException)
+            {
+                return Problem(
+                    detail: "No se pudo verificar que la obra esté asignada al capataz porque el servicio Usuarios y Obras no respondió. Reintentá en unos segundos.",
+                    statusCode: StatusCodes.Status503ServiceUnavailable,
+                    title: "Servicio no disponible");
+            }
+
+            if (!asignada)
+            {
+                return Problem(
+                    detail: "La obra no está asignada al capataz autenticado.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Obra no asignada");
+            }
+        }
+        else if (EsProveedorSinPrivilegiosSuperiores())
+        {
+            if (!TryObtenerUsuarioId(out var proveedorUsuarioId))
+            {
+                return Unauthorized();
+            }
+
+            if (!foto.ProveedorId.HasValue || foto.ProveedorId.Value != proveedorUsuarioId)
+            {
+                return Problem(
+                    detail: "No tenés permisos para descargar fotos de esta orden de compra.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Acceso denegado");
+            }
+        }
+
+        if (Response?.Headers is not null)
+        {
+            Response.Headers["Cache-Control"] = "private, max-age=3600";
+            Response.Headers["X-Content-Type-Options"] = "nosniff";
+        }
+
+        return File(foto.Contenido, foto.ContentType);
     }
 
     /// <summary>
@@ -499,6 +789,52 @@ public class RecepcionesController : ControllerBase
             return false;
 
         return User.IsInRole("Capataz") && !User.IsInRole("Admin") && !User.IsInRole("Comprador");
+    }
+
+    private bool EsProveedorSinPrivilegiosSuperiores()
+    {
+        if (User?.Identity?.IsAuthenticated != true)
+            return false;
+
+        return User.IsInRole("Proveedor") && !User.IsInRole("Admin") && !User.IsInRole("Comprador");
+    }
+
+    private bool TryObtenerUsuarioId(out Guid usuarioId)
+    {
+        string? usuarioIdTexto = User.FindFirst("sub")?.Value
+                                 ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        return Guid.TryParse(usuarioIdTexto, out usuarioId) && usuarioId != Guid.Empty;
+    }
+
+    private static async Task<byte[]?> LeerArchivoConTopeAsync(
+        IFormFile archivo,
+        int maxBytes,
+        CancellationToken cancellationToken)
+    {
+        using var stream = archivo.OpenReadStream();
+        using var ms = new MemoryStream();
+        var buffer = new byte[81920];
+        int totalLeidos = 0;
+
+        while (true)
+        {
+            int leidos = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
+            if (leidos == 0)
+            {
+                break;
+            }
+
+            totalLeidos += leidos;
+            if (totalLeidos > maxBytes)
+            {
+                return null;
+            }
+
+            ms.Write(buffer, 0, leidos);
+        }
+
+        return ms.ToArray();
     }
 
     private Guid GetCorrelationIdFromHeader()

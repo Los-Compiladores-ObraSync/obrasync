@@ -18,7 +18,8 @@ public record RecepcionConfirmadaEvent(
     Guid OrdenCompraId,
     string NumeroRemito,
     DateTime FechaRecepcion,
-    IReadOnlyList<RecepcionConfirmadaItemEvent> Items
+    IReadOnlyList<RecepcionConfirmadaItemEvent> Items,
+    bool OrdenCompleta = false
 );
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]

@@ -19,9 +19,10 @@ Los esquemas JSON de esta carpeta son el contrato: si un resumen o un comentario
 
 - `RequisicionAprobadaEvent.json`: emitido por Requisiciones y Catálogo al aprobar una requisición; consumido por Licitaciones y Cotizaciones.
 - `OrdenCompraEmitidaEvent.json`: emitido por Licitaciones y Cotizaciones al adjudicar y emitir una orden de compra; consumido por Recepción y Control Presupuestario.
-- `OrdenCompraDespachadaEvent.json`: emitido por Licitaciones y Cotizaciones al marcar una orden de compra como despachada; consumido por Recepción y Control Presupuestario (#202). Su registro espejo en C# es `OrdenCompraDespachadaEvent.cs`.
+- `OrdenCompraDespachadaEvent.json`: emitido por Licitaciones y Cotizaciones al marcar una orden de compra como despachada; consumido por Recepción y Control Presupuestario (#202, #216, #217). Incluye campos aditivos opcionales `fechaEstimadaLlegada` y `observacionDespacho`. Su registro espejo en C# es `OrdenCompraDespachadaEvent.cs`.
 - `OrdenCompraBloqueadaEvent.json`: evento de auditoría emitido por Recepción y Control Presupuestario cuando una orden de compra supera la partida presupuestaria de la etapa/obra y queda en estado `Bloqueada` (#95, #154).
-- `RecepcionConfirmadaEvent.json`: emitido por Recepción y Control Presupuestario al confirmar una recepción física de materiales en obra.
+- `RecepcionConfirmadaEvent.json`: emitido por Recepción y Control Presupuestario al confirmar una recepción física válida (Parcial o Completa) de materiales en obra. Incluye el campo aditivo `ordenCompleta` (#217, #222) para indicar si la orden quedó recibida en su totalidad.
+- `RecepcionConProblemaEvent.json`: emitido por Recepción y Control Presupuestario cuando el Capataz registra una entrega con problema en estado `Rechazada` (#217). Lleva `motivo`, `detalle`, `cantidadFotos` (sin adjuntar binarios), `obraId` y `proveedorId`. Consumido por Licitaciones (#218) y Usuarios (#227). Su registro espejo en C# es `RecepcionConProblemaEvent.cs`.
 
 ## Regla de orden y reintentos entre eventos de Orden de Compra
 
