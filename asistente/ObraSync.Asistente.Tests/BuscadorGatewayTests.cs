@@ -6,7 +6,7 @@ namespace ObraSync.Asistente.Tests;
 public class BuscadorGatewayTests
 {
     private const string JsonCatalogo =
-        "[{\"articuloId\":\"11111111-1111-1111-1111-111111111111\",\"codigo\":\"MAT-CEM-001\",\"descripcion\":\"Cemento Portland 50 kg\",\"unidadMedida\":\"BOLSA\",\"moneda\":\"ARS\",\"activo\":true,\"campoNuevoQueNoConocemos\":123}]";
+        "[{\"articuloId\":\"11111111-1111-1111-1111-111111111111\",\"codigo\":\"MAT-CEM-001\",\"descripcion\":\"Cemento Portland 25 kg\",\"unidadMedida\":\"BOLSA\",\"moneda\":\"ARS\",\"activo\":true,\"campoNuevoQueNoConocemos\":123}]";
 
     private static readonly ConfiguracionApi Api = new("http://gateway.test:5000/");
 

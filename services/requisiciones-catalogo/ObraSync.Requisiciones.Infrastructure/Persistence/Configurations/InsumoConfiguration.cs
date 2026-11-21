@@ -47,7 +47,7 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Configurations
                 {
                     Id = Guid.Parse("11111111-1111-1111-1111-111111110001"),
                     Codigo = "MAT-CEM-001",
-                    Descripcion = "Cemento Portland Normal (bolsa 50 kg)",
+                    Descripcion = "Cemento Portland Normal (bolsa 25 kg)",
                     UnidadMedida = UnidadesMedida.Bolsa,
                     Moneda = Monedas.PesoArgentino,
                     PrecioReferencia = 8500.00m,
@@ -57,7 +57,7 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Configurations
                 {
                     Id = Guid.Parse("11111111-1111-1111-1111-111111110002"),
                     Codigo = "MAT-CEM-002",
-                    Descripcion = "Cemento de Albañilería Plasticor (bolsa 40 kg)",
+                    Descripcion = "Cemento de Albañilería Plasticor (bolsa 25 kg)",
                     UnidadMedida = UnidadesMedida.Bolsa,
                     Moneda = Monedas.PesoArgentino,
                     PrecioReferencia = 7200.00m,

@@ -39,7 +39,7 @@ namespace ObraSync.Requisiciones.Tests.Infrastructure
                 solicitanteId,
                 new[]
                 {
-                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, cementoId, "Cemento Portland Normal (bolsa 50 kg)", 80m, UnidadesMedida.Bolsa)
+                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, cementoId, "Cemento Portland Normal (bolsa 25 kg)", 80m, UnidadesMedida.Bolsa)
                 },
                 etapa: "Fundaciones",
                 fechaCreacion: new DateTime(2026, 10, 18, 8, 0, 0, DateTimeKind.Utc));

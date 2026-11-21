@@ -124,7 +124,7 @@ describe('AsistenteChatPage', () => {
     expect(await screen.findByRole('button', { name: 'Confirmar' })).toBeInTheDocument()
     expect(screen.getByText('Obra: Torre Alvear')).toBeInTheDocument()
     expect(screen.getByText('Etapa: Estructura')).toBeInTheDocument()
-    expect(screen.getByText('20 bolsa · Cemento Portland Especial 50kg')).toBeInTheDocument()
+    expect(screen.getByText('20 bolsa · Cemento Portland Especial 25kg')).toBeInTheDocument()
     expect(creacion.llamadas).toBe(0)
   })
 

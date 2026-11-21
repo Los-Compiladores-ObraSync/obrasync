@@ -26,7 +26,7 @@ const BORRADOR_APROBACION = {
       numero: 'REQ-2026-0042',
       obra: 'Torre Central',
       etapa: 'Estructura',
-      items: [{ descripcion: 'Cemento Portland 50 kg', cantidad: 20, unidadMedida: 'BOLSA' }],
+      items: [{ descripcion: 'Cemento Portland 25 kg', cantidad: 20, unidadMedida: 'BOLSA' }],
     },
   },
   tokensUsados: 10,
@@ -98,7 +98,7 @@ describe('AsistenteChatPage en el portal de Compras', () => {
     expect(screen.getByText('Requisición: REQ-2026-0042')).toBeInTheDocument()
     expect(screen.getByText('Obra: Torre Central')).toBeInTheDocument()
     expect(screen.getByText('Etapa: Estructura')).toBeInTheDocument()
-    expect(screen.getByText(/20 bolsa · Cemento Portland 50 kg/)).toBeInTheDocument()
+    expect(screen.getByText(/20 bolsa · Cemento Portland 25 kg/)).toBeInTheDocument()
     expect(visto.llamadas).toBe(0)
   })
 
@@ -281,7 +281,7 @@ describe('Rechazar una requisición desde el chat de Compras (#149)', () => {
     expect(await screen.findByText('Rechazar requisición REQ-2026-0042')).toBeInTheDocument()
     expect(screen.getByText('Requisición: REQ-2026-0042')).toBeInTheDocument()
     expect(screen.getByText(`Motivo: ${MOTIVO}`)).toBeInTheDocument()
-    expect(screen.getByText(/20 bolsa · Cemento Portland 50 kg/)).toBeInTheDocument()
+    expect(screen.getByText(/20 bolsa · Cemento Portland 25 kg/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Rechazar' })).toBeEnabled()
     // Es una acción que no se puede deshacer: la tarjeta lo avisa.
     expect(screen.getByText(/no se puede deshacer/)).toBeInTheDocument()
@@ -468,7 +468,7 @@ describe('Publicar una licitación desde el chat de Compras (#149)', () => {
     expect(screen.getByText('Requisición: REQ-2026-0042')).toBeInTheDocument()
     const hasta = fechaLarga(finDelDiaEnUtc(fechaLocalEnDias(DIAS_PLAZO)))
     expect(screen.getByText(`Los proveedores cotizan hasta el ${hasta}`)).toBeInTheDocument()
-    expect(screen.getByText(/20 bolsa · Cemento Portland 50 kg/)).toBeInTheDocument()
+    expect(screen.getByText(/20 bolsa · Cemento Portland 25 kg/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Publicar' })).toBeEnabled()
     // No se afirma que sea irreversible: no sabemos si la licitación se puede cancelar.
     expect(screen.queryByText(/no se puede deshacer/)).not.toBeInTheDocument()
@@ -613,7 +613,7 @@ const BORRADOR_ADJUDICACION = {
       puntajeTotal: 82.5,
       esGanadora: true,
       hayOfertaConMayorPuntaje: false,
-      items: [{ descripcion: 'Cemento Portland 50 kg', cantidad: 20, unidadMedida: 'BOLSA' }],
+      items: [{ descripcion: 'Cemento Portland 25 kg', cantidad: 20, unidadMedida: 'BOLSA' }],
     },
   },
   tokensUsados: 10,
@@ -689,7 +689,7 @@ describe('Adjudicar una oferta desde el chat de Compras (#149)', () => {
     expect(screen.getByText(/Materiales \$ 90\.000 \+ flete\s+\$ 5\.000/)).toBeInTheDocument()
     expect(screen.getByText('Plazo de entrega: 3 días')).toBeInTheDocument()
     expect(screen.getByText(/Puntaje: 82,5 \(la de mayor puntaje\)/)).toBeInTheDocument()
-    expect(screen.getByText(/20 bolsa · Cemento Portland 50 kg/)).toBeInTheDocument()
+    expect(screen.getByText(/20 bolsa · Cemento Portland 25 kg/)).toBeInTheDocument()
     // Es irreversible: la tarjeta lo avisa.
     expect(screen.getByText('Esta acción no se puede deshacer. Revisá bien los datos.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Adjudicar' })).toBeEnabled()

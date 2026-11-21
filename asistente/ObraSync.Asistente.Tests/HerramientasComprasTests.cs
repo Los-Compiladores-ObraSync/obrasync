@@ -246,7 +246,7 @@ public class HerramientasComprasTests
         Assert.Null(datos["motivoRechazo"]);
         var items = datos["items"]!.AsArray();
         Assert.Equal(2, items.Count);
-        Assert.Equal("Cemento Portland 50 kg", items[0]!["descripcion"]!.GetValue<string>());
+        Assert.Equal("Cemento Portland 25 kg", items[0]!["descripcion"]!.GetValue<string>());
         Assert.Equal(20m, items[0]!["cantidad"]!.GetValue<decimal>());
         Assert.Equal("BOLSA", items[0]!["unidadMedida"]!.GetValue<string>());
         Assert.Equal(ConsultorFalso.IdPendiente, consultor.UltimoId);
@@ -327,7 +327,7 @@ public class HerramientasComprasTests
         Assert.Equal("Torre Central", b.Resumen.Obra);
         Assert.Equal("Estructura", b.Resumen.Etapa);
         Assert.Equal(2, b.Resumen.Items.Count);
-        Assert.Equal("Cemento Portland 50 kg", b.Resumen.Items[0].Descripcion);
+        Assert.Equal("Cemento Portland 25 kg", b.Resumen.Items[0].Descripcion);
         // La requisición se vuelve a leer para confirmar el estado; el modelo solo ve un resumen corto.
         Assert.Equal(1, consultor.LlamadasDetalle);
         Assert.True(Datos(r)["borradorListo"]!.GetValue<bool>());
@@ -536,7 +536,7 @@ public class HerramientasComprasTests
     private static void DejarAprobada(ConsultorFalso consultor, string estado = "Aprobada") =>
         consultor.ResultadoDetalle = ResultadoRequisicion.Bien(new RequisicionDetalle(
             ConsultorFalso.Pendiente with { Estado = estado }, null, null,
-            new[] { new ItemRequisicion("Cemento Portland 50 kg", 20, "BOLSA") }));
+            new[] { new ItemRequisicion("Cemento Portland 25 kg", 20, "BOLSA") }));
 
     [Fact]
     public async Task Preparar_publicacion_de_una_aprobada_arma_el_borrador_con_los_dias_sin_publicar_nada()

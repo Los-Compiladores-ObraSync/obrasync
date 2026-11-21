@@ -21,7 +21,7 @@ describe('cotizacionesCalculos', () => {
     items: [
       {
         articuloId: 'art-cemento',
-        descripcion: 'Cemento 50kg',
+        descripcion: 'Cemento 25kg',
         cantidad: 80,
         unidadMedida: 'BOLSA',
       },
@@ -101,7 +101,7 @@ describe('cotizacionesCalculos', () => {
       expect(lineas).toEqual([
         {
           articuloId: 'art-cemento',
-          descripcion: 'Cemento 50kg',
+          descripcion: 'Cemento 25kg',
           cantidad: 80,
           unidadMedida: 'BOLSA',
           precioUnitario: 8000,

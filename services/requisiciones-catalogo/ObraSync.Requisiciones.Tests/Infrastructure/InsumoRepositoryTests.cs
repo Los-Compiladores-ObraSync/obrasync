@@ -29,8 +29,8 @@ namespace ObraSync.Requisiciones.Tests.Infrastructure
                 new(Guid.NewGuid(), "MAT-ARI-002", "Piedra Partida Granítica 6-20 mm", UnidadesMedida.MetroCubico, activo: true, precioReferencia: 42000m),
                 new(Guid.NewGuid(), "MAT-ARI-003", "Cascote Picado Limpio de Ladrillo", UnidadesMedida.MetroCubico, activo: true, precioReferencia: 19500m),
                 new(Guid.NewGuid(), "MAT-CAL-001", "Cal Hidratada en Polvo (bolsa 25 kg)", UnidadesMedida.Bolsa, activo: true, precioReferencia: 4800m),
-                new(Guid.NewGuid(), "MAT-CEM-001", "Cemento Portland Normal (bolsa 50 kg)", UnidadesMedida.Bolsa, activo: true, precioReferencia: 8500m),
-                new(Guid.NewGuid(), "MAT-CEM-002", "Cemento de Albañilería Plasticor (bolsa 40 kg)", UnidadesMedida.Bolsa, activo: true, precioReferencia: 7200m),
+                new(Guid.NewGuid(), "MAT-CEM-001", "Cemento Portland Normal (bolsa 25 kg)", UnidadesMedida.Bolsa, activo: true, precioReferencia: 8500m),
+                new(Guid.NewGuid(), "MAT-CEM-002", "Cemento de Albañilería Plasticor (bolsa 25 kg)", UnidadesMedida.Bolsa, activo: true, precioReferencia: 7200m),
                 new(Guid.NewGuid(), "MAT-INA-001", "Insumo Descontinuado Inactivo", UnidadesMedida.Unidad, activo: false, precioReferencia: 1000m)
             };
 

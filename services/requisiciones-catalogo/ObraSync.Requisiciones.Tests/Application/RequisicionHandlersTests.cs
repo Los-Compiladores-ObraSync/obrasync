@@ -29,7 +29,7 @@ namespace ObraSync.Requisiciones.Tests.Application
             var insumoCemento = new Insumo(
                 cementoId,
                 "MAT-CEM-001",
-                "Cemento Portland Normal (bolsa 50 kg)",
+                "Cemento Portland Normal (bolsa 25 kg)",
                 UnidadesMedida.Bolsa,
                 activo: true,
                 precioReferencia: 8500m);
@@ -64,7 +64,7 @@ namespace ObraSync.Requisiciones.Tests.Application
             Assert.Equal(EstadoRequisicion.Pendiente, resultado.Estado);
             Assert.Single(resultado.Items);
             Assert.Equal(cementoId, resultado.Items[0].ArticuloId);
-            Assert.Equal("Cemento Portland Normal (bolsa 50 kg)", resultado.Items[0].Descripcion);
+            Assert.Equal("Cemento Portland Normal (bolsa 25 kg)", resultado.Items[0].Descripcion);
             Assert.Equal(80m, resultado.Items[0].Cantidad);
             Assert.Equal(UnidadesMedida.Bolsa, resultado.Items[0].UnidadMedida);
 
@@ -126,7 +126,7 @@ namespace ObraSync.Requisiciones.Tests.Application
                         Guid.NewGuid(),
                         requisicionId,
                         cementoId,
-                        "Cemento Portland Normal (bolsa 50 kg)",
+                        "Cemento Portland Normal (bolsa 25 kg)",
                         80m,
                         UnidadesMedida.Bolsa)
                 },
@@ -186,7 +186,7 @@ namespace ObraSync.Requisiciones.Tests.Application
                         Guid.NewGuid(),
                         requisicionId,
                         cementoId,
-                        "Cemento Portland Normal (bolsa 50 kg)",
+                        "Cemento Portland Normal (bolsa 25 kg)",
                         40m,
                         UnidadesMedida.Bolsa)
                 },
@@ -226,7 +226,7 @@ namespace ObraSync.Requisiciones.Tests.Application
                 {
                     new RequisicionAprobadaItemEvent(
                         Guid.NewGuid(),
-                        "Cemento Portland Normal (bolsa 50 kg)",
+                        "Cemento Portland Normal (bolsa 25 kg)",
                         80m,
                         UnidadesMedida.Bolsa)
                 },
@@ -264,7 +264,7 @@ namespace ObraSync.Requisiciones.Tests.Application
               "items": [
                 {
                   "articuloId": "11111111-1111-1111-1111-111111110001",
-                  "descripcion": "Cemento Portland Normal (bolsa 50 kg)",
+                  "descripcion": "Cemento Portland Normal (bolsa 25 kg)",
                   "cantidad": 80,
                   "unidadMedida": "BOLSA"
                 }
@@ -299,7 +299,7 @@ namespace ObraSync.Requisiciones.Tests.Application
                         Guid.NewGuid(),
                         requisicionId,
                         cementoId,
-                        "Cemento Portland Normal (bolsa 50 kg)",
+                        "Cemento Portland Normal (bolsa 25 kg)",
                         10m,
                         UnidadesMedida.Bolsa)
                 },
@@ -354,7 +354,7 @@ namespace ObraSync.Requisiciones.Tests.Application
                         Guid.NewGuid(),
                         requisicionId,
                         cementoId,
-                        "Cemento Portland Normal (bolsa 50 kg)",
+                        "Cemento Portland Normal (bolsa 25 kg)",
                         80m,
                         UnidadesMedida.Bolsa)
                 },
@@ -400,7 +400,7 @@ namespace ObraSync.Requisiciones.Tests.Application
                 solicitanteId,
                 new[]
                 {
-                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, cementoId, "Cemento Portland Normal (bolsa 50 kg)", 50m, UnidadesMedida.Bolsa)
+                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, cementoId, "Cemento Portland Normal (bolsa 25 kg)", 50m, UnidadesMedida.Bolsa)
                 },
                 etapa: "Terminaciones",
                 fechaCreacion: new DateTime(2026, 10, 20, 12, 0, 0, DateTimeKind.Utc));
@@ -413,7 +413,7 @@ namespace ObraSync.Requisiciones.Tests.Application
                 solicitanteId,
                 new[]
                 {
-                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, cementoId, "Cemento Portland Normal (bolsa 50 kg)", 80m, UnidadesMedida.Bolsa)
+                    new RequisicionItem(Guid.NewGuid(), Guid.Empty, cementoId, "Cemento Portland Normal (bolsa 25 kg)", 80m, UnidadesMedida.Bolsa)
                 },
                 etapa: "Estructura",
                 fechaCreacion: new DateTime(2026, 10, 19, 10, 0, 0, DateTimeKind.Utc));

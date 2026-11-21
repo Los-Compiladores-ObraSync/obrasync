@@ -198,7 +198,7 @@ public class RecepcionesEndpointTests : IClassFixture<RecepcionApiFactory>
                 Id = Guid.NewGuid(),
                 RecepcionId = recepcionId,
                 ArticuloId = articuloId,
-                DescripcionArticulo = "Cemento Portland 50kg",
+                DescripcionArticulo = "Cemento Portland 25kg",
                 CantidadEsperada = 50,
                 CantidadRecibida = 50,
                 UnidadMedida = "Bolsa",
@@ -220,7 +220,7 @@ public class RecepcionesEndpointTests : IClassFixture<RecepcionApiFactory>
         var item = Assert.Single(recepciones);
         Assert.NotEmpty(item.Detalles);
         Assert.Equal(50, item.Detalles.First().CantidadRecibida);
-        Assert.Equal("Cemento Portland 50kg", item.Detalles.First().DescripcionArticulo);
+        Assert.Equal("Cemento Portland 25kg", item.Detalles.First().DescripcionArticulo);
     }
 
     [Theory]

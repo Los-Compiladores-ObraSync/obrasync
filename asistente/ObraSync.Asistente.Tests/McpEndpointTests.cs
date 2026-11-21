@@ -307,7 +307,7 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
 
         var texto = respuesta.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString()!;
         Assert.Contains("borradorArmado", texto);
-        Assert.Contains("Cemento Portland 50 kg", texto);
+        Assert.Contains("Cemento Portland 25 kg", texto);
         Assert.DoesNotContain("00000000-0000-0000-0000-000000000001", texto);
     }
 
