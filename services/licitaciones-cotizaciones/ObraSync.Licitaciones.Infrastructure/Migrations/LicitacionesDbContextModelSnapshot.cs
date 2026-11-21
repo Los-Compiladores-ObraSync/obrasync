@@ -420,6 +420,9 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                     b.Property<Guid>("CotizacionId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("DespachadaPor")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Estado")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -431,8 +434,15 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                     b.Property<DateTime>("FechaEmision")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("FechaEstimadaLlegada")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("LicitacionId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Observacion")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<Guid>("ProveedorId")
                         .HasColumnType("uniqueidentifier");

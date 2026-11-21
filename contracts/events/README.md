@@ -19,7 +19,7 @@ Los esquemas JSON de esta carpeta son el contrato: si un resumen o un comentario
 
 - `RequisicionAprobadaEvent.json`: emitido por Requisiciones y Catálogo al aprobar una requisición; consumido por Licitaciones y Cotizaciones.
 - `OrdenCompraEmitidaEvent.json`: emitido por Licitaciones y Cotizaciones al adjudicar y emitir una orden de compra; consumido por Recepción y Control Presupuestario.
-- `OrdenCompraDespachadaEvent.json`: emitido por Licitaciones y Cotizaciones al marcar una orden de compra como despachada; consumido por Recepción y Control Presupuestario (#202). Su registro espejo en C# es `OrdenCompraDespachadaEvent.cs`.
+- `OrdenCompraDespachadaEvent.json`: emitido por Licitaciones y Cotizaciones al marcar una orden de compra como despachada; consumido por Recepción y Control Presupuestario (#202; campos aditivos opcionales `fechaEstimadaLlegada` y `observacion` agregados en #216). Su registro espejo en C# es `OrdenCompraDespachadaEvent.cs`.
 - `OrdenCompraBloqueadaEvent.json`: evento de auditoría emitido por Recepción y Control Presupuestario cuando una orden de compra supera la partida presupuestaria de la etapa/obra y queda en estado `Bloqueada` (#95, #154).
 - `RecepcionConfirmadaEvent.json`: emitido por Recepción y Control Presupuestario al confirmar una recepción física de materiales en obra.
 

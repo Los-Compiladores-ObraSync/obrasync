@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Commands;
@@ -114,18 +115,30 @@ public class OrdenesCompraController : ControllerBase
     }
 
     /// <summary>
-    /// Marcar una orden de compra como despachada y publicar OrdenCompraDespachadaEvent (Roles: Comprador, Admin).
+    /// Marcar una orden de compra como despachada y publicar OrdenCompraDespachadaEvent
+    /// (Rol: Proveedor dueño de la orden). Operación idempotente.
     /// </summary>
     [HttpPost("{id:guid}/despachar")]
-    [Authorize(Roles = "Comprador,Admin")]
+    [Authorize(Roles = "Proveedor")]
     [ProducesResponseType(typeof(OrdenCompraResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Despachar(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Despachar(
+        Guid id,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] DespacharOrdenCompraRequestDto? request = null,
+        CancellationToken cancellationToken = default)
     {
+        var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(sub, out var usuarioId) || usuarioId == Guid.Empty)
+        {
+            return Problem(
+                detail: "El token JWT no contiene un claim 'sub' válido con formato GUID para identificar al proveedor.",
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Usuario no identificado");
+        }
+
         try
         {
             var correlationHeader = HttpContext?.Request.Headers["X-Correlation-ID"].FirstOrDefault()
@@ -135,7 +148,12 @@ public class OrdenesCompraController : ControllerBase
                 ? parsedCorrelationId
                 : Guid.NewGuid();
 
-            var command = new DespacharOrdenCompraCommand(id, correlationId);
+            var command = new DespacharOrdenCompraCommand(
+                OrdenCompraId: id,
+                UsuarioId: usuarioId,
+                CorrelationId: correlationId,
+                FechaEstimadaLlegada: request?.FechaEstimadaLlegada,
+                Observacion: request?.Observacion);
             var resultado = await _mediator.Send(command, cancellationToken);
             return Ok(resultado);
         }
@@ -146,12 +164,12 @@ public class OrdenesCompraController : ControllerBase
                 statusCode: StatusCodes.Status404NotFound,
                 title: "Recurso no encontrado");
         }
-        catch (InvalidOperationException ex)
+        catch (UnauthorizedAccessException ex)
         {
             return Problem(
                 detail: ex.Message,
-                statusCode: StatusCodes.Status409Conflict,
-                title: "Conflicto al despachar la orden de compra");
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Acceso denegado");
         }
         catch (ArgumentException ex)
         {

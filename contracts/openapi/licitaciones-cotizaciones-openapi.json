@@ -1035,8 +1035,8 @@
         "tags": [
           "OrdenesCompra"
         ],
-        "summary": "Marcar una orden de compra como despachada (Roles: Comprador, Admin)",
-        "description": "Permite a un Comprador o Administrador marcar una orden de compra como despachada, registrando la fecha de despacho UTC y publicando OrdenCompraDespachadaEvent. Devuelve 404 si no existe o 409 si ya estaba despachada.",
+        "summary": "Marcar una orden de compra como despachada (Rol: Proveedor dueño de la orden)",
+        "description": "Permite únicamente al Proveedor titular de la orden de compra marcarla como despachada, registrando quién despachó (despachadaPor), cuándo (despachadaEn / fechaDespacho en UTC), una fecha estimada de llegada opcional (no anterior a hoy) y una observación opcional de hasta 200 caracteres, publicando OrdenCompraDespachadaEvent. Compras (Comprador), otros proveedores, Capataz y Admin reciben 403 Forbidden. La operación es idempotente: si la orden ya fue despachada devuelve 200 OK con el estado actual guardado sin sobrescribir los datos originales ni volver a publicar el evento.",
         "parameters": [
           {
             "name": "id",
@@ -1049,9 +1049,20 @@
             }
           }
         ],
+        "requestBody": {
+          "required": false,
+          "description": "Datos opcionales informados por el proveedor al despachar la orden.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DespacharOrdenCompraRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Orden de compra marcada como despachada exitosamente.",
+            "description": "Orden de compra marcada como despachada (o estado actual si ya había sido despachada previamente).",
             "content": {
               "application/json": {
                 "schema": {
@@ -1059,6 +1070,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -1068,16 +1082,6 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
-          },
-          "409": {
-            "description": "Conflict (La orden de compra ya fue despachada)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
           }
         }
       }
@@ -1981,6 +1985,48 @@
             "format": "date-time",
             "nullable": true,
             "description": "Fecha y hora en que se marcó el despacho de la orden de compra (en UTC), o null si todavía no fue despachada."
+          },
+          "despachadaPor": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Identificador (GUID) del usuario proveedor que marcó el despacho de la orden de compra, o null si aún no fue despachada."
+          },
+          "despachadaEn": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fecha y hora (en UTC) en que se registró el despacho de la orden de compra (mismo valor que fechaDespacho), o null si todavía no fue despachada."
+          },
+          "fechaEstimadaLlegada": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fecha estimada de llegada a la obra informada opcionalmente por el proveedor al despachar (en UTC)."
+          },
+          "observacion": {
+            "type": "string",
+            "maxLength": 200,
+            "nullable": true,
+            "description": "Observación corta opcional cargada por el proveedor al despachar (máximo 200 caracteres)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DespacharOrdenCompraRequestDto": {
+        "type": "object",
+        "properties": {
+          "fechaEstimadaLlegada": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fecha estimada de llegada a obra (opcional, no puede ser anterior al día de hoy)."
+          },
+          "observacion": {
+            "type": "string",
+            "maxLength": 200,
+            "nullable": true,
+            "description": "Observación corta opcional sobre el despacho (máximo 200 caracteres)."
           }
         },
         "additionalProperties": false
@@ -2096,6 +2142,26 @@
           "fechaDespacho": {
             "type": "string",
             "format": "date-time",
+            "nullable": true
+          },
+          "despachadaPor": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "despachadaEn": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "fechaEstimadaLlegada": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "observacion": {
+            "type": "string",
+            "maxLength": 200,
             "nullable": true
           },
           "proveedorId": {

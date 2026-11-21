@@ -51,7 +51,11 @@ public class GetSeguimientoRequisicionQueryHandler
                 o.FechaEmision,
                 o.FechaDespacho,
                 o.ProveedorId,
-                nombrePorProveedor.GetValueOrDefault(o.ProveedorId)))
+                nombrePorProveedor.GetValueOrDefault(o.ProveedorId),
+                o.DespachadaPor,
+                o.DespachadaEn,
+                o.FechaEstimadaLlegada,
+                o.Observacion))
             .ToList();
 
         return new SeguimientoRequisicionDto(

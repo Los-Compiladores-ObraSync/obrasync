@@ -120,10 +120,64 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         Assert.Equal(expectedCorrelationId, doc.RootElement.GetProperty("correlationId").GetString());
     }
 
-    // ---- 1. Pruebas unitarias del Handler (xUnit + NSubstitute) ----
+    private static (Guid ordenId, Guid obraId, Guid proveedorId) SembrarOrdenEmitida(LicitacionesDbContext db)
+    {
+        var licId = Guid.NewGuid();
+        var obraId = Guid.NewGuid();
+        var ordenId = Guid.NewGuid();
+        var proveedorId = Guid.NewGuid();
+
+        db.Licitaciones.Add(new Licitacion
+        {
+            LicitacionId = licId,
+            RequisicionId = Guid.NewGuid(),
+            NumeroRequisicion = $"REQ-2026-{Random.Shared.Next(1000, 9999)}",
+            ObraId = obraId,
+            Estado = EstadoLicitacion.Adjudicada,
+            FechaCreacion = DateTime.UtcNow.AddDays(-1),
+            FechaLimiteCotizacion = DateTime.UtcNow.AddDays(1)
+        });
+        db.OrdenesCompra.Add(new OrdenCompra
+        {
+            OrdenCompraId = ordenId,
+            LicitacionId = licId,
+            CotizacionId = Guid.NewGuid(),
+            ProveedorId = proveedorId,
+            Estado = "Emitida",
+            FechaEmision = DateTime.UtcNow
+        });
+
+        return (ordenId, obraId, proveedorId);
+    }
+
+    // ---- 1. Pruebas unitarias de Dominio y Handler (xUnit + NSubstitute) ----
 
     [Fact]
-    public async Task Handler_DespacharOrdenEmitida_ActualizaEstadoYPublicaOrdenCompraDespachadaEventUnaSolaVez()
+    public void Dominio_FechaEstimadaUnspecified_NormalizaAUtcSinCorrimientoLocal()
+    {
+        var proveedorId = Guid.NewGuid();
+        var ahoraUtc = new DateTime(2026, 11, 21, 18, 0, 0, DateTimeKind.Utc);
+        var fechaHoyUnspecified = new DateTime(2026, 11, 21, 0, 0, 0, DateTimeKind.Unspecified);
+
+        var orden = new OrdenCompra
+        {
+            OrdenCompraId = Guid.NewGuid(),
+            ProveedorId = proveedorId,
+            Estado = "Emitida"
+        };
+
+        var cambio = orden.Despachar(proveedorId, ahoraUtc, fechaHoyUnspecified, "  Entrega en portería  ");
+
+        Assert.True(cambio);
+        Assert.Equal(DateTimeKind.Utc, orden.FechaEstimadaLlegada!.Value.Kind);
+        Assert.Equal(new DateTime(2026, 11, 21, 0, 0, 0, DateTimeKind.Utc), orden.FechaEstimadaLlegada.Value);
+        Assert.Equal("Entrega en portería", orden.Observacion);
+        Assert.Equal(proveedorId, orden.DespachadaPor);
+        Assert.Equal(ahoraUtc, orden.DespachadaEn);
+    }
+
+    [Fact]
+    public async Task Handler_DespacharOrdenEmitidaPorProveedorDueno_ActualizaEstadoYPublicaOrdenCompraDespachadaEventUnaSolaVez()
     {
         var ordenRepo = Substitute.For<IOrdenCompraRepository>();
         var publishEndpoint = Substitute.For<IPublishEndpoint>();
@@ -135,6 +189,8 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         var obraId = Guid.NewGuid();
         var proveedorId = Guid.NewGuid();
         var correlationId = Guid.NewGuid();
+        var fechaEstimada = DateTime.UtcNow.Date.AddDays(3);
+        const string observacion = "Sale camión patente AB123CD por la mañana";
 
         var orden = new OrdenCompra
         {
@@ -152,16 +208,26 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, publishEndpoint, unitOfWork);
         var antesUtc = DateTime.UtcNow.AddSeconds(-2);
 
-        var resultado = await handler.Handle(new DespacharOrdenCompraCommand(ordenId, correlationId), CancellationToken.None);
+        var resultado = await handler.Handle(
+            new DespacharOrdenCompraCommand(ordenId, proveedorId, correlationId, fechaEstimada, $"  {observacion}  "),
+            CancellationToken.None);
 
         Assert.Equal("Despachada", orden.Estado);
         Assert.NotNull(orden.FechaDespacho);
         Assert.InRange(orden.FechaDespacho!.Value, antesUtc, DateTime.UtcNow.AddSeconds(2));
+        Assert.Equal(proveedorId, orden.DespachadaPor);
+        Assert.Equal(orden.FechaDespacho, orden.DespachadaEn);
+        Assert.Equal(fechaEstimada, orden.FechaEstimadaLlegada);
+        Assert.Equal(observacion, orden.Observacion);
 
         Assert.Equal(ordenId, resultado.Id);
         Assert.Equal("Despachada", resultado.Estado);
         Assert.True(resultado.FueDespachada);
-        Assert.NotNull(resultado.FechaDespacho);
+        Assert.Equal(orden.FechaDespacho, resultado.FechaDespacho);
+        Assert.Equal(orden.FechaDespacho, resultado.DespachadaEn);
+        Assert.Equal(proveedorId, resultado.DespachadaPor);
+        Assert.Equal(fechaEstimada, resultado.FechaEstimadaLlegada);
+        Assert.Equal(observacion, resultado.Observacion);
         Assert.Equal(obraId, resultado.ObraId);
 
         Received.InOrder(() =>
@@ -180,10 +246,45 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
                 e.CorrelationId == correlationId &&
                 e.OrdenCompraId == ordenId &&
                 e.ObraId == obraId &&
-                e.FechaDespacho == orden.FechaDespacho.Value),
+                e.FechaDespacho == orden.FechaDespacho.Value &&
+                e.FechaEstimadaLlegada == fechaEstimada &&
+                e.Observacion == observacion),
             Arg.Any<CancellationToken>());
 
         await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handler_OtroProveedor_LanzaUnauthorizedAccessExceptionYNoPublicaEvento()
+    {
+        var ordenRepo = Substitute.For<IOrdenCompraRepository>();
+        var publishEndpoint = Substitute.For<IPublishEndpoint>();
+        var unitOfWork = Substitute.For<IUnitOfWork>();
+
+        var ordenId = Guid.NewGuid();
+        var proveedorDueno = Guid.NewGuid();
+        var otroProveedor = Guid.NewGuid();
+        var orden = new OrdenCompra
+        {
+            OrdenCompraId = ordenId,
+            ProveedorId = proveedorDueno,
+            ObraId = Guid.NewGuid(),
+            Estado = "Emitida",
+            FechaEmision = DateTime.UtcNow.AddHours(-1)
+        };
+
+        ordenRepo.GetByIdAsync(ordenId, Arg.Any<CancellationToken>()).Returns(orden);
+        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, publishEndpoint, unitOfWork);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            handler.Handle(new DespacharOrdenCompraCommand(ordenId, otroProveedor, Guid.NewGuid()), CancellationToken.None));
+
+        Assert.Equal("Emitida", orden.Estado);
+        await ordenRepo.DidNotReceive().UpdateAsync(Arg.Any<OrdenCompra>(), Arg.Any<CancellationToken>());
+        await publishEndpoint.DidNotReceive().Publish<OrdenCompraDespachadaEvent>(
+            Arg.Any<OrdenCompraDespachadaEvent>(),
+            Arg.Any<CancellationToken>());
+        await unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -199,7 +300,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, publishEndpoint, unitOfWork);
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
-            handler.Handle(new DespacharOrdenCompraCommand(idInexistente, Guid.NewGuid()), CancellationToken.None));
+            handler.Handle(new DespacharOrdenCompraCommand(idInexistente, Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None));
 
         await publishEndpoint.DidNotReceive().Publish<OrdenCompraDespachadaEvent>(
             Arg.Any<OrdenCompraDespachadaEvent>(),
@@ -208,31 +309,53 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
     }
 
     [Fact]
-    public async Task Handler_OrdenYaDespachada_LanzaInvalidOperationExceptionYNoPublicaEvento()
+    public async Task Handler_OrdenYaDespachada_EsIdempotenteNoPisaDatosYNoVuelveAPublicarEvento()
     {
         var ordenRepo = Substitute.For<IOrdenCompraRepository>();
         var publishEndpoint = Substitute.For<IPublishEndpoint>();
         var unitOfWork = Substitute.For<IUnitOfWork>();
 
         var ordenId = Guid.NewGuid();
+        var proveedorId = Guid.NewGuid();
+        var fechaOriginal = DateTime.UtcNow.AddHours(-3);
+        var fechaEstimadaOriginal = DateTime.UtcNow.Date.AddDays(2);
+        const string observacionOriginal = "Observación original";
+
         var orden = new OrdenCompra
         {
             OrdenCompraId = ordenId,
             LicitacionId = Guid.NewGuid(),
             CotizacionId = Guid.NewGuid(),
-            ProveedorId = Guid.NewGuid(),
+            ProveedorId = proveedorId,
             ObraId = Guid.NewGuid(),
             Estado = "Despachada",
             FechaEmision = DateTime.UtcNow.AddDays(-1),
-            FechaDespacho = DateTime.UtcNow.AddHours(-3)
+            FechaDespacho = fechaOriginal,
+            DespachadaPor = proveedorId,
+            FechaEstimadaLlegada = fechaEstimadaOriginal,
+            Observacion = observacionOriginal
         };
 
         ordenRepo.GetByIdAsync(ordenId, Arg.Any<CancellationToken>()).Returns(orden);
 
         var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, publishEndpoint, unitOfWork);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            handler.Handle(new DespacharOrdenCompraCommand(ordenId, Guid.NewGuid()), CancellationToken.None));
+        // Incluso enviando una fecha estimada que hoy ya sería pasada u otra observación, devuelve el estado guardado
+        var resultado = await handler.Handle(
+            new DespacharOrdenCompraCommand(
+                ordenId,
+                proveedorId,
+                Guid.NewGuid(),
+                FechaEstimadaLlegada: DateTime.UtcNow.Date.AddDays(-5),
+                Observacion: "Intento de pisar observación"),
+            CancellationToken.None);
+
+        Assert.Equal("Despachada", resultado.Estado);
+        Assert.Equal(fechaOriginal, resultado.FechaDespacho);
+        Assert.Equal(fechaOriginal, resultado.DespachadaEn);
+        Assert.Equal(proveedorId, resultado.DespachadaPor);
+        Assert.Equal(fechaEstimadaOriginal, resultado.FechaEstimadaLlegada);
+        Assert.Equal(observacionOriginal, resultado.Observacion);
 
         await ordenRepo.DidNotReceive().UpdateAsync(Arg.Any<OrdenCompra>(), Arg.Any<CancellationToken>());
         await publishEndpoint.DidNotReceive().Publish<OrdenCompraDespachadaEvent>(
@@ -249,12 +372,13 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         var unitOfWork = Substitute.For<IUnitOfWork>();
 
         var ordenId = Guid.NewGuid();
+        var proveedorId = Guid.NewGuid();
         var orden = new OrdenCompra
         {
             OrdenCompraId = ordenId,
             LicitacionId = Guid.NewGuid(),
             CotizacionId = Guid.NewGuid(),
-            ProveedorId = Guid.NewGuid(),
+            ProveedorId = proveedorId,
             ObraId = Guid.NewGuid(),
             Estado = "Emitida",
             FechaEmision = DateTime.UtcNow.AddHours(-1)
@@ -267,7 +391,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, publishEndpoint, unitOfWork);
 
         await Assert.ThrowsAsync<DbUpdateException>(() =>
-            handler.Handle(new DespacharOrdenCompraCommand(ordenId, Guid.NewGuid()), CancellationToken.None));
+            handler.Handle(new DespacharOrdenCompraCommand(ordenId, proveedorId, Guid.NewGuid()), CancellationToken.None));
 
         await publishEndpoint.DidNotReceive().Publish<OrdenCompraDespachadaEvent>(
             Arg.Any<OrdenCompraDespachadaEvent>(),
@@ -290,12 +414,13 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         var unitOfWork = Substitute.For<IUnitOfWork>();
 
         var ordenId = Guid.NewGuid();
+        var proveedorId = Guid.NewGuid();
         var orden = new OrdenCompra
         {
             OrdenCompraId = ordenId,
             LicitacionId = Guid.NewGuid(),
             CotizacionId = Guid.NewGuid(),
-            ProveedorId = Guid.NewGuid(),
+            ProveedorId = proveedorId,
             ObraId = Guid.NewGuid(),
             Estado = "Emitida",
             FechaEmision = DateTime.UtcNow.AddHours(-1)
@@ -308,7 +433,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, publishEndpoint, unitOfWork);
 
         await Assert.ThrowsAsync<DbUpdateException>(() =>
-            handler.Handle(new DespacharOrdenCompraCommand(ordenId, Guid.NewGuid()), CancellationToken.None));
+            handler.Handle(new DespacharOrdenCompraCommand(ordenId, proveedorId, Guid.NewGuid()), CancellationToken.None));
 
         Assert.Equal(0, await db.Set<MassTransit.EntityFrameworkCoreIntegration.OutboxMessage>().CountAsync());
     }
@@ -316,7 +441,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
     // ---- 2. Pruebas de integración HTTP con WebApplicationFactory ----
 
     [Fact]
-    public async Task FlujoCompleto_AdjudicarLuegoListarYDespachar_PublicaEventoConCorrelationIdYActualizaListado()
+    public async Task FlujoCompleto_AdjudicarLuegoDespacharPorProveedorDueno_PublicaEventoEsIdempotenteYComprasVeSoloLectura()
     {
         var licitacionId = Guid.NewGuid();
         var obraId = Guid.NewGuid();
@@ -370,12 +495,12 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
             });
         });
 
-        var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization =
+        var clientComprador = factory.CreateClient();
+        clientComprador.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
 
         // 1. Adjudicar la cotización -> crea OrdenCompra en estado "Emitida"
-        var adjudicarResp = await client.PostAsJsonAsync(
+        var adjudicarResp = await clientComprador.PostAsJsonAsync(
             $"/api/licitaciones/{licitacionId}/adjudicar",
             new { cotizacionId });
         Assert.Equal(HttpStatusCode.OK, adjudicarResp.StatusCode);
@@ -385,35 +510,33 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         Assert.Equal("Emitida", ocEmitida.Estado);
         Assert.False(ocEmitida.FueDespachada);
         Assert.Null(ocEmitida.FechaDespacho);
+        Assert.Null(ocEmitida.DespachadaPor);
+        Assert.Null(ocEmitida.DespachadaEn);
 
-        // 2. Listar en GET /api/ordenes-compra antes del despacho
-        var listarAntesResp = await client.GetAsync("/api/ordenes-compra");
+        // 2. Compras lista en GET /api/ordenes-compra antes del despacho (solo lectura)
+        var listarAntesResp = await clientComprador.GetAsync("/api/ordenes-compra");
         Assert.Equal(HttpStatusCode.OK, listarAntesResp.StatusCode);
-        Assert.True(listarAntesResp.Headers.TryGetValues("X-Total-Count", out var totalCountHeaders));
-        Assert.Equal("1", totalCountHeaders.Single());
+        Assert.Equal("1", listarAntesResp.Headers.GetValues("X-Total-Count").Single());
 
-        var listaAntes = await listarAntesResp.Content.ReadFromJsonAsync<List<OrdenCompraResponseDto>>();
-        Assert.NotNull(listaAntes);
-        var ocListadoAntes = Assert.Single(listaAntes);
-        Assert.Equal(ocEmitida.Id, ocListadoAntes.Id);
-        Assert.Equal(obraId, ocListadoAntes.ObraId);
-        Assert.Equal("Emitida", ocListadoAntes.Estado);
-        Assert.False(ocListadoAntes.FueDespachada);
-        Assert.Null(ocListadoAntes.FechaDespacho);
-
-        // 3. Despachar la orden de compra propagando X-Correlation-ID
+        // 3. Proveedor dueño marca el despacho con fechaEstimadaLlegada y observacion propagando X-Correlation-ID
         var correlationId = Guid.NewGuid();
-        var clientDespacho = factory.CreateClient();
-        clientDespacho.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
-        clientDespacho.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId.ToString());
+        var fechaEstimada = DateTime.UtcNow.Date.AddDays(4);
+        const string observacion = "Remito #4421 - descargar en portón norte";
 
-        var despacharResp = await clientDespacho.PostAsync($"/api/ordenes-compra/{ocEmitida.Id}/despachar", null);
+        var clientProveedor = factory.CreateClient();
+        clientProveedor.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorId));
+        clientProveedor.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId.ToString());
+
+        var despacharResp = await clientProveedor.PostAsJsonAsync(
+            $"/api/ordenes-compra/{ocEmitida.Id}/despachar",
+            new DespacharOrdenCompraRequestDto(fechaEstimada, observacion));
         Assert.Equal(HttpStatusCode.OK, despacharResp.StatusCode);
 
         var despacharJson = await despacharResp.Content.ReadAsStringAsync();
         using var docDespacho = JsonDocument.Parse(despacharJson);
         Assert.EndsWith("Z", docDespacho.RootElement.GetProperty("fechaDespacho").GetString());
+        Assert.EndsWith("Z", docDespacho.RootElement.GetProperty("despachadaEn").GetString());
 
         var ocDespachada = docDespacho.RootElement.Deserialize<OrdenCompraResponseDto>(
             new JsonSerializerOptions(JsonSerializerDefaults.Web));
@@ -421,6 +544,10 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         Assert.Equal("Despachada", ocDespachada.Estado);
         Assert.True(ocDespachada.FueDespachada);
         Assert.NotNull(ocDespachada.FechaDespacho);
+        Assert.Equal(ocDespachada.FechaDespacho, ocDespachada.DespachadaEn);
+        Assert.Equal(proveedorId, ocDespachada.DespachadaPor);
+        Assert.Equal(fechaEstimada, ocDespachada.FechaEstimadaLlegada);
+        Assert.Equal(observacion, ocDespachada.Observacion);
 
         await publishSpy.Received(1).Publish<OrdenCompraDespachadaEvent>(
             Arg.Is<OrdenCompraDespachadaEvent>(e =>
@@ -428,28 +555,186 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
                 e.CorrelationId == correlationId &&
                 e.OrdenCompraId == ocEmitida.Id &&
                 e.ObraId == obraId &&
-                e.FechaDespacho == ocDespachada.FechaDespacho!.Value),
+                e.FechaDespacho == ocDespachada.FechaDespacho!.Value &&
+                e.FechaEstimadaLlegada == fechaEstimada &&
+                e.Observacion == observacion),
             Arg.Any<CancellationToken>());
 
-        // 4. Confirmar en el listado que quedó marcada como Despachada
-        var listaDespues = await client.GetFromJsonAsync<List<OrdenCompraResponseDto>>("/api/ordenes-compra?estado=Despachada");
+        // 4. Comprador ve los datos del despacho en GET /api/ordenes-compra
+        var listaDespues = await clientComprador.GetFromJsonAsync<List<OrdenCompraResponseDto>>("/api/ordenes-compra?estado=Despachada");
         Assert.NotNull(listaDespues);
         var ocListadoDespues = Assert.Single(listaDespues);
         Assert.Equal("Despachada", ocListadoDespues.Estado);
         Assert.True(ocListadoDespues.FueDespachada);
-        Assert.NotNull(ocListadoDespues.FechaDespacho);
+        Assert.Equal(proveedorId, ocListadoDespues.DespachadaPor);
+        Assert.Equal(ocDespachada.FechaDespacho, ocListadoDespues.DespachadaEn);
+        Assert.Equal(fechaEstimada, ocListadoDespues.FechaEstimadaLlegada);
+        Assert.Equal(observacion, ocListadoDespues.Observacion);
 
-        // 5. Segundo intento de despacho devuelve 409 Conflict y NO vuelve a publicar el evento
-        var cidSegundo = Guid.NewGuid().ToString();
-        var clientSegundo = factory.CreateClient();
-        clientSegundo.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Admin"));
-        clientSegundo.DefaultRequestHeaders.Add("X-Correlation-ID", cidSegundo);
+        // 5. Segundo intento de despacho del mismo Proveedor dueño devuelve 200 OK idempotente,
+        //    conserva los datos originales y NO vuelve a publicar el evento.
+        var segundoResp = await clientProveedor.PostAsJsonAsync(
+            $"/api/ordenes-compra/{ocEmitida.Id}/despachar",
+            new DespacharOrdenCompraRequestDto(DateTime.UtcNow.Date.AddDays(10), "Intento de sobrescritura"));
+        Assert.Equal(HttpStatusCode.OK, segundoResp.StatusCode);
 
-        var segundoResp = await clientSegundo.PostAsync($"/api/ordenes-compra/{ocEmitida.Id}/despachar", null);
-        await AssertProblemDetailsWithCorrelationIdAsync(segundoResp, HttpStatusCode.Conflict, cidSegundo);
+        var ocSegundoIntento = await segundoResp.Content.ReadFromJsonAsync<OrdenCompraResponseDto>();
+        Assert.NotNull(ocSegundoIntento);
+        Assert.Equal(ocDespachada.FechaDespacho, ocSegundoIntento.FechaDespacho);
+        Assert.Equal(ocDespachada.DespachadaEn, ocSegundoIntento.DespachadaEn);
+        Assert.Equal(proveedorId, ocSegundoIntento.DespachadaPor);
+        Assert.Equal(fechaEstimada, ocSegundoIntento.FechaEstimadaLlegada);
+        Assert.Equal(observacion, ocSegundoIntento.Observacion);
 
         await publishSpy.Received(1).Publish<OrdenCompraDespachadaEvent>(
+            Arg.Any<OrdenCompraDespachadaEvent>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Despachar_SinBody_Devuelve200OkYPublicaEventoConOpcionalesNulos()
+    {
+        Guid ordenId = Guid.Empty;
+        Guid obraId = Guid.Empty;
+        Guid proveedorId = Guid.Empty;
+
+        using var factory = CreateIsolatedFactory(out var publishSpy, db =>
+        {
+            (ordenId, obraId, proveedorId) = SembrarOrdenEmitida(db);
+        });
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorId));
+
+        // Llamada real sin requestBody (HttpContent null)
+        var resp = await client.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null);
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var dto = await resp.Content.ReadFromJsonAsync<OrdenCompraResponseDto>();
+        Assert.NotNull(dto);
+        Assert.Equal("Despachada", dto.Estado);
+        Assert.True(dto.FueDespachada);
+        Assert.Equal(proveedorId, dto.DespachadaPor);
+        Assert.NotNull(dto.DespachadaEn);
+        Assert.Null(dto.FechaEstimadaLlegada);
+        Assert.Null(dto.Observacion);
+
+        await publishSpy.Received(1).Publish<OrdenCompraDespachadaEvent>(
+            Arg.Is<OrdenCompraDespachadaEvent>(e =>
+                e.OrdenCompraId == ordenId &&
+                e.ObraId == obraId &&
+                e.FechaEstimadaLlegada == null &&
+                e.Observacion == null),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Despachar_OtroProveedorNoDueno_Retorna403ProblemDetailsYNoPublicaEvento()
+    {
+        Guid ordenId = Guid.Empty;
+        Guid proveedorDueno = Guid.Empty;
+        var otroProveedor = Guid.NewGuid();
+
+        using var factory = CreateIsolatedFactory(out var publishSpy, db =>
+        {
+            (ordenId, _, proveedorDueno) = SembrarOrdenEmitida(db);
+        });
+
+        var client = factory.CreateClient();
+        var cid = Guid.NewGuid().ToString();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", otroProveedor));
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", cid);
+
+        var resp = await client.PostAsJsonAsync(
+            $"/api/ordenes-compra/{ordenId}/despachar",
+            new DespacharOrdenCompraRequestDto(DateTime.UtcNow.Date.AddDays(1), "No soy el dueño"));
+
+        await AssertProblemDetailsWithCorrelationIdAsync(resp, HttpStatusCode.Forbidden, cid);
+        await publishSpy.DidNotReceive().Publish<OrdenCompraDespachadaEvent>(
+            Arg.Any<OrdenCompraDespachadaEvent>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("Comprador")]
+    [InlineData("Admin")]
+    [InlineData("Capataz")]
+    public async Task Despachar_ConRolDistintoAProveedor_Retorna403ProblemDetailsYNoPublicaEvento(string rol)
+    {
+        Guid ordenId = Guid.Empty;
+        using var factory = CreateIsolatedFactory(out var publishSpy, db =>
+        {
+            (ordenId, _, _) = SembrarOrdenEmitida(db);
+        });
+
+        var client = factory.CreateClient();
+        var cid = Guid.NewGuid().ToString();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt(rol));
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", cid);
+
+        var resp = await client.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null);
+
+        await AssertProblemDetailsWithCorrelationIdAsync(resp, HttpStatusCode.Forbidden, cid);
+        await publishSpy.DidNotReceive().Publish<OrdenCompraDespachadaEvent>(
+            Arg.Any<OrdenCompraDespachadaEvent>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Despachar_FechaEstimadaAnteriorAHoy_Retorna400ProblemDetailsYNoPublicaEvento()
+    {
+        Guid ordenId = Guid.Empty;
+        Guid proveedorId = Guid.Empty;
+
+        using var factory = CreateIsolatedFactory(out var publishSpy, db =>
+        {
+            (ordenId, _, proveedorId) = SembrarOrdenEmitida(db);
+        });
+
+        var client = factory.CreateClient();
+        var cid = Guid.NewGuid().ToString();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorId));
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", cid);
+
+        var ayer = DateTime.UtcNow.Date.AddDays(-1);
+        var resp = await client.PostAsJsonAsync(
+            $"/api/ordenes-compra/{ordenId}/despachar",
+            new DespacharOrdenCompraRequestDto(ayer, "Fecha pasada"));
+
+        await AssertProblemDetailsWithCorrelationIdAsync(resp, HttpStatusCode.BadRequest, cid);
+        await publishSpy.DidNotReceive().Publish<OrdenCompraDespachadaEvent>(
+            Arg.Any<OrdenCompraDespachadaEvent>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Despachar_ObservacionSupera200Caracteres_Retorna400ProblemDetailsYNoPublicaEvento()
+    {
+        Guid ordenId = Guid.Empty;
+        Guid proveedorId = Guid.Empty;
+
+        using var factory = CreateIsolatedFactory(out var publishSpy, db =>
+        {
+            (ordenId, _, proveedorId) = SembrarOrdenEmitida(db);
+        });
+
+        var client = factory.CreateClient();
+        var cid = Guid.NewGuid().ToString();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorId));
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", cid);
+
+        var observacionLarga = new string('A', 201);
+        var resp = await client.PostAsJsonAsync(
+            $"/api/ordenes-compra/{ordenId}/despachar",
+            new DespacharOrdenCompraRequestDto(DateTime.UtcNow.Date.AddDays(1), observacionLarga));
+
+        await AssertProblemDetailsWithCorrelationIdAsync(resp, HttpStatusCode.BadRequest, cid);
+        await publishSpy.DidNotReceive().Publish<OrdenCompraDespachadaEvent>(
             Arg.Any<OrdenCompraDespachadaEvent>(),
             Arg.Any<CancellationToken>());
     }
@@ -461,7 +746,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         var client = factory.CreateClient();
         var cid = Guid.NewGuid().ToString();
         client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor"));
         client.DefaultRequestHeaders.Add("X-Correlation-ID", cid);
 
         var resp = await client.PostAsync($"/api/ordenes-compra/{Guid.NewGuid()}/despachar", null);
@@ -485,84 +770,25 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         await AssertProblemDetailsWithCorrelationIdAsync(resp, HttpStatusCode.Unauthorized, cid);
     }
 
-    [Theory]
-    [InlineData("Proveedor")]
-    [InlineData("Capataz")]
-    public async Task Despachar_ConRolSinPermiso_Retorna403ProblemDetailsYNoPublicaEvento(string rol)
-    {
-        var ordenId = Guid.NewGuid();
-        using var factory = CreateIsolatedFactory(out var publishSpy, db =>
-        {
-            var licId = Guid.NewGuid();
-            db.Licitaciones.Add(new Licitacion
-            {
-                LicitacionId = licId,
-                RequisicionId = Guid.NewGuid(),
-                NumeroRequisicion = "REQ-2026-0902",
-                ObraId = Guid.NewGuid(),
-                Estado = EstadoLicitacion.Adjudicada,
-                FechaCreacion = DateTime.UtcNow.AddDays(-1),
-                FechaLimiteCotizacion = DateTime.UtcNow.AddDays(1)
-            });
-            db.OrdenesCompra.Add(new OrdenCompra
-            {
-                OrdenCompraId = ordenId,
-                LicitacionId = licId,
-                CotizacionId = Guid.NewGuid(),
-                ProveedorId = Guid.NewGuid(),
-                Estado = "Emitida",
-                FechaEmision = DateTime.UtcNow
-            });
-        });
-
-        var client = factory.CreateClient();
-        var cid = Guid.NewGuid().ToString();
-        client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt(rol));
-        client.DefaultRequestHeaders.Add("X-Correlation-ID", cid);
-
-        var resp = await client.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null);
-
-        await AssertProblemDetailsWithCorrelationIdAsync(resp, HttpStatusCode.Forbidden, cid);
-        await publishSpy.DidNotReceive().Publish<OrdenCompraDespachadaEvent>(
-            Arg.Any<OrdenCompraDespachadaEvent>(),
-            Arg.Any<CancellationToken>());
-    }
-
     [Fact]
-    public async Task Despachar_ConRolAdminYRutaBajoLicitaciones_FuncionaIgual()
+    public async Task Despachar_PorProveedorDuenoYRutaBajoLicitaciones_FuncionaIgual()
     {
-        var ordenId = Guid.NewGuid();
-        var obraId = Guid.NewGuid();
+        Guid ordenId = Guid.Empty;
+        Guid obraId = Guid.Empty;
+        Guid proveedorId = Guid.Empty;
+
         using var factory = CreateIsolatedFactory(out var publishSpy, db =>
         {
-            var licId = Guid.NewGuid();
-            db.Licitaciones.Add(new Licitacion
-            {
-                LicitacionId = licId,
-                RequisicionId = Guid.NewGuid(),
-                NumeroRequisicion = "REQ-2026-0903",
-                ObraId = obraId,
-                Estado = EstadoLicitacion.Adjudicada,
-                FechaCreacion = DateTime.UtcNow.AddDays(-1),
-                FechaLimiteCotizacion = DateTime.UtcNow.AddDays(1)
-            });
-            db.OrdenesCompra.Add(new OrdenCompra
-            {
-                OrdenCompraId = ordenId,
-                LicitacionId = licId,
-                CotizacionId = Guid.NewGuid(),
-                ProveedorId = Guid.NewGuid(),
-                Estado = "Emitida",
-                FechaEmision = DateTime.UtcNow
-            });
+            (ordenId, obraId, proveedorId) = SembrarOrdenEmitida(db);
         });
 
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Admin"));
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorId));
 
-        var resp = await client.PostAsync($"/api/licitaciones/ordenes-compra/{ordenId}/despachar", null);
+        var resp = await client.PostAsJsonAsync(
+            $"/api/licitaciones/ordenes-compra/{ordenId}/despachar",
+            new DespacharOrdenCompraRequestDto(null, "Ruta alternativa bajo licitaciones"));
 
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         var dto = await resp.Content.ReadFromJsonAsync<OrdenCompraResponseDto>();
@@ -570,9 +796,14 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         Assert.Equal("Despachada", dto.Estado);
         Assert.True(dto.FueDespachada);
         Assert.Equal(obraId, dto.ObraId);
+        Assert.Equal(proveedorId, dto.DespachadaPor);
+        Assert.Equal("Ruta alternativa bajo licitaciones", dto.Observacion);
 
         await publishSpy.Received(1).Publish<OrdenCompraDespachadaEvent>(
-            Arg.Is<OrdenCompraDespachadaEvent>(e => e.OrdenCompraId == ordenId && e.ObraId == obraId),
+            Arg.Is<OrdenCompraDespachadaEvent>(e =>
+                e.OrdenCompraId == ordenId &&
+                e.ObraId == obraId &&
+                e.Observacion == "Ruta alternativa bajo licitaciones"),
             Arg.Any<CancellationToken>());
     }
 
@@ -626,7 +857,9 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
                     ProveedorId = proveedorB,
                     Estado = "Despachada",
                     FechaEmision = DateTime.UtcNow.AddHours(-1),
-                    FechaDespacho = DateTime.UtcNow
+                    FechaDespacho = DateTime.UtcNow,
+                    DespachadaPor = proveedorB,
+                    Observacion = "Despachada por proveedor B"
                 });
         });
 

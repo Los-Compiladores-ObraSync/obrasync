@@ -9,14 +9,14 @@ public static class OrdenCompraMappingExtensions
     {
         ArgumentNullException.ThrowIfNull(ordenCompra);
 
-        var fechaEmisionUtc = ordenCompra.FechaEmision.Kind == DateTimeKind.Utc
-            ? ordenCompra.FechaEmision
-            : DateTime.SpecifyKind(ordenCompra.FechaEmision, DateTimeKind.Utc);
+        var fechaEmisionUtc = NormalizarAUtc(ordenCompra.FechaEmision);
 
         DateTime? fechaDespachoUtc = ordenCompra.FechaDespacho.HasValue
-            ? (ordenCompra.FechaDespacho.Value.Kind == DateTimeKind.Utc
-                ? ordenCompra.FechaDespacho.Value
-                : DateTime.SpecifyKind(ordenCompra.FechaDespacho.Value, DateTimeKind.Utc))
+            ? NormalizarAUtc(ordenCompra.FechaDespacho.Value)
+            : null;
+
+        DateTime? fechaEstimadaLlegadaUtc = ordenCompra.FechaEstimadaLlegada.HasValue
+            ? NormalizarAUtc(ordenCompra.FechaEstimadaLlegada.Value)
             : null;
 
         return new OrdenCompraResponseDto(
@@ -28,6 +28,17 @@ public static class OrdenCompraMappingExtensions
             ObraId: ordenCompra.ObraId,
             ProveedorId: ordenCompra.ProveedorId,
             FueDespachada: ordenCompra.FueDespachada,
-            FechaDespacho: fechaDespachoUtc);
+            FechaDespacho: fechaDespachoUtc,
+            DespachadaPor: ordenCompra.DespachadaPor,
+            DespachadaEn: fechaDespachoUtc,
+            FechaEstimadaLlegada: fechaEstimadaLlegadaUtc,
+            Observacion: ordenCompra.Observacion);
     }
+
+    private static DateTime NormalizarAUtc(DateTime fecha) => fecha.Kind switch
+    {
+        DateTimeKind.Utc => fecha,
+        DateTimeKind.Local => fecha.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(fecha, DateTimeKind.Utc)
+    };
 }

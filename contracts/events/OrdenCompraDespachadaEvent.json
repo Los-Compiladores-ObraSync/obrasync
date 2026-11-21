@@ -42,6 +42,22 @@
       "type": "string",
       "format": "date-time",
       "description": "Fecha y hora en que se registró el despacho de la orden de compra (en UTC)."
+    },
+    "fechaEstimadaLlegada": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "description": "Fecha estimada de llegada de la mercadería a la obra informada opcionalmente por el proveedor al despachar (en UTC)."
+    },
+    "observacion": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200,
+      "description": "Observación corta opcional cargada por el proveedor al despachar (máximo 200 caracteres)."
     }
   },
   "additionalProperties": false

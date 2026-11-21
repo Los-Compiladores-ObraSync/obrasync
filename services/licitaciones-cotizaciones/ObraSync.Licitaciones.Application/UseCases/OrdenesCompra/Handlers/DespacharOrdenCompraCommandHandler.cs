@@ -41,6 +41,11 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
             throw new ArgumentException("El identificador de la orden de compra es obligatorio.", nameof(request));
         }
 
+        if (request.UsuarioId == Guid.Empty)
+        {
+            throw new ArgumentException("El identificador del proveedor autenticado es obligatorio.", nameof(request));
+        }
+
         var correlationId = request.CorrelationId != Guid.Empty
             ? request.CorrelationId
             : Guid.NewGuid();
@@ -53,6 +58,12 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
         var ordenCompra = await _ordenCompraRepository.GetByIdAsync(request.OrdenCompraId, cancellationToken)
             ?? throw new KeyNotFoundException($"No se encontró la orden de compra con ID {request.OrdenCompraId}.");
 
+        if (ordenCompra.ProveedorId != request.UsuarioId)
+        {
+            throw new UnauthorizedAccessException(
+                "Solo el proveedor titular de la orden de compra puede marcarla como despachada.");
+        }
+
         if (ordenCompra.ObraId == Guid.Empty && _licitacionRepository is not null)
         {
             var licitacion = await _licitacionRepository.GetByIdAsync(ordenCompra.LicitacionId, cancellationToken);
@@ -63,7 +74,21 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
         }
 
         var ahoraUtc = DateTime.UtcNow;
-        ordenCompra.Despachar(ahoraUtc);
+        var despachoAplicado = ordenCompra.Despachar(
+            despachadaPor: request.UsuarioId,
+            fechaDespachoUtc: ahoraUtc,
+            fechaEstimadaLlegada: request.FechaEstimadaLlegada,
+            observacion: request.Observacion);
+
+        if (!despachoAplicado)
+        {
+            _logger.LogInformation(
+                "OrdenCompra {OrdenCompraId} ya se encontraba despachada; respuesta idempotente sin republicar evento. CorrelationId {CorrelationId}",
+                ordenCompra.OrdenCompraId,
+                correlationId);
+
+            return ordenCompra.ToDto();
+        }
 
         await _ordenCompraRepository.UpdateAsync(ordenCompra, cancellationToken);
 
@@ -73,7 +98,9 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
             CorrelationId: correlationId,
             OrdenCompraId: ordenCompra.OrdenCompraId,
             ObraId: ordenCompra.ObraId,
-            FechaDespacho: ordenCompra.FechaDespacho!.Value);
+            FechaDespacho: ordenCompra.FechaDespacho!.Value,
+            FechaEstimadaLlegada: ordenCompra.FechaEstimadaLlegada,
+            Observacion: ordenCompra.Observacion);
 
         await _publishEndpoint.Publish<OrdenCompraDespachadaEvent>(evento, cancellationToken);
 
@@ -82,8 +109,9 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
-            "OrdenCompra {OrdenCompraId} marcada como despachada. CorrelationId {CorrelationId}",
+            "OrdenCompra {OrdenCompraId} marcada como despachada por Proveedor {ProveedorId}. CorrelationId {CorrelationId}",
             ordenCompra.OrdenCompraId,
+            request.UsuarioId,
             correlationId);
 
         return ordenCompra.ToDto();
