@@ -18,5 +18,10 @@ public record OrdenCompraResponseDto(
     Guid? DespachadaPor = null,
     DateTime? DespachadaEn = null,
     DateTime? FechaEstimadaLlegada = null,
-    string? Observacion = null
+    string? Observacion = null,
+    bool RecibidaCompleta = false,
+    DateTime? FechaRecepcionCompleta = null,
+    int? MiCalificacion = null,
+    string? MiComentarioCalificacion = null,
+    DateTime? FechaMiCalificacion = null
 );

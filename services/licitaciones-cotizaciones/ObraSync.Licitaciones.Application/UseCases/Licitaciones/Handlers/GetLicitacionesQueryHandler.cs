@@ -10,13 +10,16 @@ public class GetLicitacionesQueryHandler
 {
     private readonly ILicitacionRepository _repository;
     private readonly ICotizacionRepository _cotizacionRepository;
+    private readonly IOrdenCompraRepository? _ordenCompraRepository;
 
     public GetLicitacionesQueryHandler(
         ILicitacionRepository repository,
-        ICotizacionRepository cotizacionRepository)
+        ICotizacionRepository cotizacionRepository,
+        IOrdenCompraRepository? ordenCompraRepository = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _cotizacionRepository = cotizacionRepository ?? throw new ArgumentNullException(nameof(cotizacionRepository));
+        _ordenCompraRepository = ordenCompraRepository;
     }
 
     public async Task<PaginaDe<LicitacionResponseDto>> Handle(
@@ -50,6 +53,31 @@ public class GetLicitacionesQueryHandler
             foreach (var dto in dtos)
             {
                 dto.YaCotizada = cotizadasSet.Contains(dto.LicitacionId);
+            }
+        }
+
+        // Cotización adjudicada (#222): en lote para las licitaciones adjudicadas de la página.
+        if (!esProveedor && _ordenCompraRepository is not null && dtos.Count > 0)
+        {
+            var adjudicadasIds = dtos
+                .Where(d => string.Equals(d.Estado, EstadoLicitacion.Adjudicada.ToString(), StringComparison.OrdinalIgnoreCase))
+                .Select(d => d.LicitacionId)
+                .ToList();
+
+            if (adjudicadasIds.Count > 0)
+            {
+                var ordenes = await _ordenCompraRepository.GetByLicitacionIdsAsync(adjudicadasIds, cancellationToken);
+                var cotizacionPorLicitacion = ordenes
+                    .GroupBy(o => o.LicitacionId)
+                    .ToDictionary(g => g.Key, g => g.First().CotizacionId);
+
+                foreach (var dto in dtos)
+                {
+                    if (cotizacionPorLicitacion.TryGetValue(dto.LicitacionId, out var cotizacionAdjudicadaId))
+                    {
+                        dto.CotizacionAdjudicadaId = cotizacionAdjudicadaId;
+                    }
+                }
             }
         }
 

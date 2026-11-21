@@ -7,6 +7,7 @@ public class CotizacionResponseDto
     public Guid ProveedorId { get; set; }
     public string? ProveedorNombre { get; set; }          // NUEVO (#206)
     public decimal? CalificacionProveedor { get; set; }  // NUEVO (#206) - promedio en escala 1 a 5 (con decimales) o null
+    public int CantidadCalificacionesProveedor { get; set; } // NUEVO (#222) - cantidad total de calificaciones del proveedor
     public decimal SubtotalItems { get; set; }
     public decimal Flete { get; set; }
     public decimal CostoTotal { get; set; }

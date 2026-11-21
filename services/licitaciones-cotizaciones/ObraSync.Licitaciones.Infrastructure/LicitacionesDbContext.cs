@@ -116,6 +116,8 @@ public class LicitacionesDbContext : DbContext
             e.Property(x => x.DespachadaPor);
             e.Property(x => x.FechaEstimadaLlegada).HasConversion(nullableUtcDateTimeConverter);
             e.Property(x => x.Observacion).HasMaxLength(OrdenCompra.MaxLongitudObservacionDespacho);
+            e.Property(x => x.RecibidaCompleta).HasDefaultValue(false);
+            e.Property(x => x.FechaRecepcionCompleta).HasConversion(nullableUtcDateTimeConverter);
             e.Ignore(x => x.ObraId);
             e.Ignore(x => x.DespachadaEn);
             e.Ignore(x => x.FueDespachada);
@@ -157,10 +159,18 @@ public class LicitacionesDbContext : DbContext
         {
             e.ToTable("CalificacionesProveedores");
             e.HasKey(x => x.Id);
-            // Una fila por usuario y proveedor: si el mismo usuario vuelve a calificar, actualiza su fila;
-            // si califica otro usuario, se suma otra fila y la calificación del proveedor es el promedio.
-            e.HasIndex(x => new { x.ProveedorId, x.CalificadorId }).IsUnique();
+            e.HasIndex(x => x.ProveedorId);
+            // Una calificación por (OrdenCompraId, Usuario) (#222), editable (upsert).
+            e.HasIndex(x => new { x.OrdenCompraId, x.CalificadorId })
+                .IsUnique()
+                .HasFilter("[OrdenCompraId] IS NOT NULL");
+            // Compatibilidad con el endpoint legacy (#88 / #214) sin OrdenCompraId.
+            e.HasIndex(x => new { x.ProveedorId, x.CalificadorId })
+                .IsUnique()
+                .HasFilter("[OrdenCompraId] IS NULL");
+            e.Property(x => x.OrdenCompraId);
             e.Property(x => x.Calificacion).IsRequired();
+            e.Property(x => x.Comentario).HasMaxLength(CalificacionProveedor.MaxLongitudComentario);
             e.Property(x => x.FechaActualizacion).HasConversion(utcDateTimeConverter);
         });
     }

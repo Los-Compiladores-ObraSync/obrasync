@@ -97,6 +97,8 @@ public class OrdenCompra
     public Guid? DespachadaPor { get; set; }
     public DateTime? FechaEstimadaLlegada { get; set; }
     public string? Observacion { get; set; }
+    public bool RecibidaCompleta { get; set; }
+    public DateTime? FechaRecepcionCompleta { get; set; }
     public decimal TotalFlete { get; set; }
     public List<OrdenCompraItem> Items { get; set; } = new();
 
@@ -165,6 +167,18 @@ public class OrdenCompra
         return true;
     }
 
+    public bool MarcarComoRecibidaCompleta(DateTime? fechaRecepcionUtc = null)
+    {
+        if (RecibidaCompleta)
+        {
+            return false;
+        }
+
+        FechaRecepcionCompleta = NormalizarAUtc(fechaRecepcionUtc ?? DateTime.UtcNow);
+        RecibidaCompleta = true;
+        return true;
+    }
+
     private static DateTime NormalizarAUtc(DateTime fecha) => fecha.Kind switch
     {
         DateTimeKind.Utc => fecha,
@@ -212,10 +226,16 @@ public class MagicLink
 
 public class CalificacionProveedor
 {
+    public const int MaxLongitudComentario = 300;
+
     public Guid Id { get; set; }
     public Guid ProveedorId { get; set; }
-    /// <summary>Usuario (sub del JWT) que calificó. Cada usuario tiene una sola calificación por proveedor.</summary>
+    /// <summary>Orden de compra asociada a esta calificación (#222). Null para calificaciones legacy directas por proveedor (#88).</summary>
+    public Guid? OrdenCompraId { get; set; }
+    /// <summary>Usuario (sub del JWT) que calificó. Cada usuario tiene una sola calificación por orden (#222) o global (#88).</summary>
     public Guid CalificadorId { get; set; }
     public int Calificacion { get; set; }
+    /// <summary>Comentario opcional del calificador sobre el cumplimiento en la orden (máx. 300 caracteres, #222).</summary>
+    public string? Comentario { get; set; }
     public DateTime FechaActualizacion { get; set; } = DateTime.UtcNow;
 }

@@ -64,9 +64,23 @@ public class GetCotizacionesByLicitacionIdQueryHandler
             .Distinct()
             .ToList();
 
-        IReadOnlyDictionary<Guid, decimal> calificacionesPorProveedor = _calificacionRepository != null
-            ? await _calificacionRepository.GetPromediosByProveedorIdsAsync(proveedorIds, cancellationToken)
-            : new Dictionary<Guid, decimal>();
+        IReadOnlyDictionary<Guid, ResumenCalificacionProveedor> resumenesPorProveedor = new Dictionary<Guid, ResumenCalificacionProveedor>();
+        IReadOnlyDictionary<Guid, decimal> calificacionesPorProveedor = new Dictionary<Guid, decimal>();
+        if (_calificacionRepository != null)
+        {
+            resumenesPorProveedor = await _calificacionRepository.GetResumenesByProveedorIdsAsync(proveedorIds, cancellationToken)
+                ?? new Dictionary<Guid, ResumenCalificacionProveedor>();
+
+            if (resumenesPorProveedor.Count > 0)
+            {
+                calificacionesPorProveedor = resumenesPorProveedor.ToDictionary(kv => kv.Key, kv => kv.Value.Promedio);
+            }
+            else
+            {
+                calificacionesPorProveedor = await _calificacionRepository.GetPromediosByProveedorIdsAsync(proveedorIds, cancellationToken)
+                    ?? new Dictionary<Guid, decimal>();
+            }
+        }
 
         // Solo las cotizaciones completas (con ítems válidos > 0 y sin cobertura parcial) compiten por el scoring y EsGanadora (#186 / #190 / #197)
         var cotizacionesCompletas = cotizaciones
@@ -189,12 +203,17 @@ public class GetCotizacionesByLicitacionIdQueryHandler
                     ? califGuardada
                     : null;
 
+                int cantidadCalificacionesProveedor = resumenesPorProveedor.TryGetValue(c.ProveedorId, out var resumenProveedor)
+                    ? resumenProveedor.Cantidad
+                    : (calificacionProveedor.HasValue ? 1 : 0);
+
                 dto.SubtotalItems = subtotalItems;
                 dto.CostoTotal = costoTotal;
                 dto.CoberturaParcial = c.Items.Any(i => i.CoberturaParcial);
                 dto.PuntajeTotal = Math.Round(puntaje * 100m, 2);
                 dto.EsGanadora = esGanadora;
                 dto.CalificacionProveedor = calificacionProveedor;
+                dto.CantidadCalificacionesProveedor = cantidadCalificacionesProveedor;
                 dto.DesglosePuntaje = desgloseDto;
                 dto.PonderacionesScoring = ponderacionesDto;
                 dto.DesgloseScoring = desgloseScoringDto;

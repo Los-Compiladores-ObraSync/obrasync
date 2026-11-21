@@ -204,16 +204,30 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                     b.Property<Guid>("CalificadorId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Comentario")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
                     b.Property<DateTime>("FechaActualizacion")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("OrdenCompraId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("ProveedorId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ProveedorId");
+
+                    b.HasIndex("OrdenCompraId", "CalificadorId")
+                        .IsUnique()
+                        .HasFilter("[OrdenCompraId] IS NOT NULL");
+
                     b.HasIndex("ProveedorId", "CalificadorId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[OrdenCompraId] IS NULL");
 
                     b.ToTable("CalificacionesProveedores", (string)null);
                 });
@@ -437,6 +451,9 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                     b.Property<DateTime?>("FechaEstimadaLlegada")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("FechaRecepcionCompleta")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("LicitacionId")
                         .HasColumnType("uniqueidentifier");
 
@@ -446,6 +463,11 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
 
                     b.Property<Guid>("ProveedorId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("RecibidaCompleta")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<decimal>("TotalFlete")
                         .HasPrecision(18, 2)

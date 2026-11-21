@@ -18,4 +18,9 @@ public class LicitacionResponseDto
     /// Para Comprador y Admin queda en null (no aplica).
     /// </summary>
     public bool? YaCotizada { get; set; }
+
+    /// <summary>
+    /// Identificador de la cotización adjudicada cuando la licitación está en estado Adjudicada (#222), o null en otro estado.
+    /// </summary>
+    public Guid? CotizacionAdjudicadaId { get; set; }
 }
