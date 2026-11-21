@@ -53,10 +53,13 @@ public class UpsertCalificacionProveedorCommandHandler
         var resumen = await _repository.GetResumenAsync(request.ProveedorId, cancellationToken)
             ?? throw new InvalidOperationException("No se pudo leer la calificación recién guardada.");
 
+        var ultimosComentarios = await _repository.GetUltimosComentariosAsync(request.ProveedorId, 20, cancellationToken);
+
         return new CalificacionProveedorResponseDto(
             resumen.ProveedorId,
             resumen.Promedio,
             resumen.Cantidad,
-            DateTime.SpecifyKind(resumen.FechaActualizacion, DateTimeKind.Utc));
+            DateTime.SpecifyKind(resumen.FechaActualizacion, DateTimeKind.Utc),
+            ultimosComentarios);
     }
 }

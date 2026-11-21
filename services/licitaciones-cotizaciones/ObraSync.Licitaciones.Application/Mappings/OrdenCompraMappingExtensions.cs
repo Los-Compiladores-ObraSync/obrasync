@@ -5,7 +5,9 @@ namespace ObraSync.Licitaciones.Application.Mappings;
 
 public static class OrdenCompraMappingExtensions
 {
-    public static OrdenCompraResponseDto ToDto(this OrdenCompra ordenCompra)
+    public static OrdenCompraResponseDto ToDto(
+        this OrdenCompra ordenCompra,
+        CalificacionProveedor? miCalificacion = null)
     {
         ArgumentNullException.ThrowIfNull(ordenCompra);
 
@@ -17,6 +19,14 @@ public static class OrdenCompraMappingExtensions
 
         DateTime? fechaEstimadaLlegadaUtc = ordenCompra.FechaEstimadaLlegada.HasValue
             ? NormalizarAUtc(ordenCompra.FechaEstimadaLlegada.Value)
+            : null;
+
+        DateTime? fechaRecepcionCompletaUtc = ordenCompra.FechaRecepcionCompleta.HasValue
+            ? NormalizarAUtc(ordenCompra.FechaRecepcionCompleta.Value)
+            : null;
+
+        DateTime? fechaMiCalificacionUtc = miCalificacion is not null
+            ? NormalizarAUtc(miCalificacion.FechaActualizacion)
             : null;
 
         return new OrdenCompraResponseDto(
@@ -32,7 +42,12 @@ public static class OrdenCompraMappingExtensions
             DespachadaPor: ordenCompra.DespachadaPor,
             DespachadaEn: fechaDespachoUtc,
             FechaEstimadaLlegada: fechaEstimadaLlegadaUtc,
-            Observacion: ordenCompra.Observacion);
+            Observacion: ordenCompra.Observacion,
+            RecibidaCompleta: ordenCompra.RecibidaCompleta,
+            FechaRecepcionCompleta: fechaRecepcionCompletaUtc,
+            MiCalificacion: miCalificacion?.Calificacion,
+            MiComentarioCalificacion: miCalificacion?.Comentario,
+            FechaMiCalificacion: fechaMiCalificacionUtc);
     }
 
     private static DateTime NormalizarAUtc(DateTime fecha) => fecha.Kind switch

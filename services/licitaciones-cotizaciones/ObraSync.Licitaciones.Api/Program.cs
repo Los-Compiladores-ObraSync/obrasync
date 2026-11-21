@@ -67,6 +67,9 @@ builder.Services.AddScoped<DespacharOrdenCompraCommandHandler>();
 builder.Services.AddScoped<GetOrdenesCompraQueryHandler>();
 builder.Services.AddScoped<UpsertCalificacionProveedorCommandHandler>();
 builder.Services.AddScoped<GetCalificacionProveedorQueryHandler>();
+builder.Services.AddScoped<UpsertCalificacionOrdenCompraCommandHandler>();
+builder.Services.AddScoped<GetMiCalificacionOrdenCompraQueryHandler>();
+builder.Services.AddScoped<GetMiReputacionProveedorQueryHandler>();
 
 // RabbitMQ + MassTransit (misma convención que Requisiciones)
 var useInMemoryTransport = string.Equals(
@@ -77,6 +80,7 @@ var useInMemoryTransport = string.Equals(
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<RequisicionAprobadaConsumer>();
+    x.AddConsumer<RecepcionConfirmadaConsumer>();
 
     if (useInMemoryTransport)
     {

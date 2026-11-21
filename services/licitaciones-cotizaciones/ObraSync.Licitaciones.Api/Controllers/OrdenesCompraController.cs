@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Interfaces;
+using ObraSync.Licitaciones.Application.UseCases.Calificaciones.Commands;
+using ObraSync.Licitaciones.Application.UseCases.Calificaciones.Queries;
 using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Commands;
 using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Queries;
@@ -178,5 +180,156 @@ public class OrdenesCompraController : ControllerBase
                 statusCode: StatusCodes.Status400BadRequest,
                 title: "Solicitud inválida");
         }
+    }
+
+    /// <summary>
+    /// Calificar o editar la calificación de una orden de compra recibida completa (Roles: Comprador, Admin).
+    /// </summary>
+    [HttpPut("{id:guid}/calificacion")]
+    [Authorize(Roles = "Comprador,Admin")]
+    [ProducesResponseType(typeof(CalificacionOrdenCompraResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpsertCalificacionOrden(
+        [FromRoute] Guid id,
+        [FromBody] UpsertCalificacionOrdenCompraRequestDto? request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null)
+        {
+            return Problem(
+                detail: "El cuerpo de la petición es obligatorio.",
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Petición inválida");
+        }
+
+        var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(sub, out var usuarioId) || usuarioId == Guid.Empty)
+        {
+            return Problem(
+                detail: "El token JWT no contiene un claim 'sub' válido con formato GUID para identificar al usuario.",
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Usuario no identificado");
+        }
+
+        try
+        {
+            var command = new UpsertCalificacionOrdenCompraCommand(
+                OrdenCompraId: id,
+                UsuarioId: usuarioId,
+                Calificacion: request.Calificacion,
+                Comentario: request.Comentario);
+            var resultado = await _mediator.Send(command, cancellationToken);
+            return Ok(resultado);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Orden de compra no encontrada");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status409Conflict,
+                title: "La orden de compra aún no está habilitada para calificar");
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Calificación fuera de rango");
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Datos de calificación inválidos");
+        }
+    }
+
+    /// <summary>
+    /// Consultar la calificación que el usuario autenticado cargó para una orden de compra (Roles: Comprador, Admin).
+    /// </summary>
+    [HttpGet("{id:guid}/calificacion")]
+    [Authorize(Roles = "Comprador,Admin")]
+    [ProducesResponseType(typeof(CalificacionOrdenCompraResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMiCalificacionOrden(
+        [FromRoute] Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(sub, out var usuarioId) || usuarioId == Guid.Empty)
+        {
+            return Problem(
+                detail: "El token JWT no contiene un claim 'sub' válido con formato GUID para identificar al usuario.",
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Usuario no identificado");
+        }
+
+        try
+        {
+            var query = new GetMiCalificacionOrdenCompraQuery(id, usuarioId);
+            var resultado = await _mediator.Send(query, cancellationToken);
+            return Ok(resultado);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Calificación no encontrada");
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Solicitud inválida");
+        }
+    }
+
+    /// <summary>
+    /// Consultar la reputación propia del proveedor autenticado (Rol: Proveedor).
+    /// </summary>
+    [HttpGet("mi-reputacion")]
+    [Authorize(Roles = "Proveedor")]
+    [ProducesResponseType(typeof(ReputacionProveedorResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetMiReputacionProveedor(
+        [FromQuery] Guid? proveedorId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(sub, out var usuarioId) || usuarioId == Guid.Empty)
+        {
+            return Problem(
+                detail: "El token JWT no contiene un claim 'sub' válido con formato GUID para identificar al proveedor.",
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Proveedor no identificado");
+        }
+
+        if (proveedorId.HasValue && proveedorId.Value != Guid.Empty && proveedorId.Value != usuarioId)
+        {
+            return Problem(
+                detail: "Un proveedor solo puede consultar su propia reputación.",
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Acceso denegado");
+        }
+
+        var resultado = await _mediator.Send(new GetMiReputacionProveedorQuery(usuarioId), cancellationToken);
+        return Ok(resultado);
     }
 }

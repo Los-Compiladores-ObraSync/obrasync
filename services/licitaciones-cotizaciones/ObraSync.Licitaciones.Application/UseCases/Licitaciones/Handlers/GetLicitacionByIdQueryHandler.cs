@@ -9,10 +9,14 @@ namespace ObraSync.Licitaciones.Application.UseCases.Licitaciones.Handlers;
 public class GetLicitacionByIdQueryHandler
 {
     private readonly ILicitacionRepository _repository;
+    private readonly IOrdenCompraRepository? _ordenCompraRepository;
 
-    public GetLicitacionByIdQueryHandler(ILicitacionRepository repository)
+    public GetLicitacionByIdQueryHandler(
+        ILicitacionRepository repository,
+        IOrdenCompraRepository? ordenCompraRepository = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        _ordenCompraRepository = ordenCompraRepository;
     }
 
     public async Task<LicitacionResponseDto> Handle(
@@ -28,6 +32,16 @@ public class GetLicitacionByIdQueryHandler
             throw new KeyNotFoundException($"No se encontró la licitación con Id '{query.LicitacionId}'.");
         }
 
-        return licitacion.ToDto();
+        var dto = licitacion.ToDto();
+
+        if (licitacion.Estado == EstadoLicitacion.Adjudicada && _ordenCompraRepository is not null)
+        {
+            var ordenes = await _ordenCompraRepository.GetByLicitacionIdsAsync(
+                new[] { licitacion.LicitacionId },
+                cancellationToken);
+            dto.CotizacionAdjudicadaId = ordenes.FirstOrDefault()?.CotizacionId;
+        }
+
+        return dto;
     }
 }

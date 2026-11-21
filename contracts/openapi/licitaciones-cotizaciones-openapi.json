@@ -455,13 +455,40 @@
         }
       }
     },
+    "/api/cotizaciones/proveedores/mi-reputacion": {
+      "get": {
+        "tags": [
+          "Cotizaciones"
+        ],
+        "summary": "Consultar la reputación propia del proveedor autenticado (Rol: Proveedor)",
+        "description": "Devuelve el promedio de calificaciones, la cantidad total de calificaciones recibidas y los últimos comentarios del proveedor autenticado (identificado exclusivamente por el claim 'sub' del JWT, #222). Si todavía no recibió calificaciones responde 200 OK con calificacion en null, cantidadCalificaciones en 0 y ultimosComentarios vacío. Otros roles reciben 403 Forbidden.",
+        "responses": {
+          "200": {
+            "description": "Reputación propia del proveedor autenticado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReputacionProveedorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
     "/api/cotizaciones/proveedores/{proveedorId}/calificacion": {
       "get": {
         "tags": [
           "Cotizaciones"
         ],
-        "summary": "Consultar la calificación vigente de un proveedor (Roles: Comprador, Admin)",
-        "description": "Devuelve la calificación vigente del proveedor: el promedio (1 a 5, con hasta 2 decimales) de las calificaciones recibidas de distintos usuarios, y cuántas son. Si el proveedor todavía no tiene ninguna, responde 404 Not Found con ProblemDetails. Roles: Comprador, Admin; el Proveedor solo puede consultar la suya (si no, 403).",
+        "summary": "Consultar la calificación vigente de un proveedor (Roles: Comprador, Admin; Proveedor solo la propia)",
+        "description": "Devuelve la calificación vigente del proveedor: el promedio (1 a 5, con hasta 2 decimales) de las calificaciones recibidas, cuántas son y los últimos comentarios (#88, #214, #222). Si el proveedor todavía no tiene ninguna, responde 404 Not Found con ProblemDetails. Roles: Comprador, Admin; el Proveedor solo puede consultar la suya (si consulta otro proveedorId recibe 403).",
         "parameters": [
           {
             "name": "proveedorId",
@@ -1086,6 +1113,114 @@
         }
       }
     },
+    "/api/ordenes-compra/{id}/calificacion": {
+      "get": {
+        "tags": [
+          "OrdenesCompra"
+        ],
+        "summary": "Consultar la calificación que el usuario autenticado registró para una orden de compra (Roles: Comprador, Admin)",
+        "description": "Devuelve la calificación y el comentario opcional que el usuario autenticado (claim 'sub') cargó para la orden de compra indicada (#222). Responde 404 Not Found si la orden no existe o si el usuario todavía no la calificó.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identificador único (GUID) de la orden de compra.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Calificación registrada por el usuario para la orden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalificacionOrdenCompraResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "OrdenesCompra"
+        ],
+        "summary": "Calificar o editar la calificación de una orden de compra recibida completa (Roles: Comprador, Admin)",
+        "description": "Crea o actualiza (upsert único por ordenCompraId y usuarioId) la calificación en escala entera de 1 a 5 estrellas con comentario opcional (máximo 300 caracteres) para una orden de compra que ya fue recibida completa (#222). Devuelve 404 si la orden no existe, 409 Conflict si la orden todavía no está recibida completa (pendiente, despachada, parcial o recepción rechazada) y 400 si los datos son inválidos.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identificador único (GUID) de la orden de compra.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertCalificacionOrdenCompraRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Calificación de la orden registrada o actualizada exitosamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalificacionOrdenCompraResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "Conflict (La orden de compra todavía no fue recibida completa)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/licitaciones/seguimiento/{requisicionId}": {
       "get": {
         "tags": [
@@ -1514,6 +1649,12 @@
             "type": "boolean",
             "nullable": true,
             "description": "Solo se completa cuando quien consulta es un Proveedor: true si ya cotizó este pliego, false si todavía no. Para Comprador y Admin viene en null (no aplica). Campo opcional, compatible hacia atrás."
+          },
+          "cotizacionAdjudicadaId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Identificador de la cotización adjudicada cuando la licitación está en estado Adjudicada (#222), o null si está Abierta o Cerrada."
           }
         },
         "additionalProperties": false
@@ -1708,7 +1849,13 @@
             "minimum": 1,
             "maximum": 5,
             "nullable": true,
-            "description": "Calificación del proveedor: promedio (1 a 5, con hasta 2 decimales) de las calificaciones recibidas de distintos usuarios (#88). Si el proveedor aún no tiene calificación registrada, viene en null y el scoring normaliza su puntaje de calificación como 0 (manteniendo el peso del criterio en el divisor)."
+            "description": "Calificación del proveedor: promedio (1 a 5, con hasta 2 decimales) de las calificaciones recibidas (#88, #214, #222). Si el proveedor aún no tiene calificación registrada, viene en null y el scoring normaliza su puntaje de calificación como 0 (manteniendo el peso del criterio en el divisor)."
+          },
+          "cantidadCalificacionesProveedor": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "description": "Cantidad total de calificaciones que componen el promedio del proveedor (#222). Es 0 cuando el proveedor todavía no tiene calificaciones."
           },
           "desglosePuntaje": {
             "nullable": true,
@@ -2009,6 +2156,36 @@
             "maxLength": 200,
             "nullable": true,
             "description": "Observación corta opcional cargada por el proveedor al despachar (máximo 200 caracteres)."
+          },
+          "recibidaCompleta": {
+            "type": "boolean",
+            "description": "Indica si Recepción confirmó que la orden de compra fue recibida en su totalidad (#222). Habilita la calificación de la orden por Comprador/Admin."
+          },
+          "fechaRecepcionCompleta": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fecha y hora (en UTC) en que se confirmó la recepción completa de la orden de compra, o null si aún no fue recibida completa."
+          },
+          "miCalificacion": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 5,
+            "nullable": true,
+            "description": "Calificación (1 a 5) que el usuario autenticado (Comprador/Admin) ya registró para esta orden, o null si aún no la calificó (#222)."
+          },
+          "miComentarioCalificacion": {
+            "type": "string",
+            "maxLength": 300,
+            "nullable": true,
+            "description": "Comentario opcional que el usuario autenticado registró al calificar esta orden (#222)."
+          },
+          "fechaMiCalificacion": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fecha y hora (en UTC) de la calificación que el usuario autenticado registró en esta orden (#222)."
           }
         },
         "additionalProperties": false
@@ -2081,6 +2258,168 @@
             "type": "string",
             "format": "date-time",
             "description": "Fecha y hora de última actualización de la calificación (en UTC)."
+          },
+          "ultimosComentarios": {
+            "type": "array",
+            "description": "Últimos comentarios (hasta 20, ordenados del más reciente al más antiguo) recibidos por el proveedor (#222).",
+            "items": {
+              "$ref": "#/components/schemas/ComentarioCalificacionProveedorDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ComentarioCalificacionProveedorDto": {
+        "type": "object",
+        "required": [
+          "calificacion",
+          "comentario",
+          "fechaActualizacion"
+        ],
+        "properties": {
+          "ordenCompraId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Identificador de la orden de compra calificada."
+          },
+          "calificacion": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "Cantidad de estrellas otorgadas (1 a 5)."
+          },
+          "comentario": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Comentario registrado en la calificación."
+          },
+          "fechaActualizacion": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha y hora (en UTC) de la calificación."
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReputacionProveedorResponseDto": {
+        "type": "object",
+        "required": [
+          "proveedorId",
+          "cantidadCalificaciones",
+          "ultimosComentarios"
+        ],
+        "properties": {
+          "proveedorId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identificador del proveedor autenticado."
+          },
+          "calificacion": {
+            "type": "number",
+            "format": "decimal",
+            "minimum": 1,
+            "maximum": 5,
+            "nullable": true,
+            "description": "Promedio de calificaciones (1 a 5, con hasta 2 decimales), o null si todavía no recibió calificaciones."
+          },
+          "cantidadCalificaciones": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "description": "Cantidad total de calificaciones recibidas."
+          },
+          "fechaActualizacion": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fecha y hora (en UTC) de la última calificación recibida, o null si todavía no tiene."
+          },
+          "ultimosComentarios": {
+            "type": "array",
+            "description": "Últimos comentarios (hasta 20, del más reciente al más antiguo).",
+            "items": {
+              "$ref": "#/components/schemas/ComentarioCalificacionProveedorDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpsertCalificacionOrdenCompraRequestDto": {
+        "type": "object",
+        "required": [
+          "calificacion"
+        ],
+        "properties": {
+          "calificacion": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "Calificación en escala entera de 1 a 5 estrellas (#222)."
+          },
+          "comentario": {
+            "type": "string",
+            "maxLength": 300,
+            "nullable": true,
+            "description": "Comentario opcional sobre el cumplimiento del proveedor en esta orden (máximo 300 caracteres)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CalificacionOrdenCompraResponseDto": {
+        "type": "object",
+        "required": [
+          "ordenCompraId",
+          "proveedorId",
+          "usuarioId",
+          "calificacion",
+          "fechaActualizacion",
+          "promedioProveedor",
+          "cantidadCalificacionesProveedor"
+        ],
+        "properties": {
+          "ordenCompraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "proveedorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "usuarioId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Usuario (sub del JWT) que cargó la calificación."
+          },
+          "calificacion": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "comentario": {
+            "type": "string",
+            "maxLength": 300,
+            "nullable": true
+          },
+          "fechaActualizacion": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "promedioProveedor": {
+            "type": "number",
+            "format": "decimal",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "Promedio actualizado del proveedor tras guardar la calificación."
+          },
+          "cantidadCalificacionesProveedor": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "description": "Cantidad total actualizada de calificaciones del proveedor."
           }
         },
         "additionalProperties": false
@@ -2162,6 +2501,14 @@
           "observacion": {
             "type": "string",
             "maxLength": 200,
+            "nullable": true
+          },
+          "recibidaCompleta": {
+            "type": "boolean"
+          },
+          "fechaRecepcionCompleta": {
+            "type": "string",
+            "format": "date-time",
             "nullable": true
           },
           "proveedorId": {

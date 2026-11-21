@@ -27,10 +27,13 @@ public class GetCalificacionProveedorQueryHandler
         var resumen = await _repository.GetResumenAsync(request.ProveedorId, cancellationToken)
             ?? throw new KeyNotFoundException($"El proveedor '{request.ProveedorId}' todavía no tiene una calificación registrada.");
 
+        var ultimosComentarios = await _repository.GetUltimosComentariosAsync(request.ProveedorId, 20, cancellationToken);
+
         return new CalificacionProveedorResponseDto(
             resumen.ProveedorId,
             resumen.Promedio,
             resumen.Cantidad,
-            DateTime.SpecifyKind(resumen.FechaActualizacion, DateTimeKind.Utc));
+            DateTime.SpecifyKind(resumen.FechaActualizacion, DateTimeKind.Utc),
+            ultimosComentarios);
     }
 }

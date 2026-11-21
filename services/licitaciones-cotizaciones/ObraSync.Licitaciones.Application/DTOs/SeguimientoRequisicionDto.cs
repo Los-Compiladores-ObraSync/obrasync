@@ -23,4 +23,6 @@ public record SeguimientoOrdenCompraDto(
     Guid? DespachadaPor = null,
     DateTime? DespachadaEn = null,
     DateTime? FechaEstimadaLlegada = null,
-    string? Observacion = null);
+    string? Observacion = null,
+    bool RecibidaCompleta = false,
+    DateTime? FechaRecepcionCompleta = null);

@@ -233,6 +233,40 @@ public class CotizacionesController : ControllerBase
     }
 
     /// <summary>
+    /// Consultar la reputación propia del proveedor autenticado (promedio, cantidad y últimos comentarios) (Rol: Proveedor).
+    /// </summary>
+    [HttpGet("proveedores/mi-reputacion")]
+    [Authorize(Roles = "Proveedor")]
+    [ProducesResponseType(typeof(ReputacionProveedorResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetMiReputacionProveedor(
+        [FromServices] ObraSync.Licitaciones.Application.UseCases.Calificaciones.Handlers.GetMiReputacionProveedorQueryHandler handler,
+        [FromQuery] Guid? proveedorId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetUserId(out var usuarioId))
+        {
+            return Problem(
+                detail: "El token JWT no contiene un claim 'sub' válido con formato GUID para identificar al proveedor.",
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Proveedor no identificado");
+        }
+
+        if (proveedorId.HasValue && proveedorId.Value != Guid.Empty && proveedorId.Value != usuarioId)
+        {
+            return Problem(
+                detail: "Un proveedor solo puede consultar su propia reputación.",
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Acceso denegado");
+        }
+
+        var query = new ObraSync.Licitaciones.Application.UseCases.Calificaciones.Queries.GetMiReputacionProveedorQuery(usuarioId);
+        var resultado = await handler.Handle(query, cancellationToken);
+        return Ok(resultado);
+    }
+
+    /// <summary>
     /// Consultar la calificación actual de un proveedor: el promedio de las calificaciones recibidas
     /// (Roles: Comprador, Admin; y el Proveedor, solo la suya).
     /// </summary>
