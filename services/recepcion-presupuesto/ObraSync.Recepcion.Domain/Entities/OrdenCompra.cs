@@ -33,8 +33,10 @@ public class OrdenCompra : BaseEntity
     // Visibilidad presupuestaria cuando no se encuentra partida (#196)
     public bool SinPartidaPresupuestaria { get; set; }
 
-    // Control de despacho (#204): independiente del estado presupuestario (Activa / Bloqueada)
+    // Control de despacho (#204, #216, #217): independiente del estado presupuestario (Activa / Bloqueada)
     public DateTime? FechaDespacho { get; private set; }
+    public DateTime? FechaEstimadaLlegada { get; private set; }
+    public string? ObservacionDespacho { get; private set; }
     public bool EstaDespachada => FechaDespacho.HasValue;
 
     public bool EstaBloqueada => Estado == EstadoOrdenCompra.Bloqueada;
@@ -56,7 +58,9 @@ public class OrdenCompra : BaseEntity
         string? motivoBloqueo = null,
         bool sinPartidaPresupuestaria = false,
         DateTime? fechaDespacho = null,
-        DateTime? fechaBloqueo = null)
+        DateTime? fechaBloqueo = null,
+        DateTime? fechaEstimadaLlegada = null,
+        string? observacionDespacho = null)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("El identificador de la orden de compra no puede estar vacío.", nameof(id));
@@ -90,6 +94,8 @@ public class OrdenCompra : BaseEntity
         if (!string.IsNullOrWhiteSpace(etapa) && etapa.Trim().Length > 200)
             throw new ArgumentException("La etapa no puede superar los 200 caracteres.", nameof(etapa));
 
+        string? observacionDespachoNormalizada = NormalizarObservacionDespacho(observacionDespacho);
+
         var ahora = DateTime.UtcNow;
         var fechaBloqueoNormalizada = FechaUtc.Normalizar(fechaBloqueo)
             ?? (estado == EstadoOrdenCompra.Bloqueada ? ahora : null);
@@ -106,6 +112,8 @@ public class OrdenCompra : BaseEntity
             FechaBloqueo = fechaBloqueoNormalizada,
             SinPartidaPresupuestaria = sinPartidaPresupuestaria,
             FechaDespacho = FechaUtc.Normalizar(fechaDespacho),
+            FechaEstimadaLlegada = FechaUtc.Normalizar(fechaEstimadaLlegada),
+            ObservacionDespacho = observacionDespachoNormalizada,
             CreatedAt = ahora
         };
 
@@ -192,11 +200,15 @@ public class OrdenCompra : BaseEntity
     }
 
     /// <summary>
-    /// Registra la fecha de despacho al consumir OrdenCompraDespachadaEvent (#204).
+    /// Registra la fecha de despacho y los datos opcionales del despacho (fecha estimada de llegada y observación)
+    /// al consumir OrdenCompraDespachadaEvent (#204, #216, #217).
     /// Es independiente del estado presupuestario (Activa / Bloqueada) y conserva
     /// el primer despacho si recibe otro evento con distinto EventId.
     /// </summary>
-    public void MarcarComoDespachada(DateTime fechaDespachoUtc)
+    public void MarcarComoDespachada(
+        DateTime fechaDespachoUtc,
+        DateTime? fechaEstimadaLlegada = null,
+        string? observacionDespacho = null)
     {
         if (fechaDespachoUtc == default)
         {
@@ -208,9 +220,29 @@ public class OrdenCompra : BaseEntity
             return;
         }
 
+        string? observacionNormalizada = NormalizarObservacionDespacho(observacionDespacho);
+
         var ahora = DateTime.UtcNow;
         FechaDespacho = FechaUtc.Normalizar(fechaDespachoUtc);
+        FechaEstimadaLlegada = FechaUtc.Normalizar(fechaEstimadaLlegada);
+        ObservacionDespacho = observacionNormalizada;
         UpdatedAt = ahora;
+    }
+
+    private static string? NormalizarObservacionDespacho(string? observacionDespacho)
+    {
+        if (string.IsNullOrWhiteSpace(observacionDespacho))
+        {
+            return null;
+        }
+
+        var limpia = observacionDespacho.Trim();
+        if (limpia.Length > 200)
+        {
+            return limpia[..200];
+        }
+
+        return limpia;
     }
 
     /// <summary>

@@ -14,6 +14,7 @@ public class RecepcionDbContext : DbContext, IRecepcionDbContext
 
     public DbSet<Domain.Entities.Recepcion> Recepciones => Set<Domain.Entities.Recepcion>();
     public DbSet<DetalleRecepcion> DetallesRecepcion => Set<DetalleRecepcion>();
+    public DbSet<FotoRecepcion> FotosRecepcion => Set<FotoRecepcion>();
     public DbSet<PartidaPresupuestaria> PartidasPresupuestarias => Set<PartidaPresupuestaria>();
     public DbSet<OrdenCompra> OrdenesCompra => Set<OrdenCompra>();
     public DbSet<OrdenCompraItem> OrdenesCompraItems => Set<OrdenCompraItem>();

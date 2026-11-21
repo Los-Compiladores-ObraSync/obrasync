@@ -22,10 +22,16 @@ public class Recepcion : BaseEntity
 
     public EstadoRecepcion Estado { get; set; } = EstadoRecepcion.Pendiente;
 
+    // Motivo tipificado obligatorio cuando Estado == EstadoRecepcion.Rechazada (#217)
+    public string? MotivoProblema { get; set; }
+
     public string? Observaciones { get; set; }
 
     // Relación interna (misma base de datos SQL Server: DB_Recepcion)
     public ICollection<DetalleRecepcion> Detalles { get; set; } = new List<DetalleRecepcion>();
+
+    // Fotos de evidencia adjuntas a entregas con problema (#217, tabla aparte en DB_Recepcion)
+    public ICollection<FotoRecepcion> Fotos { get; set; } = new List<FotoRecepcion>();
 
     public void CambiarEstado(EstadoRecepcion nuevoEstado)
     {

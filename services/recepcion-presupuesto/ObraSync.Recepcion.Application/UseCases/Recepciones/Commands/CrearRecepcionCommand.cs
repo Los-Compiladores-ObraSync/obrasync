@@ -1,4 +1,5 @@
 using ObraSync.Recepcion.Application.DTOs;
+using ObraSync.Recepcion.Domain.Enums;
 
 namespace ObraSync.Recepcion.Application.UseCases.Recepciones.Commands;
 
@@ -10,4 +11,7 @@ public record CrearRecepcionCommand(
     DateTime FechaRecepcion,
     string? Observaciones,
     IReadOnlyList<CrearDetalleRecepcionRequest> Detalles,
-    Guid CorrelationId = default);
+    Guid CorrelationId = default,
+    EstadoRecepcion? Estado = null,
+    string? MotivoProblema = null,
+    IReadOnlyList<FotoEvidenciaEntrada>? Fotos = null);

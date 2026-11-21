@@ -53,6 +53,47 @@ public class ObtenerRecepcionesQueryHandler
             .Take(p.Tamano)
             .ToListAsync(cancellationToken);
 
-        return new PaginaDe<RecepcionDto>(recepciones.Select(r => r.ToDto()).ToList(), total);
+        var recepcionIds = recepciones.Select(r => r.Id).ToList();
+
+        // Proyección liviana de metadatos de fotos sin traer varbinary(max) (#217)
+        var fotosMetadatos = recepcionIds.Count == 0
+            ? new List<FotoMetadatoRow>()
+            : await _context.FotosRecepcion
+                .AsNoTracking()
+                .Where(f => recepcionIds.Contains(f.RecepcionId))
+                .OrderBy(f => f.Orden)
+                .ThenBy(f => f.CreatedAt)
+                .Select(f => new FotoMetadatoRow(
+                    f.Id,
+                    f.RecepcionId,
+                    f.NombreArchivo,
+                    f.ContentType,
+                    f.TamanoBytes,
+                    f.Orden))
+                .ToListAsync(cancellationToken);
+
+        var fotosPorRecepcion = fotosMetadatos
+            .GroupBy(f => f.RecepcionId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<FotoRecepcionDto>)g
+                    .Select(f => RecepcionMappings.CrearFotoDto(
+                        f.Id, f.RecepcionId, f.NombreArchivo, f.ContentType, f.TamanoBytes, f.Orden))
+                    .ToList());
+
+        var dtos = recepciones
+            .Select(r => r.ToDto(
+                fotosPorRecepcion.TryGetValue(r.Id, out var fotos) ? fotos : Array.Empty<FotoRecepcionDto>()))
+            .ToList();
+
+        return new PaginaDe<RecepcionDto>(dtos, total);
     }
+
+    private sealed record FotoMetadatoRow(
+        Guid Id,
+        Guid RecepcionId,
+        string NombreArchivo,
+        string ContentType,
+        long TamanoBytes,
+        int Orden);
 }

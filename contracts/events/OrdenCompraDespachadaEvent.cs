@@ -6,5 +6,7 @@ public record OrdenCompraDespachadaEvent(
     Guid CorrelationId,
     Guid OrdenCompraId,
     Guid ObraId,
-    DateTime FechaDespacho
+    DateTime FechaDespacho,
+    DateTime? FechaEstimadaLlegada = null,
+    string? ObservacionDespacho = null
 );

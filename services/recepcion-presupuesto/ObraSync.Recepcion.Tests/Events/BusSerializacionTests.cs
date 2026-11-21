@@ -165,6 +165,110 @@ public class BusSerializacionTests
         Assert.Equal(evento, deserializado);
     }
 
+    [Fact]
+    public async Task Bus_serializa_y_deserializa_OrdenCompraDespachadaEvent_con_campos_aditivos_216_217()
+    {
+        var evento = new OrdenCompraDespachadaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: new DateTime(2026, 11, 21, 18, 0, 0, DateTimeKind.Utc),
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: Guid.NewGuid(),
+            ObraId: Guid.NewGuid(),
+            FechaDespacho: new DateTime(2026, 11, 21, 18, 0, 0, DateTimeKind.Utc),
+            FechaEstimadaLlegada: new DateTime(2026, 11, 25, 12, 0, 0, DateTimeKind.Utc),
+            ObservacionDespacho: "Entregar en horario de mañana");
+
+        var capturador = new CapturaCuerpo();
+
+        await using var provider = CrearProveedorConBus<CapturaCuerpoDespachoConsumer>(capturador);
+
+        var harness = provider.GetRequiredService<ITestHarness>();
+        await harness.Start();
+
+        await harness.Bus.Publish(evento);
+
+        var json = await capturador.EsperarCuerpoAsync(TimeSpan.FromSeconds(10));
+        Assert.True(await harness.Published.Any<OrdenCompraDespachadaEvent>());
+        Assert.True(await harness.Consumed.Any<OrdenCompraDespachadaEvent>());
+
+        var deserializado = JsonSerializer.Deserialize<OrdenCompraDespachadaEvent>(
+            json,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.NotNull(deserializado);
+        Assert.Equal(evento, deserializado);
+    }
+
+    [Fact]
+    public async Task Bus_serializa_y_deserializa_RecepcionConProblemaEvent_segun_contrato_217()
+    {
+        var evento = new RecepcionConProblemaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: new DateTime(2026, 11, 21, 19, 0, 0, DateTimeKind.Utc),
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: Guid.NewGuid(),
+            RecepcionId: Guid.NewGuid(),
+            Motivo: "No llegó nada",
+            Detalle: "El camión no arribó al obrador",
+            CantidadFotos: 2,
+            ObraId: Guid.NewGuid(),
+            ProveedorId: Guid.NewGuid());
+
+        var capturador = new CapturaCuerpo();
+
+        await using var provider = CrearProveedorConBus<CapturaCuerpoProblemaConsumer>(capturador);
+
+        var harness = provider.GetRequiredService<ITestHarness>();
+        await harness.Start();
+
+        await harness.Bus.Publish(evento);
+
+        var json = await capturador.EsperarCuerpoAsync(TimeSpan.FromSeconds(10));
+        Assert.True(await harness.Published.Any<RecepcionConProblemaEvent>());
+        Assert.True(await harness.Consumed.Any<RecepcionConProblemaEvent>());
+
+        using var doc = JsonDocument.Parse(json);
+        Assert.Equal("No llegó nada", doc.RootElement.GetProperty("motivo").GetString());
+        Assert.Equal(2, doc.RootElement.GetProperty("cantidadFotos").GetInt32());
+
+        var deserializado = JsonSerializer.Deserialize<RecepcionConProblemaEvent>(
+            json,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.NotNull(deserializado);
+        Assert.Equal(evento, deserializado);
+    }
+
+    [Fact]
+    public async Task Bus_serializa_RecepcionConfirmadaEvent_con_ordenCompleta()
+    {
+        var evento = new RecepcionConfirmadaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: DateTime.UtcNow,
+            CorrelationId: Guid.NewGuid(),
+            RecepcionId: Guid.NewGuid(),
+            ObraId: Guid.NewGuid(),
+            OrdenCompraId: Guid.NewGuid(),
+            NumeroRemito: "R-COMPLETA-217",
+            FechaRecepcion: DateTime.UtcNow,
+            Items: new List<RecepcionConfirmadaItemEvent>
+            {
+                new(Guid.NewGuid(), 10m, "UN", "Articulo", 10m, true, null)
+            },
+            OrdenCompleta: true);
+
+        var capturador = new CapturaCuerpo();
+
+        await using var provider = CrearProveedorConBus<CapturaCuerpoConsumer>(capturador);
+
+        var harness = provider.GetRequiredService<ITestHarness>();
+        await harness.Start();
+
+        await harness.Bus.Publish(evento);
+
+        var json = await capturador.EsperarCuerpoAsync(TimeSpan.FromSeconds(10));
+        using var doc = JsonDocument.Parse(json);
+        Assert.True(doc.RootElement.GetProperty("ordenCompleta").GetBoolean());
+    }
+
     private ServiceProvider CrearProveedorConBus<TConsumer>(CapturaCuerpo capturador)
         where TConsumer : class, IConsumer
     {
@@ -254,6 +358,19 @@ public class CapturaCuerpoDespachoConsumer : IConsumer<OrdenCompraDespachadaEven
     public CapturaCuerpoDespachoConsumer(CapturaCuerpo captura) => _captura = captura;
 
     public Task Consume(ConsumeContext<OrdenCompraDespachadaEvent> context)
+    {
+        _captura.Registrar(Encoding.UTF8.GetString(context.ReceiveContext.GetBody()));
+        return Task.CompletedTask;
+    }
+}
+
+public class CapturaCuerpoProblemaConsumer : IConsumer<RecepcionConProblemaEvent>
+{
+    private readonly CapturaCuerpo _captura;
+
+    public CapturaCuerpoProblemaConsumer(CapturaCuerpo captura) => _captura = captura;
+
+    public Task Consume(ConsumeContext<RecepcionConProblemaEvent> context)
     {
         _captura.Registrar(Encoding.UTF8.GetString(context.ReceiveContext.GetBody()));
         return Task.CompletedTask;
