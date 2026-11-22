@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ObraSync.Usuarios.Domain.Entities;
 
 namespace ObraSync.Usuarios.Infrastructure.Data;
@@ -18,10 +19,22 @@ public class AuthDbContext : IdentityDbContext<AppUser, AppRole, Guid>
     public DbSet<EtapaObra> EtapasObras { get; set; }
     public DbSet<PlantillaObra> PlantillasObra { get; set; }
     public DbSet<EtapaPlantilla> EtapasPlantilla { get; set; }
+    public DbSet<SuscripcionPush> SuscripcionesPush { get; set; }
+    public DbSet<EventoProcesado> EventosProcesados { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        var utcDateTimeConverter = new ValueConverter<DateTime, DateTime>(
+            v => v.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v, DateTimeKind.Utc),
+            v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+        var nullableUtcDateTimeConverter = new ValueConverter<DateTime?, DateTime?>(
+            v => v.HasValue
+                ? (v.Value.Kind == DateTimeKind.Utc ? v.Value : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc))
+                : null,
+            v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : null);
 
         builder.Entity<AppUser>(entity =>
         {
@@ -118,6 +131,61 @@ public class AuthDbContext : IdentityDbContext<AppUser, AppRole, Guid>
 
             entity.Property(e => e.Orden)
                 .IsRequired();
+        });
+
+        builder.Entity<SuscripcionPush>(entity =>
+        {
+            entity.ToTable("SuscripcionesPush");
+            entity.HasKey(s => s.Id);
+
+            entity.Property(s => s.Endpoint)
+                .IsRequired()
+                .HasMaxLength(SuscripcionPush.MaxLongitudEndpoint);
+
+            entity.Property(s => s.EndpointHash)
+                .IsRequired()
+                .HasMaxLength(SuscripcionPush.MaxLongitudEndpointHash);
+
+            entity.Property(s => s.P256dh)
+                .IsRequired()
+                .HasMaxLength(SuscripcionPush.MaxLongitudClave);
+
+            entity.Property(s => s.Auth)
+                .IsRequired()
+                .HasMaxLength(SuscripcionPush.MaxLongitudClave);
+
+            entity.Property(s => s.Navegador)
+                .HasMaxLength(SuscripcionPush.MaxLongitudNavegador);
+
+            entity.Property(s => s.FechaAlta)
+                .HasConversion(utcDateTimeConverter);
+
+            entity.Property(s => s.UltimoEnvio)
+                .HasConversion(nullableUtcDateTimeConverter);
+
+            entity.HasIndex(s => new { s.UsuarioId, s.EndpointHash })
+                .IsUnique();
+
+            entity.HasOne(s => s.Usuario)
+                .WithMany()
+                .HasForeignKey(s => s.UsuarioId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<EventoProcesado>(entity =>
+        {
+            entity.ToTable("EventosProcesados");
+            entity.HasKey(e => e.Id);
+
+            entity.HasIndex(e => e.EventId)
+                .IsUnique();
+
+            entity.Property(e => e.TipoEvento)
+                .IsRequired()
+                .HasMaxLength(150);
+
+            entity.Property(e => e.ProcesadoEn)
+                .HasConversion(utcDateTimeConverter);
         });
     }
 }

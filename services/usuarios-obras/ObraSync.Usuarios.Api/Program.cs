@@ -1,3 +1,4 @@
+using MassTransit;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ObraSync.Usuarios.Api.Extensions;
@@ -6,7 +7,11 @@ using ObraSync.Usuarios.Application.Interfaces;
 using ObraSync.Usuarios.Application.Services;
 using ObraSync.Usuarios.Application.Settings;
 using ObraSync.Usuarios.Domain.Entities;
+using ObraSync.Usuarios.Infrastructure.Consumers;
 using ObraSync.Usuarios.Infrastructure.Data;
+using ObraSync.Usuarios.Infrastructure.Messaging;
+using ObraSync.Usuarios.Infrastructure.Push;
+using ObraSync.Usuarios.Infrastructure.Repositories;
 using ObraSync.Usuarios.Infrastructure.Services;
 using ObraSync.Usuarios.Infrastructure.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -64,10 +69,74 @@ builder.Services
     .AddOptions<FrontendSettings>()
     .BindConfiguration(FrontendSettings.SectionName);
 
+// 3c. Configuración VAPID para Web Push (opcional al arrancar; viene solo de variables de entorno, #227)
+builder.Services
+    .AddOptions<VapidSettings>()
+    .BindConfiguration(VapidSettings.SectionName);
+
 // 4. Inyección de dependencias de servicios
 builder.Services.AddScoped<IJwtProvider, JwtProvider>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IObraService, ObraService>();
+builder.Services.AddScoped<ISuscripcionPushRepository, SuscripcionPushRepository>();
+builder.Services.AddScoped<ISuscripcionPushService, SuscripcionPushService>();
+builder.Services.AddScoped<IDestinatariosNotificacionService, DestinatariosNotificacionService>();
+builder.Services.AddScoped<INotificacionPushService, NotificacionPushService>();
+builder.Services.AddHttpClient<IWebPushSender, WebPushSender>();
+
+// 4b. RabbitMQ + MassTransit para consumir eventos de negocio y disparar Web Push (#227)
+var useInMemoryTransport = string.Equals(
+    builder.Configuration["RabbitMQ:UseInMemory"],
+    "true",
+    StringComparison.OrdinalIgnoreCase);
+
+builder.Services.AddMassTransit(x =>
+{
+    // Prefijo propio del servicio: evita competir por las mismas colas que Licitaciones/Recepción en RabbitMQ.
+    x.SetEndpointNameFormatter(new DefaultEndpointNameFormatter(prefix: "usuarios.", includeNamespace: false));
+
+    x.AddConsumer<RequisicionAprobadaConsumer>();
+    x.AddConsumer<OrdenCompraEmitidaConsumer>();
+    x.AddConsumer<OrdenCompraDespachadaConsumer>();
+    x.AddConsumer<RecepcionConfirmadaConsumer>();
+    x.AddConsumer<RecepcionConProblemaConsumer>();
+    x.AddConsumer<MensajeChatEnviadoConsumer>();
+
+    if (useInMemoryTransport)
+    {
+        x.UsingInMemory((context, cfg) =>
+        {
+            cfg.UsarDecimalesComoNumero();
+            cfg.ConfigureEndpoints(context);
+        });
+    }
+    else
+    {
+        var username = builder.Configuration["RabbitMQ:Username"];
+        var password = builder.Configuration["RabbitMQ:Password"];
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        {
+            throw new InvalidOperationException(
+                "RabbitMQ Username y Password deben estar configurados cuando no se utiliza el transporte en memoria (#169). Configure 'RabbitMQ:Username' y 'RabbitMQ:Password'.");
+        }
+
+        x.UsingRabbitMq((context, cfg) =>
+        {
+            var host = builder.Configuration["RabbitMQ:Host"] ?? "localhost";
+            var virtualHost = builder.Configuration["RabbitMQ:VirtualHost"] ?? "/";
+
+            cfg.Host(host, virtualHost, h =>
+            {
+                h.Username(username);
+                h.Password(password);
+            });
+
+            cfg.UsarDecimalesComoNumero();
+            cfg.UsarReintentosExponenciales();
+            cfg.ConfigureEndpoints(context);
+        });
+    }
+});
 
 // 1. Obtención y validación de la clave secreta JWT
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>();
@@ -195,6 +264,7 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "usuarios" }));
 app.MapControllers();
 
 // 6. Sembrado de base de datos y roles al arrancar

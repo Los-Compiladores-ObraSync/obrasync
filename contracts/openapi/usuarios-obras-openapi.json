@@ -1163,6 +1163,239 @@
           }
         }
       }
+    },
+    "/api/usuarios/notificaciones/vapid-public-key": {
+      "get": {
+        "tags": [
+          "NotificacionesPush"
+        ],
+        "summary": "Obtener la clave pública VAPID para registrar notificaciones Web Push (#227)",
+        "description": "Devuelve la clave pública VAPID configurada por variables de entorno del servicio de Usuarios. Requiere usuario autenticado con JWT válido. Devuelve 503 Service Unavailable si el servidor aún no tiene configuradas las claves VAPID.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Clave pública VAPID obtenida exitosamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VapidPublicKeyResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No autenticado",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Notificaciones push no configuradas en el servidor (faltan claves VAPID)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/usuarios/notificaciones/suscripciones": {
+      "post": {
+        "tags": [
+          "NotificacionesPush"
+        ],
+        "summary": "Registrar o actualizar una suscripción Web Push del usuario autenticado (#227)",
+        "description": "Guarda una suscripción PushManager (endpoint, p256dh, auth) asociada al usuario autenticado (claim 'sub'). Si el endpoint ya existía para el usuario, actualiza sus claves de forma idempotente; si es nuevo y el usuario alcanzó el límite máximo de 5 suscripciones, reemplaza automáticamente la más antigua (UltimoEnvio ?? FechaAlta). Si no se envía navegador, toma el User-Agent recortado a 200 caracteres.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearSuscripcionPushRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Suscripción existente actualizada exitosamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuscripcionPushResponseDto"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Suscripción registrada exitosamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuscripcionPushResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos de suscripción inválidos (endpoint no HTTPS o claves vacías).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No autenticado",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "NotificacionesPush"
+        ],
+        "summary": "Eliminar una suscripción Web Push propia por endpoint (#227)",
+        "description": "Elimina la suscripción Web Push asociada al usuario autenticado (claim 'sub') que coincida con el endpoint indicado.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "endpoint",
+            "in": "query",
+            "required": true,
+            "description": "URL del endpoint Web Push a dar de baja.",
+            "schema": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 1000
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Suscripción eliminada exitosamente."
+          },
+          "400": {
+            "description": "Parámetro endpoint obligatorio o inválido.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No autenticado",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No se encontró una suscripción propia con ese endpoint.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/usuarios/notificaciones/suscripciones/{id}": {
+      "delete": {
+        "tags": [
+          "NotificacionesPush"
+        ],
+        "summary": "Eliminar una suscripción Web Push propia por identificador (#227)",
+        "description": "Elimina una suscripción por su ID verificando que pertenezca al usuario autenticado (claim 'sub'). Devuelve 403 Forbidden si la suscripción pertenece a otro usuario y 404 Not Found si no existe.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Identificador único (GUID) de la suscripción.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Suscripción eliminada exitosamente."
+          },
+          "401": {
+            "description": "No autenticado",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "La suscripción pertenece a otro usuario.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Suscripción no encontrada.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1578,6 +1811,92 @@
           "nombre",
           "capatazId"
         ],
+        "additionalProperties": false
+      },
+      "VapidPublicKeyResponseDto": {
+        "type": "object",
+        "required": [
+          "publicKey"
+        ],
+        "properties": {
+          "publicKey": {
+            "type": "string",
+            "description": "Clave pública VAPID en formato Base64 URL-safe para suscribirse desde el Service Worker."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CrearSuscripcionPushRequestDto": {
+        "type": "object",
+        "required": [
+          "endpoint",
+          "p256dh",
+          "auth"
+        ],
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 1000,
+            "description": "URL del servicio Push del navegador (HTTPS obligatorio, salvo http://localhost en desarrollo)."
+          },
+          "p256dh": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Clave pública P-256 del cliente (keys.p256dh de PushSubscription)."
+          },
+          "auth": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Secreto de autenticación del cliente (keys.auth de PushSubscription)."
+          },
+          "navegador": {
+            "type": "string",
+            "maxLength": 200,
+            "nullable": true,
+            "description": "Identificador opcional del navegador/dispositivo; si se omite se usa User-Agent (máx. 200 caracteres)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "SuscripcionPushResponseDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "usuarioId",
+          "endpoint",
+          "fechaAlta"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "usuarioId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "endpoint": {
+            "type": "string",
+            "format": "uri"
+          },
+          "navegador": {
+            "type": "string",
+            "maxLength": 200,
+            "nullable": true
+          },
+          "fechaAlta": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ultimoEnvio": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
         "additionalProperties": false
       }
     }

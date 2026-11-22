@@ -29,6 +29,7 @@ public class CambiarPasswordEndpointTests : IClassFixture<WebApplicationFactory<
         {
             builder.UseSetting("Jwt:Secret", TestJwtSecret);
             builder.UseSetting("ConnectionStrings:DefaultConnection", "InMemoryTestDb");
+            builder.UseSetting("RabbitMQ:UseInMemory", "true");
 
             builder.ConfigureServices(services =>
             {
