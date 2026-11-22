@@ -4,11 +4,13 @@ import { useAuth } from '../auth/useAuth'
 import {
   listarLicitaciones,
   obtenerCalificacionProveedor,
+  obtenerLicitacion,
   obtenerMisCotizaciones,
 } from '../licitaciones/licitacionesService'
 import type { LicitacionResponseDto, MiCotizacionDto } from '../licitaciones/licitacionesTipos'
 import { formatearPesos } from '../presupuesto/formatoPesos'
 import { fechaLarga } from '../requisiciones/formatoFecha'
+import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './MisCotizacionesPage.module.css'
 
 /** Texto y estilo de cada resultado que informa el servicio (estadoResultado). */
@@ -47,6 +49,11 @@ function sePuedeCorregir(c: MiCotizacionDto): boolean {
   return c.estadoLicitacion === 'Abierta' && new Date(c.fechaLimiteCotizacion).getTime() > Date.now()
 }
 
+/** Los ítems donde el Proveedor ofreció otra presentación u otra cantidad que lo pedido (#229). */
+function itemsConOtraPresentacion(c: MiCotizacionDto) {
+  return c.items.filter((i) => Boolean(i.presentacionOfrecida?.trim()) || i.cantidadOfrecida != null)
+}
+
 /** Una fila del historial: una cotización ya enviada o una licitación abierta que todavía no cotizó. */
 type Fila =
   | { tipo: 'cotizacion'; cotizacion: MiCotizacionDto }
@@ -69,6 +76,8 @@ export function MisCotizacionesPage() {
   const [calificacion, setCalificacion] = useState<number | null>(null)
   const [cantidadCalificaciones, setCantidadCalificaciones] = useState(0)
   const [intento, setIntento] = useState(0)
+  // Pliegos de las cotizaciones con otra presentación: de ahí salen el nombre del material y lo pedido.
+  const [pliegos, setPliegos] = useState<Record<string, LicitacionResponseDto>>({})
 
   // El filtro vive en la dirección de la página (?estado=adjudicadas): sobrevive a recargar y se puede compartir.
   const pedido = parametros.get('estado')
@@ -107,6 +116,27 @@ export function MisCotizacionesPage() {
       cancelado = true
     }
   }, [intento])
+
+  // Solo se piden los pliegos de las cotizaciones que ofrecen otra presentación (son pocas). Si falla,
+  // el detalle se muestra igual, sin el nombre del material.
+  useEffect(() => {
+    const ids = [
+      ...new Set(
+        cotizaciones.filter((c) => itemsConOtraPresentacion(c).length > 0).map((c) => c.licitacionId),
+      ),
+    ]
+    let cancelado = false
+    for (const id of ids) {
+      obtenerLicitacion(id)
+        .then((pliego) => {
+          if (!cancelado) setPliegos((prev) => ({ ...prev, [id]: pliego }))
+        })
+        .catch(() => {})
+    }
+    return () => {
+      cancelado = true
+    }
+  }, [cotizaciones])
 
   useEffect(() => {
     if (!usuario?.id) return
@@ -274,11 +304,23 @@ export function MisCotizacionesPage() {
           }
           const c = fila.cotizacion
           const resultado = RESULTADOS[c.estadoResultado] ?? { texto: c.estadoResultado, clase: 'cerrada' }
+          const itemsOtraPresentacion = itemsConOtraPresentacion(c)
+          const hayPresentacionDistinta = c.items.some((i) => Boolean(i.presentacionOfrecida?.trim()))
+          // La marca la calcula el servicio (#190): acá solo se muestra lo que devolvió.
+          const hayCoberturaParcial = Boolean(c.coberturaParcial) || c.items.some((i) => i.coberturaParcial)
           return (
             <li key={c.cotizacionId} className={styles.tarjeta}>
               <div className={styles.encabezado}>
                 <h2>{c.numeroRequisicion}</h2>
-                <span className={`${styles.resultado} ${styles[resultado.clase]}`}>{resultado.texto}</span>
+                <div className={styles.etiquetas}>
+                  <span className={`${styles.resultado} ${styles[resultado.clase]}`}>{resultado.texto}</span>
+                  {hayPresentacionDistinta && (
+                    <span className={`${styles.resultado} ${styles.presentacionDistinta}`}>Presentación distinta</span>
+                  )}
+                  {hayCoberturaParcial && (
+                    <span className={`${styles.resultado} ${styles.coberturaParcial}`}>Cobertura parcial</span>
+                  )}
+                </div>
               </div>
               <dl className={styles.datos}>
                 <div className={styles.total}>
@@ -303,6 +345,36 @@ export function MisCotizacionesPage() {
                   <dd>{fechaLarga(c.fechaLimiteCotizacion)}</dd>
                 </div>
               </dl>
+              {itemsOtraPresentacion.length > 0 && (
+                <div className={styles.ofrecido}>
+                  <h3>Lo que ofreciste distinto de lo pedido</h3>
+                  <ul>
+                    {itemsOtraPresentacion.map((it) => {
+                      const pedido = pliegos[c.licitacionId]?.items.find((p) => p.articuloId === it.articuloId)
+                      const cantidad = it.cantidadOfrecida ?? null
+                      const presentacion = it.presentacionOfrecida?.trim()
+                      const total = it.subtotalItem ?? (cantidad !== null ? cantidad * it.precioUnitario : null)
+                      const queOfreciste =
+                        cantidad !== null
+                          ? `${cantidad} ${presentacion ? `× ${presentacion}` : 'en la presentación pedida'}`
+                          : (presentacion ?? '')
+                      return (
+                        <li key={it.articuloId}>
+                          <strong>{pedido?.descripcion ?? 'Material ofrecido'}</strong>
+                          {pedido && <span>Pedido: {cantidadConUnidad(pedido.cantidad, pedido.unidadMedida)}</span>}
+                          <span>
+                            Ofreciste: {queOfreciste} a {formatearPesos(it.precioUnitario)} c/u
+                            {total !== null && <> · Total: {formatearPesos(total)}</>}
+                          </span>
+                          {it.coberturaParcial && (
+                            <span className={styles.avisoParcial}>Esto no cubre todo lo pedido.</span>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )}
               {(sePuedeCorregir(c) || c.estadoResultado === 'Gano') && (
                 <div className={styles.acciones}>
                   {sePuedeCorregir(c) && (

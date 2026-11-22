@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   hayErroresCotizacion,
   parsearNumeroDecimal,
+  validarCantidadOfrecida,
   validarCotizacion,
   validarFlete,
+  validarPresentacionOfrecida,
   validarPlazoEntregaDias,
   validarPrecioUnitario,
 } from './validacionCotizacion'
@@ -156,5 +158,82 @@ describe('validarCotizacion y hayErroresCotizacion', () => {
 
     expect(hayErroresCotizacion(errores)).toBe(true)
     expect(errores.general).toBe('La cotización debe incluir al menos un ítem.')
+  })
+})
+
+
+describe('validarPresentacionOfrecida (#229)', () => {
+  it('acepta un texto de hasta 100 caracteres', () => {
+    expect(validarPresentacionOfrecida('bolsa de 25 kg')).toBeUndefined()
+    expect(validarPresentacionOfrecida('a'.repeat(100))).toBeUndefined()
+  })
+
+  it('pide la presentación si está vacía o son solo espacios', () => {
+    expect(validarPresentacionOfrecida('')).toBe('Escribí qué presentación ofrecés (por ejemplo, bolsa de 25 kg).')
+    expect(validarPresentacionOfrecida('   ')).toBe('Escribí qué presentación ofrecés (por ejemplo, bolsa de 25 kg).')
+  })
+
+  it('rechaza más de 100 caracteres (límite del contrato)', () => {
+    expect(validarPresentacionOfrecida('a'.repeat(101))).toBe('La presentación no puede superar los 100 caracteres.')
+  })
+})
+
+describe('validarCantidadOfrecida (#229)', () => {
+  it('acepta cantidades con punto o con coma desde 0,01', () => {
+    expect(validarCantidadOfrecida('2')).toBeUndefined()
+    expect(validarCantidadOfrecida('2,5')).toBeUndefined()
+    expect(validarCantidadOfrecida('0.01')).toBeUndefined()
+  })
+
+  it('rechaza vacío, texto, cero y negativos', () => {
+    expect(validarCantidadOfrecida('')).toBe('Ingresá la cantidad que ofrecés.')
+    expect(validarCantidadOfrecida('abc')).toBe('La cantidad ofrecida debe ser un número válido.')
+    expect(validarCantidadOfrecida('0')).toBe('La cantidad ofrecida debe ser al menos 0,01.')
+    expect(validarCantidadOfrecida('0,005')).toBe('La cantidad ofrecida debe ser al menos 0,01.')
+    expect(validarCantidadOfrecida('-3')).toBe('La cantidad ofrecida debe ser al menos 0,01.')
+  })
+})
+
+describe('validarCotizacion con otra presentación (#229)', () => {
+  const art1 = 'aaaaaaaa-0000-0000-0000-000000000001'
+  const art2 = 'aaaaaaaa-0000-0000-0000-000000000002'
+  const base = { flete: '0', plazoEntregaDias: '5', preciosPorArticulo: { [art1]: '100', [art2]: '50' } }
+
+  it('sin otra presentación se comporta como siempre (no agrega errores)', () => {
+    const errores = validarCotizacion(base, [art1, art2])
+    expect(hayErroresCotizacion(errores)).toBe(false)
+    expect(errores.otrasPresentacionesPorArticulo).toBeUndefined()
+  })
+
+  it('acepta una otra presentación completa y válida', () => {
+    const errores = validarCotizacion(
+      { ...base, otrasPresentacionesPorArticulo: { [art1]: { presentacion: 'bolsa 25 kg', cantidad: '2' } } },
+      [art1, art2],
+    )
+    expect(hayErroresCotizacion(errores)).toBe(false)
+  })
+
+  it('marca los campos de la presentación activada que están mal, sin tocar los otros ítems', () => {
+    const errores = validarCotizacion(
+      { ...base, otrasPresentacionesPorArticulo: { [art1]: { presentacion: '', cantidad: '0' } } },
+      [art1, art2],
+    )
+    expect(hayErroresCotizacion(errores)).toBe(true)
+    expect(errores.otrasPresentacionesPorArticulo?.[art1]?.presentacion).toBeDefined()
+    expect(errores.otrasPresentacionesPorArticulo?.[art1]?.cantidad).toBe('La cantidad ofrecida debe ser al menos 0,01.')
+    expect(errores.otrasPresentacionesPorArticulo?.[art2]).toBeUndefined()
+  })
+
+  it('el precio sigue siendo obligatorio aunque la presentación esté bien', () => {
+    const errores = validarCotizacion(
+      {
+        ...base,
+        preciosPorArticulo: { [art1]: '', [art2]: '50' },
+        otrasPresentacionesPorArticulo: { [art1]: { presentacion: 'bolsa 25 kg', cantidad: '2' } },
+      },
+      [art1, art2],
+    )
+    expect(hayErroresCotizacion(errores)).toBe(true)
+    expect(errores.preciosPorArticulo?.[art1]).toBe('Ingresá el precio unitario.')
   })
 })

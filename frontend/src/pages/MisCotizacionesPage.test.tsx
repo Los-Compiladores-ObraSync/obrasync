@@ -317,4 +317,96 @@ describe('MisCotizacionesPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudieron cargar las licitaciones pendientes')
     expect(screen.getByRole('heading', { level: 2, name: 'REQ-2026-0011' })).toBeInTheDocument()
   })
+
+  describe('otra presentación ofrecida (#229)', () => {
+    const ART_1 = 'c1c2c3c4-0000-0000-0000-000000000001'
+    const LIC_ID = 'b0000000-0000-0000-0000-000000000001'
+
+    const conOtraPresentacion = () =>
+      cotizacion({
+        coberturaParcial: true,
+        items: [
+          {
+            articuloId: ART_1,
+            precioUnitario: 1000,
+            presentacionOfrecida: 'bolsa 25 kg',
+            cantidadOfrecida: 2,
+            subtotalItem: 2000,
+            coberturaParcial: true,
+          },
+        ],
+      })
+
+    function pliegoDelMock() {
+      server.use(
+        http.get(`*/api/licitaciones/${LIC_ID}`, () =>
+          HttpResponse.json({
+            licitacionId: LIC_ID,
+            requisicionId: 'r1',
+            numeroRequisicion: 'REQ-2026-0011',
+            obraId: 'o1',
+            estado: 'Abierta',
+            fechaCreacion: '2026-11-01T10:00:00Z',
+            fechaLimiteCotizacion: '2099-01-01T12:00:00Z',
+            items: [{ articuloId: ART_1, descripcion: 'Cemento Portland Especial 25kg', cantidad: 80, unidadMedida: 'BOLSA' }],
+          }),
+        ),
+      )
+    }
+
+    it('muestra las etiquetas y el detalle de lo que ofreció distinto de lo pedido', async () => {
+      server.use(http.get('*/api/cotizaciones/mias', () => HttpResponse.json([conOtraPresentacion()])))
+      pliegoDelMock()
+
+      renderPagina()
+
+      expect(await screen.findByText('Presentación distinta')).toBeInTheDocument()
+      expect(screen.getByText('Cobertura parcial')).toBeInTheDocument()
+      expect(screen.getByText('Lo que ofreciste distinto de lo pedido')).toBeInTheDocument()
+      expect(await screen.findByText('Cemento Portland Especial 25kg')).toBeInTheDocument()
+      expect(screen.getByText(/Pedido: 80 bolsas/)).toBeInTheDocument()
+      expect(screen.getByText(/Ofreciste: 2 × bolsa 25 kg a/)).toHaveTextContent(/Total:/)
+      expect(screen.getByText('Esto no cubre todo lo pedido.')).toBeInTheDocument()
+    })
+
+    it('el detalle se muestra igual aunque no se pueda traer el pliego', async () => {
+      server.use(
+        http.get('*/api/cotizaciones/mias', () => HttpResponse.json([conOtraPresentacion()])),
+        http.get(`*/api/licitaciones/${LIC_ID}`, () => new HttpResponse(null, { status: 500 })),
+      )
+
+      renderPagina()
+
+      expect(await screen.findByText('Material ofrecido')).toBeInTheDocument()
+      expect(screen.getByText(/Ofreciste: 2 × bolsa 25 kg a/)).toBeInTheDocument()
+      expect(screen.queryByText(/Pedido:/)).not.toBeInTheDocument()
+    })
+
+    it('una cotización normal no muestra etiquetas ni detalle', async () => {
+      server.use(
+        http.get('*/api/cotizaciones/mias', () =>
+          HttpResponse.json([cotizacion({ items: [{ articuloId: ART_1, precioUnitario: 1000 }] })]),
+        ),
+      )
+
+      renderPagina()
+
+      expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
+      expect(screen.queryByText('Presentación distinta')).not.toBeInTheDocument()
+      expect(screen.queryByText('Cobertura parcial')).not.toBeInTheDocument()
+      expect(screen.queryByText('Lo que ofreciste distinto de lo pedido')).not.toBeInTheDocument()
+    })
+
+    it('mientras la licitación está abierta, deja editar la oferta con otra presentación', async () => {
+      server.use(http.get('*/api/cotizaciones/mias', () => HttpResponse.json([conOtraPresentacion()])))
+      pliegoDelMock()
+
+      renderPagina()
+
+      expect(await screen.findByRole('link', { name: 'Editar cotización' })).toHaveAttribute(
+        'href',
+        `/proveedores/licitaciones/${LIC_ID}?corregir=c0000000-0000-0000-0000-000000000001`,
+      )
+    })
+  })
 })
