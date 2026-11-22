@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import { ChatOrden } from '../chat/ChatOrden'
+import { useChatEnLista } from '../chat/useChatEnLista'
 import { CalificacionProveedor } from '../licitaciones/CalificacionProveedor'
 import { listarOrdenesCompra } from '../licitaciones/licitacionesService'
 import type { OrdenCompraListadoDto } from '../licitaciones/licitacionesTipos'
@@ -30,6 +32,7 @@ export function OrdenesCompraPage() {
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
   // Cada vez que cambia "intento" se vuelve a pedir la lista ("Reintentar").
   const [intento, setIntento] = useState(0)
+  const chat = useChatEnLista()
 
   useEffect(() => {
     let cancelado = false
@@ -111,9 +114,9 @@ export function OrdenesCompraPage() {
                     {orden.fueDespachada ? 'Despachada' : 'Sin despachar'}
                   </span>
                 </div>
-                {orden.tieneProblemaAbierto && (
+                {chat.problemaDe(orden).abierto && (
                   <p className={styles.problema} role="status">
-                    Entrega con problema{orden.motivoProblemaAbierto ? `: ${orden.motivoProblemaAbierto}` : ''}
+                    Entrega con problema{chat.problemaDe(orden).motivo ? `: ${chat.problemaDe(orden).motivo}` : ''}
                   </p>
                 )}
                 <p className={styles.dato}>Orden {codigo}</p>
@@ -133,6 +136,16 @@ export function OrdenesCompraPage() {
 
                 {/* Seguimiento (#224): qué llegó y qué falta, y la historia de la entrega con sus problemas y fotos. */}
                 {orden.fueDespachada && <SeguimientoEntrega ordenCompraId={orden.id} codigo={codigo} />}
+
+                {/* Chat con el proveedor (#225): en vivo, con contador de no leídos. */}
+                <ChatOrden
+                  ordenCompraId={orden.id}
+                  codigo={codigo}
+                  noLeidos={chat.noLeidosDe(orden)}
+                  problema={chat.problemaDe(orden)}
+                  alLeer={() => chat.marcarLeida(orden.id)}
+                  alCambiarProblema={(estado) => chat.cambiarProblema(orden.id, estado)}
+                />
 
                 {orden.fueDespachada && (
                   <CalificacionProveedor

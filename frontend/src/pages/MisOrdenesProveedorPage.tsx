@@ -3,6 +3,8 @@ import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { despacharOrdenCompra, listarOrdenesCompra } from '../licitaciones/licitacionesService'
 import type { OrdenCompraListadoDto } from '../licitaciones/licitacionesTipos'
+import { ChatOrden } from '../chat/ChatOrden'
+import { useChatEnLista } from '../chat/useChatEnLista'
 import { SeguimientoEntrega } from '../recepciones/SeguimientoEntrega'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import styles from './MisOrdenesProveedorPage.module.css'
@@ -56,6 +58,7 @@ export function MisOrdenesProveedorPage() {
   const [error, setError] = useState<string | null>(null)
   // Cada vez que cambia "intento" se vuelve a pedir la lista (refresco tras un 404).
   const [intento, setIntento] = useState(0)
+  const chat = useChatEnLista()
 
   // Formulario de despacho abierto (una orden a la vez) y sus campos.
   const [abiertaId, setAbiertaId] = useState<string | null>(null)
@@ -155,9 +158,9 @@ export function MisOrdenesProveedorPage() {
           </span>
         </div>
 
-        {o.tieneProblemaAbierto && (
+        {chat.problemaDe(o).abierto && (
           <p className={styles.problema} role="status">
-            Entrega con problema{o.motivoProblemaAbierto ? `: ${o.motivoProblemaAbierto}` : ''}
+            Entrega con problema{chat.problemaDe(o).motivo ? `: ${chat.problemaDe(o).motivo}` : ''}
           </p>
         )}
 
@@ -188,6 +191,16 @@ export function MisOrdenesProveedorPage() {
 
         {/* Seguimiento (#224): qué llegó y qué falta, y la historia de la entrega con sus problemas y fotos. */}
         {o.fueDespachada && <SeguimientoEntrega ordenCompraId={o.id} codigo={codigo} />}
+
+        {/* Chat con Compras (#225): en vivo, con contador de no leídos. */}
+        <ChatOrden
+          ordenCompraId={o.id}
+          codigo={codigo}
+          noLeidos={chat.noLeidosDe(o)}
+          problema={chat.problemaDe(o)}
+          alLeer={() => chat.marcarLeida(o.id)}
+          alCambiarProblema={(estado) => chat.cambiarProblema(o.id, estado)}
+        />
 
         {!o.fueDespachada && !abierta && (
           <div className={styles.acciones}>

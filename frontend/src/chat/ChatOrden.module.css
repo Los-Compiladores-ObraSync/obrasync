@@ -1,0 +1,241 @@
+/* Chat por orden (#225): desplegable dentro de la tarjeta de la orden, mobile-first. */
+
+.contenedor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.alternar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: var(--alto-toque, 56px);
+  padding: 0 1.25rem;
+  border: 2px solid var(--azul);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--azul);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.contador {
+  min-width: 1.5rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--naranja);
+  color: #fff;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+  text-align: center;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.ayuda {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--texto-suave);
+}
+
+/* Discreto: no es un error, solo avisa que no hay tiempo real. */
+.sinConexion {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--texto-suave);
+}
+
+.resolver {
+  min-height: var(--alto-toque, 56px);
+  padding: 0 1.25rem;
+  border: 2px solid #991b1b;
+  border-radius: 8px;
+  background: #fff;
+  color: #991b1b;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.resolver:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.errorCarga {
+  padding: 0.75rem 1rem;
+  border: 2px solid #fca5a5;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.errorCarga p {
+  margin: 0 0 0.5rem;
+}
+
+.reintentar {
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 2px solid #991b1b;
+  border-radius: 8px;
+  background: #fff;
+  color: #991b1b;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mensajes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  max-height: 22rem;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.mensaje {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-width: 85%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+}
+
+.mio {
+  align-self: flex-end;
+  background: #dbeafe;
+}
+
+.ajeno {
+  align-self: flex-start;
+  border: 1px solid var(--borde);
+  background: #fff;
+}
+
+.autor {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.texto {
+  margin: 0;
+  font-size: 1.0625rem;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  color: var(--texto);
+}
+
+.hora {
+  font-size: 0.75rem;
+  color: var(--texto-suave);
+}
+
+/* Mensajes automáticos (despacho, problema, llegó todo): centrados y con otro estilo que los de las personas. */
+.sistema {
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 95%;
+  padding: 0.4rem 0.75rem;
+  border: 1px dashed var(--borde);
+  border-radius: 999px;
+  background: transparent;
+  text-align: center;
+}
+
+.textoSistema {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-style: italic;
+  color: var(--texto-suave);
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.etiqueta {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.campo {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid var(--borde);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 1.0625rem;
+  resize: vertical;
+}
+
+.campo:focus-visible,
+.alternar:focus-visible,
+.enviar:focus-visible,
+.resolver:focus-visible {
+  outline: 3px solid var(--foco, var(--azul));
+  outline-offset: 2px;
+}
+
+.pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.contadorTexto {
+  font-size: 0.875rem;
+  color: var(--texto-suave);
+}
+
+.enviar {
+  min-height: var(--alto-toque, 56px);
+  padding: 0 1.5rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--accion);
+  color: #fff;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.enviar:hover:not(:disabled) {
+  background: var(--accion-oscura);
+}
+
+.enviar:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.error {
+  margin: 0;
+  color: #991b1b;
+  font-weight: 600;
+}

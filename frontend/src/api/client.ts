@@ -9,6 +9,12 @@ export function setToken(value: string | null): void {
   token = value
 }
 
+/** El token de la sesión. Lo usa el chat en tiempo real (#225): un WebSocket no puede mandar el encabezado
+ *  Authorization, así que el cliente de SignalR lo manda en la URL de la conexión. */
+export function obtenerToken(): string | null {
+  return token
+}
+
 /** Registra un callback que se ejecuta cuando un pedido autenticado recibe un 401.
  *  AuthContext lo usa para cerrar la sesión automáticamente si el token expiró. */
 export function setOnUnauthorized(callback: (() => void) | null): void {
