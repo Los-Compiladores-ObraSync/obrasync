@@ -1,0 +1,56 @@
+/* Línea de tiempo de una orden (#224): una columna con un punto por cada hecho. */
+
+.linea {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0 0 0 1.25rem;
+  list-style: none;
+  border-left: 3px solid var(--borde);
+}
+
+.hito {
+  position: relative;
+  padding: 0.75rem 0 0.75rem 0.75rem;
+  font-size: 1rem;
+}
+
+/* El punto sobre la línea. */
+.hito::before {
+  content: '';
+  position: absolute;
+  top: 1.1rem;
+  left: -1.7rem;
+  width: 14px;
+  height: 14px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: var(--azul);
+  box-shadow: 0 0 0 2px var(--borde);
+}
+
+.hitoProblema::before {
+  background: #dc2626;
+  box-shadow: 0 0 0 2px #dc2626;
+}
+
+.detalle {
+  margin: 0.25rem 0 0;
+  color: var(--texto-suave);
+}
+
+.materiales {
+  margin: 0.25rem 0 0;
+  padding-left: 1.25rem;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+.fotos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}

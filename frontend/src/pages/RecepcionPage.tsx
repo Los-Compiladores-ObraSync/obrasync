@@ -3,7 +3,9 @@ import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { esFechaFutura, esFechaPasada, fechaEnPalabras, hoyComoTexto } from '../obras/fechaEnPalabras'
 import { fechaAIso } from '../obras/validacionObra'
+import { EntregaConProblemaForm } from '../recepciones/EntregaConProblemaForm'
 import { ErrorDeImagen, reducirImagen } from '../recepciones/imagenRemito'
+import { LineaDeTiempoOrden } from '../recepciones/LineaDeTiempoOrden'
 import { leerRemitoDeFoto, obtenerHistorialRecepciones, obtenerOrdenesPendientes, registrarRecepcion } from '../recepciones/recepcionesService'
 import type { ItemOrdenPendiente, OrdenPendiente, RecepcionHistorial, RecepcionRegistrada } from '../recepciones/recepcionesTipos'
 import {
@@ -13,6 +15,7 @@ import {
   validarRecepcion,
   type ErroresRecepcion,
 } from '../recepciones/validacionRecepcion'
+import { fechaLarga } from '../requisiciones/formatoFecha'
 import { obtenerObras } from '../requisiciones/requisicionesService'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './RecepcionPage.module.css'
@@ -28,14 +31,6 @@ function mensajeDeErrorApi(err: unknown): string {
     }
   }
   return 'No se pudo conectar con el servidor. Intentá nuevamente.'
-}
-
-/** Muestra el día escrito en el date-time, sin convertirlo a la zona local y cambiar el día. */
-function fechaDeHistorial(fechaRecepcion?: string | null): string {
-  if (!fechaRecepcion || !Number.isFinite(Date.parse(fechaRecepcion))) return 'Fecha no disponible'
-  const diaISO = /^(\d{4}-\d{2}-\d{2})T/.exec(fechaRecepcion)?.[1]
-  if (!diaISO) return 'Fecha no disponible'
-  return fechaEnPalabras(diaISO) || 'Fecha no disponible'
 }
 
 function saldoPendiente(item: ItemOrdenPendiente): number {
@@ -90,6 +85,9 @@ export function RecepcionPage() {
   // cambia en el próximo render y un segundo toque podría colarse antes.
   const enviandoRef = useRef(false)
   const [registrada, setRegistrada] = useState<RecepcionRegistrada | null>(null)
+  // Entrega con problema (#224): "No llegó nada", "Llegó incompleta", "Llegó dañada" o "No es lo pedido", con fotos.
+  const [reportandoProblema, setReportandoProblema] = useState(false)
+  const [problemaRegistrado, setProblemaRegistrado] = useState<RecepcionRegistrada | null>(null)
 
   useEffect(() => {
     if (!elegida) return
@@ -191,6 +189,8 @@ export function RecepcionPage() {
 
   function elegirOrden(orden: OrdenPendiente) {
     descartarLecturaDeFoto()
+    setReportandoProblema(false)
+    setProblemaRegistrado(null)
     setElegida(orden)
     setNumeroRemito('')
     setFecha(hoyComoTexto())
@@ -209,6 +209,8 @@ export function RecepcionPage() {
   function recibirOtra() {
     descartarLecturaDeFoto()
     setRegistrada(null)
+    setReportandoProblema(false)
+    setProblemaRegistrado(null)
     setElegida(null)
     recargar()
   }
@@ -271,6 +273,60 @@ export function RecepcionPage() {
       enviandoRef.current = false
       setEnviando(false)
     }
+  }
+
+  // ── Entrega con problema registrada (#224) ──────────────────────────────────
+  if (problemaRegistrado && elegida) {
+    return (
+      <section className={styles.contenedor}>
+        <div className={styles.confirmacion} role="status">
+          <h1 className={styles.tituloExito}>Problema registrado</h1>
+          <p className={styles.dato}>La orden sigue esperando la mercadería: no cambió lo que ya recibiste.</p>
+          {problemaRegistrado.motivoProblema && (
+            <p className={styles.dato}>
+              <strong>Motivo:</strong> {problemaRegistrado.motivoProblema}
+            </p>
+          )}
+          <p className={styles.dato}>
+            <strong>Obra:</strong> {nombreDeObra(elegida.obraId)}
+          </p>
+          {(problemaRegistrado.fotos ?? []).length > 0 && (
+            <p className={styles.dato}>
+              <strong>Fotos enviadas:</strong> {problemaRegistrado.fotos?.length}
+            </p>
+          )}
+          <div className={styles.accionesExito}>
+            <button type="button" className={styles.boton} onClick={recibirOtra}>
+              Volver a las órdenes
+            </button>
+            <Link to="/" className={styles.enlaceBoton}>
+              Volver al inicio
+            </Link>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  // ── Formulario del problema (#224) ──────────────────────────────────────────
+  if (reportandoProblema && elegida) {
+    return (
+      <section className={styles.contenedor}>
+        <button type="button" className={styles.volver} onClick={() => setReportandoProblema(false)}>
+          ← Volver a la recepción
+        </button>
+        <h1>Hubo un problema con la entrega</h1>
+        <p className={styles.obra}>Obra: {nombreDeObra(elegida.obraId)}</p>
+        <EntregaConProblemaForm
+          orden={elegida}
+          onRegistrada={(creada) => {
+            setReportandoProblema(false)
+            setProblemaRegistrado(creada)
+          }}
+          onCancelar={() => setReportandoProblema(false)}
+        />
+      </section>
+    )
   }
 
   // ── Pantalla de confirmación ────────────────────────────────────────────────
@@ -348,13 +404,29 @@ export function RecepcionPage() {
           {cargandoHistorial && <p role="status">Cargando historial…</p>}
           {errorHistorial && <p role="alert">No se pudo cargar el historial. Podés reintentar eligiendo la orden nuevamente.</p>}
           {!cargandoHistorial && !errorHistorial && historial.length === 0 && <p className={styles.dato}>Todavía no hay entregas registradas.</p>}
-          {historial.map((recepcion) => (
-            <div key={recepcion.id} className={styles.historialItem}>
-              <strong>Remito {recepcion.numeroRemito ?? 'sin número'}</strong> · {fechaDeHistorial(recepcion.fechaRecepcion)} · {recepcion.estado === 2 ? 'Parcial' : recepcion.estado === 3 ? 'Completa' : recepcion.estado === undefined ? 'Estado no disponible' : 'Estado ' + recepcion.estado}
-              {(recepcion.detalles ?? []).length > 0 && <ul className={styles.items}>{recepcion.detalles?.map((detalle, indice) => <li key={detalle.id ?? detalle.articuloId ?? indice}>{detalle.descripcionArticulo ?? 'Artículo'}: {cantidadConUnidad(detalle.cantidadRecibida ?? 0, detalle.unidadMedida ?? '')}{detalle.conforme === false && <strong> · Con problemas{detalle.observacion ? `: ${detalle.observacion}` : ''}</strong>}</li>)}</ul>}
-            </div>
-          ))}
+          {/* Línea de tiempo (#224): el despacho del Proveedor, las entregas parciales, los problemas con sus fotos y la recepción completa. */}
+          <LineaDeTiempoOrden
+            despacho={{
+              fechaDespacho: elegida.fechaDespacho,
+              fechaEstimadaLlegada: elegida.fechaEstimadaLlegada,
+              observacionDespacho: elegida.observacionDespacho,
+            }}
+            recepciones={historial}
+          />
         </section>
+
+        {elegida.tieneProblemaAbierto && (
+          <p className={styles.avisoProblema} role="status">
+            Esta orden tiene un problema de entrega abierto. Se cierra cuando registres una recepción válida.
+          </p>
+        )}
+        <div className={styles.tarjeta}>
+          <p className={styles.subtitulo}>¿No llegó como esperabas?</p>
+          <p className={styles.ayuda}>Si no llegó nada, llegó incompleta, llegó dañada o no es lo pedido, avisá desde acá.</p>
+          <button type="button" className={styles.botonProblema} onClick={() => setReportandoProblema(true)}>
+            Hubo un problema con la entrega
+          </button>
+        </div>
 
         <form
           className={styles.formulario}
@@ -534,7 +606,7 @@ export function RecepcionPage() {
       </Link>
       <h1>Recibir mercadería</h1>
       <p className="intro">
-        Elegí la orden que llegó a la obra. Acá solo aparecen las órdenes que Compras ya despachó.
+        Elegí la orden que llegó a la obra. Acá solo aparecen las órdenes que el Proveedor ya despachó.
       </p>
 
       {cargando && <p role="status">Cargando…</p>}
@@ -553,7 +625,7 @@ export function RecepcionPage() {
       {!cargando && !errorCarga && ordenes.length === 0 && (
         <div className={styles.tarjeta} role="status">
           <p className={styles.subtitulo}>No hay órdenes despachadas pendientes de recibir.</p>
-          <p className={styles.dato}>Cuando Compras despache una orden, la vas a ver acá.</p>
+          <p className={styles.dato}>Cuando el Proveedor despache una orden, la vas a ver acá.</p>
         </div>
       )}
 
@@ -566,6 +638,9 @@ export function RecepcionPage() {
                 <button type="button" className={styles.orden} onClick={() => elegirOrden(orden)}>
                   <span className={styles.ordenObra}>{nombreDeObra(orden.obraId)}</span>
                   {orden.etapa && <span className={styles.ordenItem}>Etapa: {orden.etapa}</span>}
+                  {orden.fechaEstimadaLlegada && <span className={styles.ordenItem}>Llega el {fechaLarga(orden.fechaEstimadaLlegada)}</span>}
+                  {orden.observacionDespacho && <span className={styles.ordenItem}>Observación del Proveedor: {orden.observacionDespacho}</span>}
+                  {orden.tieneProblemaAbierto && <span className={styles.ordenProblema}>Problema de entrega abierto</span>}
                   {tieneRecepciones && <span className={styles.ordenItem}>Recepción parcial: quedan materiales pendientes</span>}
                   {orden.items.map((item) => {
                     const recibida = item.cantidadRecibida ?? 0
