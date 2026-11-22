@@ -125,7 +125,8 @@ const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
     LICITACIONES_ABIERTAS,
   ],
 
-  // El Inicio del Proveedor es la lista de licitaciones abiertas; debajo van sus dos accesos.
+  // Igual que el Comprador: el Inicio del Proveedor arranca con la tarjeta de licitaciones para cotizar
+  // (ResumenLicitaciones), que es la única entrada a cotizar; debajo van solo sus accesos al pasado.
   Proveedor: [MIS_COTIZACIONES, MIS_ORDENES_PROVEEDOR],
 }
 

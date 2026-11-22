@@ -8,6 +8,14 @@ export function textoPendientes(cantidad: number): string {
     : `Tenés ${cantidad} requisiciones para aprobar`
 }
 
+/** Texto de la tarjeta de la pantalla principal del Proveedor: licitaciones abiertas que le faltan
+ *  cotizar, en singular cuando hay una sola. */
+export function textoLicitacionesParaCotizar(cantidad: number): string {
+  return cantidad === 1
+    ? 'Tenés 1 licitación para cotizar'
+    : `Tenés ${cantidad} licitaciones para cotizar`
+}
+
 /** Texto del aviso de órdenes de compra bloqueadas por presupuesto (#97).
  *  Contempla singular y plural. */
 export function textoOrdenesBloqueadas(cantidad: number): string {
