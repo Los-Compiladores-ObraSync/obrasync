@@ -1890,6 +1890,18 @@ export const handlers: RequestHandler[] = [
   // Contrato: POST /api/licitaciones/{licitacionId}/adjudicar con body {"cotizacionId": "<guid>"}
   // → 200 OrdenCompraResponseDto | 400 | 404 | 409 ProblemDetails
   // Contrato: GET /api/cotizaciones/mias → 200 MiCotizacionDto[] (solo las del proveedor de la sesión)
+  // Contrato: GET /api/cotizaciones/proveedores/mi-reputacion → 200 ReputacionProveedorResponseDto (#222).
+  // Sin calificaciones: calificacion null, cantidad 0 y comentarios vacíos.
+  http.get('*/api/cotizaciones/proveedores/mi-reputacion', () =>
+    HttpResponse.json({
+      proveedorId: USUARIOS_MOCK.find((u) => u.rol === 'Proveedor')?.id ?? '',
+      calificacion: null,
+      cantidadCalificaciones: 0,
+      fechaActualizacion: null,
+      ultimosComentarios: [],
+    }),
+  ),
+
   http.get('*/api/cotizaciones/mias', ({ request }) => {
     const proveedorId = USUARIOS_MOCK.find((u) => u.rol === 'Proveedor')?.id
     const mias = cotizacionesMock

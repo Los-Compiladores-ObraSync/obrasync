@@ -16,6 +16,8 @@ export interface Novedad {
   numero: string
   /** A dónde lleva el aviso. */
   ruta: string
+  /** Texto de apoyo: el motivo, cuando Compras rechazó la requisición (#219). */
+  detalle?: string
 }
 
 /** Lo ya visto: id de la requisición o licitación → marca. */
@@ -90,6 +92,7 @@ export function novedadesDeRequisiciones(
       tipo: req.estado === 'Aprobada' ? 'requisicion-aprobada' : 'requisicion-rechazada',
       numero: req.numeroRequisicion,
       ruta: `/obra/requisiciones/${encodeURIComponent(req.requisicionId)}`,
+      ...(req.estado === 'Rechazada' && req.motivoRechazo ? { detalle: req.motivoRechazo } : {}),
     }))
 }
 

@@ -1,4 +1,5 @@
 import { Link, Outlet } from 'react-router'
+import { AvisosProvider } from '../notificaciones/AvisosProvider'
 import { BloqueadasProvider } from '../notificaciones/BloqueadasProvider'
 import { CampanaConPendientes } from '../notificaciones/CampanaConPendientes'
 import { NovedadesProvider } from '../notificaciones/NovedadesProvider'
@@ -15,22 +16,24 @@ export function LayoutApp() {
     <PendientesProvider>
       <NovedadesProvider>
         <BloqueadasProvider>
-          <header className="app-encabezado">
-            <div className={styles.barra}>
-              <Link to="/" className={`app-marca ${styles.marca}`} title="Ir al inicio">
-                <img src="/pwa-512x512.png" alt="" className={styles.logo} />
-                OBRA<span>SYNC</span>
-              </Link>
-              <div className={styles.acciones}>
-                <CampanaConPendientes />
-                <MenuUsuario />
+          <AvisosProvider>
+            <header className="app-encabezado">
+              <div className={styles.barra}>
+                <Link to="/" className={`app-marca ${styles.marca}`} title="Ir al inicio">
+                  <img src="/pwa-512x512.png" alt="" className={styles.logo} />
+                  OBRA<span>SYNC</span>
+                </Link>
+                <div className={styles.acciones}>
+                  <CampanaConPendientes />
+                  <MenuUsuario />
+                </div>
               </div>
-            </div>
-          </header>
+            </header>
 
-          <main className="app-contenido">
-            <Outlet />
-          </main>
+            <main className="app-contenido">
+              <Outlet />
+            </main>
+          </AvisosProvider>
         </BloqueadasProvider>
       </NovedadesProvider>
     </PendientesProvider>
