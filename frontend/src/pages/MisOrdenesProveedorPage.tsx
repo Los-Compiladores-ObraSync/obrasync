@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { despacharOrdenCompra, listarOrdenesCompra } from '../licitaciones/licitacionesService'
 import type { OrdenCompraListadoDto } from '../licitaciones/licitacionesTipos'
+import { SeguimientoEntrega } from '../recepciones/SeguimientoEntrega'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import styles from './MisOrdenesProveedorPage.module.css'
 
@@ -154,6 +155,12 @@ export function MisOrdenesProveedorPage() {
           </span>
         </div>
 
+        {o.tieneProblemaAbierto && (
+          <p className={styles.problema} role="status">
+            Entrega con problema{o.motivoProblemaAbierto ? `: ${o.motivoProblemaAbierto}` : ''}
+          </p>
+        )}
+
         <dl className={styles.datos}>
           <div>
             <dt>Emitida el</dt>
@@ -178,6 +185,9 @@ export function MisOrdenesProveedorPage() {
             </div>
           )}
         </dl>
+
+        {/* Seguimiento (#224): qué llegó y qué falta, y la historia de la entrega con sus problemas y fotos. */}
+        {o.fueDespachada && <SeguimientoEntrega ordenCompraId={o.id} codigo={codigo} />}
 
         {!o.fueDespachada && !abierta && (
           <div className={styles.acciones}>

@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { CalificacionProveedor } from '../licitaciones/CalificacionProveedor'
 import { listarOrdenesCompra } from '../licitaciones/licitacionesService'
 import type { OrdenCompraListadoDto } from '../licitaciones/licitacionesTipos'
+import { SeguimientoEntrega } from '../recepciones/SeguimientoEntrega'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { obtenerObras } from '../requisiciones/requisicionesService'
 import styles from './OrdenesCompraPage.module.css'
@@ -110,6 +111,11 @@ export function OrdenesCompraPage() {
                     {orden.fueDespachada ? 'Despachada' : 'Sin despachar'}
                   </span>
                 </div>
+                {orden.tieneProblemaAbierto && (
+                  <p className={styles.problema} role="status">
+                    Entrega con problema{orden.motivoProblemaAbierto ? `: ${orden.motivoProblemaAbierto}` : ''}
+                  </p>
+                )}
                 <p className={styles.dato}>Orden {codigo}</p>
                 <p className={styles.dato}>Emitida el {fechaLarga(orden.fechaEmision)}</p>
                 {orden.fueDespachada && orden.fechaDespacho && (
@@ -124,6 +130,9 @@ export function OrdenesCompraPage() {
                 {!orden.fueDespachada && (
                   <p className={styles.dato}>Esperando que el proveedor la despache.</p>
                 )}
+
+                {/* Seguimiento (#224): qué llegó y qué falta, y la historia de la entrega con sus problemas y fotos. */}
+                {orden.fueDespachada && <SeguimientoEntrega ordenCompraId={orden.id} codigo={codigo} />}
 
                 {orden.fueDespachada && (
                   <CalificacionProveedor

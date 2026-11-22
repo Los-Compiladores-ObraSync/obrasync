@@ -1534,6 +1534,23 @@ export const handlers: RequestHandler[] = [
     const id = String(params.ordenCompraId)
     const orden = ordenesPendientesMock.find((o) => o.ordenCompraId === id) ?? ordenesCompletasMock.get(id)
     if (!orden) {
+      // Las órdenes de Compras y del Proveedor (c1c2…) son otras que las de Recepción (e1e2…): para la demo, la ya
+      // despachada responde con su despacho y sin movimientos todavía.
+      const deCompras = ordenesCompraMock.find((o) => o.id === id && o.fueDespachada)
+      if (deCompras) {
+        return HttpResponse.json({
+          ordenCompraId: deCompras.id,
+          obraId: deCompras.obraId,
+          etapa: null,
+          fechaDespacho: deCompras.fechaDespacho,
+          fechaEstimadaLlegada: deCompras.fechaEstimadaLlegada,
+          observacionDespacho: deCompras.observacion,
+          estaCompleta: false,
+          tieneProblemaAbierto: false,
+          items: [],
+          recepciones: [],
+        })
+      }
       return HttpResponse.json({ title: 'Orden inexistente', status: 404, detail: 'La orden de compra no existe.' }, { status: 404 })
     }
     return HttpResponse.json({
