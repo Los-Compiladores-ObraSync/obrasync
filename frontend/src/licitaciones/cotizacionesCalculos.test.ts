@@ -8,6 +8,9 @@ import {
   formatoPrecio,
   marcasDeComparacion,
   ordenarPorCalificacion,
+  subtotalDeItem,
+  tieneCoberturaParcial,
+  tienePresentacionDistinta,
 } from './cotizacionesCalculos'
 
 describe('cotizacionesCalculos', () => {
@@ -173,6 +176,74 @@ describe('cotizacionesCalculos', () => {
 
       expect(marcas.get('c-4')).toEqual(['Más barata', 'Flete más bajo', 'Entrega más rápida'])
     })
+  })
+})
+
+describe('otra presentación en la oferta (#229)', () => {
+  const licitacion = {
+    licitacionId: 'lic-1',
+    requisicionId: 'req-1',
+    obraId: 'obra-1',
+    estado: 'Abierta',
+    fechaCreacion: '2026-10-01T00:00:00Z',
+    fechaLimiteCotizacion: '2026-10-20T00:00:00Z',
+    items: [
+      { articuloId: 'art-cemento', descripcion: 'Cemento 25kg', cantidad: 80, unidadMedida: 'BOLSA' },
+      { articuloId: 'art-arena', descripcion: 'Arena fina', cantidad: 15, unidadMedida: 'M3' },
+    ],
+  }
+  const conOtraPresentacion = {
+    items: [
+      { articuloId: 'art-cemento', precioUnitario: 1000, presentacionOfrecida: ' bolsa 25 kg ', cantidadOfrecida: 2, coberturaParcial: true },
+      { articuloId: 'art-arena', precioUnitario: 14000 },
+    ],
+  }
+
+  it('el subtotal usa la cantidad ofrecida; sin ella, la del pliego; y si el servicio lo mandó, ese', () => {
+    expect(subtotalDeItem({ precioUnitario: 1000, cantidadOfrecida: 2 }, 80)).toBe(2000)
+    expect(subtotalDeItem({ precioUnitario: 1000 }, 80)).toBe(80000)
+    expect(subtotalDeItem({ precioUnitario: 1000, cantidadOfrecida: null }, 80)).toBe(80000)
+    expect(subtotalDeItem({ precioUnitario: 1000, cantidadOfrecida: 2, subtotalItem: 1999 }, 80)).toBe(1999)
+  })
+
+  it('el precio total suma lo que se ofrece, no la cantidad del pliego', () => {
+    // 2 × 1000 + 15 × 14000 = 2.000 + 210.000
+    expect(calcularPrecioTotalCotizacion(conOtraPresentacion, licitacion)).toBe(212000)
+    expect(calcularTotalConFlete({ ...conOtraPresentacion, flete: 5000 }, licitacion)).toBe(217000)
+  })
+
+  it('un ítem que no está en el pliego sigue sin sumar, aunque traiga cantidad ofrecida', () => {
+    const total = calcularPrecioTotalCotizacion(
+      { items: [{ articuloId: 'art-otro', precioUnitario: 100, cantidadOfrecida: 5 }] },
+      licitacion,
+    )
+    expect(total).toBe(0)
+  })
+
+  it('el desglose informa lo ofrecido, el subtotal real y la cobertura parcial', () => {
+    const [cemento, arena] = desglosarCotizacion(conOtraPresentacion, licitacion)
+
+    expect(cemento).toMatchObject({
+      cantidad: 80,
+      precioUnitario: 1000,
+      subtotal: 2000,
+      presentacionOfrecida: 'bolsa 25 kg',
+      cantidadOfrecida: 2,
+      coberturaParcial: true,
+    })
+    expect(arena.subtotal).toBe(210000)
+    expect(arena.presentacionOfrecida).toBeUndefined()
+    expect(arena.coberturaParcial).toBeUndefined()
+  })
+
+  it('detecta la presentación distinta y la cobertura parcial', () => {
+    expect(tienePresentacionDistinta(conOtraPresentacion)).toBe(true)
+    expect(tienePresentacionDistinta({ items: [{ articuloId: 'a', precioUnitario: 1, presentacionOfrecida: '  ' }] })).toBe(false)
+    expect(tienePresentacionDistinta({ items: [{ articuloId: 'a', precioUnitario: 1 }] })).toBe(false)
+
+    expect(tieneCoberturaParcial(conOtraPresentacion)).toBe(true)
+    expect(tieneCoberturaParcial({ items: [], coberturaParcial: true })).toBe(true)
+    expect(tieneCoberturaParcial({ items: [{ articuloId: 'a', precioUnitario: 1 }] })).toBe(false)
   })
 })
 

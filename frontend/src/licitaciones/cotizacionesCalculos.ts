@@ -1,8 +1,38 @@
-import type { CotizacionResponseDto, LicitacionResponseDto } from './licitacionesTipos'
+import type {
+  CotizacionResponseDto,
+  CrearCotizacionItemDto,
+  LicitacionResponseDto,
+} from './licitacionesTipos'
+
+/**
+ * Total comparable de un renglón, con la misma fórmula del contrato (#190):
+ * (cantidad ofrecida, o la del pliego si no hay otra) × precio unitario.
+ * Si el servicio ya mandó el subtotal del renglón, se usa ese.
+ */
+export function subtotalDeItem(
+  item: Pick<CrearCotizacionItemDto, 'precioUnitario' | 'cantidadOfrecida' | 'subtotalItem'>,
+  cantidadPliego: number,
+): number {
+  if (item.subtotalItem !== undefined) return item.subtotalItem
+  return (item.cantidadOfrecida ?? cantidadPliego) * item.precioUnitario
+}
+
+/** true si la oferta propone otra presentación en algún ítem (#229). */
+export function tienePresentacionDistinta(cotizacion: Pick<CotizacionResponseDto, 'items'>): boolean {
+  return cotizacion.items.some((it) => Boolean(it.presentacionOfrecida?.trim()))
+}
+
+/** true si el servicio marcó que la oferta no cubre todo lo pedido (#190). La marca la calcula el servicio. */
+export function tieneCoberturaParcial(
+  cotizacion: Pick<CotizacionResponseDto, 'items' | 'coberturaParcial'>,
+): boolean {
+  return Boolean(cotizacion.coberturaParcial) || cotizacion.items.some((it) => it.coberturaParcial)
+}
 
 /**
  * Calcula el precio total de una cotización:
- * Suma de (precioUnitario × cantidad) de cada ítem, tomando la cantidad del pliego de la licitación.
+ * Suma del total de cada ítem: precioUnitario × cantidad, tomando la cantidad del pliego de la licitación
+ * (o la cantidad ofrecida si el Proveedor ofreció otra presentación, #229).
  */
 export function calcularPrecioTotalCotizacion(
   cotizacion: Pick<CotizacionResponseDto, 'items'>,
@@ -12,8 +42,9 @@ export function calcularPrecioTotalCotizacion(
     licitacion.items.map((it) => [it.articuloId, it.cantidad]),
   )
   return cotizacion.items.reduce((total, it) => {
-    const cantidad = mapaCantidades.get(it.articuloId) ?? 0
-    return total + it.precioUnitario * cantidad
+    const cantidad = mapaCantidades.get(it.articuloId)
+    if (cantidad === undefined) return total
+    return total + subtotalDeItem(it, cantidad)
   }, 0)
 }
 
@@ -32,8 +63,14 @@ export interface LineaDeCotizacion {
   unidadMedida: string
   /** undefined si el proveedor no cotizó este material. */
   precioUnitario?: number
-  /** precioUnitario × cantidad (0 si no cotizó el material). */
+  /** precioUnitario × cantidad (o × cantidad ofrecida si hay otra presentación; 0 si no cotizó el material). */
   subtotal: number
+  /** Otra presentación que ofreció el Proveedor para este material (#229). */
+  presentacionOfrecida?: string
+  /** Cantidad que ofreció en esa presentación. */
+  cantidadOfrecida?: number
+  /** true si el servicio marcó que este renglón no cubre todo lo pedido. */
+  coberturaParcial?: boolean
 }
 
 /** Una línea por cada material del pliego, con lo que cotizó el proveedor (si cotizó). */
@@ -41,16 +78,19 @@ export function desglosarCotizacion(
   cotizacion: Pick<CotizacionResponseDto, 'items'>,
   licitacion: Pick<LicitacionResponseDto, 'items'>,
 ): LineaDeCotizacion[] {
-  const precios = new Map(cotizacion.items.map((it) => [it.articuloId, it.precioUnitario]))
+  const ofertas = new Map(cotizacion.items.map((it) => [it.articuloId, it]))
   return licitacion.items.map((material) => {
-    const precioUnitario = precios.get(material.articuloId)
+    const oferta = ofertas.get(material.articuloId)
     return {
       articuloId: material.articuloId,
       descripcion: material.descripcion,
       cantidad: material.cantidad,
       unidadMedida: material.unidadMedida,
-      precioUnitario,
-      subtotal: (precioUnitario ?? 0) * material.cantidad,
+      precioUnitario: oferta?.precioUnitario,
+      subtotal: oferta ? subtotalDeItem(oferta, material.cantidad) : 0,
+      presentacionOfrecida: oferta?.presentacionOfrecida?.trim() || undefined,
+      cantidadOfrecida: oferta?.cantidadOfrecida ?? undefined,
+      coberturaParcial: oferta?.coberturaParcial,
     }
   })
 }

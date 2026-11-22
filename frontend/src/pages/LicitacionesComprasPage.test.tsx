@@ -509,6 +509,85 @@ describe('LicitacionesComprasPage', () => {
     })
   })
 
+  describe('ofertas con otra presentación (#229)', () => {
+    const ART_CEMENTO = 'c1c2c3c4-0000-0000-0000-000000000001'
+    const ART_ARENA = 'c1c2c3c4-0000-0000-0000-000000000002'
+    const OFERTA_ALTERNATIVA = {
+      cotizacionId: 'c9999999-0000-0000-0000-000000000009',
+      licitacionId: LIC_ABIERTA_ID,
+      proveedorId: 'a1b2c3d4-0000-0000-0000-000000000001',
+      flete: 10000,
+      plazoEntregaDias: 3,
+      fechaCreacion: '2026-10-22T10:00:00Z',
+      coberturaParcial: true,
+      items: [
+        {
+          articuloId: ART_CEMENTO,
+          precioUnitario: 1000,
+          presentacionOfrecida: 'bolsa 25 kg',
+          cantidadOfrecida: 2,
+          subtotalItem: 2000,
+          coberturaParcial: true,
+        },
+        { articuloId: ART_ARENA, precioUnitario: 14000 },
+      ],
+      puntajeTotal: 80,
+      esGanadora: false,
+    }
+
+    it('muestra las insignias, lo que ofrece por ítem y avisa que no cubre todo lo pedido', async () => {
+      server.use(http.get('*/api/cotizaciones', () => HttpResponse.json([OFERTA_ALTERNATIVA])))
+
+      renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+
+      const lista = await screen.findByRole('list', { name: /^Cotizaciones recibidas para / })
+      expect(within(lista).getByText('Presentación distinta')).toBeInTheDocument()
+      expect(within(lista).getByText('Cobertura parcial')).toBeInTheDocument()
+
+      // El detalle ya viene abierto en las ofertas distintas: Compras lo ve sin tocar nada.
+      expect(within(lista).getByText('Ofrece: 2 × bolsa 25 kg')).toBeVisible()
+      expect(within(lista).getByText('$ 1.000 c/u = $ 2.000')).toBeVisible()
+      expect(within(lista).getByText('$ 14.000 c/u = $ 210.000')).toBeVisible()
+      expect(within(lista).getByText('Esto no cubre todo lo pedido.')).toBeVisible()
+    })
+
+    it('el precio total es lo que ofrece (2 bolsas + la arena), no la cantidad del pliego', async () => {
+      server.use(http.get('*/api/cotizaciones', () => HttpResponse.json([OFERTA_ALTERNATIVA])))
+
+      renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+
+      const lista = await screen.findByRole('list', { name: /^Cotizaciones recibidas para / })
+      expect(within(lista).getByText('$ 212.000')).toBeInTheDocument()
+    })
+
+    it('no compara con la última compra un precio que es de otra presentación', async () => {
+      server.use(http.get('*/api/cotizaciones', () => HttpResponse.json([OFERTA_ALTERNATIVA])))
+
+      renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+
+      const lista = await screen.findByRole('list', { name: /^Cotizaciones recibidas para / })
+      await within(lista).findByText('Ofrece: 2 × bolsa 25 kg')
+      expect(within(lista).queryByText(/que la última compra/)).not.toBeInTheDocument()
+    })
+
+    it('no se descarta la oferta: se la puede adjudicar igual', async () => {
+      server.use(http.get('*/api/cotizaciones', () => HttpResponse.json([OFERTA_ALTERNATIVA])))
+
+      renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+
+      const lista = await screen.findByRole('list', { name: /^Cotizaciones recibidas para / })
+      expect(within(lista).getByRole('button', { name: /^Adjudicar a proveedor / })).toBeEnabled()
+    })
+
+    it('las ofertas normales no llevan insignias', async () => {
+      renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+
+      const lista = await screen.findByRole('list', { name: /^Cotizaciones recibidas para / })
+      expect(within(lista).queryByText('Presentación distinta')).not.toBeInTheDocument()
+      expect(within(lista).queryByText('Cobertura parcial')).not.toBeInTheDocument()
+    })
+  })
+
   it('usa el ancho grande de la PC (pantalla-ancha), como las demás pantallas con listas', () => {
     const { container } = renderPagina()
 

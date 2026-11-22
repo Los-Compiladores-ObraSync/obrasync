@@ -10,6 +10,8 @@ import {
   formatoPrecio,
   marcasDeComparacion,
   ordenarPorCalificacion,
+  tieneCoberturaParcial,
+  tienePresentacionDistinta,
 } from '../licitaciones/cotizacionesCalculos'
 import {
   adjudicarLicitacion,
@@ -495,6 +497,9 @@ export function LicitacionesComprasPage() {
                   cot.costoTotal ?? calcularTotalConFlete(cot, licitacionSeleccionada)
                 const marcas = marcasPorCotizacion.get(cot.cotizacionId) ?? []
                 const lineas = desglosarCotizacion(cot, licitacionSeleccionada)
+                // Para que no se compare como si fuera lo mismo (#229). No se descarta ninguna oferta.
+                const presentacionDistinta = tienePresentacionDistinta(cot)
+                const coberturaParcial = tieneCoberturaParcial(cot)
                 const proveedorAbrev = cot.proveedorId.slice(0, 8)
                 // Si el servicio informa el nombre se muestra; si no, el comienzo del identificador.
                 const nombreProveedor = cot.proveedorNombre?.trim() || proveedorAbrev
@@ -517,6 +522,10 @@ export function LicitacionesComprasPage() {
                       {cot.esGanadora && (
                         <span className={styles.badgeGanadora}>★ Oferta destacada</span>
                       )}
+                      {presentacionDistinta && (
+                        <span className={styles.insigniaPresentacion}>Presentación distinta</span>
+                      )}
+                      {coberturaParcial && <span className={styles.insigniaCobertura}>Cobertura parcial</span>}
                     </div>
                     {marcas.length > 0 && (
                       <ul className={styles.marcasComparacion} aria-label="Esta oferta se destaca en">
@@ -556,7 +565,7 @@ export function LicitacionesComprasPage() {
                       )}
                     </dl>
                     <div className={styles.bloqueDetalles}>
-                    <details className={styles.detalleItems}>
+                    <details className={styles.detalleItems} open={presentacionDistinta || coberturaParcial || undefined}>
                       <summary>Ver detalle por ítem</summary>
                       <ul className={styles.listaDetalle}>
                         {lineas.map((linea) => (
@@ -565,11 +574,24 @@ export function LicitacionesComprasPage() {
                               {cantidadConUnidad(linea.cantidad, linea.unidadMedida)} de{' '}
                               {linea.descripcion}
                             </span>
+                            {(linea.presentacionOfrecida || linea.cantidadOfrecida !== undefined) && (
+                              <span className={styles.ofertaAlternativa}>
+                                Ofrece:{' '}
+                                {linea.cantidadOfrecida !== undefined
+                                  ? `${linea.cantidadOfrecida} ${
+                                      linea.presentacionOfrecida
+                                        ? `× ${linea.presentacionOfrecida}`
+                                        : 'en la presentación pedida'
+                                    }`
+                                  : linea.presentacionOfrecida}
+                              </span>
+                            )}
                             <span className={styles.lineaPrecio}>
                               {linea.precioUnitario === undefined
                                 ? 'No cotizó este material'
                                 : `${formatoPrecio(linea.precioUnitario)} c/u = ${formatoPrecio(linea.subtotal)}`}
-                              {linea.precioUnitario !== undefined && (() => {
+                              {/* Con otra presentación el precio no es por la misma unidad: no se compara con la última compra. */}
+                              {linea.precioUnitario !== undefined && !linea.presentacionOfrecida && (() => {
                                 const previo = preciosPrevios.get(linea.articuloId)
                                 const comparacion = compararConPrecioPrevio(linea.precioUnitario, previo)
                                 return comparacion && previo ? (
@@ -579,6 +601,9 @@ export function LicitacionesComprasPage() {
                                 ) : null
                               })()}
                             </span>
+                            {linea.coberturaParcial && (
+                              <span className={styles.avisoParcial}>Esto no cubre todo lo pedido.</span>
+                            )}
                           </li>
                         ))}
                       </ul>
