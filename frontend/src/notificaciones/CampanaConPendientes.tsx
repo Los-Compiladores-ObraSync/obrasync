@@ -3,6 +3,7 @@ import { CampanaNotificaciones } from './CampanaNotificaciones'
 import styles from './CampanaConPendientes.module.css'
 import { UMBRAL_PENDIENTES } from './configuracionAvisos'
 import { PanelNotificaciones } from './PanelNotificaciones'
+import { useAvisos } from './useAvisos'
 import { useBloqueadas } from './useBloqueadas'
 import { useNovedades } from './useNovedades'
 import { usePendientes } from './usePendientes'
@@ -13,7 +14,8 @@ export function CampanaConPendientes() {
   const { cantidad: cantidadPendientes, pendientes } = usePendientes()
   const { cantidad: cantidadBloqueadas, cargado: bloqueadasCargadas, huboError, refrescar } = useBloqueadas()
   const { cantidad: cantidadNovedades, novedades, marcarVistas } = useNovedades()
-  const cantidadTotal = cantidadPendientes + cantidadBloqueadas + cantidadNovedades
+  const { cantidad: cantidadAvisos, paraHacer, novedades: novedadesDeFlujo, marcarVistas: marcarAvisos } = useAvisos()
+  const cantidadTotal = cantidadPendientes + cantidadBloqueadas + cantidadNovedades + cantidadAvisos
   const [abierto, setAbierto] = useState(false)
   const idPanel = useId()
   const contenedorRef = useRef<HTMLDivElement>(null)
@@ -67,6 +69,9 @@ export function CampanaConPendientes() {
           onReintentarBloqueadas={refrescar}
           novedades={novedades}
           onMarcarNovedades={marcarVistas}
+          avisosParaHacer={paraHacer}
+          avisosNovedades={novedadesDeFlujo}
+          onMarcarAvisos={marcarAvisos}
           onNavegar={() => setAbierto(false)}
         />
       )}

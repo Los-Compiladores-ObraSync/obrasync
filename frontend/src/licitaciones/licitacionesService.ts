@@ -11,6 +11,7 @@ import type {
   MiCotizacionDto,
   OrdenCompraAdjudicadaDto,
   OrdenCompraListadoDto,
+  ReputacionProveedorDto,
 } from './licitacionesTipos'
 
 /**
@@ -218,4 +219,13 @@ export function obtenerCalificacionProveedor(proveedorId: string): Promise<Calif
   return apiFetch<CalificacionProveedorResponseDto>(
     `/api/proveedores/${encodeURIComponent(proveedorId)}/calificacion`,
   )
+}
+
+/**
+ * Reputación del Proveedor autenticado: promedio, cantidad y últimos comentarios recibidos (#222).
+ * Fuente: GET /api/cotizaciones/proveedores/mi-reputacion (solo Proveedor).
+ * Sin calificaciones responde 200 con calificacion null, cantidadCalificaciones 0 y comentarios vacíos.
+ */
+export function obtenerMiReputacion(): Promise<ReputacionProveedorDto> {
+  return apiFetch<ReputacionProveedorDto>('/api/cotizaciones/proveedores/mi-reputacion')
 }

@@ -3,7 +3,9 @@ import { Link } from 'react-router'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { obtenerObras } from '../requisiciones/requisicionesService'
 import type { RequisicionResponseDto } from '../requisiciones/requisicionesTipos'
+import type { Aviso } from './avisosFlujo'
 import { MAX_NOVEDADES_EN_CAMPANA, MAX_PENDIENTES_EN_CAMPANA } from './configuracionAvisos'
+import { ListaAvisos } from './ListaAvisos'
 import type { Novedad } from './novedades'
 import styles from './PanelNotificaciones.module.css'
 import { textoDeNovedad, textoNovedades, textoOrdenesBloqueadas, textoPendientes } from './textos'
@@ -27,6 +29,12 @@ interface Props {
   novedades?: Novedad[]
   /** Marca novedades como vistas (sin argumento, todas). */
   onMarcarNovedades?: (cuales?: Novedad[]) => void
+  /** Avisos del flujo de órdenes (#219) que hay que hacer: se van solos cuando se hacen. */
+  avisosParaHacer?: Aviso[]
+  /** Avisos del flujo de órdenes (#219) que pasaron y todavía no se vieron. */
+  avisosNovedades?: Aviso[]
+  /** Marca avisos del flujo como vistos (sin argumento, todos). */
+  onMarcarAvisos?: (cuales?: Aviso[]) => void
   /** Se llama al tocar un enlace, para que el panel se cierre. */
   onNavegar: () => void
 }
@@ -44,6 +52,9 @@ export function PanelNotificaciones({
   onReintentarBloqueadas,
   novedades = [],
   onMarcarNovedades,
+  avisosParaHacer = [],
+  avisosNovedades = [],
+  onMarcarAvisos,
   onNavegar,
 }: Props) {
   const [nombresObras, setNombresObras] = useState<Record<string, string>>({})
@@ -51,8 +62,11 @@ export function PanelNotificaciones({
   const hayPendientes = totalPendientes > 0
   const hayBloqueadas = cantidadBloqueadas > 0
   const hayNovedades = novedades.length > 0
-  const hayAvisos =
-    hayPendientes || hayBloqueadas || hayNovedades || huboErrorBloqueadas || !bloqueadasCargadas
+  const hayParaHacerFlujo = avisosParaHacer.length > 0
+  const hayNovedadesFlujo = avisosNovedades.length > 0
+  const hayParaHacer = hayPendientes || hayBloqueadas || hayParaHacerFlujo
+  const hayAlgoNuevo = hayNovedades || hayNovedadesFlujo
+  const hayAvisos = hayParaHacer || hayAlgoNuevo || huboErrorBloqueadas || !bloqueadasCargadas
 
   // Los nombres de las obras se piden solo si hay algo para mostrar en la lista de requisiciones.
   useEffect(() => {
@@ -94,6 +108,8 @@ export function PanelNotificaciones({
           {!huboErrorBloqueadas && !bloqueadasCargadas && (
             <p role="status" className={styles.vacio}>Cargando avisos de órdenes bloqueadas…</p>
           )}
+          {hayParaHacer && <h3 className={styles.tituloSeccion}>Para hacer</h3>}
+
           {hayPendientes && (
             <div className={styles.seccionAviso}>
               <p className={styles.texto}>{textoPendientes(totalPendientes)}</p>
@@ -126,8 +142,29 @@ export function PanelNotificaciones({
             </div>
           )}
 
-          {hayNovedades && (
+          {hayBloqueadas && (
             <div className={hayPendientes ? `${styles.seccionAviso} ${styles.seccionSeparada}` : styles.seccionAviso}>
+              <p className={styles.texto}>{textoOrdenesBloqueadas(cantidadBloqueadas)}</p>
+              <Link to="/compras/presupuesto" className={styles.enlace} onClick={onNavegar}>
+                Ir a Presupuesto
+              </Link>
+            </div>
+          )}
+
+          {hayParaHacerFlujo && (
+            <div className={hayPendientes || hayBloqueadas ? `${styles.seccionAviso} ${styles.seccionSeparada}` : styles.seccionAviso}>
+              <ListaAvisos avisos={avisosParaHacer} onNavegar={onNavegar} />
+            </div>
+          )}
+
+          {hayAlgoNuevo && (
+            <h3 className={hayParaHacer ? `${styles.tituloSeccion} ${styles.seccionSeparada}` : styles.tituloSeccion}>
+              Novedades
+            </h3>
+          )}
+
+          {hayNovedades && (
+            <div className={styles.seccionAviso}>
               <p className={styles.texto}>{textoNovedades(novedades)}</p>
               <ul className={styles.lista}>
                 {novedades.slice(0, MAX_NOVEDADES_EN_CAMPANA).map((novedad) => (
@@ -141,6 +178,7 @@ export function PanelNotificaciones({
                       }}
                     >
                       <span className={styles.numero}>{textoDeNovedad(novedad)}</span>
+                      {novedad.detalle && <span className={styles.detalle}>Motivo: {novedad.detalle}</span>}
                     </Link>
                   </li>
                 ))}
@@ -150,21 +188,26 @@ export function PanelNotificaciones({
                   y {novedades.length - MAX_NOVEDADES_EN_CAMPANA} más
                 </p>
               )}
-              {onMarcarNovedades && (
-                <button type="button" className={styles.enlace} onClick={() => onMarcarNovedades()}>
-                  Marcar como vistas
-                </button>
-              )}
             </div>
           )}
 
-          {hayBloqueadas && (
-            <div className={hayPendientes || hayNovedades ? `${styles.seccionAviso} ${styles.seccionSeparada}` : styles.seccionAviso}>
-              <p className={styles.texto}>{textoOrdenesBloqueadas(cantidadBloqueadas)}</p>
-              <Link to="/compras/presupuesto" className={styles.enlace} onClick={onNavegar}>
-                Ir a Presupuesto
-              </Link>
+          {hayNovedadesFlujo && (
+            <div className={styles.seccionAviso}>
+              <ListaAvisos avisos={avisosNovedades} onNavegar={onNavegar} onAbrir={(aviso) => onMarcarAvisos?.([aviso])} />
             </div>
+          )}
+
+          {hayAlgoNuevo && (onMarcarNovedades || onMarcarAvisos) && (
+            <button
+              type="button"
+              className={styles.enlace}
+              onClick={() => {
+                onMarcarNovedades?.()
+                onMarcarAvisos?.()
+              }}
+            >
+              Marcar como vistas
+            </button>
           )}
         </>
       ) : (

@@ -130,6 +130,33 @@ export interface OrdenCompraListadoDto {
   tieneProblemaAbierto?: boolean
   /** El motivo del problema abierto: "No llegó nada", "Llegó incompleta", "Llegó dañada" o "No es lo pedido". */
   motivoProblemaAbierto?: string | null
+  /** true si Recepción confirmó que llegó todo el pedido (#222). Habilita calificar la orden. */
+  recibidaCompleta?: boolean
+  /** Cuándo se confirmó la recepción completa (UTC); null si todavía no. */
+  fechaRecepcionCompleta?: string | null
+  /** Calificación (1 a 5) que el usuario de Compras ya cargó para esta orden; null si todavía no (#222). */
+  miCalificacion?: number | null
+  /** Mensajes del chat de la orden que el usuario autenticado todavía no leyó (#218). */
+  mensajesNoLeidos?: number
+}
+
+/** Un comentario de calificación recibido por el Proveedor (contrato: ComentarioCalificacionProveedorDto, #222). */
+export interface ComentarioCalificacionDto {
+  ordenCompraId?: string | null
+  /** Estrellas, de 1 a 5. */
+  calificacion: number
+  comentario: string
+  fechaActualizacion: string
+}
+
+/** Reputación del Proveedor autenticado (contrato: ReputacionProveedorResponseDto, #222). */
+export interface ReputacionProveedorDto {
+  proveedorId: string
+  calificacion?: number | null
+  cantidadCalificaciones: number
+  fechaActualizacion?: string | null
+  /** Hasta 20, del más reciente al más antiguo. */
+  ultimosComentarios: ComentarioCalificacionDto[]
 }
 
 /** Calificación vigente de un proveedor (contrato: CalificacionProveedorResponseDto, #88). */
