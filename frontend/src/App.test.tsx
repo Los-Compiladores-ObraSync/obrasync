@@ -1,9 +1,11 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
 import { setToken } from './api/client'
+import { server } from './mocks/server'
 import { STORAGE_KEY } from './auth/sessionContext'
 import {
   MOCK_TOKEN_ADMIN,
@@ -431,11 +433,23 @@ describe('App - alta de obra', () => {
   })
 })
 
+/** Estas pruebas miran solo el número de requisiciones pendientes de aprobar en la campana.
+ *  Se quitan las requisiciones aprobadas para que los avisos del flujo de órdenes (#219, por ejemplo
+ *  "aprobada que espera su licitación") no se sumen al número. Esos avisos se prueban aparte. */
+function sinAvisosDeRequisicionesAprobadas() {
+  server.use(
+    http.get('*/api/requisiciones', ({ request }) =>
+      new URL(request.url).searchParams.get('estado') === 'Aprobada' ? HttpResponse.json([]) : undefined,
+    ),
+  )
+}
+
 describe('App - campana de notificaciones', () => {
   beforeEach(() => {
     localStorage.clear()
     setToken(null)
     reiniciarRequisicionesMock()
+    sinAvisosDeRequisicionesAprobadas()
   })
 
   it('el Comprador ve cuántas requisiciones esperan su aprobación', async () => {
@@ -531,6 +545,7 @@ describe('App - pendientes de aprobación del Comprador', () => {
     localStorage.clear()
     setToken(null)
     reiniciarRequisicionesMock()
+    sinAvisosDeRequisicionesAprobadas()
   })
 
   it('el Comprador ve en su inicio cuántas requisiciones esperan y llega a aprobarlas', async () => {
