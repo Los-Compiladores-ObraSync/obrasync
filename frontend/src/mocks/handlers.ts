@@ -304,6 +304,8 @@ function crearOrdenesCompraMock() {
       fechaEmision: '2026-11-18T12:00:00Z',
       fueDespachada: false,
       fechaDespacho: null as string | null,
+      fechaEstimadaLlegada: null as string | null,
+      observacion: null as string | null,
     },
     {
       ...base,
@@ -312,6 +314,8 @@ function crearOrdenesCompraMock() {
       fechaEmision: '2026-11-17T12:00:00Z',
       fueDespachada: false,
       fechaDespacho: null as string | null,
+      fechaEstimadaLlegada: null as string | null,
+      observacion: null as string | null,
     },
     {
       ...base,
@@ -320,6 +324,8 @@ function crearOrdenesCompraMock() {
       fechaEmision: '2026-11-12T12:00:00Z',
       fueDespachada: true,
       fechaDespacho: '2026-11-13T12:00:00Z' as string | null,
+      fechaEstimadaLlegada: '2026-11-20T12:00:00Z' as string | null,
+      observacion: 'Sale en camión por la mañana' as string | null,
     },
   ]
 }
@@ -1272,8 +1278,9 @@ export const handlers: RequestHandler[] = [
   // Contrato: GET /api/ordenes-compra → 200 OrdenCompraListadoDto[] (con X-Total-Count)
   http.get('*/api/ordenes-compra', ({ request }) => responderPaginado(request, ordenesCompraMock)),
 
-  // Contrato: POST /api/ordenes-compra/{id}/despachar → 200 OrdenCompraListadoDto | 403 | 404 | 409 ProblemDetails
-  http.post('*/api/ordenes-compra/:id/despachar', ({ params }) => {
+  // Contrato: POST /api/ordenes-compra/{id}/despachar (solo el Proveedor dueño, #216)
+  //   → 200 OrdenCompraListadoDto | 400 | 403 | 404 ProblemDetails. Idempotente: si ya estaba despachada, responde 200.
+  http.post('*/api/ordenes-compra/:id/despachar', async ({ params, request }) => {
     const id = params.id as string
     const orden = ordenesCompraMock.find((o) => o.id === id)
     if (!orden) {
@@ -1282,15 +1289,29 @@ export const handlers: RequestHandler[] = [
         { status: 404 },
       )
     }
-    if (orden.fueDespachada) {
+    if (orden.fueDespachada) return HttpResponse.json(orden, { status: 200 })
+
+    const texto = await request.text()
+    const cuerpo = (texto ? JSON.parse(texto) : {}) as { fechaEstimadaLlegada?: string; observacion?: string }
+    // El backend compara la fecha en UTC.
+    const hoyUtc = new Date().toISOString().slice(0, 10)
+    if (cuerpo.fechaEstimadaLlegada && cuerpo.fechaEstimadaLlegada.slice(0, 10) < hoyUtc) {
       return HttpResponse.json(
-        { title: 'Conflicto', status: 409, detail: 'La orden de compra ya fue despachada.' },
-        { status: 409 },
+        { title: 'Solicitud inválida', status: 400, detail: 'La fecha estimada de llegada no puede ser anterior a hoy.' },
+        { status: 400 },
+      )
+    }
+    if ((cuerpo.observacion ?? '').trim().length > 200) {
+      return HttpResponse.json(
+        { title: 'Solicitud inválida', status: 400, detail: 'La observación no puede superar los 200 caracteres.' },
+        { status: 400 },
       )
     }
     orden.estado = 'Despachada'
     orden.fueDespachada = true
     orden.fechaDespacho = new Date().toISOString()
+    orden.fechaEstimadaLlegada = cuerpo.fechaEstimadaLlegada ?? null
+    orden.observacion = cuerpo.observacion?.trim() || null
     return HttpResponse.json(orden, { status: 200 })
   }),
 

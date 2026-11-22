@@ -132,14 +132,25 @@ export function listarOrdenesCompra(): Promise<OrdenCompraListadoDto[]> {
   )
 }
 
+/** Datos opcionales del despacho (#216): cuándo llega y una nota. */
+export interface DatosDespacho {
+  /** Fecha estimada de llegada, en ISO 8601 (no puede ser anterior a hoy). */
+  fechaEstimadaLlegada?: string
+  /** Observación de hasta 200 caracteres. */
+  observacion?: string
+}
+
 /**
- * Marca una orden de compra como despachada y avisa a Recepción (OrdenCompraDespachadaEvent).
- * Fuente: POST /api/ordenes-compra/{id}/despachar (Comprador, Admin). No se puede deshacer.
- * Errores: 403 sin permiso, 404 la orden no existe, 409 ya estaba despachada.
+ * El Proveedor marca su orden de compra como despachada y se avisa a Recepción (OrdenCompraDespachadaEvent).
+ * Fuente: POST /api/ordenes-compra/{id}/despachar (solo el Proveedor dueño de la orden; Compras no puede).
+ * Es idempotente: si ya estaba despachada responde 200 con los datos originales.
+ * Errores: 400 fecha pasada u observación larga, 403 no es su orden, 404 la orden no existe.
  */
-export function despacharOrdenCompra(id: string): Promise<OrdenCompraListadoDto> {
+export function despacharOrdenCompra(id: string, datos: DatosDespacho = {}): Promise<OrdenCompraListadoDto> {
+  const hayDatos = Boolean(datos.fechaEstimadaLlegada || datos.observacion)
   return apiFetch<OrdenCompraListadoDto>(`/api/ordenes-compra/${encodeURIComponent(id)}/despachar`, {
     method: 'POST',
+    ...(hayDatos ? { body: JSON.stringify(datos) } : {}),
   })
 }
 
