@@ -27,7 +27,16 @@ export interface CrearLicitacionRequestDto {
 
 export interface CrearCotizacionItemDto {
   articuloId: string
+  /** Precio por unidad de lo que se ofrece (si hay otra presentación, es por unidad de esa presentación). */
   precioUnitario: number
+  /** Otra presentación ofrecida (ej.: "bolsa 25 kg", #190). Hasta 100 caracteres. Opcional. */
+  presentacionOfrecida?: string | null
+  /** Cantidad ofrecida en esa presentación (mínimo 0,01). Si se omite, el servicio toma la cantidad del pliego. */
+  cantidadOfrecida?: number | null
+  /** Solo viene en las respuestas: (cantidadOfrecida ?? cantidad del pliego) × precioUnitario. No se envía. */
+  subtotalItem?: number
+  /** Solo viene en las respuestas: true si lo ofrecido no cubre lo pedido. Lo calcula el servicio; no se envía. */
+  coberturaParcial?: boolean
 }
 
 export interface CrearCotizacionRequestDto {
@@ -52,6 +61,8 @@ export interface CotizacionResponseDto {
   subtotalItems?: number
   costoTotal?: number
   esMasBarata?: boolean
+  /** true si algún ítem no cubre todo lo pedido (#190). Lo calcula el servicio. */
+  coberturaParcial?: boolean
   /** PROPUESTA de contrato (pendiente de Licitaciones): si no vienen, la pantalla no muestra esos datos. */
   proveedorNombre?: string | null
   /** Promedio de 1 a 5 (con decimales) de las calificaciones recibidas, o null si no tiene. */

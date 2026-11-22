@@ -428,6 +428,16 @@ function crearLicitacionesMock() {
   ]
 }
 
+/** Un renglón cotizado. Los campos de la otra presentación son los del contrato de la #190. */
+interface ItemCotizacionMock {
+  articuloId: string
+  precioUnitario: number
+  presentacionOfrecida?: string | null
+  cantidadOfrecida?: number | null
+  subtotalItem?: number
+  coberturaParcial?: boolean
+}
+
 interface CotizacionMock {
   cotizacionId: string
   licitacionId: string
@@ -435,9 +445,25 @@ interface CotizacionMock {
   flete?: number
   plazoEntregaDias?: number
   fechaCreacion: string
-  items: Array<{ articuloId: string; precioUnitario: number }>
+  items: ItemCotizacionMock[]
   puntajeTotal: number
   esGanadora: boolean
+}
+
+/**
+ * Completa, como lo hace el servicio real (#190), el total de cada renglón y la marca de cobertura parcial.
+ * Regla SOLO DEL MOCK: hay cobertura parcial si la cantidad ofrecida es menor que la del pliego.
+ * El servicio real decide con su propia regla (equivalencias entre presentaciones, a definir con Licitaciones).
+ */
+function completarItemsCotizacionMock(
+  items: ItemCotizacionMock[],
+  pliego: Array<{ articuloId: string; cantidad: number }>,
+): ItemCotizacionMock[] {
+  return items.map((it) => {
+    const pedido = pliego.find((p) => p.articuloId === it.articuloId)?.cantidad ?? 0
+    const cantidad = it.cantidadOfrecida ?? pedido
+    return { ...it, subtotalItem: cantidad * it.precioUnitario, coberturaParcial: cantidad < pedido }
+  })
 }
 
 function crearCotizacionesMock(): CotizacionMock[] {
@@ -1657,7 +1683,7 @@ export const handlers: RequestHandler[] = [
       proveedorId?: string
       flete?: number
       plazoEntregaDias?: number
-      items?: Array<{ articuloId: string; precioUnitario: number }>
+      items?: ItemCotizacionMock[]
     }
 
     const lic = licitacionesMock.find((l) => l.licitacionId === body.licitacionId)
@@ -1711,13 +1737,16 @@ export const handlers: RequestHandler[] = [
       flete: body.flete ?? 0,
       plazoEntregaDias: body.plazoEntregaDias ?? 0,
       fechaCreacion: new Date().toISOString(),
-      items: body.items,
+      items: completarItemsCotizacionMock(body.items, lic.items),
       puntajeTotal: 0,
       esGanadora: false,
     }
 
     cotizacionesMock.push(nuevaCotizacion)
-    return HttpResponse.json(nuevaCotizacion, { status: 201 })
+    return HttpResponse.json(
+      { ...nuevaCotizacion, coberturaParcial: nuevaCotizacion.items.some((i) => i.coberturaParcial) },
+      { status: 201 },
+    )
   }),
 
   // Contrato: GET /api/cotizaciones?licitacionId={guid}&pesoPrecio=&pesoFlete=&pesoPlazo=&pesoCalificacion=
@@ -1867,7 +1896,7 @@ export const handlers: RequestHandler[] = [
       .filter((c) => c.proveedorId === proveedorId)
       .map((c) => {
         const lic = licitacionesMock.find((l) => l.licitacionId === c.licitacionId)
-        const subtotal = c.items.reduce((acc, i) => acc + i.precioUnitario, 0)
+        const subtotal = c.items.reduce((acc, i) => acc + (i.subtotalItem ?? i.precioUnitario), 0)
         return {
           cotizacionId: c.cotizacionId,
           licitacionId: c.licitacionId,
@@ -1879,7 +1908,7 @@ export const handlers: RequestHandler[] = [
           subtotalItems: subtotal,
           flete: c.flete ?? 0,
           costoTotal: subtotal + (c.flete ?? 0),
-          coberturaParcial: false,
+          coberturaParcial: c.items.some((i) => i.coberturaParcial),
           plazoEntregaDias: c.plazoEntregaDias ?? 0,
           fechaCreacion: c.fechaCreacion,
           items: c.items,
@@ -1904,11 +1933,11 @@ export const handlers: RequestHandler[] = [
     const body = (await request.json().catch(() => ({}))) as {
       flete?: number
       plazoEntregaDias?: number
-      items?: Array<{ articuloId: string; precioUnitario: number }>
+      items?: ItemCotizacionMock[]
     }
     cot.flete = body.flete ?? cot.flete
     cot.plazoEntregaDias = body.plazoEntregaDias ?? cot.plazoEntregaDias
-    cot.items = body.items ?? cot.items
+    cot.items = body.items ? completarItemsCotizacionMock(body.items, lic.items) : cot.items
     return HttpResponse.json(cot, { status: 200 })
   }),
 

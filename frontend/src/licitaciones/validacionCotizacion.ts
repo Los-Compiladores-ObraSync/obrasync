@@ -3,6 +3,7 @@
  * - precioUnitario > 0 por cada ítem (acepta coma o punto decimal)
  * - flete >= 0 (acepta coma o punto decimal)
  * - plazoEntregaDias: número entero > 0
+ * - otra presentación (opcional por ítem, #229): texto de 1 a 100 caracteres y cantidad >= 0,01
  */
 
 /**
@@ -72,16 +73,60 @@ export function validarPlazoEntregaDias(valor: string): string | undefined {
   return undefined
 }
 
+/** Límites del contrato (CrearCotizacionItemDto, #190): la pantalla valida lo mismo que el servicio. */
+export const PRESENTACION_MAXIMA_CARACTERES = 100
+export const CANTIDAD_OFRECIDA_MINIMA = 0.01
+
+export function validarPresentacionOfrecida(valor: string): string | undefined {
+  const limpio = valor.trim()
+  if (!limpio) {
+    return 'Escribí qué presentación ofrecés (por ejemplo, bolsa de 25 kg).'
+  }
+  if (limpio.length > PRESENTACION_MAXIMA_CARACTERES) {
+    return `La presentación no puede superar los ${PRESENTACION_MAXIMA_CARACTERES} caracteres.`
+  }
+  return undefined
+}
+
+export function validarCantidadOfrecida(valor: string): string | undefined {
+  const limpio = valor.trim()
+  if (!limpio) {
+    return 'Ingresá la cantidad que ofrecés.'
+  }
+  const num = parsearNumeroDecimal(limpio)
+  if (num === null) {
+    return 'La cantidad ofrecida debe ser un número válido.'
+  }
+  if (num < CANTIDAD_OFRECIDA_MINIMA) {
+    return 'La cantidad ofrecida debe ser al menos 0,01.'
+  }
+  return undefined
+}
+
+/** Lo que carga el Proveedor cuando activa "Ofrezco otra presentación" en un ítem. */
+export interface OtraPresentacionFormulario {
+  presentacion: string
+  cantidad: string
+}
+
+export interface ErroresOtraPresentacion {
+  presentacion?: string
+  cantidad?: string
+}
+
 export interface FormularioCotizacion {
   flete: string
   plazoEntregaDias: string
   preciosPorArticulo: Record<string, string>
+  /** Solo tiene entrada el ítem donde el Proveedor activó la opción; si no hay entrada, cotiza lo pedido. */
+  otrasPresentacionesPorArticulo?: Record<string, OtraPresentacionFormulario | undefined>
 }
 
 export interface ErroresCotizacion {
   flete?: string
   plazoEntregaDias?: string
   preciosPorArticulo?: Record<string, string | undefined>
+  otrasPresentacionesPorArticulo?: Record<string, ErroresOtraPresentacion | undefined>
   general?: string
 }
 
@@ -116,6 +161,20 @@ export function validarCotizacion(
     errores.preciosPorArticulo = erroresItems
   }
 
+  const erroresPresentaciones: Record<string, ErroresOtraPresentacion | undefined> = {}
+  for (const artId of articulos) {
+    const otra = form.otrasPresentacionesPorArticulo?.[artId]
+    if (!otra) continue
+    const errorPresentacion = validarPresentacionOfrecida(otra.presentacion)
+    const errorCantidad = validarCantidadOfrecida(otra.cantidad)
+    if (errorPresentacion || errorCantidad) {
+      erroresPresentaciones[artId] = { presentacion: errorPresentacion, cantidad: errorCantidad }
+    }
+  }
+  if (Object.keys(erroresPresentaciones).length > 0) {
+    errores.otrasPresentacionesPorArticulo = erroresPresentaciones
+  }
+
   return errores
 }
 
@@ -126,6 +185,12 @@ export function hayErroresCotizacion(errores: ErroresCotizacion): boolean {
   if (
     errores.preciosPorArticulo &&
     Object.values(errores.preciosPorArticulo).some(Boolean)
+  ) {
+    return true
+  }
+  if (
+    errores.otrasPresentacionesPorArticulo &&
+    Object.values(errores.otrasPresentacionesPorArticulo).some((e) => e?.presentacion || e?.cantidad)
   ) {
     return true
   }
