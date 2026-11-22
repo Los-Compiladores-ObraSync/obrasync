@@ -5,7 +5,8 @@ using Yarp.ReverseProxy.Forwarder;
 namespace ObraSync.Gateway;
 
 /// <summary>
-/// Suppresses only YARP HttpForwarder's event 9 for Magic Link requests (cotizar y ver el pliego). YARP 2.3.0
+/// Suppresses only YARP HttpForwarder's event 9 for requests that carry a secret in the URL: Magic Link
+/// (cotizar y ver el pliego) and the chat hub (#225, JWT in ?access_token=). YARP 2.3.0
 /// formats the destination's absolute URI into that event. Other events and routes
 /// pass through the original logger unchanged.
 /// </summary>
@@ -34,7 +35,8 @@ public sealed class MagicLinkForwarderLogger<T> : ILogger<T>
         if (eventId.Id == ForwardingEventId
             && typeof(T).FullName == ForwarderCategory
             && context is not null
-            && MagicLinkGatewayRequest.EsMagicLink(context.Request))
+            && (MagicLinkGatewayRequest.EsMagicLink(context.Request)
+                || ChatHubGatewayRequest.EsChatHub(context.Request)))
         {
             return;
         }
