@@ -68,8 +68,11 @@ describe('accionesParaRol', () => {
     expect(ruta('Admin')).toBe('/compras/presupuesto')
   })
 
-  it('el Proveedor no tiene botones (su Inicio es la lista de licitaciones) y un rol desconocido tampoco', () => {
-    expect(accionesParaRol('Proveedor')).toEqual([])
+  it('el Proveedor llega al Historial de cotizaciones y a Mis órdenes, y un rol desconocido no tiene botones', () => {
+    expect(accionesParaRol('Proveedor').map((a) => [a.texto, a.ruta])).toEqual([
+      ['Historial de cotizaciones', '/proveedores/mis-cotizaciones'],
+      ['Mis órdenes', '/proveedores/mis-ordenes'],
+    ])
     expect(accionesParaRol('Inventado')).toEqual([])
   })
 

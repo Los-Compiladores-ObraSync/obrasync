@@ -11,7 +11,7 @@ export function ProveedoresPage() {
       <h1>Proveedores</h1>
       <p className="intro">Licitaciones abiertas para cotizar materiales.</p>
       <p>
-        <Link to="/proveedores/mis-cotizaciones">Mis cotizaciones</Link>
+        <Link to="/proveedores/mis-cotizaciones">Historial de cotizaciones</Link>
         {' · '}
         <Link to="/proveedores/mis-ordenes">Mis órdenes</Link>
       </p>
