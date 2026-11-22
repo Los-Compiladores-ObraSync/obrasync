@@ -250,7 +250,7 @@ export function MisCotizacionesPage() {
                   aria-pressed={filtro === f.id}
                   onClick={() => alternarFiltro(f.id)}
                 >
-                  {f.etiqueta} ({cantidades[f.id]})
+                  {f.etiqueta}
                 </button>
               ))}
             </div>

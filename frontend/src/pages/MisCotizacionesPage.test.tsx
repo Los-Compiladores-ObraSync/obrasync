@@ -178,34 +178,34 @@ describe('MisCotizacionesPage', () => {
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
   })
 
-  it('filtra por En curso, Adjudicadas y No adjudicadas, con su contador', async () => {
+  it('filtra por En curso, Adjudicadas y No adjudicadas', async () => {
     server.use(http.get('*/api/cotizaciones/mias', () => HttpResponse.json(cuatroCotizaciones())))
     renderPagina()
 
     expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Quitar filtros' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'En curso (2)' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Adjudicadas (1)' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'No adjudicadas (1)' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'En curso' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Adjudicadas' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'No adjudicadas' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Adjudicadas (1)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Adjudicadas' }))
     expect(screen.getByText('REQ-2026-0009')).toBeInTheDocument()
     expect(screen.queryByText('REQ-2026-0011')).not.toBeInTheDocument()
     expect(screen.queryByText('REQ-2026-0008')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'No adjudicadas (1)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'No adjudicadas' }))
     expect(screen.getByText('REQ-2026-0008')).toBeInTheDocument()
     expect(screen.queryByText('REQ-2026-0009')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'En curso (2)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'En curso' }))
     expect(screen.getByText('REQ-2026-0011')).toBeInTheDocument()
     expect(screen.getByText('REQ-2026-0010')).toBeInTheDocument()
     expect(screen.queryByText('REQ-2026-0008')).not.toBeInTheDocument()
 
     // Tocar el botón activo lo desactiva, y "Quitar filtros" vuelve a mostrar todas.
-    fireEvent.click(screen.getByRole('button', { name: 'En curso (2)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'En curso' }))
     expect(screen.getByText('REQ-2026-0008')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Adjudicadas (1)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Adjudicadas' }))
     expect(screen.queryByText('REQ-2026-0008')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Quitar filtros' }))
     expect(screen.getByText('REQ-2026-0008')).toBeInTheDocument()
@@ -223,11 +223,11 @@ describe('MisCotizacionesPage', () => {
     renderPagina()
 
     expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'No adjudicadas (0)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'No adjudicadas' }))
     expect(screen.getByText('Ninguna de tus cotizaciones quedó sin adjudicar.')).toBeInTheDocument()
     expect(screen.queryByText('REQ-2026-0011')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'En curso (1)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'En curso' }))
     expect(screen.getByText('REQ-2026-0011')).toBeInTheDocument()
   })
 
@@ -247,7 +247,7 @@ describe('MisCotizacionesPage', () => {
 
     expect(await screen.findByText('REQ-2026-0009')).toBeInTheDocument()
     expect(screen.queryByText('REQ-2026-0011')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Adjudicadas (1)' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Adjudicadas' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('muestra primero la cotización más reciente', async () => {
@@ -270,7 +270,7 @@ describe('MisCotizacionesPage', () => {
     server.use(http.get('*/api/cotizaciones/mias', () => HttpResponse.json(cuatroCotizaciones())))
     renderPagina()
 
-    expect(await screen.findByRole('button', { name: 'Pendientes (2)' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Pendientes' })).toBeInTheDocument()
     const titulos = (await screen.findAllByRole('heading', { level: 2 })).map((h) => h.textContent)
     // Primero las pendientes (la que cierra antes arriba) y después las cotizaciones; la ya cotizada no es pendiente.
     expect(titulos.slice(0, 2)).toEqual(['REQ-2026-0030', 'REQ-2026-0031'])
@@ -287,7 +287,7 @@ describe('MisCotizacionesPage', () => {
 
     expect(await screen.findByRole('heading', { level: 2, name: 'REQ-2026-0030' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { level: 2, name: 'REQ-2026-0011' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Pendientes (1)' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Pendientes' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('sin cotizaciones pero con licitaciones pendientes igual muestra los filtros y las pendientes', async () => {
@@ -296,7 +296,7 @@ describe('MisCotizacionesPage', () => {
     renderPagina()
 
     expect(await screen.findByRole('heading', { level: 2, name: 'REQ-2026-0020' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Pendientes (1)' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pendientes' })).toBeInTheDocument()
     expect(screen.queryByText('Todavía no enviaste cotizaciones.')).not.toBeInTheDocument()
   })
 
