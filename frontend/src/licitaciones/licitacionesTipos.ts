@@ -109,6 +109,12 @@ export interface OrdenCompraListadoDto {
   fueDespachada: boolean
   /** Cuándo se marcó el despacho; null mientras no se despachó. */
   fechaDespacho?: string | null
+  /** Quién despachó (el Proveedor dueño de la orden, #216). */
+  despachadaPor?: string | null
+  /** Fecha estimada de llegada que informó el Proveedor al despachar (opcional). */
+  fechaEstimadaLlegada?: string | null
+  /** Observación del despacho (opcional, hasta 200 caracteres). */
+  observacion?: string | null
 }
 
 /** Calificación vigente de un proveedor (contrato: CalificacionProveedorResponseDto, #88). */

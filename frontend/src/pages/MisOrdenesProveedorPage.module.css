@@ -1,0 +1,42 @@
+.contenedor { width: 100%; }
+.volver { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--azul); text-decoration: none; }
+.exito { padding: 0.75rem 1rem; border-radius: 8px; background: #e6f4ea; color: #1b7f3b; font-weight: 600; }
+.errorApi { margin: 0; color: #b3261e; font-weight: 600; }
+.alDia { padding: 0.75rem 1rem; border-radius: 8px; background: #e6f4ea; color: #1b7f3b; font-weight: 600; }
+
+/* Grupos: lo que hay que hacer primero y, abajo, lo ya despachado. */
+.grupo { margin-top: 1.5rem; }
+.tituloGrupo { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0.75rem; font-size: 1.25rem; }
+
+.lista { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 1rem; }
+
+/* Tarjeta: mismo diseño que el Historial de cotizaciones, con una franja de color según el estado. */
+.tarjeta { display: flex; flex-direction: column; gap: 1rem; border: 1px solid var(--borde); border-left-width: 6px; border-radius: 12px; padding: 1.25rem; background: #fff; }
+.tarjetaPendiente { border-left-color: var(--naranja); }
+.tarjetaDespachada { border-left-color: #1b7f3b; }
+.encabezado { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+.encabezado h3 { margin: 0; font-size: 1.25rem; }
+.resultado { display: inline-block; font-size: 0.9375rem; font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 999px; background: #f2f4f7; }
+.gano { color: #1b7f3b; background: #e6f4ea; }
+.enviada { color: var(--accion-oscura); background: #fff1e6; }
+
+.datos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.875rem 1rem; margin: 0; }
+.datos dt { font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; color: var(--texto-suave); }
+.datos dd { margin: 0.125rem 0 0; font-weight: 600; }
+.ancho { grid-column: 1 / -1; }
+
+.acciones { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: auto; padding-top: 1rem; border-top: 1px solid #d5dde8; }
+.accion { display: inline-flex; flex: 1 1 10rem; align-items: center; justify-content: center; min-height: var(--alto-toque, 56px); padding: 0 1.25rem; border: 2px solid var(--azul); border-radius: 8px; background: #fff; color: var(--azul); font-size: 1.0625rem; font-weight: 700; text-decoration: none; cursor: pointer; }
+.accionPrincipal { background: var(--accion); border-color: var(--accion); color: #fff; }
+.accionPrincipal:hover:not(:disabled) { background: var(--accion-oscura); border-color: var(--accion-oscura); }
+.accion:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Formulario de despacho */
+.formulario { display: flex; flex-direction: column; gap: 1rem; padding-top: 1rem; border-top: 1px solid #d5dde8; }
+.formulario .acciones { border-top: 0; padding-top: 0; }
+.campo { display: flex; flex-direction: column; gap: 0.25rem; }
+.campo label { font-weight: 700; }
+.campo input, .campo textarea { width: 100%; min-height: 48px; font-size: 1.0625rem; }
+.contador { align-self: flex-end; font-size: 0.8125rem; color: var(--texto-suave); }
+
+@media (min-width: 900px) { .lista { grid-template-columns: repeat(2, 1fr); } }
