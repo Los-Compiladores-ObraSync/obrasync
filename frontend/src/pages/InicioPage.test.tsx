@@ -93,13 +93,17 @@ describe('InicioPage', () => {
     expect(screen.getByRole('link', { name: 'Presupuesto' })).toHaveAttribute('href', '/compras/presupuesto')
   })
 
-  it('Proveedor: ve directamente las licitaciones abiertas y ningún botón de acciones', async () => {
-    const { container } = renderInicio('Proveedor')
+  it('Proveedor: ve las licitaciones abiertas y desde el Inicio llega al Historial de cotizaciones y a Mis órdenes', async () => {
+    renderInicio('Proveedor')
 
     expect(screen.getByRole('heading', { level: 2, name: 'Licitaciones abiertas' })).toBeInTheDocument()
     expect((await screen.findAllByRole('link', { name: /Cotizar/ })).length).toBeGreaterThan(0)
     expect(screen.queryByRole('region', { name: 'Resumen de aprobaciones' })).not.toBeInTheDocument()
-    expect(container.querySelector('.lista-acciones')).toBeNull()
+    expect(screen.getByRole('link', { name: 'Historial de cotizaciones' })).toHaveAttribute(
+      'href',
+      '/proveedores/mis-cotizaciones',
+    )
+    expect(screen.getByRole('link', { name: 'Mis órdenes' })).toHaveAttribute('href', '/proveedores/mis-ordenes')
   })
 
   it('un rol sin portales muestra el aviso para consultar con un administrador', () => {

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import {
   obtenerCalificacionProveedor,
@@ -13,9 +13,31 @@ import styles from './MisCotizacionesPage.module.css'
 /** Texto y estilo de cada resultado que informa el servicio (estadoResultado). */
 const RESULTADOS: Record<string, { texto: string; clase: string }> = {
   Enviada: { texto: 'Enviada, esperando el cierre', clase: 'enviada' },
-  Gano: { texto: '¡Ganaste esta licitación!', clase: 'gano' },
-  NoGano: { texto: 'No ganaste esta licitación', clase: 'noGano' },
+  Gano: { texto: 'Licitación adjudicada', clase: 'gano' },
+  NoGano: { texto: 'Licitación no adjudicada', clase: 'noGano' },
   LicitacionCerrada: { texto: 'Licitación cerrada, sin adjudicar todavía', clase: 'cerrada' },
+}
+
+type Filtro = 'todas' | 'en-curso' | 'adjudicadas' | 'no-adjudicadas'
+
+const FILTROS: { id: Filtro; etiqueta: string; vacio: string }[] = [
+  { id: 'todas', etiqueta: 'Todas', vacio: 'Todavía no enviaste cotizaciones.' },
+  { id: 'en-curso', etiqueta: 'En curso', vacio: 'No tenés cotizaciones en curso.' },
+  { id: 'adjudicadas', etiqueta: 'Adjudicadas', vacio: 'Todavía no ganaste ninguna licitación.' },
+  { id: 'no-adjudicadas', etiqueta: 'No adjudicadas', vacio: 'Ninguna de tus cotizaciones quedó sin adjudicar.' },
+]
+
+/** Los botones del filtro de estado: "Todas" no tiene botón, es no tener ningún filtro (Quitar filtros). */
+const BOTONES_ESTADO = FILTROS.filter((f) => f.id !== 'todas')
+
+/**
+ * A qué grupo pertenece una cotización. Todo lo que todavía no se resolvió (licitación abierta o
+ * cerrada sin adjudicar) cuenta como "en curso": nunca se le muestra como perdida.
+ */
+function grupoDe(c: MiCotizacionDto): Exclude<Filtro, 'todas'> {
+  if (c.estadoResultado === 'Gano') return 'adjudicadas'
+  if (c.estadoResultado === 'NoGano') return 'no-adjudicadas'
+  return 'en-curso'
 }
 
 /** Una cotización se puede corregir solo mientras la licitación está abierta y el plazo no venció. */
@@ -24,17 +46,31 @@ function sePuedeCorregir(c: MiCotizacionDto): boolean {
 }
 
 /**
- * Portal del Proveedor: sus cotizaciones con el resultado (ganó / no ganó), su calificación y,
- * mientras la licitación sigue abierta, el acceso para corregir la oferta.
+ * Portal del Proveedor: historial de sus cotizaciones con el resultado (en curso / ganó / no ganó),
+ * filtros por estado, su calificación y, mientras la licitación sigue abierta, el acceso para corregir.
  */
 export function MisCotizacionesPage() {
   const { usuario } = useAuth()
+  const [parametros, setParametros] = useSearchParams()
   const [cotizaciones, setCotizaciones] = useState<MiCotizacionDto[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [calificacion, setCalificacion] = useState<number | null>(null)
   const [cantidadCalificaciones, setCantidadCalificaciones] = useState(0)
   const [intento, setIntento] = useState(0)
+
+  // El filtro vive en la dirección de la página (?estado=adjudicadas): sobrevive a recargar y se puede compartir.
+  const pedido = parametros.get('estado')
+  const filtro: Filtro = FILTROS.some((f) => f.id === pedido) ? (pedido as Filtro) : 'todas'
+
+  function elegirFiltro(nuevo: Filtro) {
+    setParametros(nuevo === 'todas' ? {} : { estado: nuevo }, { replace: true })
+  }
+
+  // Igual que en el Historial de requisiciones: tocar el botón activo lo desactiva.
+  function alternarFiltro(id: Filtro) {
+    elegirFiltro(filtro === id ? 'todas' : id)
+  }
 
   useEffect(() => {
     let cancelado = false
@@ -71,12 +107,30 @@ export function MisCotizacionesPage() {
     }
   }, [usuario?.id])
 
+  // Las más recientes primero.
+  const ordenadas = useMemo(
+    () =>
+      [...cotizaciones].sort(
+        (a, b) => new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime(),
+      ),
+    [cotizaciones],
+  )
+
+  const cantidades = useMemo(() => {
+    const n: Record<Filtro, number> = { todas: ordenadas.length, 'en-curso': 0, adjudicadas: 0, 'no-adjudicadas': 0 }
+    for (const c of ordenadas) n[grupoDe(c)] += 1
+    return n
+  }, [ordenadas])
+
+  const visibles = filtro === 'todas' ? ordenadas : ordenadas.filter((c) => grupoDe(c) === filtro)
+  const mensajeVacio = FILTROS.find((f) => f.id === filtro)?.vacio ?? ''
+
   return (
     <section className={`${styles.contenedor} pantalla-ancha`}>
       <Link to="/proveedores" className={styles.volver}>
         ← Volver a licitaciones
       </Link>
-      <h1>Mis cotizaciones</h1>
+      <h1>Historial de cotizaciones</h1>
 
       <p className={styles.calificacion}>
         {calificacion === null
@@ -106,27 +160,89 @@ export function MisCotizacionesPage() {
 
       {!cargando && !error && cotizaciones.length === 0 && <p>Todavía no enviaste cotizaciones.</p>}
 
+      {!cargando && !error && cotizaciones.length > 0 && (
+        <div className={styles.filtros} role="group" aria-label="Filtros del historial">
+          <div className={styles.filtro}>
+            <span id="filtro-estado-titulo" className={styles.tituloFiltro}>
+              Estado
+            </span>
+            <div className={styles.botonesEstado} role="group" aria-labelledby="filtro-estado-titulo">
+              {BOTONES_ESTADO.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={styles.botonEstado}
+                  aria-pressed={filtro === f.id}
+                  onClick={() => alternarFiltro(f.id)}
+                >
+                  {f.etiqueta} ({cantidades[f.id]})
+                </button>
+              ))}
+            </div>
+          </div>
+          <button
+            type="button"
+            className={styles.quitar}
+            onClick={() => elegirFiltro('todas')}
+            disabled={filtro === 'todas'}
+          >
+            Quitar filtros
+          </button>
+        </div>
+      )}
+
+      {!cargando && !error && cotizaciones.length > 0 && visibles.length === 0 && (
+        <p className={styles.vacio}>{mensajeVacio}</p>
+      )}
+
       <ul className={styles.lista}>
-        {cotizaciones.map((c) => {
+        {visibles.map((c) => {
           const resultado = RESULTADOS[c.estadoResultado] ?? { texto: c.estadoResultado, clase: 'cerrada' }
           return (
             <li key={c.cotizacionId} className={styles.tarjeta}>
-              <h2>{c.numeroRequisicion}</h2>
-              <p className={`${styles.resultado} ${styles[resultado.clase]}`}>{resultado.texto}</p>
-              <p>
-                Total ofertado: <strong>{formatearPesos(c.costoTotal)}</strong> (flete incluido) · Plazo:{' '}
-                {c.plazoEntregaDias} {c.plazoEntregaDias === 1 ? 'día' : 'días'}
-              </p>
-              <p className={styles.detalle}>
-                Enviada el {fechaLarga(c.fechaCreacion)} · Cierre: {fechaLarga(c.fechaLimiteCotizacion)}
-              </p>
-              {sePuedeCorregir(c) && (
-                <Link
-                  to={`/proveedores/licitaciones/${c.licitacionId}?corregir=${c.cotizacionId}`}
-                  className={styles.corregir}
-                >
-                  Corregir mi cotización
-                </Link>
+              <div className={styles.encabezado}>
+                <h2>{c.numeroRequisicion}</h2>
+                <span className={`${styles.resultado} ${styles[resultado.clase]}`}>{resultado.texto}</span>
+              </div>
+              <dl className={styles.datos}>
+                <div className={styles.total}>
+                  <dt>Total ofertado</dt>
+                  <dd>
+                    <strong>{formatearPesos(c.costoTotal)}</strong>
+                    <span className={styles.nota}>flete incluido</span>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Plazo de entrega</dt>
+                  <dd>
+                    {c.plazoEntregaDias} {c.plazoEntregaDias === 1 ? 'día' : 'días'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Enviada el</dt>
+                  <dd>{fechaLarga(c.fechaCreacion)}</dd>
+                </div>
+                <div>
+                  <dt>Cierre de la licitación</dt>
+                  <dd>{fechaLarga(c.fechaLimiteCotizacion)}</dd>
+                </div>
+              </dl>
+              {(sePuedeCorregir(c) || c.estadoResultado === 'Gano') && (
+                <div className={styles.acciones}>
+                  {sePuedeCorregir(c) && (
+                    <Link
+                      to={`/proveedores/licitaciones/${c.licitacionId}?corregir=${c.cotizacionId}`}
+                      className={styles.accion}
+                    >
+                      Editar cotización
+                    </Link>
+                  )}
+                  {c.estadoResultado === 'Gano' && (
+                    <Link to="/proveedores/mis-ordenes" className={`${styles.accion} ${styles.accionPrincipal}`}>
+                      Ver mis órdenes
+                    </Link>
+                  )}
+                </div>
               )}
             </li>
           )
