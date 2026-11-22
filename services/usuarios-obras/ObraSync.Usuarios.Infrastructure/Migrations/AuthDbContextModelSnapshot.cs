@@ -284,6 +284,31 @@ namespace ObraSync.Usuarios.Infrastructure.Migrations
                     b.ToTable("EtapasPlantilla", (string)null);
                 });
 
+            modelBuilder.Entity("ObraSync.Usuarios.Domain.Entities.EventoProcesado", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ProcesadoEn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TipoEvento")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId")
+                        .IsUnique();
+
+                    b.ToTable("EventosProcesados", (string)null);
+                });
+
             modelBuilder.Entity("ObraSync.Usuarios.Domain.Entities.Obra", b =>
                 {
                     b.Property<Guid>("Id")
@@ -341,6 +366,53 @@ namespace ObraSync.Usuarios.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("PlantillasObra", (string)null);
+                });
+
+            modelBuilder.Entity("ObraSync.Usuarios.Domain.Entities.SuscripcionPush", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Auth")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Endpoint")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("EndpointHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("FechaAlta")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Navegador")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("P256dh")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("UltimoEnvio")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId", "EndpointHash")
+                        .IsUnique();
+
+                    b.ToTable("SuscripcionesPush", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -425,6 +497,17 @@ namespace ObraSync.Usuarios.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Capataz");
+                });
+
+            modelBuilder.Entity("ObraSync.Usuarios.Domain.Entities.SuscripcionPush", b =>
+                {
+                    b.HasOne("ObraSync.Usuarios.Domain.Entities.AppUser", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("ObraSync.Usuarios.Domain.Entities.Obra", b =>

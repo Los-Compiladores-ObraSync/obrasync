@@ -64,6 +64,12 @@ public class ExceptionMiddleware
                 ex.Message,
                 "https://tools.ietf.org/html/rfc9110#section-15.5.10"
             ),
+            ServicioNoDisponibleException ex => (
+                StatusCodes.Status503ServiceUnavailable,
+                "Servicio no disponible",
+                ex.Message,
+                "https://tools.ietf.org/html/rfc9110#section-15.6.4"
+            ),
             _ => (
                 StatusCodes.Status500InternalServerError,
                 "Error interno del servidor",

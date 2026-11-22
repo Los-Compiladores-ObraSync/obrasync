@@ -59,8 +59,16 @@ services:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=DB_Auth;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True;"
       Jwt__Secret: ${JWT_SECRET:?Falta JWT_SECRET en el archivo .env}
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: ${RABBITMQ_USER:?Falta RABBITMQ_USER en el archivo .env}
+      RabbitMQ__Password: ${RABBITMQ_PASS:?Falta RABBITMQ_PASS en el archivo .env}
+      Vapid__PublicKey: ${VAPID_PUBLIC_KEY:-}
+      Vapid__PrivateKey: ${VAPID_PRIVATE_KEY:-}
+      Vapid__Subject: ${VAPID_SUBJECT:-mailto:soporte@obrasync.local}
     depends_on:
       sqlserver:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   requisiciones-catalogo-api:
