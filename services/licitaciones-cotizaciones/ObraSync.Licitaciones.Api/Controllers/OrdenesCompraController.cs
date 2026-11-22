@@ -4,10 +4,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using ObraSync.Licitaciones.Api.Hubs;
 using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.UseCases.Calificaciones.Commands;
 using ObraSync.Licitaciones.Application.UseCases.Calificaciones.Queries;
+using ObraSync.Licitaciones.Application.UseCases.Chat.Commands;
+using ObraSync.Licitaciones.Application.UseCases.Chat.Queries;
 using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Commands;
 using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Queries;
@@ -331,5 +334,208 @@ public class OrdenesCompraController : ControllerBase
 
         var resultado = await _mediator.Send(new GetMiReputacionProveedorQuery(usuarioId), cancellationToken);
         return Ok(resultado);
+    }
+
+    /// <summary>
+    /// Listar los mensajes del chat de una orden de compra con paginación
+    /// (Roles: Comprador, Admin, Proveedor dueño de la orden).
+    /// </summary>
+    [HttpGet("{id:guid}/chat/mensajes")]
+    [Authorize(Roles = "Comprador,Admin,Proveedor")]
+    [ProducesResponseType(typeof(IReadOnlyList<MensajeChatOrdenDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ListarMensajesChat(
+        [FromRoute] Guid id,
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamano = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var paginacion = new ParametrosPagina(pagina, tamano);
+        var error = paginacion.Validar();
+        if (error is not null)
+        {
+            return Problem(
+                detail: error,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Paginación inválida");
+        }
+
+        return await EjecutarAccionChatAsync(async (usuarioId, _, rolUsuario) =>
+        {
+            var resultado = await _mediator.Send(
+                new GetMensajesChatOrdenQuery(id, usuarioId, rolUsuario, paginacion),
+                cancellationToken);
+
+            Response.Headers["X-Total-Count"] = resultado.Total.ToString();
+            Response.Headers["X-Page"] = paginacion.Pagina.ToString();
+            Response.Headers["X-Page-Size"] = paginacion.Tamano.ToString();
+
+            return Ok(resultado.Items);
+        });
+    }
+
+    /// <summary>
+    /// Enviar un mensaje al chat de una orden de compra
+    /// (Roles: Comprador, Admin, Proveedor dueño de la orden).
+    /// </summary>
+    [HttpPost("{id:guid}/chat/mensajes")]
+    [Authorize(Roles = "Comprador,Admin,Proveedor")]
+    [ProducesResponseType(typeof(MensajeChatOrdenDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> EnviarMensajeChat(
+        [FromRoute] Guid id,
+        [FromBody] EnviarMensajeChatRequestDto? request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null)
+        {
+            return Problem(
+                detail: "El cuerpo de la petición es obligatorio.",
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Petición inválida");
+        }
+
+        return await EjecutarAccionChatAsync(async (usuarioId, usuarioNombre, rolUsuario) =>
+        {
+            var command = new EnviarMensajeChatOrdenCommand(
+                OrdenCompraId: id,
+                UsuarioId: usuarioId,
+                UsuarioNombre: usuarioNombre,
+                RolUsuario: rolUsuario,
+                Texto: request.Texto,
+                CorrelationId: ObtenerCorrelationId());
+
+            var dto = await _mediator.Send(command, cancellationToken);
+            return CreatedAtAction(nameof(ListarMensajesChat), new { id }, dto);
+        });
+    }
+
+    /// <summary>
+    /// Marcar el chat de una orden de compra como leído para el usuario autenticado
+    /// (Roles: Comprador, Admin, Proveedor dueño de la orden). Operación idempotente.
+    /// </summary>
+    [HttpPost("{id:guid}/chat/marcar-leido")]
+    [Authorize(Roles = "Comprador,Admin,Proveedor")]
+    [ProducesResponseType(typeof(LecturaChatResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public Task<IActionResult> MarcarChatLeido(
+        [FromRoute] Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return EjecutarAccionChatAsync(async (usuarioId, _, rolUsuario) =>
+        {
+            var dto = await _mediator.Send(
+                new MarcarChatOrdenLeidoCommand(id, usuarioId, rolUsuario),
+                cancellationToken);
+            return Ok(dto);
+        });
+    }
+
+    /// <summary>
+    /// Consultar la cantidad de mensajes no leídos por orden de compra para el usuario actual
+    /// (Roles: Comprador, Admin, Proveedor).
+    /// </summary>
+    [HttpGet("chat/no-leidos")]
+    [Authorize(Roles = "Comprador,Admin,Proveedor")]
+    [ProducesResponseType(typeof(ResumenNoLeidosChatDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> ObtenerNoLeidosChat(CancellationToken cancellationToken = default)
+    {
+        return EjecutarAccionChatAsync(async (usuarioId, _, rolUsuario) =>
+        {
+            var dto = await _mediator.Send(
+                new GetNoLeidosChatOrdenesQuery(usuarioId, rolUsuario),
+                cancellationToken);
+            return Ok(dto);
+        });
+    }
+
+    /// <summary>
+    /// Marcar manualmente como resuelto el problema abierto de una orden de compra
+    /// (Roles: Comprador, Admin). Operación idempotente.
+    /// </summary>
+    [HttpPost("{id:guid}/problema/resolver")]
+    [Authorize(Roles = "Comprador,Admin")]
+    [ProducesResponseType(typeof(ProblemaOrdenEstadoDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public Task<IActionResult> ResolverProblemaOrden(
+        [FromRoute] Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return EjecutarAccionChatAsync(async (usuarioId, _, rolUsuario) =>
+        {
+            var dto = await _mediator.Send(
+                new ResolverProblemaOrdenCompraCommand(
+                    OrdenCompraId: id,
+                    UsuarioId: usuarioId,
+                    RolUsuario: rolUsuario,
+                    CorrelationId: ObtenerCorrelationId()),
+                cancellationToken);
+            return Ok(dto);
+        });
+    }
+
+    private Guid ObtenerCorrelationId()
+    {
+        var correlationHeader = HttpContext?.Request.Headers["X-Correlation-ID"].FirstOrDefault()
+            ?? HttpContext?.Items["CorrelationId"]?.ToString();
+
+        return Guid.TryParse(correlationHeader, out var parsed) && parsed != Guid.Empty
+            ? parsed
+            : Guid.NewGuid();
+    }
+
+    private async Task<IActionResult> EjecutarAccionChatAsync(
+        Func<Guid, string?, string?, Task<IActionResult>> accion)
+    {
+        if (!JwtUserClaimsHelper.TryGetUsuarioId(User, out var usuarioId))
+        {
+            return Problem(
+                detail: "El token JWT no contiene un claim 'sub' válido con formato GUID para identificar al usuario.",
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Usuario no identificado");
+        }
+
+        var rolUsuario = JwtUserClaimsHelper.ObtenerRolUsuario(User);
+        var usuarioNombre = JwtUserClaimsHelper.ObtenerNombreUsuario(User);
+
+        try
+        {
+            return await accion(usuarioId, usuarioNombre, rolUsuario);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Recurso no encontrado");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status403Forbidden,
+                title: "Acceso denegado");
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Solicitud inválida");
+        }
     }
 }

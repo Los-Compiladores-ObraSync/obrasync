@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using ObraSync.Licitaciones.Api.Hubs;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.Services;
 using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Handlers;
@@ -17,9 +18,13 @@ using ObraSync.Licitaciones.Infrastructure.Consumers;
 using ObraSync.Licitaciones.Infrastructure.Messaging;
 using ObraSync.Licitaciones.Infrastructure.Repositories;
 
+const string chatHubPath = "/api/ordenes-compra/chat-hub";
+const string signalRAccessTokenItemKey = "ObraSync.SignalR.AccessToken";
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 
 // Errores en formato ProblemDetails + correlationId
 builder.Services.AddProblemDetails(options =>
@@ -53,6 +58,8 @@ builder.Services.AddScoped<ICotizacionValidadorService, CotizacionValidadorServi
 builder.Services.AddScoped<IOrdenCompraRepository, OrdenCompraRepository>();
 builder.Services.AddScoped<IMagicLinkRepository, MagicLinkRepository>();
 builder.Services.AddScoped<ICalificacionProveedorRepository, CalificacionProveedorRepository>();
+builder.Services.AddScoped<IChatOrdenRepository, ChatOrdenRepository>();
+builder.Services.AddScoped<IChatOrdenNotifier, SignalRChatOrdenNotifier>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<GetLicitacionesQueryHandler>();
 builder.Services.AddScoped<GetLicitacionByIdQueryHandler>();
@@ -81,6 +88,7 @@ builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<RequisicionAprobadaConsumer>();
     x.AddConsumer<RecepcionConfirmadaConsumer>();
+    x.AddConsumer<RecepcionConProblemaConsumer>();
 
     if (useInMemoryTransport)
     {
@@ -157,6 +165,28 @@ builder.Services
 
         options.Events = new JwtBearerEvents
         {
+            OnMessageReceived = context =>
+            {
+                if (context.HttpContext.Request.Path.StartsWithSegments(chatHubPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (context.HttpContext.Items.TryGetValue(signalRAccessTokenItemKey, out var tokenObj) &&
+                        tokenObj is string token &&
+                        !string.IsNullOrWhiteSpace(token))
+                    {
+                        context.Token = token;
+                    }
+                    else
+                    {
+                        var queryToken = context.Request.Query["access_token"].ToString();
+                        if (!string.IsNullOrWhiteSpace(queryToken))
+                        {
+                            context.Token = queryToken;
+                        }
+                    }
+                }
+
+                return Task.CompletedTask;
+            },
             OnChallenge = async context =>
             {
                 context.HandleResponse();
@@ -293,6 +323,30 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DbLici
     }
 }
 
+// Seguridad (#218): en SignalR el token viaja por query (?access_token=...) y podría exponerse en logs
+// si alguien eleva el nivel de log. Lo movemos a HttpContext.Items y lo removemos de Request.QueryString
+// antes de correlación, routing, logging o manejo de errores.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments(chatHubPath, StringComparison.OrdinalIgnoreCase) &&
+        context.Request.Query.TryGetValue("access_token", out var tokenValues))
+    {
+        var token = tokenValues.ToString();
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            context.Items[signalRAccessTokenItemKey] = token;
+        }
+
+        var parametrosRestantes = context.Request.Query
+            .Where(kv => !string.Equals(kv.Key, "access_token", StringComparison.OrdinalIgnoreCase))
+            .SelectMany(kv => kv.Value.Select(v => new KeyValuePair<string, string?>(kv.Key, v)));
+
+        context.Request.QueryString = QueryString.Create(parametrosRestantes);
+    }
+
+    await next();
+});
+
 app.Use(async (context, next) =>
 {
     const string headerName = "X-Correlation-ID";
@@ -334,6 +388,7 @@ app.UseAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "licitaciones" }));
 app.MapControllers();
+app.MapHub<ChatOrdenHub>(chatHubPath);
 
 app.Run();
 

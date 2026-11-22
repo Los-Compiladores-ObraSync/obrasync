@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:obrasync:events:mensaje-chat-enviado:v1",
+  "title": "MensajeChatEnviadoEvent",
+  "description": "Evento publicado por Licitaciones y Cotizaciones cuando una persona (Comprador, Admin o Proveedor titular) envía un mensaje en el chat de una Orden de Compra (#218). Consumido por Usuarios y Obras para generar notificaciones (#227). Nunca se publica para mensajes automáticos del sistema.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "occurredAt",
+    "correlationId",
+    "ordenCompraId",
+    "remitente",
+    "destinatarios",
+    "fragmento"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador único del evento para garantizar procesamiento idempotente en los consumidores."
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha y hora en que ocurrió el evento (en UTC)."
+    },
+    "correlationId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de correlación propagado desde el API Gateway (X-Correlation-ID) para trazabilidad transversal."
+    },
+    "ordenCompraId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de la orden de compra a la que pertenece el chat."
+    },
+    "remitente": {
+      "type": "object",
+      "description": "Usuario que escribió el mensaje.",
+      "additionalProperties": false,
+      "required": [
+        "usuarioId",
+        "nombre",
+        "rol"
+      ],
+      "properties": {
+        "usuarioId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Identificador (sub del JWT) del remitente."
+        },
+        "nombre": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Nombre legible del remitente (claim 'name' del JWT o rol como respaldo)."
+        },
+        "rol": {
+          "type": "string",
+          "enum": [
+            "Comprador",
+            "Admin",
+            "Proveedor"
+          ],
+          "description": "Rol con el que participó el remitente."
+        }
+      }
+    },
+    "destinatarios": {
+      "type": "object",
+      "description": "Destinatarios a notificar según quién escribió el mensaje. Si escribe Comprador/Admin va usuarioIds=[proveedorId] y roles=[]. Si escribe el Proveedor va usuarioIds=[] y roles=['Comprador','Admin'].",
+      "additionalProperties": false,
+      "required": [
+        "usuarioIds",
+        "roles"
+      ],
+      "properties": {
+        "usuarioIds": {
+          "type": "array",
+          "description": "Lista explícita de IDs de usuario destinatarios (ej. el Proveedor dueño de la orden cuando escribe Compras/Admin).",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "roles": {
+          "type": "array",
+          "description": "Roles destinatarios a resolver por el servicio de Usuarios/Notificaciones (ej. ['Comprador','Admin'] cuando escribe el Proveedor).",
+          "items": {
+            "type": "string",
+            "enum": [
+              "Comprador",
+              "Admin",
+              "Proveedor"
+            ]
+          }
+        }
+      }
+    },
+    "fragmento": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Vista previa del mensaje enviado (máximo 120 caracteres; si supera 120 se recorta con puntos suspensivos)."
+    }
+  },
+  "additionalProperties": false
+}

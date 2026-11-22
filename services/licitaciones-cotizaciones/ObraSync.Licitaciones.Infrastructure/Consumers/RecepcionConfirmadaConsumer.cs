@@ -3,25 +3,35 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ObraSync.Contracts.Events;
+using ObraSync.Licitaciones.Application.Interfaces;
+using ObraSync.Licitaciones.Application.Mappings;
 using ObraSync.Licitaciones.Domain.Entities;
 
 namespace ObraSync.Licitaciones.Infrastructure.Consumers;
 
 /// <summary>
-/// Consume RecepcionConfirmadaEvent (#222) de forma idempotente (por EventId) y marca la OrdenCompra
-/// como recibida completa únicamente cuando OrdenCompleta == true y la recepción no es Rechazada.
+/// Consume RecepcionConfirmadaEvent (#222 / #218) de forma idempotente (por EventId):
+/// - Si la recepción es Rechazada, se ignora para no cerrar problemas ni marcar recepción completa.
+/// - Si es válida: cierra cualquier problema abierto en la orden, y si OrdenCompleta == true marca la orden
+///   como recibida completa y agrega el mensaje del sistema en el chat ("Llegó todo el pedido", sin publicar MensajeChatEnviadoEvent).
 /// </summary>
 public class RecepcionConfirmadaConsumer : IConsumer<RecepcionConfirmadaEvent>
 {
     private readonly LicitacionesDbContext _db;
     private readonly ILogger<RecepcionConfirmadaConsumer> _logger;
+    private readonly IChatOrdenRepository? _chatOrdenRepository;
+    private readonly IChatOrdenNotifier? _chatOrdenNotifier;
 
     public RecepcionConfirmadaConsumer(
         LicitacionesDbContext db,
-        ILogger<RecepcionConfirmadaConsumer> logger)
+        ILogger<RecepcionConfirmadaConsumer> logger,
+        IChatOrdenRepository? chatOrdenRepository = null,
+        IChatOrdenNotifier? chatOrdenNotifier = null)
     {
         _db = db ?? throw new ArgumentNullException(nameof(db));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _chatOrdenRepository = chatOrdenRepository;
+        _chatOrdenNotifier = chatOrdenNotifier;
     }
 
     public async Task Consume(ConsumeContext<RecepcionConfirmadaEvent> context)
@@ -58,7 +68,7 @@ public class RecepcionConfirmadaConsumer : IConsumer<RecepcionConfirmadaEvent>
         var esRechazada = !string.IsNullOrWhiteSpace(msg.Estado)
             && string.Equals(msg.Estado.Trim(), "Rechazada", StringComparison.OrdinalIgnoreCase);
 
-        if (esRechazada || !msg.OrdenCompleta)
+        if (esRechazada)
         {
             _db.EventosProcesados.Add(new EventoProcesado
             {
@@ -81,11 +91,9 @@ public class RecepcionConfirmadaConsumer : IConsumer<RecepcionConfirmadaEvent>
             }
 
             _logger.LogInformation(
-                "RecepcionConfirmadaEvent {EventId} para OrdenCompra {OrdenCompraId} ignorado para calificación (OrdenCompleta={OrdenCompleta}, Estado={Estado}). CorrelationId {CorrelationId}",
+                "RecepcionConfirmadaEvent {EventId} en estado Rechazada para OrdenCompra {OrdenCompraId} ignorado. CorrelationId {CorrelationId}",
                 msg.EventId,
                 msg.OrdenCompraId,
-                msg.OrdenCompleta,
-                msg.Estado ?? "(no informado)",
                 correlationId);
             return;
         }
@@ -103,14 +111,36 @@ public class RecepcionConfirmadaConsumer : IConsumer<RecepcionConfirmadaEvent>
             return;
         }
 
-        var fechaRecepcion = msg.FechaRecepcion != default ? msg.FechaRecepcion : msg.OccurredAt;
-        ordenCompra.MarcarComoRecibidaCompleta(fechaRecepcion);
+        var ahoraUtc = DateTime.UtcNow;
+        var fechaRecepcion = msg.FechaRecepcion != default
+            ? msg.FechaRecepcion
+            : (msg.OccurredAt != default ? msg.OccurredAt : ahoraUtc);
+
+        var problemaCerrado = ordenCompra.ResolverProblema(fechaRecepcion, null);
+
+        MensajeChatOrden? mensajeSistema = null;
+        if (msg.OrdenCompleta && ordenCompra.MarcarComoRecibidaCompleta(fechaRecepcion))
+        {
+            mensajeSistema = MensajeChatOrden.CrearDelSistema(
+                ordenCompra.OrdenCompraId,
+                "Llegó todo el pedido",
+                ahoraUtc);
+
+            if (_chatOrdenRepository is not null)
+            {
+                await _chatOrdenRepository.AddMensajeAsync(mensajeSistema, context.CancellationToken);
+            }
+            else
+            {
+                _db.MensajesChatOrden.Add(mensajeSistema);
+            }
+        }
 
         _db.EventosProcesados.Add(new EventoProcesado
         {
             EventId = msg.EventId,
             TipoEvento = nameof(RecepcionConfirmadaEvent),
-            ProcesadoEn = DateTime.UtcNow
+            ProcesadoEn = ahoraUtc
         });
 
         try
@@ -126,10 +156,38 @@ public class RecepcionConfirmadaConsumer : IConsumer<RecepcionConfirmadaEvent>
             return;
         }
 
+        if (_chatOrdenNotifier is not null && (mensajeSistema is not null || problemaCerrado))
+        {
+            try
+            {
+                if (mensajeSistema is not null)
+                {
+                    await _chatOrdenNotifier.NotificarMensajeAsync(mensajeSistema.ToDto(), context.CancellationToken);
+                }
+
+                if (problemaCerrado)
+                {
+                    await _chatOrdenNotifier.NotificarEstadoProblemaAsync(
+                        ordenCompra.ToProblemaEstadoDto(),
+                        context.CancellationToken);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "No se pudo notificar por SignalR el impacto de RecepcionConfirmadaEvent en OrdenCompra {OrdenCompraId}. CorrelationId {CorrelationId}",
+                    ordenCompra.OrdenCompraId,
+                    correlationId);
+            }
+        }
+
         _logger.LogInformation(
-            "OrdenCompra {OrdenCompraId} marcada como recibida completa por RecepcionConfirmadaEvent {EventId}. CorrelationId {CorrelationId}",
-            ordenCompra.OrdenCompraId,
+            "RecepcionConfirmadaEvent {EventId} procesado para OrdenCompra {OrdenCompraId} (OrdenCompleta={OrdenCompleta}, ProblemaCerrado={ProblemaCerrado}). CorrelationId {CorrelationId}",
             msg.EventId,
+            ordenCompra.OrdenCompraId,
+            msg.OrdenCompleta,
+            problemaCerrado,
             correlationId);
     }
 }

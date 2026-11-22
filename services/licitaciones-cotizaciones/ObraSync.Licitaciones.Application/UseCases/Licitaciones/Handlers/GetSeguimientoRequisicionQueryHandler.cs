@@ -57,7 +57,12 @@ public class GetSeguimientoRequisicionQueryHandler
                 o.FechaEstimadaLlegada,
                 o.Observacion,
                 o.RecibidaCompleta,
-                o.FechaRecepcionCompleta))
+                o.FechaRecepcionCompleta,
+                o.TieneProblemaAbierto,
+                o.MotivoProblemaAbierto,
+                o.FechaProblemaAbierto,
+                o.ProblemaResueltoEn,
+                o.ProblemaResueltoPor))
             .ToList();
 
         return new SeguimientoRequisicionDto(

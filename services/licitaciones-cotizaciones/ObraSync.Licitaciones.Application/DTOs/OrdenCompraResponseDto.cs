@@ -23,5 +23,11 @@ public record OrdenCompraResponseDto(
     DateTime? FechaRecepcionCompleta = null,
     int? MiCalificacion = null,
     string? MiComentarioCalificacion = null,
-    DateTime? FechaMiCalificacion = null
+    DateTime? FechaMiCalificacion = null,
+    bool TieneProblemaAbierto = false,
+    string? MotivoProblemaAbierto = null,
+    DateTime? FechaProblemaAbierto = null,
+    DateTime? ProblemaResueltoEn = null,
+    Guid? ProblemaResueltoPor = null,
+    int MensajesNoLeidos = 0
 );

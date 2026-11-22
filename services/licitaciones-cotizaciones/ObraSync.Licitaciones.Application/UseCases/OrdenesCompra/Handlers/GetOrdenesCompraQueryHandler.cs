@@ -10,13 +10,16 @@ public class GetOrdenesCompraQueryHandler
 {
     private readonly IOrdenCompraRepository _ordenCompraRepository;
     private readonly ICalificacionProveedorRepository? _calificacionRepository;
+    private readonly IChatOrdenRepository? _chatOrdenRepository;
 
     public GetOrdenesCompraQueryHandler(
         IOrdenCompraRepository ordenCompraRepository,
-        ICalificacionProveedorRepository? calificacionRepository = null)
+        ICalificacionProveedorRepository? calificacionRepository = null,
+        IChatOrdenRepository? chatOrdenRepository = null)
     {
         _ordenCompraRepository = ordenCompraRepository ?? throw new ArgumentNullException(nameof(ordenCompraRepository));
         _calificacionRepository = calificacionRepository;
+        _chatOrdenRepository = chatOrdenRepository;
     }
 
     public async Task<PaginaDe<OrdenCompraResponseDto>> Handle(
@@ -45,21 +48,35 @@ public class GetOrdenesCompraQueryHandler
             cancellationToken);
 
         IReadOnlyDictionary<Guid, CalificacionProveedor> misCalificaciones = new Dictionary<Guid, CalificacionProveedor>();
-        if (!esProveedor &&
-            _calificacionRepository is not null &&
-            query.UsuarioId is Guid usuarioId &&
+        IReadOnlyDictionary<Guid, int> noLeidosPorOrden = new Dictionary<Guid, int>();
+
+        if (query.UsuarioId is Guid usuarioId &&
             usuarioId != Guid.Empty &&
             pagina.Items.Count > 0)
         {
             var ordenIds = pagina.Items.Select(o => o.OrdenCompraId).ToList();
-            misCalificaciones = await _calificacionRepository.GetByOrdenIdsYUsuarioAsync(
-                ordenIds,
-                usuarioId,
-                cancellationToken);
+
+            if (!esProveedor && _calificacionRepository is not null)
+            {
+                misCalificaciones = await _calificacionRepository.GetByOrdenIdsYUsuarioAsync(
+                    ordenIds,
+                    usuarioId,
+                    cancellationToken);
+            }
+
+            if (_chatOrdenRepository is not null)
+            {
+                noLeidosPorOrden = await _chatOrdenRepository.GetConteoNoLeidosPorOrdenIdsAsync(
+                    ordenIds,
+                    usuarioId,
+                    cancellationToken);
+            }
         }
 
         var dtos = pagina.Items
-            .Select(oc => oc.ToDto(misCalificaciones.GetValueOrDefault(oc.OrdenCompraId)))
+            .Select(oc => oc.ToDto(
+                misCalificaciones.GetValueOrDefault(oc.OrdenCompraId),
+                noLeidosPorOrden.GetValueOrDefault(oc.OrdenCompraId, 0)))
             .ToList();
         return new PaginaDe<OrdenCompraResponseDto>(dtos, pagina.Total);
     }

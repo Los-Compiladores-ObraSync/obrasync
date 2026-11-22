@@ -20,6 +20,8 @@ public class LicitacionesDbContext : DbContext
     public DbSet<OrdenCompraItem> OrdenCompraItems => Set<OrdenCompraItem>();
     public DbSet<MagicLink> MagicLinks => Set<MagicLink>();
     public DbSet<CalificacionProveedor> CalificacionesProveedores => Set<CalificacionProveedor>();
+    public DbSet<MensajeChatOrden> MensajesChatOrden => Set<MensajeChatOrden>();
+    public DbSet<LecturaChatOrden> LecturasChatOrden => Set<LecturaChatOrden>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -118,6 +120,11 @@ public class LicitacionesDbContext : DbContext
             e.Property(x => x.Observacion).HasMaxLength(OrdenCompra.MaxLongitudObservacionDespacho);
             e.Property(x => x.RecibidaCompleta).HasDefaultValue(false);
             e.Property(x => x.FechaRecepcionCompleta).HasConversion(nullableUtcDateTimeConverter);
+            e.Property(x => x.TieneProblemaAbierto).HasDefaultValue(false);
+            e.Property(x => x.MotivoProblemaAbierto).HasMaxLength(OrdenCompra.MaxLongitudMotivoProblema);
+            e.Property(x => x.FechaProblemaAbierto).HasConversion(nullableUtcDateTimeConverter);
+            e.Property(x => x.ProblemaResueltoEn).HasConversion(nullableUtcDateTimeConverter);
+            e.Property(x => x.ProblemaResueltoPor);
             e.Ignore(x => x.ObraId);
             e.Ignore(x => x.DespachadaEn);
             e.Ignore(x => x.FueDespachada);
@@ -172,6 +179,41 @@ public class LicitacionesDbContext : DbContext
             e.Property(x => x.Calificacion).IsRequired();
             e.Property(x => x.Comentario).HasMaxLength(CalificacionProveedor.MaxLongitudComentario);
             e.Property(x => x.FechaActualizacion).HasConversion(utcDateTimeConverter);
+        });
+
+        modelBuilder.Entity<MensajeChatOrden>(e =>
+        {
+            e.ToTable("MensajesChatOrden");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.OrdenCompraId, x.FechaCreacion });
+            e.Property(x => x.Texto)
+                .IsRequired()
+                .HasMaxLength(MensajeChatOrden.MaxLongitudTexto);
+            e.Property(x => x.AutorNombre)
+                .IsRequired()
+                .HasMaxLength(MensajeChatOrden.MaxLongitudAutorNombre);
+            e.Property(x => x.AutorRol)
+                .IsRequired()
+                .HasMaxLength(MensajeChatOrden.MaxLongitudAutorRol);
+            e.Property(x => x.FechaCreacion).HasConversion(utcDateTimeConverter);
+
+            e.HasOne<OrdenCompra>()
+                .WithMany()
+                .HasForeignKey(x => x.OrdenCompraId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<LecturaChatOrden>(e =>
+        {
+            e.ToTable("LecturasChatOrden");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.OrdenCompraId, x.UsuarioId }).IsUnique();
+            e.Property(x => x.UltimaLecturaEn).HasConversion(utcDateTimeConverter);
+
+            e.HasOne<OrdenCompra>()
+                .WithMany()
+                .HasForeignKey(x => x.OrdenCompraId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

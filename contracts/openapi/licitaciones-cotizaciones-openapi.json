@@ -1221,6 +1221,267 @@
         }
       }
     },
+    "/api/ordenes-compra/{id}/chat/mensajes": {
+      "get": {
+        "tags": [
+          "OrdenesCompra"
+        ],
+        "summary": "Listar mensajes del chat de una orden de compra (Roles: Comprador, Admin, Proveedor dueño)",
+        "description": "Devuelve el historial paginado de mensajes (humanos y automáticos del sistema) de la orden de compra indicada (#218), ordenados cronológicamente de más antiguo a más reciente dentro de la página solicitada. Solo Comprador, Admin y el Proveedor dueño de la orden pueden acceder; otro Proveedor o Capataz recibe 403 Forbidden.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identificador único (GUID) de la orden de compra.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pagina",
+            "in": "query",
+            "description": "Número de página (1 en adelante).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "tamano",
+            "in": "query",
+            "description": "Cantidad de mensajes por página (entre 1 y 50).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Listado paginado de mensajes del chat de la orden.",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total de mensajes en el chat de la orden",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Page": {
+                "description": "Página actual",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Page-Size": {
+                "description": "Tamaño de página aplicado",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MensajeChatOrdenDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "OrdenesCompra"
+        ],
+        "summary": "Enviar un mensaje al chat de una orden de compra (Roles: Comprador, Admin, Proveedor dueño)",
+        "description": "Guarda un mensaje escrito por el usuario autenticado (texto obligatorio de 1 a 1000 caracteres), publica MensajeChatEnviadoEvent en el bus de eventos y emite la notificación MensajeRecibido en tiempo real mediante el Hub SignalR (#218).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identificador único (GUID) de la orden de compra.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnviarMensajeChatRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Mensaje guardado y publicado exitosamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MensajeChatOrdenDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/ordenes-compra/{id}/chat/marcar-leido": {
+      "post": {
+        "tags": [
+          "OrdenesCompra"
+        ],
+        "summary": "Marcar el chat de una orden de compra como leído (Roles: Comprador, Admin, Proveedor dueño)",
+        "description": "Registra o actualiza la marca de lectura del usuario autenticado (UTC) en el chat de la orden (#218). Es idempotente y notifica LecturaActualizada por SignalR.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identificador único (GUID) de la orden de compra.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Marca de lectura actualizada exitosamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LecturaChatResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/ordenes-compra/chat/no-leidos": {
+      "get": {
+        "tags": [
+          "OrdenesCompra"
+        ],
+        "summary": "Consultar cantidad de mensajes no leídos por orden para el usuario actual (Roles: Comprador, Admin, Proveedor)",
+        "description": "Devuelve el total de mensajes no leídos y el detalle por cada orden con mensajes pendientes de lectura para el usuario autenticado (#218). Para un Proveedor filtra exclusivamente por sus propias órdenes.",
+        "responses": {
+          "200": {
+            "description": "Resumen y detalle por orden de mensajes no leídos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumenNoLeidosChatDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/ordenes-compra/{id}/problema/resolver": {
+      "post": {
+        "tags": [
+          "OrdenesCompra"
+        ],
+        "summary": "Marcar manualmente como resuelto el problema abierto de una orden de compra (Roles: Comprador, Admin)",
+        "description": "Cierra la marca de problema abierto en la orden de compra (#218) de forma idempotente sin agregar un mensaje extra en el chat y emite ProblemaEstadoActualizado por SignalR. El Proveedor y el Capataz reciben 403 Forbidden.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identificador único (GUID) de la orden de compra.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Estado del problema de la orden de compra (cerrado o ya sin problema abierto).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemaOrdenEstadoDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
     "/api/licitaciones/seguimiento/{requisicionId}": {
       "get": {
         "tags": [
@@ -2186,6 +2447,204 @@
             "format": "date-time",
             "nullable": true,
             "description": "Fecha y hora (en UTC) de la calificación que el usuario autenticado registró en esta orden (#222)."
+          },
+          "tieneProblemaAbierto": {
+            "type": "boolean",
+            "description": "Indica si la orden tiene un problema abierto registrado por Recepción (#218)."
+          },
+          "motivoProblemaAbierto": {
+            "type": "string",
+            "maxLength": 200,
+            "nullable": true,
+            "description": "Motivo del último problema registrado sobre la orden (#218)."
+          },
+          "fechaProblemaAbierto": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fecha y hora (en UTC) en que se abrió el problema en la orden (#218)."
+          },
+          "problemaResueltoEn": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fecha y hora (en UTC) en que se cerró el problema abierto de la orden (#218)."
+          },
+          "problemaResueltoPor": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Usuario (GUID) que resolvió manualmente el problema, o null si se cerró automáticamente por recepción válida (#218)."
+          },
+          "mensajesNoLeidos": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "description": "Cantidad de mensajes del chat pendientes de lectura para el usuario autenticado (#218)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnviarMensajeChatRequestDto": {
+        "type": "object",
+        "required": [
+          "texto"
+        ],
+        "properties": {
+          "texto": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "description": "Contenido del mensaje a enviar en el chat de la orden (máximo 1000 caracteres)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "MensajeChatOrdenDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "ordenCompraId",
+          "autorNombre",
+          "autorRol",
+          "esSistema",
+          "texto",
+          "fechaCreacion"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ordenCompraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "autorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "GUID del autor cuando es un mensaje humano, o null si es automático del sistema."
+          },
+          "autorNombre": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "autorRol": {
+            "type": "string",
+            "maxLength": 30,
+            "description": "Comprador, Admin, Proveedor o Sistema."
+          },
+          "esSistema": {
+            "type": "boolean"
+          },
+          "texto": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "fechaCreacion": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LecturaChatResponseDto": {
+        "type": "object",
+        "required": [
+          "ordenCompraId",
+          "usuarioId",
+          "ultimaLecturaEn"
+        ],
+        "properties": {
+          "ordenCompraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "usuarioId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ultimaLecturaEn": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "NoLeidosOrdenDto": {
+        "type": "object",
+        "required": [
+          "ordenCompraId",
+          "mensajesNoLeidos"
+        ],
+        "properties": {
+          "ordenCompraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mensajesNoLeidos": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResumenNoLeidosChatDto": {
+        "type": "object",
+        "required": [
+          "totalNoLeidos",
+          "ordenes"
+        ],
+        "properties": {
+          "totalNoLeidos": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "ordenes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoLeidosOrdenDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProblemaOrdenEstadoDto": {
+        "type": "object",
+        "required": [
+          "ordenCompraId",
+          "tieneProblemaAbierto"
+        ],
+        "properties": {
+          "ordenCompraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tieneProblemaAbierto": {
+            "type": "boolean"
+          },
+          "motivoProblemaAbierto": {
+            "type": "string",
+            "maxLength": 200,
+            "nullable": true
+          },
+          "fechaProblemaAbierto": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "problemaResueltoEn": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "problemaResueltoPor": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -2517,6 +2976,29 @@
           },
           "proveedorNombre": {
             "type": "string",
+            "nullable": true
+          },
+          "tieneProblemaAbierto": {
+            "type": "boolean"
+          },
+          "motivoProblemaAbierto": {
+            "type": "string",
+            "maxLength": 200,
+            "nullable": true
+          },
+          "fechaProblemaAbierto": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "problemaResueltoEn": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "problemaResueltoPor": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         }
