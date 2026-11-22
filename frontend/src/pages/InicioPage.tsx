@@ -2,10 +2,11 @@ import { Link } from 'react-router'
 import { iniciales } from '../auth/iniciales'
 import { useAuth } from '../auth/useAuth'
 import { InsigniaCantidad } from '../licitaciones/InsigniaCantidad'
-import { ListaLicitaciones } from '../licitaciones/ListaLicitaciones'
+import { ResumenLicitaciones } from '../licitaciones/ResumenLicitaciones'
+import { useLicitacionesPorCotizar } from '../licitaciones/useLicitacionesPorCotizar'
 import { ROLES_QUE_VEN_PENDIENTES } from '../notificaciones/configuracionAvisos'
 import { ResumenAprobacion } from '../notificaciones/ResumenAprobacion'
-import { textoPendientes } from '../notificaciones/textos'
+import { textoLicitacionesParaCotizar, textoPendientes } from '../notificaciones/textos'
 import { usePendientes } from '../notificaciones/usePendientes'
 import { accionesParaRol } from '../portales/accionesRapidas'
 import { portalesParaRol } from '../portales/portales'
@@ -13,6 +14,8 @@ import styles from './InicioPage.module.css'
 
 /** Desde el Historial se abre el detalle de cada requisición, donde se publica su licitación. */
 const RUTA_HISTORIAL_REQUISICIONES = '/compras/requisiciones/historial'
+/** Para el Proveedor, las licitaciones por cotizar figuran como "Pendientes" en su Historial de cotizaciones. */
+const RUTA_HISTORIAL_COTIZACIONES = '/proveedores/mis-cotizaciones'
 
 export function InicioPage() {
   const { usuario } = useAuth()
@@ -25,11 +28,16 @@ export function InicioPage() {
   // Quien aprueba requisiciones (Comprador, Admin) ve primero cuántas esperan; el resto de las
   // opciones pasan a ser botones secundarios.
   const apruebaRequisiciones = usuario ? ROLES_QUE_VEN_PENDIENTES.includes(usuario.rol) : false
-  // El Proveedor cotiza: su Inicio muestra directamente las licitaciones abiertas.
+  // El Proveedor cotiza: su Inicio muestra cuántas licitaciones le faltan cotizar (como el Comprador con sus requisiciones).
   const cotiza = usuario?.rol === 'Proveedor'
   // El mismo número que muestra la campana: el Historial es donde se sigue cada requisición.
   const { cantidad: pendientes } = usePendientes()
   const resaltarHistorial = apruebaRequisiciones && pendientes > 0
+  // Para el Proveedor, la tarjeta de arriba cuenta las licitaciones que le faltan cotizar.
+  const licitaciones = useLicitacionesPorCotizar(cotiza)
+  const porCotizar = licitaciones.cantidad ?? 0
+  // Igual que el Historial de requisiciones del Comprador: se resalta mientras haya pendientes.
+  const resaltarCotizaciones = cotiza && porCotizar > 0
 
   return (
     <>
@@ -73,12 +81,7 @@ export function InicioPage() {
         </Link>
       ))}
       {apruebaRequisiciones && <ResumenAprobacion />}
-      {cotiza && (
-        <section className={styles.licitaciones}>
-          <h2 className={styles.subtitulo}>Licitaciones abiertas</h2>
-          <ListaLicitaciones tituloTarjeta="h3" />
-        </section>
-      )}
+      {cotiza && <ResumenLicitaciones {...licitaciones} />}
       {acciones.length > 0 && (
         <ul className="lista-acciones">
           {acciones.map((accion) => (
@@ -86,8 +89,9 @@ export function InicioPage() {
               <Link
                 to={accion.ruta}
                 className={
-                  apruebaRequisiciones
-                    ? accion.ruta === RUTA_HISTORIAL_REQUISICIONES && resaltarHistorial
+                  apruebaRequisiciones || cotiza
+                    ? (accion.ruta === RUTA_HISTORIAL_REQUISICIONES && resaltarHistorial) ||
+                      (accion.ruta === RUTA_HISTORIAL_COTIZACIONES && resaltarCotizaciones)
                       ? `accion-secundaria ${styles.conPendientes}`
                       : 'accion-secundaria'
                     : 'accion-grande'
@@ -97,6 +101,14 @@ export function InicioPage() {
                   <span>
                     {accion.texto}
                     <InsigniaCantidad cantidad={pendientes} descripcion={textoPendientes(pendientes)} />
+                  </span>
+                ) : accion.ruta === RUTA_HISTORIAL_COTIZACIONES && resaltarCotizaciones ? (
+                  <span>
+                    {accion.texto}
+                    <InsigniaCantidad
+                      cantidad={porCotizar}
+                      descripcion={textoLicitacionesParaCotizar(porCotizar)}
+                    />
                   </span>
                 ) : (
                   accion.texto

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { AuthContext, type SesionUsuario } from '../auth/sessionContext'
 import { server } from '../mocks/server'
 import { MisCotizacionesPage } from './MisCotizacionesPage'
@@ -74,7 +74,32 @@ function cuatroCotizaciones() {
   ]
 }
 
+/** Licitaciones abiertas que devuelve el servicio (yaCotizada: true = ya la cotizó, no es pendiente). */
+function licitacionesAbiertas(lista: Record<string, unknown>[]) {
+  server.use(http.get('*/api/licitaciones', () => HttpResponse.json(lista)))
+}
+
+function licitacion(sobre: Record<string, unknown>) {
+  return {
+    licitacionId: 'b0000000-0000-0000-0000-0000000000aa',
+    requisicionId: 'r1',
+    numeroRequisicion: 'REQ-2026-0020',
+    obraId: 'o1',
+    estado: 'Abierta',
+    fechaCreacion: '2026-11-12T12:00:00Z',
+    fechaLimiteCotizacion: '2099-01-01T12:00:00Z',
+    items: [{}, {}],
+    yaCotizada: false,
+    ...sobre,
+  }
+}
+
 describe('MisCotizacionesPage', () => {
+  // Por defecto no hay licitaciones pendientes: cada prueba de pendientes define las suyas.
+  beforeEach(() => {
+    licitacionesAbiertas([])
+  })
+
   it('muestra el resultado de cada cotización y deja corregir solo la que sigue abierta', async () => {
     server.use(
       http.get('*/api/cotizaciones/mias', () =>
@@ -234,5 +259,62 @@ describe('MisCotizacionesPage', () => {
     await screen.findByText('REQ-2026-0011')
     const titulos = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
     expect(titulos).toEqual(['REQ-2026-0011', 'REQ-2026-0010', 'REQ-2026-0009', 'REQ-2026-0008'])
+  })
+
+  it('las licitaciones abiertas sin cotizar figuran como Pendientes, primero, con su botón para cotizar', async () => {
+    licitacionesAbiertas([
+      licitacion({ licitacionId: 'b-tarde', numeroRequisicion: 'REQ-2026-0031', fechaLimiteCotizacion: '2099-03-01T12:00:00Z' }),
+      licitacion({ licitacionId: 'b-pronto', numeroRequisicion: 'REQ-2026-0030', fechaLimiteCotizacion: '2099-02-01T12:00:00Z' }),
+      licitacion({ licitacionId: 'b-ya', numeroRequisicion: 'REQ-2026-0032', yaCotizada: true }),
+    ])
+    server.use(http.get('*/api/cotizaciones/mias', () => HttpResponse.json(cuatroCotizaciones())))
+    renderPagina()
+
+    expect(await screen.findByRole('button', { name: 'Pendientes (2)' })).toBeInTheDocument()
+    const titulos = (await screen.findAllByRole('heading', { level: 2 })).map((h) => h.textContent)
+    // Primero las pendientes (la que cierra antes arriba) y después las cotizaciones; la ya cotizada no es pendiente.
+    expect(titulos.slice(0, 2)).toEqual(['REQ-2026-0030', 'REQ-2026-0031'])
+    expect(titulos).not.toContain('REQ-2026-0032')
+    const cotizar = screen.getAllByRole('link', { name: 'Cotizar' })
+    expect(cotizar).toHaveLength(2)
+    expect(cotizar[0]).toHaveAttribute('href', '/proveedores/licitaciones/b-pronto')
+  })
+
+  it('el filtro Pendientes muestra solo las licitaciones por cotizar', async () => {
+    licitacionesAbiertas([licitacion({ numeroRequisicion: 'REQ-2026-0030' })])
+    server.use(http.get('*/api/cotizaciones/mias', () => HttpResponse.json(cuatroCotizaciones())))
+    renderPagina('/?estado=pendientes')
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'REQ-2026-0030' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 2, name: 'REQ-2026-0011' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pendientes (1)' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('sin cotizaciones pero con licitaciones pendientes igual muestra los filtros y las pendientes', async () => {
+    licitacionesAbiertas([licitacion({})])
+    server.use(http.get('*/api/cotizaciones/mias', () => HttpResponse.json([])))
+    renderPagina()
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'REQ-2026-0020' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pendientes (1)' })).toBeInTheDocument()
+    expect(screen.queryByText('Todavía no enviaste cotizaciones.')).not.toBeInTheDocument()
+  })
+
+  it('sin pendientes el filtro lo dice', async () => {
+    server.use(http.get('*/api/cotizaciones/mias', () => HttpResponse.json(cuatroCotizaciones())))
+    renderPagina('/?estado=pendientes')
+
+    expect(await screen.findByText('No tenés licitaciones pendientes de cotizar.')).toBeInTheDocument()
+  })
+
+  it('si falla solo la lista de licitaciones, avisa pero muestra el historial', async () => {
+    server.use(
+      http.get('*/api/licitaciones', () => new HttpResponse(null, { status: 500 })),
+      http.get('*/api/cotizaciones/mias', () => HttpResponse.json(cuatroCotizaciones())),
+    )
+    renderPagina()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudieron cargar las licitaciones pendientes')
+    expect(screen.getByRole('heading', { level: 2, name: 'REQ-2026-0011' })).toBeInTheDocument()
   })
 })

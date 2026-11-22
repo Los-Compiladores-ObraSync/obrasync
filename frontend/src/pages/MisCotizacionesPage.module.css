@@ -10,6 +10,15 @@
 .botonEstado[aria-pressed='true'] { background: var(--azul); color: #ffffff; border-color: var(--azul); }
 .quitar { min-height: 48px; font-size: 1.0625rem; font-weight: 700; }
 .quitar:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Celular: los cuatro botones de estado en dos columnas (2x2), con el texto centrado aunque pase a dos
+   líneas, y "Quitar filtros" del ancho completo debajo. Desde 600px vuelven a acomodarse en fila. */
+@media (max-width: 599px) {
+  .filtro { flex: 1 1 100%; }
+  .botonesEstado { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .botonEstado { flex: none; padding: 0.5rem 0.5rem; line-height: 1.2; }
+  .quitar { flex: 1 1 100%; }
+}
 .vacio { color: var(--texto-suave); }
 .lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1rem; }
 
@@ -22,6 +31,7 @@
 .gano { color: #1b7f3b; background: #e6f4ea; }
 .noGano { color: #b3261e; background: #fdecea; }
 .enviada { color: var(--azul); background: #e8f0fe; }
+.pendiente { color: #9a3412; background: #fff7ed; }
 .cerrada { color: var(--texto-suave); }
 
 .datos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.875rem 1rem; margin: 0; }
@@ -32,7 +42,10 @@
 .nota { font-size: 0.875rem; font-weight: 400; color: var(--texto-suave); }
 
 .acciones { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--borde); }
-.accion { display: inline-flex; align-items: center; justify-content: center; min-height: var(--alto-toque, 44px); padding: 0 1.25rem; border: 2px solid var(--azul); border-radius: 8px; background: #fff; color: var(--azul); font-weight: 700; text-decoration: none; }
+.accion { flex: 1 1 100%; display: inline-flex; align-items: center; justify-content: center; min-height: 56px; padding: 0 1.25rem; border: 2px solid var(--azul); border-radius: 12px; font-size: 1.125rem; background: #fff; color: var(--azul); font-weight: 700; text-decoration: none; }
 .accionPrincipal { background: var(--azul); color: #fff; }
+.cotizar { flex: 1 1 100%; justify-content: center; }
+/* "Cotizar" usa el botón naranja global (72px): acá se iguala al alto de los demás botones de la tarjeta. */
+.acciones .cotizar { min-height: 56px; padding: 0 1.25rem; font-size: 1.125rem; }
 
 @media (min-width: 900px) { .lista { display: grid; grid-template-columns: repeat(2, 1fr); } }

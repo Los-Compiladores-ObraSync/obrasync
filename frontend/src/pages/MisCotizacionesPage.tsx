@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import {
+  listarLicitaciones,
   obtenerCalificacionProveedor,
   obtenerMisCotizaciones,
 } from '../licitaciones/licitacionesService'
-import type { MiCotizacionDto } from '../licitaciones/licitacionesTipos'
+import type { LicitacionResponseDto, MiCotizacionDto } from '../licitaciones/licitacionesTipos'
 import { formatearPesos } from '../presupuesto/formatoPesos'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import styles from './MisCotizacionesPage.module.css'
@@ -18,10 +19,11 @@ const RESULTADOS: Record<string, { texto: string; clase: string }> = {
   LicitacionCerrada: { texto: 'Licitación cerrada, sin adjudicar todavía', clase: 'cerrada' },
 }
 
-type Filtro = 'todas' | 'en-curso' | 'adjudicadas' | 'no-adjudicadas'
+type Filtro = 'todas' | 'pendientes' | 'en-curso' | 'adjudicadas' | 'no-adjudicadas'
 
 const FILTROS: { id: Filtro; etiqueta: string; vacio: string }[] = [
   { id: 'todas', etiqueta: 'Todas', vacio: 'Todavía no enviaste cotizaciones.' },
+  { id: 'pendientes', etiqueta: 'Pendientes', vacio: 'No tenés licitaciones pendientes de cotizar.' },
   { id: 'en-curso', etiqueta: 'En curso', vacio: 'No tenés cotizaciones en curso.' },
   { id: 'adjudicadas', etiqueta: 'Adjudicadas', vacio: 'Todavía no ganaste ninguna licitación.' },
   { id: 'no-adjudicadas', etiqueta: 'No adjudicadas', vacio: 'Ninguna de tus cotizaciones quedó sin adjudicar.' },
@@ -34,7 +36,7 @@ const BOTONES_ESTADO = FILTROS.filter((f) => f.id !== 'todas')
  * A qué grupo pertenece una cotización. Todo lo que todavía no se resolvió (licitación abierta o
  * cerrada sin adjudicar) cuenta como "en curso": nunca se le muestra como perdida.
  */
-function grupoDe(c: MiCotizacionDto): Exclude<Filtro, 'todas'> {
+function grupoDe(c: MiCotizacionDto): Exclude<Filtro, 'todas' | 'pendientes'> {
   if (c.estadoResultado === 'Gano') return 'adjudicadas'
   if (c.estadoResultado === 'NoGano') return 'no-adjudicadas'
   return 'en-curso'
@@ -45,14 +47,23 @@ function sePuedeCorregir(c: MiCotizacionDto): boolean {
   return c.estadoLicitacion === 'Abierta' && new Date(c.fechaLimiteCotizacion).getTime() > Date.now()
 }
 
+/** Una fila del historial: una cotización ya enviada o una licitación abierta que todavía no cotizó. */
+type Fila =
+  | { tipo: 'cotizacion'; cotizacion: MiCotizacionDto }
+  | { tipo: 'pendiente'; licitacion: LicitacionResponseDto }
+
 /**
  * Portal del Proveedor: historial de sus cotizaciones con el resultado (en curso / ganó / no ganó),
  * filtros por estado, su calificación y, mientras la licitación sigue abierta, el acceso para corregir.
+ * Las licitaciones abiertas que todavía no cotizó figuran como "Pendientes", con el botón para cotizar
+ * (igual que el Historial de requisiciones del Comprador, donde figuran las que esperan su aprobación).
  */
 export function MisCotizacionesPage() {
   const { usuario } = useAuth()
   const [parametros, setParametros] = useSearchParams()
   const [cotizaciones, setCotizaciones] = useState<MiCotizacionDto[]>([])
+  const [pendientes, setPendientes] = useState<LicitacionResponseDto[]>([])
+  const [errorPendientes, setErrorPendientes] = useState(false)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [calificacion, setCalificacion] = useState<number | null>(null)
@@ -76,8 +87,15 @@ export function MisCotizacionesPage() {
     let cancelado = false
     async function cargar() {
       try {
-        const datos = await obtenerMisCotizaciones()
-        if (!cancelado) setCotizaciones(datos)
+        // Las dos listas se piden a la vez. Si falla solo la de pendientes, el historial se ve igual.
+        const [datos, abiertas] = await Promise.all([
+          obtenerMisCotizaciones(),
+          listarLicitaciones().catch(() => null),
+        ])
+        if (cancelado) return
+        setCotizaciones(datos)
+        setErrorPendientes(abiertas === null)
+        setPendientes((abiertas ?? []).filter((l) => l.yaCotizada !== true))
       } catch {
         if (!cancelado) setError('No se pudieron cargar tus cotizaciones. Intentá nuevamente.')
       } finally {
@@ -116,19 +134,42 @@ export function MisCotizacionesPage() {
     [cotizaciones],
   )
 
+  // Las pendientes van primero (son lo que hay que hacer), la que cierra antes arriba.
+  const pendientesOrdenadas = useMemo(
+    () =>
+      [...pendientes].sort(
+        (a, b) => new Date(a.fechaLimiteCotizacion).getTime() - new Date(b.fechaLimiteCotizacion).getTime(),
+      ),
+    [pendientes],
+  )
+
   const cantidades = useMemo(() => {
-    const n: Record<Filtro, number> = { todas: ordenadas.length, 'en-curso': 0, adjudicadas: 0, 'no-adjudicadas': 0 }
+    const n: Record<Filtro, number> = {
+      todas: ordenadas.length + pendientesOrdenadas.length,
+      pendientes: pendientesOrdenadas.length,
+      'en-curso': 0,
+      adjudicadas: 0,
+      'no-adjudicadas': 0,
+    }
     for (const c of ordenadas) n[grupoDe(c)] += 1
     return n
-  }, [ordenadas])
+  }, [ordenadas, pendientesOrdenadas])
 
-  const visibles = filtro === 'todas' ? ordenadas : ordenadas.filter((c) => grupoDe(c) === filtro)
+  const filasPendientes: Fila[] = pendientesOrdenadas.map((licitacion) => ({ tipo: 'pendiente', licitacion }))
+  const filasCotizaciones: Fila[] = ordenadas
+    .filter((c) => filtro === 'todas' || grupoDe(c) === filtro)
+    .map((cotizacion) => ({ tipo: 'cotizacion', cotizacion }))
+  const visibles: Fila[] = [
+    ...(filtro === 'todas' || filtro === 'pendientes' ? filasPendientes : []),
+    ...(filtro === 'pendientes' ? [] : filasCotizaciones),
+  ]
+  const hayAlgo = cantidades.todas > 0
   const mensajeVacio = FILTROS.find((f) => f.id === filtro)?.vacio ?? ''
 
   return (
     <section className={`${styles.contenedor} pantalla-ancha`}>
-      <Link to="/proveedores" className={styles.volver}>
-        ← Volver a licitaciones
+      <Link to="/" className={styles.volver}>
+        ← Volver al inicio
       </Link>
       <h1>Historial de cotizaciones</h1>
 
@@ -158,9 +199,13 @@ export function MisCotizacionesPage() {
         </div>
       )}
 
-      {!cargando && !error && cotizaciones.length === 0 && <p>Todavía no enviaste cotizaciones.</p>}
+      {!cargando && !error && errorPendientes && (
+        <p role="alert">No se pudieron cargar las licitaciones pendientes de cotizar.</p>
+      )}
 
-      {!cargando && !error && cotizaciones.length > 0 && (
+      {!cargando && !error && !hayAlgo && <p>Todavía no enviaste cotizaciones.</p>}
+
+      {!cargando && !error && hayAlgo && (
         <div className={styles.filtros} role="group" aria-label="Filtros del historial">
           <div className={styles.filtro}>
             <span id="filtro-estado-titulo" className={styles.tituloFiltro}>
@@ -191,12 +236,43 @@ export function MisCotizacionesPage() {
         </div>
       )}
 
-      {!cargando && !error && cotizaciones.length > 0 && visibles.length === 0 && (
+      {!cargando && !error && hayAlgo && visibles.length === 0 && (
         <p className={styles.vacio}>{mensajeVacio}</p>
       )}
 
       <ul className={styles.lista}>
-        {visibles.map((c) => {
+        {visibles.map((fila) => {
+          if (fila.tipo === 'pendiente') {
+            const lic = fila.licitacion
+            const cantItems = lic.items?.length ?? 0
+            return (
+              <li key={`pendiente-${lic.licitacionId}`} className={styles.tarjeta}>
+                <div className={styles.encabezado}>
+                  <h2>{lic.numeroRequisicion ?? 'Licitación'}</h2>
+                  <span className={`${styles.resultado} ${styles.pendiente}`}>Pendiente de cotizar</span>
+                </div>
+                <dl className={styles.datos}>
+                  <div>
+                    <dt>Materiales</dt>
+                    <dd>{cantItems} {cantItems === 1 ? 'ítem' : 'ítems'}</dd>
+                  </div>
+                  <div>
+                    <dt>Cierre de la licitación</dt>
+                    <dd>{fechaLarga(lic.fechaLimiteCotizacion)}</dd>
+                  </div>
+                </dl>
+                <div className={styles.acciones}>
+                  <Link
+                    to={`/proveedores/licitaciones/${lic.licitacionId}`}
+                    className={`accion-grande ${styles.cotizar}`}
+                  >
+                    Cotizar
+                  </Link>
+                </div>
+              </li>
+            )
+          }
+          const c = fila.cotizacion
           const resultado = RESULTADOS[c.estadoResultado] ?? { texto: c.estadoResultado, clase: 'cerrada' }
           return (
             <li key={c.cotizacionId} className={styles.tarjeta}>

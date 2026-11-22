@@ -57,7 +57,7 @@ describe('MisOrdenesProveedorPage', () => {
 
     renderPagina()
 
-    expect(await screen.findByText('Emitida, falta despachar')).toBeInTheDocument()
+    expect(await screen.findByText('Emitida')).toBeInTheDocument()
     expect(screen.getByText('Despachada')).toBeInTheDocument()
   })
 
@@ -69,13 +69,13 @@ describe('MisOrdenesProveedorPage', () => {
     expect(await screen.findByText('Todavía no tenés órdenes de compra.')).toBeInTheDocument()
   })
 
-  it('solo las órdenes sin despachar tienen el botón "Lo despaché"; las despachadas muestran sus datos', async () => {
+  it('solo las órdenes sin despachar tienen el botón "Marcar como despachada"; las despachadas muestran sus datos', async () => {
     renderPagina()
 
     const filas = await tarjetas()
-    expect(within(filas[0]).getByRole('button', { name: /^Lo despaché/ })).toBeInTheDocument()
-    expect(within(filas[1]).getByRole('button', { name: /^Lo despaché/ })).toBeInTheDocument()
-    expect(within(filas[2]).queryByRole('button', { name: /^Lo despaché/ })).not.toBeInTheDocument()
+    expect(within(filas[0]).getByRole('button', { name: /^Marcar como despachada/ })).toBeInTheDocument()
+    expect(within(filas[1]).getByRole('button', { name: /^Marcar como despachada/ })).toBeInTheDocument()
+    expect(within(filas[2]).queryByRole('button', { name: /^Marcar como despachada/ })).not.toBeInTheDocument()
     expect(within(filas[2]).getByText('13 de noviembre de 2026')).toBeInTheDocument()
     expect(within(filas[2]).getByText('20 de noviembre de 2026')).toBeInTheDocument()
     expect(within(filas[2]).getByText('Sale en camión por la mañana')).toBeInTheDocument()
@@ -102,7 +102,7 @@ describe('MisOrdenesProveedorPage', () => {
     renderPagina()
 
     const filas = await tarjetas()
-    await user.click(within(filas[0]).getByRole('button', { name: /^Lo despaché/ }))
+    await user.click(within(filas[0]).getByRole('button', { name: /^Marcar como despachada/ }))
     fireEvent.change(screen.getByLabelText('Fecha estimada de llegada (opcional)'), {
       target: { value: '2099-01-10' },
     })
@@ -114,7 +114,7 @@ describe('MisOrdenesProveedorPage', () => {
     // La orden pasa al final como despachada y ya no ofrece el botón ni el formulario.
     expect(screen.queryByRole('form')).not.toBeInTheDocument()
     expect(screen.getAllByText('Despachada')).toHaveLength(2)
-    expect(screen.getAllByRole('button', { name: /^Lo despaché/ })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: /^Marcar como despachada/ })).toHaveLength(1)
   })
 
   it('despacha sin fecha ni observación: no manda cuerpo', async () => {
@@ -136,7 +136,7 @@ describe('MisOrdenesProveedorPage', () => {
     renderPagina()
 
     const filas = await tarjetas()
-    await user.click(within(filas[0]).getByRole('button', { name: /^Lo despaché/ }))
+    await user.click(within(filas[0]).getByRole('button', { name: /^Marcar como despachada/ }))
     await user.click(screen.getByRole('button', { name: 'Confirmar despacho' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('Avisaste que despachaste la orden')
@@ -155,7 +155,7 @@ describe('MisOrdenesProveedorPage', () => {
     renderPagina()
 
     const filas = await tarjetas()
-    await user.click(within(filas[0]).getByRole('button', { name: /^Lo despaché/ }))
+    await user.click(within(filas[0]).getByRole('button', { name: /^Marcar como despachada/ }))
     fireEvent.change(screen.getByLabelText('Fecha estimada de llegada (opcional)'), {
       target: { value: '2020-01-01' },
     })
@@ -172,7 +172,7 @@ describe('MisOrdenesProveedorPage', () => {
     renderPagina()
 
     const filas = await tarjetas()
-    await user.click(within(filas[0]).getByRole('button', { name: /^Lo despaché/ }))
+    await user.click(within(filas[0]).getByRole('button', { name: /^Marcar como despachada/ }))
     const campo = screen.getByLabelText('Observación (opcional)')
 
     expect(campo).toHaveAttribute('maxlength', '200')
@@ -192,11 +192,11 @@ describe('MisOrdenesProveedorPage', () => {
     renderPagina()
 
     const filas = await tarjetas()
-    await user.click(within(filas[0]).getByRole('button', { name: /^Lo despaché/ }))
+    await user.click(within(filas[0]).getByRole('button', { name: /^Marcar como despachada/ }))
     await user.click(screen.getByRole('button', { name: 'Cancelar' }))
 
     expect(screen.queryByRole('form')).not.toBeInTheDocument()
-    expect(within(filas[0]).getByRole('button', { name: /^Lo despaché/ })).toBeInTheDocument()
+    expect(within(filas[0]).getByRole('button', { name: /^Marcar como despachada/ })).toBeInTheDocument()
     expect(pedidos).toBe(0)
   })
 
@@ -220,7 +220,7 @@ describe('MisOrdenesProveedorPage', () => {
     renderPagina()
 
     const filas = await tarjetas()
-    await user.click(within(filas[0]).getByRole('button', { name: /^Lo despaché/ }))
+    await user.click(within(filas[0]).getByRole('button', { name: /^Marcar como despachada/ }))
     await user.dblClick(screen.getByRole('button', { name: 'Confirmar despacho' }))
 
     await screen.findByText(/Avisaste que despachaste/)
@@ -233,7 +233,7 @@ describe('MisOrdenesProveedorPage', () => {
     renderPagina()
 
     const filas = await tarjetas()
-    await user.click(within(filas[0]).getByRole('button', { name: /^Lo despaché/ }))
+    await user.click(within(filas[0]).getByRole('button', { name: /^Marcar como despachada/ }))
     await user.click(screen.getByRole('button', { name: 'Confirmar despacho' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No podés despachar esta orden')
@@ -246,7 +246,7 @@ describe('MisOrdenesProveedorPage', () => {
     renderPagina()
 
     const filas = await tarjetas()
-    await user.click(within(filas[0]).getByRole('button', { name: /^Lo despaché/ }))
+    await user.click(within(filas[0]).getByRole('button', { name: /^Marcar como despachada/ }))
     await user.click(screen.getByRole('button', { name: 'Confirmar despacho' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -266,7 +266,7 @@ describe('MisOrdenesProveedorPage', () => {
     renderPagina()
 
     const filas = await tarjetas()
-    await user.click(within(filas[0]).getByRole('button', { name: /^Lo despaché/ }))
+    await user.click(within(filas[0]).getByRole('button', { name: /^Marcar como despachada/ }))
     await user.click(screen.getByRole('button', { name: 'Confirmar despacho' }))
 
     expect(await screen.findByText('Todavía no tenés órdenes de compra.')).toBeInTheDocument()
@@ -278,7 +278,7 @@ describe('MisOrdenesProveedorPage', () => {
     renderPagina()
 
     const filas = await tarjetas()
-    await user.click(within(filas[0]).getByRole('button', { name: /^Lo despaché/ }))
+    await user.click(within(filas[0]).getByRole('button', { name: /^Marcar como despachada/ }))
     await user.click(screen.getByRole('button', { name: 'Confirmar despacho' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(

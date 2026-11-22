@@ -45,7 +45,7 @@ function mensajeDeErrorDespacho(err: unknown): string {
 }
 
 /**
- * Portal del Proveedor: las órdenes de compra que ganó. Cuando envía la mercadería toca "Lo despaché",
+ * Portal del Proveedor: las órdenes de compra que ganó. Cuando envía la mercadería toca "Marcar como despachada",
  * puede indicar cuándo llega y dejar una nota, y de ahí en más Compras y el Capataz lo ven (#223).
  * El servicio solo le devuelve las órdenes propias.
  */
@@ -150,7 +150,7 @@ export function MisOrdenesProveedorPage() {
         <div className={styles.encabezado}>
           <h3>Orden {codigo}</h3>
           <span className={`${styles.resultado} ${o.fueDespachada ? styles.gano : styles.enviada}`}>
-            {o.fueDespachada ? 'Despachada' : 'Emitida, falta despachar'}
+            {o.fueDespachada ? 'Despachada' : 'Emitida'}
           </span>
         </div>
 
@@ -184,10 +184,10 @@ export function MisOrdenesProveedorPage() {
             <button
               type="button"
               className={`${styles.accion} ${styles.accionPrincipal}`}
-              aria-label={`Lo despaché: orden ${codigo}`}
+              aria-label={`Marcar como despachada: orden ${codigo}`}
               onClick={() => abrirFormulario(o.id)}
             >
-              Lo despaché
+              Marcar como despachada
             </button>
           </div>
         )}
@@ -250,8 +250,8 @@ export function MisOrdenesProveedorPage() {
 
   return (
     <section className={`${styles.contenedor} pantalla-ancha`}>
-      <Link to="/proveedores" className={styles.volver}>
-        ← Volver a licitaciones
+      <Link to="/" className={styles.volver}>
+        ← Volver al inicio
       </Link>
       <h1>Mis órdenes de compra</h1>
 

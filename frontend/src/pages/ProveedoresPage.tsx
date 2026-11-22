@@ -8,13 +8,7 @@ export function ProveedoresPage() {
       <Link to="/" className={styles.volver}>
         ← Volver al inicio
       </Link>
-      <h1>Proveedores</h1>
-      <p className="intro">Licitaciones abiertas para cotizar materiales.</p>
-      <p>
-        <Link to="/proveedores/mis-cotizaciones">Historial de cotizaciones</Link>
-        {' · '}
-        <Link to="/proveedores/mis-ordenes">Mis órdenes</Link>
-      </p>
+      <h1>Licitaciones abiertas</h1>
 
       <ListaLicitaciones />
     </section>

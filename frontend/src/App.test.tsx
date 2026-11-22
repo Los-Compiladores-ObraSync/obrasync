@@ -166,13 +166,16 @@ describe('App - pantalla de inicio según el rol', () => {
     expect(screen.queryByRole('heading', { name: 'Accesos rápidos' })).not.toBeInTheDocument()
   })
 
-  it('el Proveedor ve las licitaciones abiertas directamente en su inicio', async () => {
+  it('el Proveedor ve en su inicio cuántas licitaciones le faltan cotizar y llega a cotizarlas', async () => {
     iniciarSesionComo('Proveedor')
     renderApp('/')
 
-    expect(await screen.findByText('REQ-2026-0011')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 2, name: 'Licitaciones abiertas' })).toBeInTheDocument()
-    expect(screen.getAllByRole('link', { name: 'Cotizar' }).length).toBeGreaterThan(0)
+    expect(await screen.findByRole('region', { name: 'Resumen de licitaciones' })).toBeInTheDocument()
+    expect(await screen.findByText(/licitaci(ón|ones) para cotizar/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Cotizar licitaciones' })).toHaveAttribute(
+      'href',
+      '/proveedores/mis-cotizaciones?estado=pendientes',
+    )
   })
 
   it('el Admin llega desde su inicio a todo, incluidas las licitaciones abiertas', () => {
@@ -310,7 +313,9 @@ describe('App - acceso a los portales', () => {
       iniciarSesionComo('Admin')
       renderApp(ruta)
 
-      expect(screen.getByRole('heading', { level: 1, name: nombre })).toBeInTheDocument()
+      // La pantalla de /proveedores se titula "Licitaciones abiertas" (el portal sigue llamándose "Proveedores").
+      const titulo = ruta === '/proveedores' ? 'Licitaciones abiertas' : nombre
+      expect(screen.getByRole('heading', { level: 1, name: titulo })).toBeInTheDocument()
     },
   )
 
