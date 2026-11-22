@@ -1,13 +1,11 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
-import { BotonVerMas } from '../componentes/BotonVerMas'
-import { ESPERA_BUSQUEDA_MS } from '../requisiciones/configuracionBusqueda'
+import { BuscadorInsumo } from '../requisiciones/BuscadorInsumo'
 import {
   crearRequisicion,
   editarYReenviarRequisicion,
   generarIdempotencyKey,
-  obtenerInsumosCatalogo,
   obtenerObras,
   obtenerRequisicion,
 } from '../requisiciones/requisicionesService'
@@ -29,34 +27,6 @@ interface FilaItemForm {
   id: number
   articuloId: string
   cantidad: string
-}
-
-/** Lo que devolvió el servidor para un texto de búsqueda (#57). */
-interface ResultadoBusqueda {
-  termino: string
-  lista: InsumoCatalogo[]
-  fallo: boolean
-  /** Total que informa el servicio para esa búsqueda (#172). Sin definir si no lo envía. */
-  total?: number
-  /** Última página traída (1 = la primera). */
-  pagina: number
-}
-
-/** Suma insumos a los ya vistos (sin repetir): ver el estado "vistos" en la pantalla. */
-function sumarVistos(
-  actuales: Record<string, InsumoCatalogo>,
-  lista: InsumoCatalogo[],
-): Record<string, InsumoCatalogo> {
-  return {
-    ...actuales,
-    ...Object.fromEntries(lista.map((ins) => [ins.articuloId, ins])),
-  }
-}
-
-/** Agrega una página nueva a lo ya mostrado, sin repetir insumos. */
-function sumarInsumos(actuales: InsumoCatalogo[], nuevos: InsumoCatalogo[]): InsumoCatalogo[] {
-  const ids = new Set(actuales.map((ins) => ins.articuloId))
-  return [...actuales, ...nuevos.filter((ins) => !ids.has(ins.articuloId))]
 }
 
 function mensajeDeErrorApi(err: unknown, editando = false): string {
@@ -90,23 +60,11 @@ export function NuevaRequisicionPage() {
   const rutaHistorial = params.get('volver') || '/obra/requisiciones'
   const [cargandoEdicion, setCargandoEdicion] = useState(!!idOrigen)
   const [obras, setObras] = useState<ObraResumen[]>([])
-  // Catálogo sin búsqueda: llega de a una página (#172) y "Ver más" pide la siguiente.
-  const [catalogo, setCatalogo] = useState<InsumoCatalogo[]>([])
-  const [totalCatalogo, setTotalCatalogo] = useState<number | undefined>(undefined)
-  const [paginaCatalogo, setPaginaCatalogo] = useState(1)
-  const [cargandoMasCatalogo, setCargandoMasCatalogo] = useState(false)
-  const [errorMasCatalogo, setErrorMasCatalogo] = useState(false)
-  const [cargandoMasResultados, setCargandoMasResultados] = useState(false)
-  const [errorMasResultados, setErrorMasResultados] = useState(false)
-  // Todos los insumos que se vieron alguna vez (catálogo y búsquedas): así un insumo elegido en
-  // una búsqueda no se "pierde" aunque no esté en la primera página del catálogo.
+  // Los insumos elegidos (o precargados al editar/repetir un pedido): de acá salen el nombre y la
+  // unidad de medida que se muestran en cada fila.
   const [vistos, setVistos] = useState<Record<string, InsumoCatalogo>>({})
   const [cargandoInicial, setCargandoInicial] = useState(true)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
-
-  const [busqueda, setBusqueda] = useState('')
-  const [resultadoBusqueda, setResultadoBusqueda] =
-    useState<ResultadoBusqueda | null>(null)
 
   const [obraId, setObraId] = useState('')
   const [etapa, setEtapa] = useState('')
@@ -128,13 +86,9 @@ export function NuevaRequisicionPage() {
   function reintentarCarga() {
     setCargandoInicial(true)
     setErrorCarga(null)
-    void Promise.all([obtenerObras(), obtenerInsumosCatalogo()])
-      .then(([listaObras, paginaInsumos]) => {
+    void obtenerObras()
+      .then((listaObras) => {
         setObras(listaObras)
-        setCatalogo(paginaInsumos.items)
-        setTotalCatalogo(paginaInsumos.total)
-        setPaginaCatalogo(1)
-        setVistos((actuales) => sumarVistos(actuales, paginaInsumos.items))
         setCargandoInicial(false)
       })
       .catch(() => {
@@ -146,14 +100,10 @@ export function NuevaRequisicionPage() {
   useEffect(() => {
     let cancelado = false
 
-    Promise.all([obtenerObras(), obtenerInsumosCatalogo()])
-      .then(([listaObras, paginaInsumos]) => {
+    obtenerObras()
+      .then((listaObras) => {
         if (!cancelado) {
           setObras(listaObras)
-          setCatalogo(paginaInsumos.items)
-          setTotalCatalogo(paginaInsumos.total)
-          setPaginaCatalogo(1)
-          setVistos((actuales) => sumarVistos(actuales, paginaInsumos.items))
           setCargandoInicial(false)
         }
       })
@@ -209,116 +159,8 @@ export function NuevaRequisicionPage() {
     return () => { cancelado = true }
   }, [idOrigen, requisicionIdEdicion, requisicionIdRepetir])
 
-  // Búsqueda de insumos (#57): se le pregunta al servidor con ?search=. Con el
-  // buscador vacío no se pide nada: se usa el catálogo completo ya cargado.
-  const termino = busqueda.trim()
-  const buscadorRef = useRef<HTMLInputElement>(null)
-
-  // Lo escrito, pero recién después de una pausa (#58): así no se pide en cada letra.
-  const [terminoConEspera, setTerminoConEspera] = useState('')
-
-  useEffect(() => {
-    const temporizador = setTimeout(
-      () => setTerminoConEspera(termino),
-      ESPERA_BUSQUEDA_MS,
-    )
-    return () => clearTimeout(temporizador)
-  }, [termino])
-
-  // Si sale una búsqueda nueva mientras la anterior no volvió, la respuesta vieja
-  // se descarta (el flag "cancelado", igual que en AprobarRequisicionesPage).
-  useEffect(() => {
-    if (terminoConEspera === '') return
-    let cancelado = false
-
-    obtenerInsumosCatalogo(terminoConEspera)
-      .then((pagina) => {
-        if (!cancelado) {
-          setResultadoBusqueda({
-            termino: terminoConEspera,
-            lista: pagina.items,
-            total: pagina.total,
-            pagina: 1,
-            fallo: false,
-          })
-          setVistos((actuales) => sumarVistos(actuales, pagina.items))
-        }
-      })
-      .catch(() => {
-        if (!cancelado) {
-          setResultadoBusqueda({ termino: terminoConEspera, lista: [], pagina: 1, fallo: true })
-        }
-      })
-
-    return () => {
-      cancelado = true
-    }
-  }, [terminoConEspera])
-
-  // Se calculan a partir de lo que ya hay, sin guardarlos en otro estado.
-  const resultadoVigente =
-    resultadoBusqueda?.termino === termino ? resultadoBusqueda : null
-  const buscando = termino !== '' && resultadoVigente === null
-  const falloBusqueda = resultadoVigente?.fallo === true
-  // Lo que encontró la búsqueda, para mostrarlo a la vista (no solo dentro del select).
-  const resultados =
-    resultadoVigente !== null && !resultadoVigente.fallo ? resultadoVigente.lista : []
-  const sinResultados =
-    resultadoVigente !== null &&
-    !resultadoVigente.fallo &&
-    resultadoVigente.lista.length === 0
-  const idsElegidos = new Set(items.map((it) => it.articuloId).filter(Boolean))
-  // Mientras llega la respuesta se siguen mostrando los últimos resultados.
-  const insumosOfrecidos =
-    termino === '' ? catalogo : (resultadoBusqueda?.lista ?? catalogo)
-
   const obraSeleccionada = obras.find((o) => o.id === obraId)
   const etapasDisponibles = obraSeleccionada ? obraSeleccionada.etapas : []
-
-  /** "Ver más" del catálogo sin búsqueda (#172): pide la página siguiente. */
-  async function verMasCatalogo() {
-    if (cargandoMasCatalogo) return
-    setCargandoMasCatalogo(true)
-    setErrorMasCatalogo(false)
-    try {
-      const pagina = await obtenerInsumosCatalogo(undefined, true, paginaCatalogo + 1)
-      setCatalogo((actuales) => sumarInsumos(actuales, pagina.items))
-      setTotalCatalogo(pagina.total)
-      setPaginaCatalogo((n) => n + 1)
-      setVistos((actuales) => sumarVistos(actuales, pagina.items))
-    } catch {
-      setErrorMasCatalogo(true)
-    } finally {
-      setCargandoMasCatalogo(false)
-    }
-  }
-
-  /** "Ver más" de los resultados de la búsqueda actual (#172). */
-  async function verMasResultados() {
-    const vigente = resultadoBusqueda
-    if (cargandoMasResultados || !vigente || vigente.termino !== termino) return
-    setCargandoMasResultados(true)
-    setErrorMasResultados(false)
-    try {
-      const pagina = await obtenerInsumosCatalogo(vigente.termino, true, vigente.pagina + 1)
-      // Si mientras tanto se buscó otra cosa, esta respuesta ya no corresponde.
-      setResultadoBusqueda((actual) =>
-        actual && actual.termino === vigente.termino
-          ? {
-              ...actual,
-              lista: sumarInsumos(actual.lista, pagina.items),
-              total: pagina.total,
-              pagina: actual.pagina + 1,
-            }
-          : actual,
-      )
-      setVistos((actuales) => sumarVistos(actuales, pagina.items))
-    } catch {
-      setErrorMasResultados(true)
-    } finally {
-      setCargandoMasResultados(false)
-    }
-  }
 
   function handleCambioObra(nuevaObraId: string) {
     setObraId(nuevaObraId)
@@ -358,23 +200,11 @@ export function NuevaRequisicionPage() {
     )
   }
 
-  /** Elige un resultado de la búsqueda: va a la primera fila sin insumo o, si
-   *  todas tienen, se agrega una fila nueva. */
-  function elegirResultado(articuloId: string) {
-    idempotencyKeyRef.current = generarIdempotencyKey()
-    const filaVacia = items.find((it) => it.articuloId === '')
-    if (filaVacia) {
-      cambiarArticulo(filaVacia.id, articuloId)
-    } else {
-      setItems((actuales) => [
-        ...actuales,
-        { id: siguienteFilaId.current++, articuloId, cantidad: '' },
-      ])
-    }
-    // Se vacía el buscador y se deja el cursor ahí: para el siguiente material (cemento, después cal)
-    // no hace falta subir a borrar lo anterior.
-    setBusqueda('')
-    buscadorRef.current?.focus()
+  /** Se eligió un resultado en el buscador de una fila: queda en esa fila y se recuerda para mostrar
+   *  su nombre y su unidad de medida. */
+  function elegirInsumo(id: number, insumo: InsumoCatalogo) {
+    setVistos((actuales) => ({ ...actuales, [insumo.articuloId]: insumo }))
+    cambiarArticulo(id, insumo.articuloId)
   }
 
   function limpiarFormulario() {
@@ -636,104 +466,6 @@ export function NuevaRequisicionPage() {
         <fieldset className={styles.itemsFieldset}>
           <legend className={styles.itemsLegend}>Insumos y materiales</legend>
 
-          <div className={styles.grupo}>
-            <label htmlFor="req-buscar-insumo" className={styles.label}>
-              Buscar insumo
-            </label>
-            <div className={styles.filaBuscador}>
-              <input
-                ref={buscadorRef}
-                id="req-buscar-insumo"
-                type="search"
-                className={`${styles.input} ${styles.buscador}`}
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                // Enter dentro de un formulario lo envía: acá solo se está buscando.
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') e.preventDefault()
-                }}
-                placeholder="Código o nombre (por ejemplo: cemento)"
-                autoComplete="off"
-              />
-              {busqueda !== '' && (
-                <button
-                  type="button"
-                  className={styles.secundario}
-                  aria-label="Limpiar búsqueda"
-                  onClick={() => {
-                    setBusqueda('')
-                    buscadorRef.current?.focus()
-                  }}
-                >
-                  Limpiar
-                </button>
-              )}
-            </div>
-            {buscando && (
-              <p role="status" className={styles.ayudaBusqueda}>
-                Buscando…
-              </p>
-            )}
-            {falloBusqueda && (
-              <p role="alert" className={styles.errorCampo}>
-                No se pudo buscar insumos. Intentá de nuevo.
-              </p>
-            )}
-            {sinResultados && (
-              <p role="status" className={styles.ayudaBusqueda}>
-                No encontramos insumos con ese nombre
-              </p>
-            )}
-            {resultados.length > 0 && (
-              <>
-                <p role="status" className={styles.ayudaBusqueda}>
-                  {resultados.length === 1
-                    ? '1 insumo encontrado.'
-                    : `${resultados.length} insumos encontrados.`}{' '}
-                  Tocá uno para agregarlo.
-                </p>
-                <ul className={styles.listaResultados}>
-                  {resultados.map((ins) => {
-                    const yaAgregado = idsElegidos.has(ins.articuloId)
-                    return (
-                      <li key={ins.articuloId}>
-                        <button
-                          type="button"
-                          className={`${styles.secundario} ${styles.resultado}`}
-                          disabled={yaAgregado}
-                          onClick={() => elegirResultado(ins.articuloId)}
-                        >
-                          {ins.codigo} — {ins.descripcion}
-                          {yaAgregado ? ' (ya agregado)' : ''}
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </>
-            )}
-            {termino === '' && (
-              <BotonVerMas
-                cargadas={catalogo.length}
-                total={totalCatalogo}
-                nombre="insumos"
-                cargando={cargandoMasCatalogo}
-                error={errorMasCatalogo}
-                onVerMas={() => void verMasCatalogo()}
-              />
-            )}
-            {resultadoVigente !== null && !resultadoVigente.fallo && (
-              <BotonVerMas
-                cargadas={resultadoVigente.lista.length}
-                total={resultadoVigente.total}
-                nombre="insumos"
-                cargando={cargandoMasResultados}
-                error={errorMasResultados}
-                onVerMas={() => void verMasResultados()}
-              />
-            )}
-          </div>
-
           {errores.itemsGeneral && (
             <p className={styles.errorCampo} role="alert">
               {errores.itemsGeneral}
@@ -747,62 +479,22 @@ export function NuevaRequisicionPage() {
               ? etiquetaUnidad(insumoSeleccionado.unidadMedida)
               : '—'
 
-            const otrosSeleccionados = new Set(
-              items
-                .filter((it) => it.id !== item.id && it.articuloId)
-                .map((it) => it.articuloId),
+            // Los insumos de las OTRAS filas: no se pueden elegir dos veces.
+            const ocupados = new Set(
+              items.filter((it) => it.id !== item.id && it.articuloId).map((it) => it.articuloId),
             )
-            const coincidentes = insumosOfrecidos.filter(
-              (ins) =>
-                ins.articuloId === item.articuloId ||
-                !otrosSeleccionados.has(ins.articuloId),
-            )
-            // El insumo ya elegido en esta fila tiene que seguir en su lista aunque
-            // la búsqueda actual no lo traiga; si no, el select quedaría sin valor.
-            const insumosDisponibles =
-              insumoSeleccionado &&
-              !coincidentes.some((ins) => ins.articuloId === insumoSeleccionado.articuloId)
-                ? [insumoSeleccionado, ...coincidentes]
-                : coincidentes
 
             return (
               <div key={item.id} className={styles.filaItem}>
-                <div className={styles.grupo}>
-                  <label
-                    htmlFor={`item-insumo-${item.id}`}
-                    className={styles.label}
-                  >
-                    Insumo #{index + 1}
-                  </label>
-                  <select
-                    id={`item-insumo-${item.id}`}
-                    className={claseSelect(!!errorItem?.articuloId)}
-                    value={item.articuloId}
-                    onChange={(e) => cambiarArticulo(item.id, e.target.value)}
-                    aria-invalid={!!errorItem?.articuloId}
-                    aria-describedby={
-                      errorItem?.articuloId
-                        ? `item-insumo-error-${item.id}`
-                        : undefined
-                    }
-                  >
-                    <option value="">-- Seleccioná un insumo --</option>
-                    {insumosDisponibles.map((ins) => (
-                      <option key={ins.articuloId} value={ins.articuloId}>
-                        {ins.codigo} — {ins.descripcion}
-                      </option>
-                    ))}
-                  </select>
-                  {errorItem?.articuloId && (
-                    <p
-                      id={`item-insumo-error-${item.id}`}
-                      className={styles.errorCampo}
-                      role="alert"
-                    >
-                      {errorItem.articuloId}
-                    </p>
-                  )}
-                </div>
+                <BuscadorInsumo
+                  numero={index + 1}
+                  id={`item-insumo-${item.id}`}
+                  seleccionado={insumoSeleccionado}
+                  ocupados={ocupados}
+                  error={errorItem?.articuloId}
+                  onElegir={(insumo) => elegirInsumo(item.id, insumo)}
+                  onCambiar={() => cambiarArticulo(item.id, '')}
+                />
 
                 <div className={styles.filaItemCantidad}>
                   <div className={styles.colCantidad}>
