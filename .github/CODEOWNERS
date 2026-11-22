@@ -18,3 +18,4 @@
 
 # Contratos compartidos (OpenAPI y eventos): los toca todo el mundo, por eso los revisa el Scrum Master
 /contracts/                         @acosta-agustin
+/contracts/realtime/                @acosta-agustin

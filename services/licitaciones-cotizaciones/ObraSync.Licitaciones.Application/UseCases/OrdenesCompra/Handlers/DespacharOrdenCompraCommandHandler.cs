@@ -7,6 +7,7 @@ using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.Mappings;
 using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Commands;
+using ObraSync.Licitaciones.Domain.Entities;
 
 namespace ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Handlers;
 
@@ -17,19 +18,25 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILicitacionRepository? _licitacionRepository;
     private readonly ILogger<DespacharOrdenCompraCommandHandler> _logger;
+    private readonly IChatOrdenRepository? _chatOrdenRepository;
+    private readonly IChatOrdenNotifier? _chatOrdenNotifier;
 
     public DespacharOrdenCompraCommandHandler(
         IOrdenCompraRepository ordenCompraRepository,
         IPublishEndpoint publishEndpoint,
         IUnitOfWork unitOfWork,
         ILicitacionRepository? licitacionRepository = null,
-        ILogger<DespacharOrdenCompraCommandHandler>? logger = null)
+        ILogger<DespacharOrdenCompraCommandHandler>? logger = null,
+        IChatOrdenRepository? chatOrdenRepository = null,
+        IChatOrdenNotifier? chatOrdenNotifier = null)
     {
         _ordenCompraRepository = ordenCompraRepository ?? throw new ArgumentNullException(nameof(ordenCompraRepository));
         _publishEndpoint = publishEndpoint ?? throw new ArgumentNullException(nameof(publishEndpoint));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _licitacionRepository = licitacionRepository;
         _logger = logger ?? NullLogger<DespacharOrdenCompraCommandHandler>.Instance;
+        _chatOrdenRepository = chatOrdenRepository;
+        _chatOrdenNotifier = chatOrdenNotifier;
     }
 
     public async Task<OrdenCompraResponseDto> Handle(
@@ -104,9 +111,35 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
 
         await _publishEndpoint.Publish<OrdenCompraDespachadaEvent>(evento, cancellationToken);
 
+        MensajeChatOrden? mensajeSistema = null;
+        if (_chatOrdenRepository is not null)
+        {
+            mensajeSistema = MensajeChatOrden.CrearDelSistema(
+                ordenCompra.OrdenCompraId,
+                "El Proveedor despachó la orden",
+                ahoraUtc);
+            await _chatOrdenRepository.AddMensajeAsync(mensajeSistema, cancellationToken);
+        }
+
         // El evento se publica antes de guardar a propósito (#135 / #203): con el outbox transaccional,
-        // SaveChangesAsync persiste en la misma transacción el cambio de estado y el mensaje saliente.
+        // SaveChangesAsync persiste en la misma transacción el cambio de estado, el mensaje del chat y el evento saliente.
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (mensajeSistema is not null && _chatOrdenNotifier is not null)
+        {
+            try
+            {
+                await _chatOrdenNotifier.NotificarMensajeAsync(mensajeSistema.ToDto(), cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "No se pudo notificar por SignalR el mensaje de despacho en OrdenCompra {OrdenCompraId}. CorrelationId {CorrelationId}",
+                    ordenCompra.OrdenCompraId,
+                    correlationId);
+            }
+        }
 
         _logger.LogInformation(
             "OrdenCompra {OrdenCompraId} marcada como despachada por Proveedor {ProveedorId}. CorrelationId {CorrelationId}",

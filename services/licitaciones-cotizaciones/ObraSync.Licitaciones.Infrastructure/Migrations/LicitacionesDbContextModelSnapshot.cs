@@ -302,6 +302,29 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                     b.ToTable("CotizacionItems", (string)null);
                 });
 
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.LecturaChatOrden", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OrdenCompraId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UltimaLecturaEn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrdenCompraId", "UsuarioId")
+                        .IsUnique();
+
+                    b.ToTable("LecturasChatOrden", (string)null);
+                });
+
             modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.Licitacion", b =>
                 {
                     b.Property<Guid>("LicitacionId")
@@ -425,6 +448,46 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                     b.ToTable("MagicLinks");
                 });
 
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.MensajeChatOrden", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AutorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AutorNombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("AutorRol")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<bool>("EsSistema")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OrdenCompraId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Texto")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrdenCompraId", "FechaCreacion");
+
+                    b.ToTable("MensajesChatOrden", (string)null);
+                });
+
             modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.OrdenCompra", b =>
                 {
                     b.Property<Guid>("OrdenCompraId")
@@ -451,20 +514,38 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                     b.Property<DateTime?>("FechaEstimadaLlegada")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("FechaProblemaAbierto")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("FechaRecepcionCompleta")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid>("LicitacionId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("MotivoProblemaAbierto")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("Observacion")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("ProblemaResueltoEn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ProblemaResueltoPor")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("ProveedorId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("RecibidaCompleta")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("TieneProblemaAbierto")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
@@ -633,11 +714,29 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.LecturaChatOrden", b =>
+                {
+                    b.HasOne("ObraSync.Licitaciones.Domain.Entities.OrdenCompra", null)
+                        .WithMany()
+                        .HasForeignKey("OrdenCompraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.LicitacionItem", b =>
                 {
                     b.HasOne("ObraSync.Licitaciones.Domain.Entities.Licitacion", null)
                         .WithMany("Items")
                         .HasForeignKey("LicitacionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ObraSync.Licitaciones.Domain.Entities.MensajeChatOrden", b =>
+                {
+                    b.HasOne("ObraSync.Licitaciones.Domain.Entities.OrdenCompra", null)
+                        .WithMany()
+                        .HasForeignKey("OrdenCompraId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

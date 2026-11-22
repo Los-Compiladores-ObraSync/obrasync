@@ -25,4 +25,9 @@ public record SeguimientoOrdenCompraDto(
     DateTime? FechaEstimadaLlegada = null,
     string? Observacion = null,
     bool RecibidaCompleta = false,
-    DateTime? FechaRecepcionCompleta = null);
+    DateTime? FechaRecepcionCompleta = null,
+    bool TieneProblemaAbierto = false,
+    string? MotivoProblemaAbierto = null,
+    DateTime? FechaProblemaAbierto = null,
+    DateTime? ProblemaResueltoEn = null,
+    Guid? ProblemaResueltoPor = null);
