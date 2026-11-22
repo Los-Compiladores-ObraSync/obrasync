@@ -40,7 +40,8 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '/api': 'http://localhost:5000',
+      // ws: el chat por orden (#225) usa un WebSocket (SignalR) que también pasa por /api.
+      '/api': { target: 'http://localhost:5000', ws: true },
     },
   },
   test: {

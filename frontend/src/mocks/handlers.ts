@@ -351,7 +351,21 @@ let ordenesCompraMock = crearOrdenesCompraMock()
 /** Solo para tests: vuelve las órdenes de compra simuladas a su estado inicial. */
 export function reiniciarOrdenesCompraMock() {
   ordenesCompraMock = crearOrdenesCompraMock()
+  chatMensajesMock = {}
 }
+
+// Chat por orden simulado (#225): mensajes por orden, en memoria. No hay hub en modo simulado: el chat consulta cada 10 s.
+interface MensajeChatMock {
+  id: string
+  ordenCompraId: string
+  autorId: string | null
+  autorNombre: string
+  autorRol: string
+  esSistema: boolean
+  texto: string
+  fechaCreacion: string
+}
+let chatMensajesMock: Record<string, MensajeChatMock[]> = {}
 
 // Licitaciones simuladas para el portal de proveedores.
 function crearLicitacionesMock() {
@@ -1315,6 +1329,87 @@ export const handlers: RequestHandler[] = [
     req.rechazadorId = 'a1b2c3d4-0000-0000-0000-000000000002'
     req.fechaRechazo = new Date().toISOString()
     return HttpResponse.json(req, { status: 200 })
+  }),
+
+  // Contrato (#218): GET /api/ordenes-compra/chat/no-leidos → 200 ResumenNoLeidosChatDto (solo las órdenes con no leídos)
+  http.get('*/api/ordenes-compra/chat/no-leidos', () =>
+    HttpResponse.json({ totalNoLeidos: 0, ordenes: [] }, { status: 200 }),
+  ),
+
+  // Contrato (#218): GET /api/ordenes-compra/{id}/chat/mensajes → 200 MensajeChatOrdenDto[] (con X-Total-Count)
+  http.get('*/api/ordenes-compra/:id/chat/mensajes', ({ params, request }) => {
+    const id = params.id as string
+    if (!ordenesCompraMock.some((o) => o.id === id)) {
+      return HttpResponse.json(
+        { title: 'Recurso no encontrado', status: 404, detail: `No se encontró la orden de compra con ID ${id}.` },
+        { status: 404 },
+      )
+    }
+    return responderPaginado(request, chatMensajesMock[id] ?? [])
+  }),
+
+  // Contrato (#218): POST /api/ordenes-compra/{id}/chat/mensajes { texto } → 201 MensajeChatOrdenDto | 400 | 404
+  http.post('*/api/ordenes-compra/:id/chat/mensajes', async ({ params, request }) => {
+    const id = params.id as string
+    if (!ordenesCompraMock.some((o) => o.id === id)) {
+      return HttpResponse.json(
+        { title: 'Recurso no encontrado', status: 404, detail: `No se encontró la orden de compra con ID ${id}.` },
+        { status: 404 },
+      )
+    }
+    const texto = await request.text()
+    const cuerpo = (texto ? JSON.parse(texto) : {}) as { texto?: string }
+    const mensaje = (cuerpo.texto ?? '').trim()
+    if (mensaje.length === 0 || mensaje.length > 1000) {
+      return HttpResponse.json(
+        { title: 'Solicitud inválida', status: 400, detail: 'El mensaje debe tener entre 1 y 1000 caracteres.' },
+        { status: 400 },
+      )
+    }
+    const rol = rolDelJwt(request) ?? 'Comprador'
+    const usuario = USUARIOS_MOCK.find((u) => u.rol === rol) ?? USUARIOS_MOCK[1]
+    const nuevo: MensajeChatMock = {
+      id: crypto.randomUUID(),
+      ordenCompraId: id,
+      autorId: usuario.id,
+      autorNombre: usuario.nombreCompleto,
+      autorRol: usuario.rol,
+      esSistema: false,
+      texto: mensaje,
+      fechaCreacion: new Date().toISOString(),
+    }
+    chatMensajesMock[id] = [...(chatMensajesMock[id] ?? []), nuevo]
+    return HttpResponse.json(nuevo, { status: 201 })
+  }),
+
+  // Contrato (#218): POST /api/ordenes-compra/{id}/chat/marcar-leido → 200 LecturaChatResponseDto (idempotente)
+  http.post('*/api/ordenes-compra/:id/chat/marcar-leido', ({ params, request }) => {
+    const rol = rolDelJwt(request) ?? 'Comprador'
+    const usuario = USUARIOS_MOCK.find((u) => u.rol === rol) ?? USUARIOS_MOCK[1]
+    return HttpResponse.json(
+      { ordenCompraId: params.id as string, usuarioId: usuario.id, ultimaLecturaEn: new Date().toISOString() },
+      { status: 200 },
+    )
+  }),
+
+  // Contrato (#218): POST /api/ordenes-compra/{id}/problema/resolver (solo Comprador/Admin) → 200 ProblemaOrdenEstadoDto | 403 | 404
+  http.post('*/api/ordenes-compra/:id/problema/resolver', ({ params, request }) => {
+    const rol = rolDelJwt(request)
+    if (rol !== 'Comprador' && rol !== 'Admin') {
+      return HttpResponse.json(
+        { title: 'Acceso denegado', status: 403, detail: 'Solo Compras puede marcar el problema como resuelto.' },
+        { status: 403 },
+      )
+    }
+    return HttpResponse.json(
+      {
+        ordenCompraId: params.id as string,
+        tieneProblemaAbierto: false,
+        motivoProblemaAbierto: null,
+        problemaResueltoEn: new Date().toISOString(),
+      },
+      { status: 200 },
+    )
   }),
 
   // Contrato: GET /api/ordenes-compra → 200 OrdenCompraListadoDto[] (con X-Total-Count)
