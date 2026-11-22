@@ -20,6 +20,14 @@ export interface OrdenPendiente {
   obraId: string
   etapa?: string | null
   sinPartidaPresupuestaria?: boolean
+  /** Cuándo despachó el Proveedor (date-time UTC). null si todavía no despachó. */
+  fechaDespacho?: string | null
+  /** Fecha estimada de llegada que informó el Proveedor al despachar (#216, #217). */
+  fechaEstimadaLlegada?: string | null
+  /** Observación corta del Proveedor al despachar (máx. 200 caracteres). */
+  observacionDespacho?: string | null
+  /** true si lo último que se registró sobre la orden fue una entrega con problema, sin una recepción válida después (#217). */
+  tieneProblemaAbierto?: boolean
   items: ItemOrdenPendiente[]
 }
 
@@ -66,6 +74,10 @@ export interface RecepcionRegistrada {
   estado?: number
   detalles?: DetalleRecepcion[]
   observaciones?: string | null
+  /** Solo cuando estado = 4 (Rechazada): el motivo que eligió el Capataz (#217). */
+  motivoProblema?: MotivoProblema | null
+  /** Fotos de evidencia de una entrega con problema (solo los datos; la imagen se baja aparte). */
+  fotos?: FotoRecepcion[]
   createdAt?: string
   updatedAt?: string | null
 }
@@ -86,4 +98,50 @@ export interface DetalleRecepcion {
 
 export interface RecepcionHistorial extends RecepcionRegistrada {
   detalles?: DetalleRecepcion[]
+}
+
+/** Los motivos que acepta el servicio, con el texto exacto del contrato (RecepcionDto.motivoProblema). */
+export const MOTIVOS_PROBLEMA = ['No llegó nada', 'Llegó incompleta', 'Llegó dañada', 'No es lo pedido'] as const
+export type MotivoProblema = (typeof MOTIVOS_PROBLEMA)[number]
+
+/** Datos de una foto de evidencia (FotoRecepcionDto). La imagen se descarga con la ruta autenticada de `url`. */
+export interface FotoRecepcion {
+  id: string
+  nombreArchivo?: string
+  contentType?: 'image/jpeg' | 'image/png' | 'image/webp'
+  tamanoBytes?: number
+  /** 1 a 3. */
+  orden?: number
+  /** Ruta relativa autenticada: /api/recepciones/{id}/fotos/{fotoId}. */
+  url?: string
+}
+
+/**
+ * Orden con su historial de recepciones, problemas y fotos (RecepcionesDeOrdenDto).
+ * Fuente: GET /api/recepciones/ordenes/{ordenCompraId}.
+ */
+export interface RecepcionesDeOrden {
+  ordenCompraId: string
+  obraId: string
+  etapa?: string | null
+  fechaDespacho?: string | null
+  fechaEstimadaLlegada?: string | null
+  observacionDespacho?: string | null
+  /** true si ya hay una recepción Completa. */
+  estaCompleta?: boolean
+  tieneProblemaAbierto?: boolean
+  items: ItemOrdenPendiente[]
+  /** En orden cronológico. */
+  recepciones: RecepcionHistorial[]
+}
+
+/** Campos de texto de POST /api/recepciones/problemas (las fotos se mandan aparte, como archivos). */
+export interface EntregaConProblemaRequest {
+  obraId: string
+  ordenCompraId: string
+  motivo: MotivoProblema
+  /** Hasta 500 caracteres. */
+  detalle?: string | null
+  /** Hasta 50 caracteres. Si se omite, el servicio genera uno interno. */
+  numeroRemito?: string | null
 }

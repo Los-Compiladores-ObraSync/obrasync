@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import type { RequestHandler } from 'msw'
 import { hoyComoTexto } from '../obras/fechaEnPalabras'
-import type { RecepcionHistorial } from '../recepciones/recepcionesTipos'
+import { MOTIVOS_PROBLEMA, type RecepcionHistorial } from '../recepciones/recepcionesTipos'
 
 // Token simulado con la estructura real de JWT (header.payload.firma).
 // La firma es falsa y los claims son de ejemplo: el frontend no decodifica el token,
@@ -252,6 +252,11 @@ function crearOrdenesPendientesMock() {
     {
       ordenCompraId: 'e1e2e3e4-0000-0000-0000-000000000001',
       obraId: OBRA_MOCK_ID,
+      // Despachada por el Proveedor (#216), con fecha estimada y observación (#217).
+      fechaDespacho: '2026-11-20T15:00:00Z' as string | null,
+      fechaEstimadaLlegada: '2026-11-23T12:00:00Z' as string | null,
+      observacionDespacho: 'Llega en camión chico, antes de las 10.' as string | null,
+      tieneProblemaAbierto: false as boolean,
       items: [
         { articuloId: MOCK_CATALOGO[0].articuloId, descripcionArticulo: MOCK_CATALOGO[0].descripcion, cantidadEsperada: 80, cantidadRecibida: 0, cantidadPendiente: 80, unidadMedida: MOCK_CATALOGO[0].unidadMedida },
         { articuloId: MOCK_CATALOGO[1].articuloId, descripcionArticulo: MOCK_CATALOGO[1].descripcion, cantidadEsperada: 12, cantidadRecibida: 0, cantidadPendiente: 12, unidadMedida: MOCK_CATALOGO[1].unidadMedida },
@@ -260,6 +265,11 @@ function crearOrdenesPendientesMock() {
     {
       ordenCompraId: 'e1e2e3e4-0000-0000-0000-000000000002',
       obraId: OBRA_MOCK_ID,
+      // Despachada, pero el Proveedor no informó fecha estimada ni observación.
+      fechaDespacho: '2026-11-21T15:00:00Z' as string | null,
+      fechaEstimadaLlegada: null as string | null,
+      observacionDespacho: null as string | null,
+      tieneProblemaAbierto: false as boolean,
       items: [
         { articuloId: MOCK_CATALOGO[2].articuloId, descripcionArticulo: MOCK_CATALOGO[2].descripcion, cantidadEsperada: 40, cantidadRecibida: 0, cantidadPendiente: 40, unidadMedida: MOCK_CATALOGO[2].unidadMedida },
       ],
@@ -270,6 +280,10 @@ function crearOrdenesPendientesMock() {
 let ordenesPendientesMock = crearOrdenesPendientesMock()
 let recepcionesMock: Record<string, RecepcionHistorial[]> = {}
 let ordenesCompletadasMock = new Set<string>()
+// Órdenes ya recibidas por completo (salen de las pendientes): se guardan para poder consultar su historial (#224).
+let ordenesCompletasMock = new Map<string, (typeof ordenesPendientesMock)[number]>()
+// Fotos de evidencia subidas (#224): la clave es "recepcionId/fotoId".
+let fotosEvidenciaMock = new Map<string, { contentType: string; bytes: ArrayBuffer }>()
 
 /** Solo para tests: vuelve las órdenes pendientes simuladas a su estado inicial. */
 export function reiniciarRecepcionesMock(opciones: { cantidadCementoInicial?: number } = {}) {
@@ -281,6 +295,8 @@ export function reiniciarRecepcionesMock(opciones: { cantidadCementoInicial?: nu
   }
   recepcionesMock = {}
   ordenesCompletadasMock = new Set()
+  ordenesCompletasMock = new Map()
+  fotosEvidenciaMock = new Map()
 }
 
 // Órdenes de compra simuladas para la pantalla de despacho de Compras (#205).
@@ -1411,18 +1427,136 @@ export const handlers: RequestHandler[] = [
         })),
       }
     recepcionesMock[orden.ordenCompraId] = [...(recepcionesMock[orden.ordenCompraId] ?? []), creada]
+    // Una recepción válida posterior supera el problema abierto (#217).
+    orden.tieneProblemaAbierto = false
     orden.items = orden.items.map((item) => {
       const cantidadRecibida = cantidadesPorArticulo.get(item.articuloId) ?? 0
       return { ...item, cantidadRecibida: item.cantidadRecibida + cantidadRecibida, cantidadPendiente: item.cantidadPendiente - cantidadRecibida }
     })
     if (completos) {
       ordenesCompletadasMock.add(orden.ordenCompraId)
+      ordenesCompletasMock.set(orden.ordenCompraId, orden)
       ordenesPendientesMock = ordenesPendientesMock.filter((o) => o.ordenCompraId !== orden.ordenCompraId)
     }
     return HttpResponse.json(
       creada,
       { status: 201 },
     )
+  }),
+
+  // Contrato: POST /api/recepciones/problemas (multipart) → 201 RecepcionDto (estado 4 = Rechazada) | 400 | 409
+  // Registra una entrega con problema (#217): NO cambia lo recibido ni el saldo, la orden sigue pendiente.
+  http.post('*/api/recepciones/problemas', async ({ request }) => {
+    const respuesta = (status: number, title: string, detail: string) =>
+      HttpResponse.json({ title, status, detail }, { status })
+    let formulario: FormData
+    try {
+      formulario = await request.formData()
+    } catch {
+      return respuesta(400, 'Pedido inválido', 'El pedido tiene que ser multipart/form-data.')
+    }
+    const texto = (campo: string) => {
+      const valor = formulario.get(campo)
+      return typeof valor === 'string' ? valor : ''
+    }
+    const ordenCompraId = texto('ordenCompraId')
+    const motivo = texto('motivo')
+    const detalle = texto('detalle')
+    if (!(MOTIVOS_PROBLEMA as readonly string[]).includes(motivo)) {
+      return respuesta(400, 'Motivo inválido', 'Elegí uno de los motivos de la lista.')
+    }
+    if (detalle.length > 500) return respuesta(400, 'Detalle inválido', 'El detalle no puede superar los 500 caracteres.')
+    const archivos = formulario.getAll('fotos').filter((valor) => typeof valor !== 'string')
+    if (archivos.length > 3) return respuesta(400, 'Demasiadas fotos', 'Se permiten como máximo 3 fotos por entrega con problema.')
+    for (const archivo of archivos) {
+      if (archivo.size === 0) return respuesta(400, 'Foto inválida', 'La foto de evidencia está vacía.')
+      if (archivo.size > 2 * 1024 * 1024) return respuesta(400, 'Foto inválida', 'Cada foto de evidencia no puede superar los 2 MB.')
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(archivo.type)) {
+        return respuesta(400, 'Foto inválida', 'Las fotos tienen que ser JPEG, PNG o WebP.')
+      }
+    }
+    if (ordenesCompletadasMock.has(ordenCompraId)) {
+      return respuesta(409, 'Conflicto', 'La orden de compra ya fue recibida por completo.')
+    }
+    const orden = ordenesPendientesMock.find((o) => o.ordenCompraId === ordenCompraId)
+    if (!orden) return respuesta(400, 'Orden inexistente', 'La orden de compra no existe o ya fue recibida.')
+
+    const idRecepcion = crypto.randomUUID()
+    const fotos = []
+    for (const [indice, archivo] of archivos.entries()) {
+      const fotoId = crypto.randomUUID()
+      fotosEvidenciaMock.set(`${idRecepcion}/${fotoId}`, { contentType: archivo.type, bytes: await archivo.arrayBuffer() })
+      fotos.push({
+        id: fotoId,
+        nombreArchivo: archivo.name || `foto-${indice + 1}.jpg`,
+        contentType: archivo.type as 'image/jpeg' | 'image/png' | 'image/webp',
+        tamanoBytes: archivo.size,
+        orden: indice + 1,
+        url: `/api/recepciones/${idRecepcion}/fotos/${fotoId}`,
+      })
+    }
+    const creada: RecepcionHistorial = {
+      id: idRecepcion,
+      obraId: orden.obraId,
+      ordenCompraId: orden.ordenCompraId,
+      recepcionadoPorUsuarioId: 'a1b2c3d4-0000-0000-0000-000000000001',
+      // Sin número de remito el servicio genera un identificador interno.
+      numeroRemito: texto('numeroRemito').trim() || `PROBLEMA-${idRecepcion.slice(0, 8)}`,
+      fechaRecepcion: new Date().toISOString(),
+      estado: 4,
+      motivoProblema: motivo as (typeof MOTIVOS_PROBLEMA)[number],
+      observaciones: detalle.trim() || null,
+      createdAt: new Date().toISOString(),
+      updatedAt: null,
+      // Una entrega con problema no suma nada: cada material queda en 0 y no conforme.
+      detalles: orden.items.map((item) => ({
+        id: crypto.randomUUID(),
+        recepcionId: idRecepcion,
+        articuloId: item.articuloId,
+        descripcionArticulo: item.descripcionArticulo,
+        cantidadEsperada: item.cantidadEsperada,
+        cantidadRecibida: 0,
+        unidadMedida: item.unidadMedida,
+        conforme: false,
+        observacion: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: null,
+      })),
+      fotos,
+    }
+    recepcionesMock[orden.ordenCompraId] = [...(recepcionesMock[orden.ordenCompraId] ?? []), creada]
+    orden.tieneProblemaAbierto = true
+    return HttpResponse.json(creada, { status: 201 })
+  }),
+
+  // Contrato: GET /api/recepciones/ordenes/{ordenCompraId} → 200 RecepcionesDeOrdenDto | 404
+  http.get('*/api/recepciones/ordenes/:ordenCompraId', ({ params }) => {
+    const id = String(params.ordenCompraId)
+    const orden = ordenesPendientesMock.find((o) => o.ordenCompraId === id) ?? ordenesCompletasMock.get(id)
+    if (!orden) {
+      return HttpResponse.json({ title: 'Orden inexistente', status: 404, detail: 'La orden de compra no existe.' }, { status: 404 })
+    }
+    return HttpResponse.json({
+      ordenCompraId: orden.ordenCompraId,
+      obraId: orden.obraId,
+      etapa: null,
+      fechaDespacho: orden.fechaDespacho,
+      fechaEstimadaLlegada: orden.fechaEstimadaLlegada,
+      observacionDespacho: orden.observacionDespacho,
+      estaCompleta: ordenesCompletadasMock.has(id),
+      tieneProblemaAbierto: orden.tieneProblemaAbierto,
+      items: orden.items,
+      recepciones: recepcionesMock[id] ?? [],
+    })
+  }),
+
+  // Contrato: GET /api/recepciones/{id}/fotos/{fotoId} → 200 (imagen) | 404
+  http.get('*/api/recepciones/:id/fotos/:fotoId', ({ params }) => {
+    const foto = fotosEvidenciaMock.get(`${String(params.id)}/${String(params.fotoId)}`)
+    if (!foto) {
+      return HttpResponse.json({ title: 'Foto inexistente', status: 404, detail: 'La foto no existe.' }, { status: 404 })
+    }
+    return new HttpResponse(foto.bytes, { status: 200, headers: { 'Content-Type': foto.contentType, 'Cache-Control': 'private' } })
   }),
 
   // Contrato: GET /api/licitaciones → 200 LicitacionResponseDto[]

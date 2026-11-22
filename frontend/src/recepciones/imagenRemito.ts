@@ -20,13 +20,31 @@ export function tamanoReducido(ancho: number, alto: number, ladoMaximo: number =
 /** Error con un texto listo para mostrarle a la persona. */
 export class ErrorDeImagen extends Error {}
 
+/** Los textos de error de cada uso (remito, evidencia…): se muestran tal cual a la persona. */
+export interface TextosErrorImagen {
+  noEsImagen: string
+  noSePudoAbrir: string
+  noSePudoPreparar: string
+  demasiadoPesada: string
+}
+
+export interface OpcionesReduccion {
+  /** Lo máximo que puede pesar la imagen que sale. */
+  maxBytes: number
+  /** Calidades JPEG a probar, de la mejor a la peor: se usa la primera que entra en maxBytes. */
+  calidades: readonly number[]
+  textos: TextosErrorImagen
+}
+
 /**
- * Convierte la foto elegida en un JPEG chico. Si el navegador no puede leerla (por ejemplo un formato raro),
- * lanza ErrorDeImagen: en ese caso se carga el remito a mano.
+ * Achica una foto a un JPEG de hasta LADO_MAXIMO_PX y la vuelve a codificar desde cero. Volver a codificar
+ * también descarta los metadatos de la foto original (por ejemplo, la ubicación donde se sacó).
+ * Si el navegador no puede leerla, o no entra en maxBytes ni con la peor calidad, lanza ErrorDeImagen.
  */
-export async function reducirImagen(archivo: File): Promise<Blob> {
+export async function reducirAJpeg(archivo: File, opciones: OpcionesReduccion): Promise<Blob> {
+  const { maxBytes, calidades, textos } = opciones
   if (!archivo.type.startsWith('image/')) {
-    throw new ErrorDeImagen('El archivo no es una imagen. Sacale una foto al remito.')
+    throw new ErrorDeImagen(textos.noEsImagen)
   }
 
   let bitmap: ImageBitmap
@@ -34,7 +52,7 @@ export async function reducirImagen(archivo: File): Promise<Blob> {
     // createImageBitmap respeta la orientación de la foto (EXIF) y no necesita mostrar la imagen en pantalla.
     bitmap = await createImageBitmap(archivo, { imageOrientation: 'from-image' })
   } catch {
-    throw new ErrorDeImagen('No pude abrir esa foto. Probá con otra o cargá el remito a mano.')
+    throw new ErrorDeImagen(textos.noSePudoAbrir)
   }
 
   try {
@@ -43,14 +61,31 @@ export async function reducirImagen(archivo: File): Promise<Blob> {
     lienzo.width = ancho
     lienzo.height = alto
     const contexto = lienzo.getContext('2d')
-    if (!contexto) throw new ErrorDeImagen('No pude preparar la foto. Cargá el remito a mano.')
+    if (!contexto) throw new ErrorDeImagen(textos.noSePudoPreparar)
     contexto.drawImage(bitmap, 0, 0, ancho, alto)
 
-    const blob = await new Promise<Blob | null>((resolver) => lienzo.toBlob(resolver, 'image/jpeg', CALIDAD_JPEG))
-    if (!blob || blob.size === 0) throw new ErrorDeImagen('No pude preparar la foto. Cargá el remito a mano.')
-    if (blob.size > MAX_BYTES_SUBIDA) throw new ErrorDeImagen('La foto es demasiado pesada. Probá con otra.')
-    return blob
+    for (const calidad of calidades) {
+      const blob = await new Promise<Blob | null>((resolver) => lienzo.toBlob(resolver, 'image/jpeg', calidad))
+      if (!blob || blob.size === 0) throw new ErrorDeImagen(textos.noSePudoPreparar)
+      if (blob.size <= maxBytes) return blob
+    }
+    throw new ErrorDeImagen(textos.demasiadoPesada)
   } finally {
     bitmap.close()
   }
+}
+
+const TEXTOS_REMITO: TextosErrorImagen = {
+  noEsImagen: 'El archivo no es una imagen. Sacale una foto al remito.',
+  noSePudoAbrir: 'No pude abrir esa foto. Probá con otra o cargá el remito a mano.',
+  noSePudoPreparar: 'No pude preparar la foto. Cargá el remito a mano.',
+  demasiadoPesada: 'La foto es demasiado pesada. Probá con otra.',
+}
+
+/**
+ * Convierte la foto elegida en un JPEG chico. Si el navegador no puede leerla (por ejemplo un formato raro),
+ * lanza ErrorDeImagen: en ese caso se carga el remito a mano.
+ */
+export function reducirImagen(archivo: File): Promise<Blob> {
+  return reducirAJpeg(archivo, { maxBytes: MAX_BYTES_SUBIDA, calidades: [CALIDAD_JPEG], textos: TEXTOS_REMITO })
 }
