@@ -192,3 +192,67 @@
   font-size: 0.9375rem;
   color: var(--texto-suave);
 }
+
+/* ── "Ofrezco otra presentación" (#229) ───────────────────────────────────── */
+
+.botonOtraPresentacion {
+  width: 100%;
+  min-height: var(--alto-toque);
+  padding: 0 1rem;
+  border: 2px solid var(--azul);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--azul);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.botonOtraPresentacion:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.bloqueOtraPresentacion {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.75rem 0 0.25rem 0.875rem;
+  border-left: 4px solid var(--azul);
+}
+
+.resumenOferta {
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  border-radius: 10px;
+  background: #eff6ff;
+  font-size: 1rem;
+  color: var(--texto);
+}
+
+.avisoParcialItem {
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  border-radius: 10px;
+  background: #fffbeb;
+  border: 2px solid #fcd34d;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.avisoCobertura {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  border-radius: 10px;
+  background: #fffbeb;
+  border: 2px solid #fcd34d;
+  color: #92400e;
+}
+
+.avisoCobertura p,
+.avisoCobertura ul {
+  margin: 0;
+}

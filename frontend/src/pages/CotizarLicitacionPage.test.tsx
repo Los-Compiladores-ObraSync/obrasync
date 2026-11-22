@@ -322,4 +322,250 @@ describe('CotizarLicitacionPage', () => {
     expect(putBody.flete).toBe(7000)
     expect(putBody.items?.every((i) => i.precioUnitario === 1000)).toBe(true)
   })
+
+  describe('ofrecer otra presentación (#229)', () => {
+    const ART_1 = 'c1c2c3c4-0000-0000-0000-000000000001'
+    const ART_2 = 'c1c2c3c4-0000-0000-0000-000000000002'
+
+    function responderCotizacionCreada() {
+      return HttpResponse.json(
+        {
+          cotizacionId: 'cot-229',
+          licitacionId: LIC_ABIERTA_ID,
+          proveedorId: proveedor.id,
+          fechaCreacion: new Date().toISOString(),
+          items: [],
+        },
+        { status: 201 },
+      )
+    }
+
+    async function completarFleteYPlazo(user: ReturnType<typeof userEvent.setup>) {
+      await user.type(screen.getByLabelText('Costo de flete ($)'), '0')
+      await user.type(screen.getByLabelText('Plazo de entrega (en días)'), '5')
+    }
+
+    it('por defecto no muestra los campos de otra presentación', async () => {
+      renderPagina()
+      await screen.findByText('Cotizar REQ-2026-0011')
+
+      expect(screen.getAllByRole('button', { name: 'Ofrecer otra presentación' })).toHaveLength(2)
+      expect(screen.queryByLabelText('Presentación')).not.toBeInTheDocument()
+      expect(screen.getAllByLabelText('Precio unitario ($)')).toHaveLength(2)
+    })
+
+    it('cotiza un ítem con otra presentación y manda los campos nuevos solo en ese ítem', async () => {
+      const user = userEvent.setup()
+      let cuerpo: { items?: Array<Record<string, unknown>> } = {}
+      server.use(
+        http.post('*/api/cotizaciones', async ({ request }) => {
+          cuerpo = (await request.json()) as typeof cuerpo
+          return responderCotizacionCreada()
+        }),
+      )
+
+      renderPagina()
+      await screen.findByText('Cotizar REQ-2026-0011')
+
+      const [primero] = screen.getAllByRole('button', { name: 'Ofrecer otra presentación' })
+      await user.click(primero)
+      await user.type(screen.getByLabelText('Presentación'), '  bolsa de 25 kg  ')
+      await user.type(screen.getByLabelText('Cantidad de unidades'), '2')
+      const preciosOtra = screen.getAllByLabelText('Precio unitario ($)')
+      await user.type(preciosOtra[0], '1000')
+
+      // El total que ofrece sale de cantidad ofrecida × precio por unidad ofrecida (contrato #190).
+      expect(screen.getByText(/Total que ofrecés/)).toHaveTextContent(/2\.000/)
+
+      await user.type(preciosOtra[1], '350')
+      await completarFleteYPlazo(user)
+      await user.click(screen.getByRole('button', { name: 'Enviar cotización' }))
+
+      expect(await screen.findByText('¡Cotización enviada con éxito!')).toBeInTheDocument()
+      expect(cuerpo.items?.[0]).toEqual({
+        articuloId: ART_1,
+        precioUnitario: 1000,
+        presentacionOfrecida: 'bolsa de 25 kg',
+        cantidadOfrecida: 2,
+      })
+      expect(cuerpo.items?.[1]).toEqual({ articuloId: ART_2, precioUnitario: 350 })
+      expect(cuerpo.items?.[1]).not.toHaveProperty('presentacionOfrecida')
+    })
+
+    it('si la activa y la desactiva, el ítem se cotiza como lo pedido', async () => {
+      const user = userEvent.setup()
+      let cuerpo: { items?: Array<Record<string, unknown>> } = {}
+      server.use(
+        http.post('*/api/cotizaciones', async ({ request }) => {
+          cuerpo = (await request.json()) as typeof cuerpo
+          return responderCotizacionCreada()
+        }),
+      )
+
+      renderPagina()
+      await screen.findByText('Cotizar REQ-2026-0011')
+
+      const [primero] = screen.getAllByRole('button', { name: 'Ofrecer otra presentación' })
+      await user.click(primero)
+      expect(screen.getByLabelText('Presentación')).toBeInTheDocument()
+      await user.click(primero)
+      expect(screen.queryByLabelText('Presentación')).not.toBeInTheDocument()
+
+      const precios = screen.getAllByLabelText('Precio unitario ($)')
+      await user.type(precios[0], '1000')
+      await user.type(precios[1], '350')
+      await completarFleteYPlazo(user)
+      await user.click(screen.getByRole('button', { name: 'Enviar cotización' }))
+
+      expect(await screen.findByText('¡Cotización enviada con éxito!')).toBeInTheDocument()
+      expect(cuerpo.items?.[0]).toEqual({ articuloId: ART_1, precioUnitario: 1000 })
+      expect(cuerpo.items?.[0]).not.toHaveProperty('cantidadOfrecida')
+    })
+
+    it('no envía si la otra presentación está activada pero incompleta o fuera de límites', async () => {
+      const user = userEvent.setup()
+      let peticionEnviada = false
+      server.use(
+        http.post('*/api/cotizaciones', () => {
+          peticionEnviada = true
+          return responderCotizacionCreada()
+        }),
+      )
+
+      renderPagina()
+      await screen.findByText('Cotizar REQ-2026-0011')
+
+      const [primero] = screen.getAllByRole('button', { name: 'Ofrecer otra presentación' })
+      await user.click(primero)
+      const precios = screen.getAllByLabelText('Precio unitario ($)')
+      await user.type(precios[0], '1000')
+      await user.type(precios[1], '350')
+      await completarFleteYPlazo(user)
+      await user.click(screen.getByRole('button', { name: 'Enviar cotización' }))
+
+      expect(
+        await screen.findByText('Escribí qué presentación ofrecés (por ejemplo, bolsa de 25 kg).'),
+      ).toBeInTheDocument()
+      expect(screen.getByText('Ingresá la cantidad que ofrecés.')).toBeInTheDocument()
+
+      // Fuera de los límites del contrato: más de 100 caracteres y cantidad menor a 0,01.
+      await user.click(screen.getByLabelText('Presentación'))
+      await user.paste('a'.repeat(101))
+      await user.type(screen.getByLabelText('Cantidad de unidades'), '0')
+      await user.tab()
+
+      expect(await screen.findByText('La presentación no puede superar los 100 caracteres.')).toBeInTheDocument()
+      expect(screen.getByText('La cantidad ofrecida debe ser al menos 0,01.')).toBeInTheDocument()
+      expect(peticionEnviada).toBe(false)
+    })
+
+    it('avisa que no cubre todo lo pedido cuando el servicio marca cobertura parcial', async () => {
+      const user = userEvent.setup()
+      server.use(
+        http.post('*/api/cotizaciones', () =>
+          HttpResponse.json(
+            {
+              cotizacionId: 'cot-229',
+              licitacionId: LIC_ABIERTA_ID,
+              proveedorId: proveedor.id,
+              fechaCreacion: new Date().toISOString(),
+              coberturaParcial: true,
+              items: [{ articuloId: ART_1, precioUnitario: 1000, coberturaParcial: true }],
+            },
+            { status: 201 },
+          ),
+        ),
+      )
+
+      renderPagina()
+      await screen.findByText('Cotizar REQ-2026-0011')
+
+      const precios = screen.getAllByLabelText('Precio unitario ($)')
+      await user.type(precios[0], '1000')
+      await user.type(precios[1], '350')
+      await completarFleteYPlazo(user)
+      await user.click(screen.getByRole('button', { name: 'Enviar cotización' }))
+
+      expect(await screen.findByText('¡Cotización enviada con éxito!')).toBeInTheDocument()
+      expect(screen.getByText('Esto no cubre todo lo pedido.')).toBeInTheDocument()
+    })
+
+    it('no muestra el aviso de cobertura parcial si el servicio no la marca', async () => {
+      const user = userEvent.setup()
+      server.use(http.post('*/api/cotizaciones', () => responderCotizacionCreada()))
+
+      renderPagina()
+      await screen.findByText('Cotizar REQ-2026-0011')
+
+      const precios = screen.getAllByLabelText('Precio unitario ($)')
+      await user.type(precios[0], '1000')
+      await user.type(precios[1], '350')
+      await completarFleteYPlazo(user)
+      await user.click(screen.getByRole('button', { name: 'Enviar cotización' }))
+
+      expect(await screen.findByText('¡Cotización enviada con éxito!')).toBeInTheDocument()
+      expect(screen.queryByText('Esto no cubre todo lo pedido.')).not.toBeInTheDocument()
+    })
+
+    it('al corregir carga la otra presentación ofrecida y la vuelve a guardar con PUT', async () => {
+      const user = userEvent.setup()
+      let putBody: { items?: Array<Record<string, unknown>> } = {}
+      server.use(
+        http.get('*/api/cotizaciones/mias', () =>
+          HttpResponse.json([
+            {
+              cotizacionId: 'c9999999-0000-0000-0000-000000000009',
+              licitacionId: LIC_ABIERTA_ID,
+              proveedorId: proveedor.id,
+              numeroRequisicion: 'REQ-2026-0011',
+              obraId: 'o1',
+              fechaLimiteCotizacion: '2099-01-01T12:00:00Z',
+              estadoLicitacion: 'Abierta',
+              subtotalItems: 1800,
+              flete: 7000,
+              costoTotal: 8800,
+              coberturaParcial: true,
+              plazoEntregaDias: 4,
+              fechaCreacion: '2026-11-10T12:00:00Z',
+              items: [
+                {
+                  articuloId: ART_1,
+                  precioUnitario: 900,
+                  presentacionOfrecida: 'bolsa 25 kg',
+                  cantidadOfrecida: 2,
+                  subtotalItem: 1800,
+                  coberturaParcial: true,
+                },
+              ],
+              esGanadora: false,
+              estadoResultado: 'Enviada',
+            },
+          ]),
+        ),
+        http.put('*/api/cotizaciones/:id', async ({ request }) => {
+          putBody = (await request.json()) as typeof putBody
+          return HttpResponse.json({}, { status: 200 })
+        }),
+      )
+
+      renderPagina(LIC_ABIERTA_ID, proveedor, '?corregir=c9999999-0000-0000-0000-000000000009')
+
+      expect(await screen.findByLabelText('Presentación')).toHaveValue('bolsa 25 kg')
+      expect(screen.getByLabelText('Cantidad de unidades')).toHaveValue('2')
+      const preciosCorregir = screen.getAllByLabelText('Precio unitario ($)')
+      expect(preciosCorregir[0]).toHaveValue('900')
+      expect(screen.getByText('Esto no cubre todo lo pedido.')).toBeInTheDocument()
+
+      await user.type(preciosCorregir[1], '300')
+      await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+      expect(await screen.findByText('¡Cotización corregida con éxito!')).toBeInTheDocument()
+      expect(putBody.items?.[0]).toEqual({
+        articuloId: ART_1,
+        precioUnitario: 900,
+        presentacionOfrecida: 'bolsa 25 kg',
+        cantidadOfrecida: 2,
+      })
+    })
+  })
 })

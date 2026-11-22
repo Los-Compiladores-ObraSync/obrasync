@@ -8,15 +8,23 @@ import {
   obtenerLicitacion,
   obtenerMisCotizaciones,
 } from '../licitaciones/licitacionesService'
-import type { CrearCotizacionRequestDto, LicitacionResponseDto } from '../licitaciones/licitacionesTipos'
+import { formatoPrecio } from '../licitaciones/cotizacionesCalculos'
+import type {
+  CotizacionResponseDto,
+  CrearCotizacionRequestDto,
+  LicitacionResponseDto,
+} from '../licitaciones/licitacionesTipos'
 import {
   hayErroresCotizacion,
   parsearNumeroDecimal,
+  validarCantidadOfrecida,
   validarCotizacion,
   validarFlete,
   validarPlazoEntregaDias,
   validarPrecioUnitario,
+  validarPresentacionOfrecida,
   type ErroresCotizacion,
+  type OtraPresentacionFormulario,
 } from '../licitaciones/validacionCotizacion'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './CotizarLicitacionPage.module.css'
@@ -37,6 +45,13 @@ export function CotizarLicitacionPage() {
   const [precios, setPrecios] = useState<Record<string, string>>({})
   const [flete, setFlete] = useState('')
   const [plazoEntregaDias, setPlazoEntregaDias] = useState('')
+
+  // Ítems donde el Proveedor activó "Ofrecer otra presentación" (#229). Sin entrada = cotiza lo pedido.
+  const [otras, setOtras] = useState<Record<string, OtraPresentacionFormulario | undefined>>({})
+  // Ítems de una oferta anterior que el servicio marcó con cobertura parcial (solo al corregir).
+  const [parcialesPrevios, setParcialesPrevios] = useState<Record<string, boolean>>({})
+  // Lo que respondió el servicio al enviar: de ahí sale el aviso de cobertura parcial.
+  const [respuestaEnviada, setRespuestaEnviada] = useState<CotizacionResponseDto | null>(null)
 
   const [tocados, setTocados] = useState<Record<string, boolean>>({})
   const [errores, setErrores] = useState<ErroresCotizacion>({})
@@ -72,6 +87,22 @@ export function CotizarLicitacionPage() {
             setFlete(String(previa.flete))
             setPlazoEntregaDias(String(previa.plazoEntregaDias))
             setPrecios(Object.fromEntries(previa.items.map((i) => [i.articuloId, String(i.precioUnitario)])))
+            setOtras(
+              Object.fromEntries(
+                previa.items
+                  .filter((i) => i.presentacionOfrecida || i.cantidadOfrecida != null)
+                  .map((i) => [
+                    i.articuloId,
+                    {
+                      presentacion: i.presentacionOfrecida ?? '',
+                      cantidad: i.cantidadOfrecida != null ? String(i.cantidadOfrecida) : '',
+                    },
+                  ]),
+              ),
+            )
+            setParcialesPrevios(
+              Object.fromEntries(previa.items.filter((i) => i.coberturaParcial).map((i) => [i.articuloId, true])),
+            )
           }
         }
       } catch (err) {
@@ -98,6 +129,50 @@ export function CotizarLicitacionPage() {
     }
   }, [id, intento, cotizacionACorregir])
 
+  function activarOtraPresentacion(articuloId: string, activa: boolean) {
+    setOtras((prev) => {
+      const siguiente = { ...prev }
+      if (activa) siguiente[articuloId] = { presentacion: '', cantidad: '' }
+      else delete siguiente[articuloId]
+      return siguiente
+    })
+    if (!activa) {
+      // Al desactivarla se descartan sus errores: ese ítem vuelve a cotizarse como lo pedido.
+      setErrores((prev) => ({
+        ...prev,
+        otrasPresentacionesPorArticulo: { ...prev.otrasPresentacionesPorArticulo, [articuloId]: undefined },
+      }))
+    }
+  }
+
+  function validarCampoOtra(articuloId: string, campo: 'presentacion' | 'cantidad', valor: string) {
+    const error = campo === 'presentacion' ? validarPresentacionOfrecida(valor) : validarCantidadOfrecida(valor)
+    setErrores((prev) => ({
+      ...prev,
+      otrasPresentacionesPorArticulo: {
+        ...prev.otrasPresentacionesPorArticulo,
+        [articuloId]: { ...prev.otrasPresentacionesPorArticulo?.[articuloId], [campo]: error },
+      },
+    }))
+  }
+
+  function cambiarCampoOtra(articuloId: string, campo: 'presentacion' | 'cantidad', valor: string) {
+    setOtras((prev) => ({
+      ...prev,
+      [articuloId]: {
+        presentacion: prev[articuloId]?.presentacion ?? '',
+        cantidad: prev[articuloId]?.cantidad ?? '',
+        [campo]: valor,
+      },
+    }))
+    if (tocados[`${campo}-${articuloId}`]) validarCampoOtra(articuloId, campo, valor)
+  }
+
+  function salirDeCampoOtra(articuloId: string, campo: 'presentacion' | 'cantidad') {
+    setTocados((prev) => ({ ...prev, [`${campo}-${articuloId}`]: true }))
+    validarCampoOtra(articuloId, campo, otras[articuloId]?.[campo] ?? '')
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
 
@@ -105,7 +180,7 @@ export function CotizarLicitacionPage() {
 
     const articulosEsperados = licitacion.items.map((it) => it.articuloId)
     const nuevosErrores = validarCotizacion(
-      { flete, plazoEntregaDias, preciosPorArticulo: precios },
+      { flete, plazoEntregaDias, preciosPorArticulo: precios, otrasPresentacionesPorArticulo: otras },
       articulosEsperados,
     )
 
@@ -115,6 +190,10 @@ export function CotizarLicitacionPage() {
     }
     for (const artId of articulosEsperados) {
       todosTocados[artId] = true
+      if (otras[artId]) {
+        todosTocados[`presentacion-${artId}`] = true
+        todosTocados[`cantidad-${artId}`] = true
+      }
     }
     setTocados(todosTocados)
     setErrores(nuevosErrores)
@@ -133,18 +212,27 @@ export function CotizarLicitacionPage() {
       proveedorId: usuario?.id ?? '',
       flete: parsearNumeroDecimal(flete) ?? 0,
       plazoEntregaDias: Number(plazoEntregaDias.trim()),
-      items: licitacion.items.map((it) => ({
-        articuloId: it.articuloId,
-        precioUnitario: parsearNumeroDecimal(precios[it.articuloId] ?? '') ?? 0,
-      })),
+      items: licitacion.items.map((it) => {
+        const otra = otras[it.articuloId]
+        return {
+          articuloId: it.articuloId,
+          precioUnitario: parsearNumeroDecimal(precios[it.articuloId] ?? '') ?? 0,
+          // Solo se mandan los campos de la otra presentación si el Proveedor la activó en este ítem.
+          ...(otra
+            ? {
+                presentacionOfrecida: otra.presentacion.trim(),
+                cantidadOfrecida: parsearNumeroDecimal(otra.cantidad) ?? undefined,
+              }
+            : {}),
+        }
+      }),
     }
 
     try {
-      if (cotizacionACorregir) {
-        await corregirCotizacion(cotizacionACorregir, dto)
-      } else {
-        await crearCotizacion(dto)
-      }
+      const respuesta = cotizacionACorregir
+        ? await corregirCotizacion(cotizacionACorregir, dto)
+        : await crearCotizacion(dto)
+      setRespuestaEnviada(respuesta)
       setEnviadoExitoso(true)
     } catch (err) {
       let mensaje = 'Ocurrió un error al enviar la cotización. Intentá nuevamente.'
@@ -216,6 +304,12 @@ export function CotizarLicitacionPage() {
   }
 
   if (enviadoExitoso) {
+    // La marca la calcula el servicio (#190): acá solo se muestra lo que devolvió, sin calcular equivalencias.
+    const itemsParciales = licitacion.items.filter(
+      (it) => respuestaEnviada?.items?.find((i) => i.articuloId === it.articuloId)?.coberturaParcial,
+    )
+    const hayCoberturaParcial = Boolean(respuestaEnviada?.coberturaParcial) || itemsParciales.length > 0
+
     return (
       <section className={styles.contenedor}>
         <div className={styles.tarjetaConfirmacion} role="status">
@@ -227,6 +321,21 @@ export function CotizarLicitacionPage() {
             <strong>{licitacion.numeroRequisicion ?? licitacion.licitacionId}</strong>{' '}
             {cotizacionACorregir ? 'fue actualizada correctamente.' : 'fue registrada correctamente.'}
           </p>
+          {hayCoberturaParcial && (
+            <div className={styles.avisoCobertura} role="alert">
+              <strong>Esto no cubre todo lo pedido.</strong>
+              <p>
+                Tu oferta se envió igual: Compras la ve marcada y decide al adjudicar.
+              </p>
+              {itemsParciales.length > 0 && (
+                <ul>
+                  {itemsParciales.map((it) => (
+                    <li key={it.articuloId}>{it.descripcion}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           <Link to="/proveedores" className={styles.enlaceVolver}>
             Volver a licitaciones
           </Link>
@@ -263,6 +372,17 @@ export function CotizarLicitacionPage() {
               ? errores.preciosPorArticulo?.[it.articuloId]
               : undefined
             const unidadTexto = cantidadConUnidad(it.cantidad, it.unidadMedida)
+            const otra = otras[it.articuloId]
+            const erroresOtra = errores.otrasPresentacionesPorArticulo?.[it.articuloId]
+            const errorPresentacion = tocados[`presentacion-${it.articuloId}`] ? erroresOtra?.presentacion : undefined
+            const errorCantidad = tocados[`cantidad-${it.articuloId}`] ? erroresOtra?.cantidad : undefined
+            const cantidadOfrecida = otra ? parsearNumeroDecimal(otra.cantidad) : null
+            const precioOfrecido = parsearNumeroDecimal(precios[it.articuloId] ?? '')
+            // Mismo cálculo que el contrato (#190): cantidad ofrecida × precio por unidad ofrecida.
+            const totalOfrecido =
+              cantidadOfrecida !== null && cantidadOfrecida > 0 && precioOfrecido !== null && precioOfrecido > 0
+                ? Math.round(cantidadOfrecida * precioOfrecido * 100) / 100
+                : null
 
             return (
               <div key={it.articuloId} className={styles.filaItem}>
@@ -270,6 +390,68 @@ export function CotizarLicitacionPage() {
                   <strong className={styles.descripcionItem}>{it.descripcion}</strong>
                   <span className={styles.cantidadItem}>Cantidad: {unidadTexto}</span>
                 </div>
+
+                <button
+                  type="button"
+                  className={styles.botonOtraPresentacion}
+                  aria-expanded={Boolean(otra)}
+                  onClick={() => activarOtraPresentacion(it.articuloId, !otra)}
+                  disabled={enviando || esBloqueante}
+                >
+                  {otra ? 'Cancelar' : 'Ofrecer otra presentación'}
+                </button>
+
+                {otra && (
+                  <div className={styles.bloqueOtraPresentacion}>
+                    <div className={styles.grupo}>
+                      <label htmlFor={`presentacion-${it.articuloId}`} className={styles.label}>
+                        Presentación
+                      </label>
+                      <p className={styles.ayudaCampo}>
+                        Escribí qué ofrecés en lugar de lo pedido. Por ejemplo: bolsa de 25 kg.
+                      </p>
+                      <input
+                        id={`presentacion-${it.articuloId}`}
+                        type="text"
+                        className={
+                          errorPresentacion ? `${styles.input} ${styles.inputInvalido}` : styles.input
+                        }
+                        value={otra.presentacion}
+                        onChange={(e) => cambiarCampoOtra(it.articuloId, 'presentacion', e.target.value)}
+                        onBlur={() => salirDeCampoOtra(it.articuloId, 'presentacion')}
+                        placeholder="Ej: bolsa de 25 kg"
+                        disabled={enviando || esBloqueante}
+                      />
+                      {errorPresentacion && (
+                        <p className={styles.errorCampo} role="alert">
+                          {errorPresentacion}
+                        </p>
+                      )}
+                    </div>
+                    <div className={styles.grupo}>
+                      <label htmlFor={`cantidad-${it.articuloId}`} className={styles.label}>
+                        Cantidad de unidades
+                      </label>
+                      <input
+                        id={`cantidad-${it.articuloId}`}
+                        type="text"
+                        inputMode="decimal"
+                        className={errorCantidad ? `${styles.input} ${styles.inputInvalido}` : styles.input}
+                        value={otra.cantidad}
+                        onChange={(e) => cambiarCampoOtra(it.articuloId, 'cantidad', e.target.value)}
+                        onBlur={() => salirDeCampoOtra(it.articuloId, 'cantidad')}
+                        placeholder="Ej: 2"
+                        disabled={enviando || esBloqueante}
+                      />
+                      {errorCantidad && (
+                        <p className={styles.errorCampo} role="alert">
+                          {errorCantidad}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className={styles.grupo}>
                   <label htmlFor={`precio-${it.articuloId}`} className={styles.label}>
                     Precio unitario ($)
@@ -316,6 +498,18 @@ export function CotizarLicitacionPage() {
                     </p>
                   )}
                 </div>
+
+                {otra && totalOfrecido !== null && (
+                  <p className={styles.resumenOferta} role="status">
+                    Total que ofrecés: <strong>{formatoPrecio(totalOfrecido)}</strong> · Pedido: {unidadTexto}
+                  </p>
+                )}
+
+                {parcialesPrevios[it.articuloId] && (
+                  <p className={styles.avisoParcialItem} role="alert">
+                    Esto no cubre todo lo pedido.
+                  </p>
+                )}
               </div>
             )
           })}
