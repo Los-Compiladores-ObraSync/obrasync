@@ -346,6 +346,13 @@
   min-width: 0;
 }
 
+/* Insumo ya elegido en la fila: se lee como un dato (en negrita), no como un campo para escribir. */
+.buscador[readonly] {
+  font-weight: 700;
+  background: #ffffff;
+  cursor: default;
+}
+
 /* El navegador dibuja su propia "x" en los campos de búsqueda: se oculta para
    que no haya dos botones de limpiar. */
 .buscador::-webkit-search-cancel-button {

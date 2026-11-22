@@ -46,6 +46,14 @@ function iniciarSesionCapataz() {
   setToken('token-jwt-capataz-test')
 }
 
+type Usuario = ReturnType<typeof userEvent.setup>
+
+/** Elige el insumo de una fila como lo hace el capataz: escribe en el buscador de esa fila y toca el resultado. */
+async function elegirInsumo(user: Usuario, numero: number, texto: string, resultado: RegExp) {
+  await user.type(screen.getByLabelText(`Insumo #${numero}`), texto)
+  await user.click(await screen.findByRole('button', { name: resultado }))
+}
+
 describe('NuevaRequisicionPage', () => {
   beforeEach(() => {
     reiniciarRequisicionesMock()
@@ -71,7 +79,7 @@ describe('NuevaRequisicionPage', () => {
     expect(screen.getByLabelText('Obra')).toHaveValue(OBRA_ID)
     expect(screen.getByLabelText('Etapa de la obra')).toHaveValue('Fundaciones')
     expect(screen.getByLabelText('Observaciones (opcional)')).toHaveValue('Revisar la cantidad')
-    expect(screen.getByLabelText('Insumo #1')).toHaveValue(ARTICULO_CEMENTO_ID)
+    expect(screen.getByLabelText('Insumo #1')).toHaveValue('Cemento Portland Especial 25kg')
     expect(screen.getByLabelText('Cantidad')).toHaveValue(25)
     await user.clear(screen.getByLabelText('Cantidad'))
     await user.type(screen.getByLabelText('Cantidad'), '31')
@@ -110,7 +118,7 @@ describe('NuevaRequisicionPage', () => {
     expect(await screen.findByRole('heading', { name: 'Repetir pedido' })).toBeInTheDocument()
     expect(screen.getByRole('note')).toHaveTextContent('Cargamos los mismos materiales de tu pedido anterior')
     expect(screen.getByLabelText('Obra')).toHaveValue(OBRA_ID)
-    expect(screen.getByLabelText('Insumo #1')).toHaveValue(ARTICULO_CEMENTO_ID)
+    expect(screen.getByLabelText('Insumo #1')).toHaveValue('Cemento Portland Especial 25kg')
     expect(screen.getByLabelText('Cantidad')).toHaveValue(25)
 
     await user.click(screen.getByRole('button', { name: 'Enviar requisición' }))
@@ -137,7 +145,7 @@ describe('NuevaRequisicionPage', () => {
     const user = userEvent.setup()
     renderPagina()
 
-    // Espera que termine la carga inicial de obras y catálogo
+    // Espera que termine la carga inicial de obras
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' }),
     ).toBeInTheDocument()
@@ -150,9 +158,8 @@ describe('NuevaRequisicionPage', () => {
     const selectEtapa = screen.getByLabelText('Etapa de la obra')
     await user.selectOptions(selectEtapa, 'Estructura')
 
-    // Selecciona Insumo "Cemento Portland Especial 25kg"
-    const selectInsumo = screen.getByLabelText('Insumo #1')
-    await user.selectOptions(selectInsumo, ARTICULO_CEMENTO_ID)
+    // Busca el insumo "Cemento Portland Especial 25kg" y lo elige
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
 
     // Verifica que la unidad de medida se muestra tomada del catálogo (BOLSA)
     expect(screen.getByText('Bolsas')).toBeInTheDocument()
@@ -240,7 +247,7 @@ describe('NuevaRequisicionPage', () => {
 
     await user.selectOptions(screen.getByLabelText('Obra'), OBRA_ID)
     await user.selectOptions(screen.getByLabelText('Etapa de la obra'), 'Estructura')
-    await user.selectOptions(screen.getByLabelText('Insumo #1'), ARTICULO_CEMENTO_ID)
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
     await user.type(screen.getByLabelText('Cantidad'), '500')
     await user.click(screen.getByRole('button', { name: 'Enviar requisición' }))
 
@@ -265,7 +272,7 @@ describe('NuevaRequisicionPage', () => {
 
     await user.selectOptions(screen.getByLabelText('Obra'), OBRA_ID)
     await user.selectOptions(screen.getByLabelText('Etapa de la obra'), 'Estructura')
-    await user.selectOptions(screen.getByLabelText('Insumo #1'), ARTICULO_CEMENTO_ID)
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
     await user.type(screen.getByLabelText('Cantidad'), '80')
     await user.click(screen.getByRole('button', { name: 'Enviar requisición' }))
 
@@ -288,7 +295,7 @@ describe('NuevaRequisicionPage', () => {
 
     await user.selectOptions(screen.getByLabelText('Obra'), OBRA_ID)
     await user.selectOptions(screen.getByLabelText('Etapa de la obra'), 'Estructura')
-    await user.selectOptions(screen.getByLabelText('Insumo #1'), ARTICULO_CEMENTO_ID)
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
     await user.type(screen.getByLabelText('Cantidad'), '80')
     await user.click(screen.getByRole('button', { name: 'Enviar requisición' }))
 
@@ -311,7 +318,7 @@ describe('NuevaRequisicionPage', () => {
 
     await user.selectOptions(screen.getByLabelText('Obra'), OBRA_ID)
     await user.selectOptions(screen.getByLabelText('Etapa de la obra'), 'Estructura')
-    await user.selectOptions(screen.getByLabelText('Insumo #1'), ARTICULO_CEMENTO_ID)
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
     await user.type(screen.getByLabelText('Cantidad'), '80')
     await user.click(screen.getByRole('button', { name: 'Enviar requisición' }))
 
@@ -330,7 +337,7 @@ describe('NuevaRequisicionPage', () => {
 
     await user.selectOptions(screen.getByLabelText('Obra'), OBRA_ID)
     await user.selectOptions(screen.getByLabelText('Etapa de la obra'), 'Estructura')
-    await user.selectOptions(screen.getByLabelText('Insumo #1'), ARTICULO_CEMENTO_ID)
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
     await user.type(screen.getByLabelText('Cantidad'), '80')
     await user.click(screen.getByRole('button', { name: 'Enviar requisición' }))
 
@@ -340,7 +347,7 @@ describe('NuevaRequisicionPage', () => {
     )
   })
 
-  it('muestra mensaje de error y botón Reintentar si falla la carga inicial de obras o catálogo', async () => {
+  it('muestra mensaje de error y botón Reintentar si falla la carga inicial de obras', async () => {
     iniciarSesionCapataz()
     // Simula fallo en la carga de obras
     server.use(http.get('*/api/obras', () => HttpResponse.error()))
@@ -356,29 +363,6 @@ describe('NuevaRequisicionPage', () => {
     expect(botonReintentar).toBeInTheDocument()
 
     // Ahora se restablece el servicio exitoso y se reintenta
-    server.resetHandlers()
-    await user.click(botonReintentar)
-
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' }),
-    ).toBeInTheDocument()
-  })
-
-  it('muestra mensaje de error y botón Reintentar si falla aisladamente la carga del catálogo', async () => {
-    iniciarSesionCapataz()
-    // Obras responde normalmente (handler por defecto), pero falla el catálogo
-    server.use(http.get('*/api/catalogo/insumos', () => HttpResponse.error()))
-
-    const user = userEvent.setup()
-    renderPagina()
-
-    expect(
-      await screen.findByText('No se pudieron cargar los datos necesarios.'),
-    ).toBeInTheDocument()
-    const botonReintentar = screen.getByRole('button', { name: 'Reintentar' })
-    expect(botonReintentar).toBeInTheDocument()
-
-    // Restablece el handler y reintenta
     server.resetHandlers()
     await user.click(botonReintentar)
 
@@ -409,15 +393,12 @@ describe('NuevaRequisicionPage', () => {
     const botonQuitar2 = screen.getByRole('button', { name: 'Quitar insumo 2' })
     expect(botonQuitar2).toBeEnabled()
 
-    // Selecciona Cemento en la primera fila
-    await user.selectOptions(screen.getByLabelText('Insumo #1'), ARTICULO_CEMENTO_ID)
+    // Elige Cemento en la primera fila
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
 
-    // En la segunda fila, la opción de Cemento no debe estar disponible para evitar duplicados
-    const selectInsumo2 = screen.getByLabelText('Insumo #2')
-    const opcionesInsumo2 = Array.from(selectInsumo2.querySelectorAll('option')).map(
-      (opt) => opt.value,
-    )
-    expect(opcionesInsumo2).not.toContain(ARTICULO_CEMENTO_ID)
+    // En la segunda fila, buscar Cemento lo muestra como "ya agregado" y no se puede elegir de nuevo
+    await user.type(screen.getByLabelText('Insumo #2'), 'cemento')
+    expect(await screen.findByRole('button', { name: /MAT-CEM-001.*ya agregado/ })).toBeDisabled()
 
     // Quita la segunda fila
     await user.click(botonQuitar2)
@@ -472,7 +453,7 @@ describe('NuevaRequisicionPage', () => {
 
     await user.selectOptions(screen.getByLabelText('Obra'), OBRA_ID)
     await user.selectOptions(screen.getByLabelText('Etapa de la obra'), 'Estructura')
-    await user.selectOptions(screen.getByLabelText('Insumo #1'), ARTICULO_CEMENTO_ID)
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
     await user.type(screen.getByLabelText('Cantidad'), '80')
     await user.type(
       screen.getByLabelText('Observaciones (opcional)'),
@@ -497,7 +478,7 @@ describe('NuevaRequisicionPage', () => {
   })
 })
 
-describe('NuevaRequisicionPage - búsqueda de insumos', () => {
+describe('NuevaRequisicionPage - buscador de insumos en cada fila', () => {
   beforeEach(() => {
     localStorage.clear()
     setToken(null)
@@ -511,15 +492,21 @@ describe('NuevaRequisicionPage - búsqueda de insumos', () => {
     return user
   }
 
-  it('al escribir en el buscador quedan solo los insumos que coinciden', async () => {
+  it('no hay buscador arriba de las filas ni desplegable: cada insumo se busca en su propia fila', async () => {
+    await abrirPagina()
+
+    expect(screen.queryByLabelText('Buscar insumo')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Insumo #1')).toHaveAttribute('type', 'search')
+    expect(screen.queryByRole('combobox', { name: 'Insumo #1' })).not.toBeInTheDocument()
+  })
+
+  it('al escribir en el buscador de la fila quedan solo los insumos que coinciden', async () => {
     const user = await abrirPagina()
 
-    await user.type(screen.getByLabelText('Buscar insumo'), 'arena')
+    await user.type(screen.getByLabelText('Insumo #1'), 'arena')
 
-    await waitFor(() =>
-      expect(screen.queryByRole('option', { name: /Cemento/ })).not.toBeInTheDocument(),
-    )
-    expect(screen.getByRole('option', { name: /Arena Fina/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Arena Fina/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Cemento/ })).not.toBeInTheDocument()
   })
 
   it('le pide al servidor la búsqueda con el parámetro search', async () => {
@@ -532,42 +519,65 @@ describe('NuevaRequisicionPage - búsqueda de insumos', () => {
     )
     const user = await abrirPagina()
 
-    await user.type(screen.getByLabelText('Buscar insumo'), 'cal')
+    await user.type(screen.getByLabelText('Insumo #1'), 'cal')
 
     await waitFor(() => expect(pedidos).toContain('cal'))
   })
 
-  it('mantiene el insumo ya elegido en la fila aunque la búsqueda no lo traiga', async () => {
-    const user = await abrirPagina()
-    await user.selectOptions(screen.getByLabelText('Insumo #1'), ARTICULO_CEMENTO_ID)
-
-    await user.type(screen.getByLabelText('Buscar insumo'), 'arena')
-
-    await waitFor(() =>
-      expect(screen.queryByRole('option', { name: /Cal Hidráulica/ })).not.toBeInTheDocument(),
+  it('no pide el catálogo entero al abrir la pantalla: solo busca cuando se escribe', async () => {
+    const pedidos: (string | null)[] = []
+    server.use(
+      http.get('*/api/catalogo/insumos', ({ request }) => {
+        pedidos.push(new URL(request.url).searchParams.get('search'))
+        return undefined
+      }),
     )
-    expect(screen.getByLabelText('Insumo #1')).toHaveValue(ARTICULO_CEMENTO_ID)
-    expect(screen.getByText('Bolsas')).toBeInTheDocument()
+    await abrirPagina()
+
+    expect(pedidos).toEqual([])
   })
 
-  it('al borrar la búsqueda vuelve el catálogo completo', async () => {
+  it('al elegir un resultado la fila muestra el insumo con su unidad y ofrece "Cambiar"', async () => {
     const user = await abrirPagina()
-    const buscador = screen.getByLabelText('Buscar insumo')
-    await user.type(buscador, 'arena')
+
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
+
+    expect(screen.getByLabelText('Insumo #1')).toHaveValue('MAT-CEM-001 — Cemento Portland Especial 25kg')
+    expect(screen.getByLabelText('Insumo #1')).toHaveAttribute('readonly')
+    expect(screen.getByText('Bolsas')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /MAT-CEM-001/ })).not.toBeInTheDocument()
+  })
+
+  it('"Cambiar" vuelve a la búsqueda de esa fila, con el cursor en el campo', async () => {
+    const user = await abrirPagina()
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
+
+    await user.click(screen.getByRole('button', { name: 'Cambiar el insumo 1' }))
+
+    const campo = screen.getByLabelText('Insumo #1')
+    expect(campo).toHaveAttribute('type', 'search')
+    expect(campo).toHaveValue('')
+    expect(campo).toHaveFocus()
+    expect(screen.queryByText('Bolsas')).not.toBeInTheDocument()
+  })
+
+  it('al borrar lo escrito desaparecen los resultados', async () => {
+    const user = await abrirPagina()
+    const campo = screen.getByLabelText('Insumo #1')
+    await user.type(campo, 'arena')
+    await screen.findByRole('button', { name: /Arena Fina/ })
+
+    await user.clear(campo)
+
     await waitFor(() =>
-      expect(screen.queryByRole('option', { name: /Cemento/ })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('button', { name: /Arena Fina/ })).not.toBeInTheDocument(),
     )
-
-    await user.clear(buscador)
-
-    expect(await screen.findByRole('option', { name: /Cemento/ })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /Arena Fina/ })).toBeInTheDocument()
   })
 
   it('apretar Enter en el buscador no envía el formulario', async () => {
     const user = await abrirPagina()
 
-    await user.type(screen.getByLabelText('Buscar insumo'), 'cal{Enter}')
+    await user.type(screen.getByLabelText('Insumo #1'), 'cal{Enter}')
 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
@@ -583,11 +593,53 @@ describe('NuevaRequisicionPage - búsqueda de insumos', () => {
     )
     const user = await abrirPagina()
 
-    await user.type(screen.getByLabelText('Buscar insumo'), 'x')
+    await user.type(screen.getByLabelText('Insumo #1'), 'x')
 
     expect(
       await screen.findByText('No se pudo buscar insumos. Intentá de nuevo.'),
     ).toBeInTheDocument()
+  })
+
+  it('muestra los resultados debajo del campo, con la cantidad encontrada', async () => {
+    const user = await abrirPagina()
+
+    await user.type(screen.getByLabelText('Insumo #1'), 'cemento')
+
+    expect(await screen.findByText(/1 insumo encontrado\./)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /MAT-CEM-001/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /MAT-ARE-001/ })).not.toBeInTheDocument()
+  })
+
+  it('cada fila tiene su propio buscador: elegir en la segunda no toca la primera', async () => {
+    const user = await abrirPagina()
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
+    await user.click(screen.getByRole('button', { name: '+ Agregar otro insumo' }))
+
+    await elegirInsumo(user, 2, 'arena', /MAT-ARE-001/)
+
+    expect(screen.getByLabelText('Insumo #1')).toHaveValue('MAT-CEM-001 — Cemento Portland Especial 25kg')
+    expect(screen.getByLabelText('Insumo #2')).toHaveValue('MAT-ARE-001 — Arena Fina a Granel')
+  })
+
+  it('un insumo elegido en otra fila figura como "ya agregado" y no se puede elegir de nuevo', async () => {
+    const user = await abrirPagina()
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
+    await user.click(screen.getByRole('button', { name: '+ Agregar otro insumo' }))
+
+    await user.type(screen.getByLabelText('Insumo #2'), 'cemento')
+
+    expect(await screen.findByRole('button', { name: /MAT-CEM-001.*ya agregado/ })).toBeDisabled()
+  })
+
+  it('muestra el error de la fila si se envía sin elegir un insumo y lo quita al elegirlo', async () => {
+    const user = await abrirPagina()
+    await user.click(screen.getByRole('button', { name: 'Enviar requisición' }))
+    expect(screen.getByText('Seleccioná un insumo del catálogo.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Insumo #1')).toBeInvalid()
+
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
+
+    expect(screen.queryByText('Seleccioná un insumo del catálogo.')).not.toBeInTheDocument()
   })
 })
 
@@ -622,7 +674,7 @@ describe('NuevaRequisicionPage - búsqueda con espera (#58)', () => {
 
     // Desde acá el reloj es simulado: el tiempo solo avanza cuando lo decimos.
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    const buscador = screen.getByLabelText('Buscar insumo')
+    const buscador = screen.getByLabelText('Insumo #1')
     fireEvent.change(buscador, { target: { value: 'c' } })
     fireEvent.change(buscador, { target: { value: 'ca' } })
     fireEvent.change(buscador, { target: { value: 'cal' } })
@@ -649,29 +701,27 @@ describe('NuevaRequisicionPage - búsqueda con espera (#58)', () => {
     )
     const user = await abrirPagina()
 
-    await user.type(screen.getByLabelText('Buscar insumo'), 'zzz')
+    await user.type(screen.getByLabelText('Insumo #1'), 'zzz')
 
     expect(
       await screen.findByText('No encontramos insumos con ese nombre'),
     ).toBeInTheDocument()
   })
 
-  it('el botón Limpiar borra la búsqueda, devuelve el foco y vuelve el catálogo completo', async () => {
+  it('el botón Limpiar borra la búsqueda y devuelve el foco al campo', async () => {
     const user = await abrirPagina()
-    const buscador = screen.getByLabelText('Buscar insumo')
-    expect(screen.queryByRole('button', { name: 'Limpiar búsqueda' })).not.toBeInTheDocument()
+    const buscador = screen.getByLabelText('Insumo #1')
+    expect(screen.queryByRole('button', { name: 'Limpiar la búsqueda del insumo 1' })).not.toBeInTheDocument()
 
     await user.type(buscador, 'arena')
-    await waitFor(() =>
-      expect(screen.queryByRole('option', { name: /Cemento/ })).not.toBeInTheDocument(),
-    )
+    await screen.findByRole('button', { name: /Arena Fina/ })
 
-    await user.click(screen.getByRole('button', { name: 'Limpiar búsqueda' }))
+    await user.click(screen.getByRole('button', { name: 'Limpiar la búsqueda del insumo 1' }))
 
     expect(buscador).toHaveValue('')
     expect(buscador).toHaveFocus()
-    expect(await screen.findByRole('option', { name: /Cemento/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Limpiar búsqueda' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Arena Fina/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Limpiar la búsqueda del insumo 1' })).not.toBeInTheDocument()
   })
 
   it('ignora la respuesta de una búsqueda vieja si ya salió otra', async () => {
@@ -694,84 +744,21 @@ describe('NuevaRequisicionPage - búsqueda con espera (#58)', () => {
       }),
     )
     const user = await abrirPagina()
-    const buscador = screen.getByLabelText('Buscar insumo')
+    const buscador = screen.getByLabelText('Insumo #1')
 
     await user.type(buscador, 'ce')
     await new Promise((r) => setTimeout(r, ESPERA_BUSQUEDA_MS + 100)) // sale la consulta lenta
     await user.clear(buscador)
     await user.type(buscador, 'ar')
 
-    await waitFor(() =>
-      expect(screen.queryByRole('option', { name: /Cemento/ })).not.toBeInTheDocument(),
-    )
-    expect(screen.getByRole('option', { name: /Arena Fina/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Arena Fina/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Cemento/ })).not.toBeInTheDocument()
 
     await new Promise((r) => setTimeout(r, 900)) // llega la respuesta vieja
 
-    expect(screen.queryByRole('option', { name: /Cemento/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /Arena Fina/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Cemento/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Arena Fina/ })).toBeInTheDocument()
   }, 15000)
-})
-
-describe('NuevaRequisicionPage - resultados a la vista', () => {
-  const ARTICULO_ARENA_ID = 'c1c2c3c4-0000-0000-0000-000000000002'
-
-  beforeEach(() => {
-    localStorage.clear()
-    setToken(null)
-  })
-
-  async function abrirPagina() {
-    iniciarSesionCapataz()
-    const user = userEvent.setup()
-    renderPagina()
-    await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' })
-    return user
-  }
-
-  it('muestra los resultados debajo del buscador, con la cantidad encontrada', async () => {
-    const user = await abrirPagina()
-
-    await user.type(screen.getByLabelText('Buscar insumo'), 'cemento')
-
-    expect(await screen.findByText(/1 insumo encontrado\./)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /MAT-CEM-001/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /MAT-ARE-001/ })).not.toBeInTheDocument()
-  })
-
-  it('al tocar un resultado lo pone en la primera fila sin insumo', async () => {
-    const user = await abrirPagina()
-    await user.type(screen.getByLabelText('Buscar insumo'), 'cemento')
-
-    await user.click(await screen.findByRole('button', { name: /MAT-CEM-001/ }))
-
-    expect(screen.getByLabelText('Insumo #1')).toHaveValue(ARTICULO_CEMENTO_ID)
-    expect(screen.getByText('Bolsas')).toBeInTheDocument()
-  })
-
-  it('si todas las filas ya tienen insumo, agrega una fila nueva', async () => {
-    const user = await abrirPagina()
-    await user.selectOptions(screen.getByLabelText('Insumo #1'), ARTICULO_CEMENTO_ID)
-    await user.type(screen.getByLabelText('Buscar insumo'), 'arena')
-
-    await user.click(await screen.findByRole('button', { name: /MAT-ARE-001/ }))
-
-    expect(screen.getByLabelText('Insumo #1')).toHaveValue(ARTICULO_CEMENTO_ID)
-    expect(screen.getByLabelText('Insumo #2')).toHaveValue(ARTICULO_ARENA_ID)
-  })
-
-  it('un resultado que ya está agregado queda deshabilitado', async () => {
-    const user = await abrirPagina()
-    await user.type(screen.getByLabelText('Buscar insumo'), 'cemento')
-
-    await user.click(await screen.findByRole('button', { name: /MAT-CEM-001/ }))
-
-    // Al elegir, el buscador se vacía para buscar otro material; si se busca el mismo, figura como ya agregado.
-    expect(screen.getByLabelText('Buscar insumo')).toHaveValue('')
-    await user.type(screen.getByLabelText('Buscar insumo'), 'cemento')
-
-    expect(await screen.findByRole('button', { name: /MAT-CEM-001.*ya agregado/ })).toBeDisabled()
-  })
 })
 
 describe('NuevaRequisicionPage - idempotencia y protección contra doble envío (#120)', () => {
@@ -824,7 +811,7 @@ describe('NuevaRequisicionPage - idempotencia y protección contra doble envío 
     await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' })
     await user.selectOptions(screen.getByLabelText('Obra'), OBRA_ID)
     await user.selectOptions(screen.getByLabelText('Etapa de la obra'), 'Estructura')
-    await user.selectOptions(screen.getByLabelText('Insumo #1'), ARTICULO_CEMENTO_ID)
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
     await user.type(screen.getByLabelText('Cantidad'), '80')
 
     // Primer intento falla por red
@@ -882,50 +869,50 @@ describe('NuevaRequisicionPage - paginación de insumos (#172)', () => {
     return user
   }
 
-  it('el catálogo muestra la primera página y "Ver más" trae el resto', async () => {
+  it('la búsqueda muestra la primera página y "Ver más" trae el resto', async () => {
     tresInsumosDeADos()
     const user = await abrirPagina()
 
-    expect(screen.getByText('Mostrando 2 de 3 insumos.')).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: /Insumo de prueba 3/ })).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText('Insumo #1'), 'prueba')
+
+    expect(await screen.findByText('Mostrando 2 de 3 insumos.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Insumo de prueba 3/ })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Ver más' }))
 
-    expect(await screen.findByRole('option', { name: /Insumo de prueba 3/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Insumo de prueba 3/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Ver más' })).not.toBeInTheDocument()
   })
 
-  it('la búsqueda también pagina: "Ver más" pide la página siguiente con el mismo texto', async () => {
+  it('"Ver más" pide la página siguiente con el mismo texto', async () => {
     const pedidos: { search: string | null; pagina: string }[] = []
     tresInsumosDeADos(pedidos)
     const user = await abrirPagina()
 
-    await user.type(screen.getByLabelText('Buscar insumo'), 'prueba')
-    await screen.findByText('2 insumos encontrados. Tocá uno para agregarlo.')
+    await user.type(screen.getByLabelText('Insumo #1'), 'prueba')
+    await screen.findByText('2 insumos encontrados. Tocá uno para elegirlo.')
 
-    const botones = screen.getAllByRole('button', { name: 'Ver más' })
-    await user.click(botones[botones.length - 1])
+    await user.click(screen.getByRole('button', { name: 'Ver más' }))
 
-    await screen.findByText('3 insumos encontrados. Tocá uno para agregarlo.')
+    await screen.findByText('3 insumos encontrados. Tocá uno para elegirlo.')
     expect(pedidos.at(-1)).toEqual({ search: 'prueba', pagina: '2' })
   })
 
-  it('un insumo elegido desde la búsqueda queda bien aunque no esté en la primera página del catálogo', async () => {
+  it('un insumo de la segunda página se elige bien y queda con su unidad', async () => {
     tresInsumosDeADos()
     const user = await abrirPagina()
-    await user.type(screen.getByLabelText('Buscar insumo'), 'prueba')
-    await screen.findByText('2 insumos encontrados. Tocá uno para agregarlo.')
-    const botones = screen.getAllByRole('button', { name: 'Ver más' })
-    await user.click(botones[botones.length - 1])
-    await screen.findByText('3 insumos encontrados. Tocá uno para agregarlo.')
+    await user.type(screen.getByLabelText('Insumo #1'), 'prueba')
+    await screen.findByText('2 insumos encontrados. Tocá uno para elegirlo.')
+    await user.click(screen.getByRole('button', { name: 'Ver más' }))
+    await screen.findByText('3 insumos encontrados. Tocá uno para elegirlo.')
 
     await user.click(screen.getByRole('button', { name: /Insumo de prueba 3/ }))
 
-    expect(screen.getByLabelText('Insumo #1')).toHaveValue(insumoDePrueba(3).articuloId)
+    expect(screen.getByLabelText('Insumo #1')).toHaveValue('MAT-PRU-003 — Insumo de prueba 3')
     expect(screen.getByText('Bolsas')).toBeInTheDocument()
   })
 
-  it('si falla "Ver más" del catálogo avisa y deja reintentar', async () => {
+  it('si falla "Ver más" avisa y deja reintentar', async () => {
     let fallar = true
     server.use(
       http.get('*/api/catalogo/insumos', ({ request }) => {
@@ -940,12 +927,13 @@ describe('NuevaRequisicionPage - paginación de insumos (#172)', () => {
       }),
     )
     const user = await abrirPagina()
+    await user.type(screen.getByLabelText('Insumo #1'), 'prueba')
 
-    await user.click(screen.getByRole('button', { name: 'Ver más' }))
+    await user.click(await screen.findByRole('button', { name: 'Ver más' }))
     expect(await screen.findByText('No se pudieron cargar más. Intentá nuevamente.')).toBeInTheDocument()
 
     fallar = false
     await user.click(screen.getByRole('button', { name: 'Ver más' }))
-    expect(await screen.findByRole('option', { name: /Insumo de prueba 3/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Insumo de prueba 3/ })).toBeInTheDocument()
   })
 })
