@@ -364,18 +364,18 @@ describe('RecepcionPage', () => {
     expect(screen.getByLabelText('Número de remito')).toHaveValue('0001-00012345')
   })
 
-  it('aclara que solo se muestran las órdenes que Compras ya despachó (#205)', async () => {
+  it('aclara que solo se muestran las órdenes que el Proveedor ya despachó (#205, #216)', async () => {
     renderPagina()
 
     expect(await screen.findAllByRole('button', { name: /Torre Alvear/ })).toHaveLength(2)
-    expect(screen.getByText(/solo aparecen las órdenes que Compras ya despachó/)).toBeInTheDocument()
+    expect(screen.getByText(/solo aparecen las órdenes que el Proveedor ya despachó/)).toBeInTheDocument()
   })
 
   it('en el estado vacío dice que no hay órdenes despachadas pendientes de recibir (#205)', async () => {
     server.use(http.get(RUTA_ORDENES, () => HttpResponse.json([])))
     renderPagina()
 
-    expect(await screen.findByText('Cuando Compras despache una orden, la vas a ver acá.')).toBeInTheDocument()
+    expect(await screen.findByText('Cuando el Proveedor despache una orden, la vas a ver acá.')).toBeInTheDocument()
   })
 
   it('avisa si no hay órdenes para recibir', async () => {

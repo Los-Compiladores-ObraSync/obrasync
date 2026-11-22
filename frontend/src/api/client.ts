@@ -48,10 +48,13 @@ interface RespuestaCruda {
 async function ejecutar(
   path: string,
   opciones: OpcionesApi,
+  /** 'json' (por defecto): el cuerpo se lee como texto y se intenta JSON. 'blob': se entrega el archivo tal cual. */
+  formato: 'json' | 'blob' = 'json',
 ): Promise<RespuestaCruda> {
   const { tiempoLimiteMs = TIEMPO_LIMITE_MS, signal: senalExterna, ...options } = opciones
   const headers = new Headers(options.headers)
-  headers.set('Accept', 'application/json')
+  // Por defecto se pide JSON; una descarga (apiFetchBlob) pide otro tipo.
+  if (!headers.has('Accept')) headers.set('Accept', 'application/json')
   // Con FormData (subida de una foto) NO se pone Content-Type: el navegador lo arma solo, con el "boundary" que separa las partes.
   if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
@@ -103,6 +106,10 @@ async function ejecutar(
     if (response.status === 204) {
       return { datos: undefined, encabezados: response.headers }
     }
+    if (formato === 'blob') {
+      // Dentro del try y del tiempo límite: si se cuelga mientras baja el archivo, se corta igual.
+      return { datos: await response.blob(), encabezados: response.headers }
+    }
     // Leemos como texto y después intentamos JSON: algunos endpoints (ej. POST /api/obras)
     // devuelven un string plano y response.json() fallaría con ese cuerpo.
     const texto = await response.text()
@@ -129,6 +136,21 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const { datos } = await ejecutar(path, options)
   return datos as T
+}
+
+/**
+ * Baja un archivo (por ejemplo una foto de evidencia) de una ruta que exige sesión. Un <img src> no puede
+ * mandar el token, por eso la imagen se baja acá y se muestra con URL.createObjectURL.
+ * Si el servidor no devuelve cuerpo (204), lanza ApiError.
+ */
+export async function apiFetchBlob(path: string, options: OpcionesApi = {}): Promise<Blob> {
+  const headers = new Headers(options.headers)
+  if (!headers.has('Accept')) headers.set('Accept', 'image/*')
+  const { datos } = await ejecutar(path, { ...options, headers }, 'blob')
+  if (datos === undefined) {
+    throw new ApiError(0, { title: 'Sin archivo', detail: 'No se pudo descargar el archivo.' })
+  }
+  return datos as Blob
 }
 
 function leerEntero(valor: string | null): number | undefined {

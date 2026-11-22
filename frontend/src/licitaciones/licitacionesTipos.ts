@@ -115,6 +115,10 @@ export interface OrdenCompraListadoDto {
   fechaEstimadaLlegada?: string | null
   /** Observación del despacho (opcional, hasta 200 caracteres). */
   observacion?: string | null
+  /** true si lo último que pasó con la entrega fue un problema, sin una recepción válida después (#217, #218). */
+  tieneProblemaAbierto?: boolean
+  /** El motivo del problema abierto: "No llegó nada", "Llegó incompleta", "Llegó dañada" o "No es lo pedido". */
+  motivoProblemaAbierto?: string | null
 }
 
 /** Calificación vigente de un proveedor (contrato: CalificacionProveedorResponseDto, #88). */
