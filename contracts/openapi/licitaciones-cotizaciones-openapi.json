@@ -330,7 +330,8 @@
         "tags": [
           "Cotizaciones"
         ],
-        "summary": "Cargar una cotización para un pliego (Roles: Proveedor, Admin)",
+        "summary": "Cargar una cotización para un pliego (Rol: Proveedor)",
+        "description": "Permite a un Proveedor presentar una cotización para una licitación abierta. Solo el rol Proveedor puede cotizar; Admin, Comprador y Capataz reciben 403 Forbidden con ProblemDetails y correlationId (#232).",
         "requestBody": {
           "required": true,
           "content": {
@@ -527,8 +528,8 @@
         "tags": [
           "Cotizaciones"
         ],
-        "summary": "Cargar o actualizar la calificación que el usuario autenticado le da a un proveedor, en escala de 1 a 5 (Roles: Comprador, Admin)",
-        "description": "Registra o actualiza (upsert idempotente, una fila por proveedorId y usuario, tomado del claim 'sub' del JWT) la calificación entre 1 y 5 que el usuario le da al proveedor. Si otro usuario califica, se suma su calificación; la respuesta devuelve el promedio vigente del proveedor, que es el que se usa en el scoring de comparativas (#88).",
+        "summary": "Cargar o actualizar la calificación que el usuario autenticado le da a un proveedor, en escala de 1 a 5 (Rol: Comprador)",
+        "description": "Registra o actualiza (upsert idempotente, una fila por proveedorId y usuario, tomado del claim 'sub' del JWT) la calificación entre 1 y 5 que el Comprador le da al proveedor. Solo el rol Comprador puede calificar; Admin, Proveedor y Capataz reciben 403 Forbidden con ProblemDetails y correlationId (#88, #232). La respuesta devuelve el promedio vigente del proveedor, que es el que se usa en el scoring de comparativas.",
         "parameters": [
           {
             "name": "proveedorId",
@@ -1161,8 +1162,8 @@
         "tags": [
           "OrdenesCompra"
         ],
-        "summary": "Calificar o editar la calificación de una orden de compra recibida completa (Roles: Comprador, Admin)",
-        "description": "Crea o actualiza (upsert único por ordenCompraId y usuarioId) la calificación en escala entera de 1 a 5 estrellas con comentario opcional (máximo 300 caracteres) para una orden de compra que ya fue recibida completa (#222). Devuelve 404 si la orden no existe, 409 Conflict si la orden todavía no está recibida completa (pendiente, despachada, parcial o recepción rechazada) y 400 si los datos son inválidos.",
+        "summary": "Calificar o editar la calificación de una orden de compra recibida completa (Rol: Comprador)",
+        "description": "Crea o actualiza (upsert único por ordenCompraId y usuarioId) la calificación en escala entera de 1 a 5 estrellas con comentario opcional (máximo 300 caracteres) para una orden de compra que ya fue recibida completa (#222). Solo el rol Comprador puede calificar; Admin, Proveedor y Capataz reciben 403 Forbidden con ProblemDetails y correlationId (#232). Devuelve 404 si la orden no existe, 409 Conflict si la orden todavía no está recibida completa y 400 si los datos son inválidos.",
         "parameters": [
           {
             "name": "id",
@@ -1226,8 +1227,8 @@
         "tags": [
           "OrdenesCompra"
         ],
-        "summary": "Listar mensajes del chat de una orden de compra (Roles: Comprador, Admin, Proveedor dueño)",
-        "description": "Devuelve el historial paginado de mensajes (humanos y automáticos del sistema) de la orden de compra indicada (#218), ordenados cronológicamente de más antiguo a más reciente dentro de la página solicitada. Solo Comprador, Admin y el Proveedor dueño de la orden pueden acceder; otro Proveedor o Capataz recibe 403 Forbidden.",
+        "summary": "Listar mensajes del chat de una orden de compra (Roles: Comprador, Admin en solo lectura, Proveedor dueño)",
+        "description": "Devuelve el historial paginado de mensajes (humanos y automáticos del sistema) de la orden de compra indicada (#218, #233), ordenados cronológicamente de más antiguo a más reciente dentro de la página solicitada. Comprador, Admin (en modo solo lectura / vigía) y el Proveedor dueño de la orden pueden acceder; otro Proveedor o Capataz recibe 403 Forbidden.",
         "parameters": [
           {
             "name": "id",
@@ -1315,8 +1316,8 @@
         "tags": [
           "OrdenesCompra"
         ],
-        "summary": "Enviar un mensaje al chat de una orden de compra (Roles: Comprador, Admin, Proveedor dueño)",
-        "description": "Guarda un mensaje escrito por el usuario autenticado (texto obligatorio de 1 a 1000 caracteres), publica MensajeChatEnviadoEvent en el bus de eventos y emite la notificación MensajeRecibido en tiempo real mediante el Hub SignalR (#218).",
+        "summary": "Enviar un mensaje al chat de una orden de compra (Roles: Comprador, Proveedor dueño)",
+        "description": "Guarda un mensaje escrito por el usuario autenticado (texto obligatorio de 1 a 1000 caracteres), publica MensajeChatEnviadoEvent en el bus de eventos y emite la notificación MensajeRecibido en tiempo real mediante el Hub SignalR (#218). Solo Comprador y el Proveedor dueño de la orden pueden escribir; Admin (modo solo lectura / vigía), otros Proveedores y Capataz reciben 403 Forbidden con ProblemDetails y correlationId (#232, #233).",
         "parameters": [
           {
             "name": "id",
@@ -1635,7 +1636,7 @@
         "tags": [
           "Cotizaciones"
         ],
-        "summary": "Corregir una cotización propia antes del cierre (Roles: Proveedor dueño, Admin)",
+        "summary": "Corregir una cotización propia antes del cierre (Rol: Proveedor dueño)",
         "requestBody": {
           "required": true,
           "content": {

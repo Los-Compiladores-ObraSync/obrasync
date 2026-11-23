@@ -186,10 +186,10 @@ public class OrdenesCompraController : ControllerBase
     }
 
     /// <summary>
-    /// Calificar o editar la calificación de una orden de compra recibida completa (Roles: Comprador, Admin).
+    /// Calificar o editar la calificación de una orden de compra recibida completa (Rol: Comprador).
     /// </summary>
     [HttpPut("{id:guid}/calificacion")]
-    [Authorize(Roles = "Comprador,Admin")]
+    [Authorize(Roles = "Comprador")]
     [ProducesResponseType(typeof(CalificacionOrdenCompraResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -379,10 +379,10 @@ public class OrdenesCompraController : ControllerBase
 
     /// <summary>
     /// Enviar un mensaje al chat de una orden de compra
-    /// (Roles: Comprador, Admin, Proveedor dueño de la orden).
+    /// (Roles: Comprador, Proveedor dueño de la orden; Admin solo lectura).
     /// </summary>
     [HttpPost("{id:guid}/chat/mensajes")]
-    [Authorize(Roles = "Comprador,Admin,Proveedor")]
+    [Authorize(Roles = "Comprador,Proveedor")]
     [ProducesResponseType(typeof(MensajeChatOrdenDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
