@@ -72,6 +72,17 @@ public class DatabaseSeedingTests
         Assert.Equal("Carlos Capataz", capataz.NombreCompleto);
         Assert.True(await userManager.IsInRoleAsync(capataz, UserRoles.Capataz));
 
+        var proveedor1 = await userManager.FindByEmailAsync("proveedor@obrasync.com");
+        Assert.NotNull(proveedor1);
+        Assert.Equal("Pedro Proveedor", proveedor1.NombreCompleto);
+        Assert.True(await userManager.IsInRoleAsync(proveedor1, UserRoles.Proveedor));
+
+        var proveedor2 = await userManager.FindByEmailAsync("proveedor2@obrasync.com");
+        Assert.NotNull(proveedor2);
+        Assert.Equal("Sofía Suministros", proveedor2.NombreCompleto);
+        Assert.True(await userManager.IsInRoleAsync(proveedor2, UserRoles.Proveedor));
+        Assert.NotEqual(proveedor1.NombreCompleto, proveedor2.NombreCompleto);
+
         // Assert: 3. Obras de ejemplo
         var obras = await context.Obras
             .Include(o => o.Etapas)
@@ -131,7 +142,7 @@ public class DatabaseSeedingTests
         var obrasPrimerPaso = await context.Obras.CountAsync();
         var etapasPrimerPaso = await context.EtapasObras.CountAsync();
 
-        Assert.Equal(4, usuariosPrimerPaso);
+        Assert.Equal(5, usuariosPrimerPaso);
         Assert.Equal(3, obrasPrimerPaso);
         Assert.Equal(11, etapasPrimerPaso); // 4 + 3 + 4
 
@@ -143,7 +154,7 @@ public class DatabaseSeedingTests
         var etapasSegundoPaso = await context.EtapasObras.CountAsync();
 
         // Assert: Nada debe duplicarse
-        Assert.Equal(4, usuariosSegundoPaso);
+        Assert.Equal(5, usuariosSegundoPaso);
         Assert.Equal(3, obrasSegundoPaso);
         Assert.Equal(11, etapasSegundoPaso);
     }
