@@ -18,6 +18,7 @@ import { InicioPage } from './pages/InicioPage'
 import { LicitacionesComprasPage } from './pages/LicitacionesComprasPage'
 import { OrdenesCompraPage } from './pages/OrdenesCompraPage'
 import { LoginPage } from './pages/LoginPage'
+import { RegistroProveedorPage } from './pages/RegistroProveedorPage'
 import { EditarObraPage } from './pages/EditarObraPage'
 import { NuevaObraPage } from './pages/NuevaObraPage'
 import { NuevaRequisicionPage } from './pages/NuevaRequisicionPage'
@@ -79,6 +80,7 @@ function App() {
           {/* Pública: solo se ve sin sesión */}
           <Route element={<SoloSinSesion />}>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/registro" element={<RegistroProveedorPage />} />
             <Route path="/recuperar-contrasena" element={<RecuperarContrasenaPage />} />
             <Route path="/restablecer-contrasena" element={<RestablecerContrasenaPage />} />
           </Route>

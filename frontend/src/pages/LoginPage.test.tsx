@@ -52,6 +52,11 @@ describe('LoginPage', () => {
     )
   })
 
+  it('tiene el enlace para registrarse como proveedor', () => {
+    render(<ConRouterYSesion><LoginPage /></ConRouterYSesion>)
+    expect(screen.getByRole('link', { name: '¿Sos proveedor? Registrate' })).toHaveAttribute('href', '/registro')
+  })
+
   it('muestra el aviso de éxito si se llega después de restablecer la contraseña', () => {
     render(
       <MemoryRouter

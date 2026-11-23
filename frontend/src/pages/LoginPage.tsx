@@ -191,6 +191,9 @@ export function LoginPage() {
         <Link to="/recuperar-contrasena" className={styles.enlaceOlvido}>
           ¿Olvidaste tu contraseña?
         </Link>
+        <Link to="/registro" className={styles.enlaceOlvido}>
+          ¿Sos proveedor? Registrate
+        </Link>
       </form>
     </div>
   )
