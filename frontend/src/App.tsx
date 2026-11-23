@@ -3,10 +3,12 @@ import { useEffect } from 'react'
 import { AsistenteChatPage } from './asistente/AsistenteChatPage'
 import { AuthProvider } from './auth/AuthContext'
 import { LayoutApp } from './layout/LayoutApp'
+import { RUTA_PUBLICA_MAGIC_LINK } from './licitaciones/magicLinkRutas'
 import { AprobarRequisicionesPage } from './pages/AprobarRequisicionesPage'
 import { CambiarContrasenaPage } from './pages/CambiarContrasenaPage'
 import { CargaMasivaInsumosPage } from './pages/CargaMasivaInsumosPage'
 import { ComprasPage } from './pages/ComprasPage'
+import { CotizarConEnlacePage } from './pages/CotizarConEnlacePage'
 import { CotizarLicitacionPage } from './pages/CotizarLicitacionPage'
 import { DetalleRequisicionPage } from './pages/DetalleRequisicionPage'
 import { HistorialRequisicionesPage } from './pages/HistorialRequisicionesPage'
@@ -71,6 +73,9 @@ function App() {
       <FranjaModoSimulado />
       <AuthProvider>
         <Routes>
+          {/* Pública y sin sesión: el proveedor cotiza desde su Magic Link (#235). No usa el menú ni el login. */}
+          <Route path={`${RUTA_PUBLICA_MAGIC_LINK}/:token`} element={<CotizarConEnlacePage />} />
+
           {/* Pública: solo se ve sin sesión */}
           <Route element={<SoloSinSesion />}>
             <Route path="/login" element={<LoginPage />} />
