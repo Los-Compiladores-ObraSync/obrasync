@@ -228,8 +228,10 @@ public class CalificacionPorOrdenYRecepcionCompletaTests : IClassFixture<WebAppl
         var detalleAntes = await client.GetFromJsonAsync<LicitacionResponseDto>($"/api/licitaciones/{licitacionId}");
         Assert.NotNull(detalleAntes);
         Assert.Null(detalleAntes.CotizacionAdjudicadaId);
+        Assert.Null(detalleAntes.FechaAdjudicacion);
 
         // Adjudicar
+        var antesDeAdjudicar = DateTime.UtcNow.AddSeconds(-2);
         var adjResp = await client.PostAsJsonAsync(
             $"/api/licitaciones/{licitacionId}/adjudicar",
             new { cotizacionId = cotizacionGanadoraId });
@@ -240,12 +242,23 @@ public class CalificacionPorOrdenYRecepcionCompletaTests : IClassFixture<WebAppl
         Assert.NotNull(detalleDespues);
         Assert.Equal("Adjudicada", detalleDespues.Estado);
         Assert.Equal(cotizacionGanadoraId, detalleDespues.CotizacionAdjudicadaId);
+        Assert.NotNull(detalleDespues.FechaAdjudicacion);
+        Assert.InRange(detalleDespues.FechaAdjudicacion!.Value, antesDeAdjudicar, DateTime.UtcNow.AddSeconds(2));
+        Assert.Equal(DateTimeKind.Utc, detalleDespues.FechaAdjudicacion.Value.Kind);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<LicitacionesDbContext>();
+            var persistida = await db.Licitaciones.SingleAsync(l => l.LicitacionId == licitacionId);
+            Assert.Equal(detalleDespues.FechaAdjudicacion, persistida.FechaAdjudicacion);
+        }
 
         var listado = await client.GetFromJsonAsync<List<LicitacionResponseDto>>("/api/licitaciones?estado=Adjudicada");
         Assert.NotNull(listado);
         var item = Assert.Single(listado);
         Assert.Equal(licitacionId, item.LicitacionId);
         Assert.Equal(cotizacionGanadoraId, item.CotizacionAdjudicadaId);
+        Assert.Equal(detalleDespues.FechaAdjudicacion, item.FechaAdjudicacion);
     }
 
     // ---- 2. Consumidor idempotente de RecepcionConfirmadaEvent ----

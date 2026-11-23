@@ -40,6 +40,7 @@ public class Licitacion
     public DateTime FechaLimiteCotizacion { get; set; }
     public string? MotivoCierre { get; set; }
     public DateTime? FechaCierre { get; set; }
+    public DateTime? FechaAdjudicacion { get; set; }
     public List<LicitacionItem> Items { get; set; } = new();
 
     [Timestamp]

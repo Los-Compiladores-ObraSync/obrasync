@@ -163,6 +163,7 @@ public class ExtenderLicitacionEndpointTests : IClassFixture<WebApplicationFacto
         var guardada = await db.Licitaciones.SingleAsync(l => l.LicitacionId == licitacion.LicitacionId);
         Assert.Equal(nueva, guardada.FechaLimiteCotizacion, TimeSpan.FromSeconds(1));
         Assert.Equal(EstadoLicitacion.Abierta, guardada.Estado);
+        Assert.Null(guardada.FechaAdjudicacion);
     }
 
     [Fact]

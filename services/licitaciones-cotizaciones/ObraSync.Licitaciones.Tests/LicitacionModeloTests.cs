@@ -110,6 +110,7 @@ public class LicitacionModeloTests
         {
             var leida = await db.Licitaciones.SingleAsync(l => l.LicitacionId == id);
             Assert.Equal(estado, leida.Estado);
+            Assert.Null(leida.FechaAdjudicacion);
         }
     }
 }

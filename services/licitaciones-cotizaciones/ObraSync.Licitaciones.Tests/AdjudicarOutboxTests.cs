@@ -11,13 +11,14 @@ namespace ObraSync.Licitaciones.Tests;
 
 public class AdjudicarOutboxTests
 {
+    private static readonly DateTimeOffset FechaFija = new(2026, 11, 23, 15, 42, 18, TimeSpan.Zero);
     private readonly ILicitacionRepository _licitaciones = Substitute.For<ILicitacionRepository>();
     private readonly ICotizacionRepository _cotizaciones = Substitute.For<ICotizacionRepository>();
     private readonly IOrdenCompraRepository _ordenes = Substitute.For<IOrdenCompraRepository>();
     private readonly IPublishEndpoint _publish = Substitute.For<IPublishEndpoint>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
-    private (AdjudicarCotizacionCommandHandler handler, AdjudicarCotizacionCommand comando, Licitacion licitacion) Preparar()
+    private (AdjudicarCotizacionCommandHandler handler, AdjudicarCotizacionCommand comando, Licitacion licitacion) Preparar(TimeProvider? timeProvider = null)
     {
         var articuloId = Guid.NewGuid();
         var licitacionId = Guid.NewGuid();
@@ -53,9 +54,24 @@ public class AdjudicarOutboxTests
         _cotizaciones.GetByIdAsync(cotizacionId, Arg.Any<CancellationToken>()).Returns(cotizacion);
 
         var handler = new AdjudicarCotizacionCommandHandler(
-            _licitaciones, _cotizaciones, _ordenes, _publish, _unitOfWork);
+            _licitaciones, _cotizaciones, _ordenes, _publish, _unitOfWork, timeProvider: timeProvider);
 
         return (handler, new AdjudicarCotizacionCommand(licitacionId, cotizacionId), licitacion);
+    }
+
+    [Fact]
+    public async Task Adjudicar_GuardaLaFechaUtcEntregadaPorTimeProviderUnaSolaVez()
+    {
+        var reloj = new TimeProviderFijo(FechaFija);
+        var (handler, comando, licitacion) = Preparar(reloj);
+
+        await handler.Handle(comando, CancellationToken.None);
+
+        Assert.Equal(EstadoLicitacion.Adjudicada, licitacion.Estado);
+        Assert.Equal(FechaFija.UtcDateTime, licitacion.FechaAdjudicacion);
+        Assert.Equal(DateTimeKind.Utc, licitacion.FechaAdjudicacion!.Value.Kind);
+        Assert.Equal(1, reloj.Lecturas);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -86,5 +102,16 @@ public class AdjudicarOutboxTests
         await _publish.Received(1).Publish<OrdenCompraEmitidaEvent>(
             Arg.Is<OrdenCompraEmitidaEvent>(e => e.MontoTotal == 9500m), // 100 x 80 + flete 1500
             Arg.Any<CancellationToken>());
+    }
+
+    private sealed class TimeProviderFijo(DateTimeOffset instante) : TimeProvider
+    {
+        public int Lecturas { get; private set; }
+
+        public override DateTimeOffset GetUtcNow()
+        {
+            Lecturas++;
+            return instante;
+        }
     }
 }

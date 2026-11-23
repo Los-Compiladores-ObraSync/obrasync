@@ -336,6 +336,9 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<DateTime?>("FechaAdjudicacion")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("FechaCierre")
                         .HasColumnType("datetime2");
 

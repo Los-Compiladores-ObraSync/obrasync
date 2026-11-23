@@ -216,6 +216,7 @@ public class CerrarLicitacionEndpointTests : IClassFixture<WebApplicationFactory
         Assert.Equal(EstadoLicitacion.Cerrada, persistida.Estado);
         Assert.Equal("Sin ofertas válidas en el plazo esperado", persistida.MotivoCierre);
         Assert.NotNull(persistida.FechaCierre);
+        Assert.Null(persistida.FechaAdjudicacion);
         Assert.Equal(0, await db.OrdenesCompra.CountAsync());
         Assert.Equal(0, await db.Set<MassTransit.EntityFrameworkCoreIntegration.OutboxMessage>().CountAsync());
     }
@@ -261,6 +262,7 @@ public class CerrarLicitacionEndpointTests : IClassFixture<WebApplicationFactory
         Assert.Equal(EstadoLicitacion.Adjudicada, persistida.Estado);
         Assert.Null(persistida.MotivoCierre);
         Assert.Null(persistida.FechaCierre);
+        Assert.Null(persistida.FechaAdjudicacion);
     }
 
     [Fact]
