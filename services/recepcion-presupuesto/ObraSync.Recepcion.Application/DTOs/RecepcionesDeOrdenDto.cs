@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using ObraSync.Recepcion.Domain.Constants;
 
 namespace ObraSync.Recepcion.Application.DTOs;
 
@@ -22,6 +23,7 @@ public class RecepcionesDeOrdenDto
     public string? ObservacionDespacho { get; set; }
     public bool EstaCompleta { get; set; }
     public bool TieneProblemaAbierto { get; set; }
+    public string EstadoEntrega { get; set; } = EstadosEntregaOrden.Pendiente;
     public List<ItemOrdenPendienteDto> Items { get; set; } = new();
     public List<RecepcionDto> Recepciones { get; set; } = new();
 }

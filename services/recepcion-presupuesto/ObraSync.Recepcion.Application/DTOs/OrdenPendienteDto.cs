@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using ObraSync.Recepcion.Domain.Constants;
 
 namespace ObraSync.Recepcion.Application.DTOs;
 
@@ -13,5 +14,6 @@ public class OrdenPendienteDto
     public DateTime? FechaEstimadaLlegada { get; set; }
     public string? ObservacionDespacho { get; set; }
     public bool TieneProblemaAbierto { get; set; }
+    public string EstadoEntrega { get; set; } = EstadosEntregaOrden.Pendiente;
     public List<ItemOrdenPendienteDto> Items { get; set; } = new();
 }
