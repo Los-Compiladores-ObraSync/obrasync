@@ -18,6 +18,19 @@ public class ResilienciaTests
             return this;
         }
 
+        // Un 503 a propósito: el servicio está vivo y contesta con un ProblemDetails (como hacen nuestros servicios).
+        public ServicioQueFalla RespondeConProblema(HttpStatusCode estado)
+        {
+            _respuestas.Enqueue(() => new HttpResponseMessage(estado)
+            {
+                Content = new StringContent(
+                    "{\"title\":\"Servicio no disponible\",\"status\":503}",
+                    System.Text.Encoding.UTF8,
+                    "application/problem+json")
+            });
+            return this;
+        }
+
         public ServicioQueFalla NoSePuedeConectar()
         {
             _respuestas.Enqueue(() => throw new HttpRequestException("no se pudo conectar"));
@@ -80,6 +93,34 @@ public class ResilienciaTests
 
         Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
         Assert.Equal(2, servicio.Llamadas);
+    }
+
+    [Fact]
+    public async Task Un_GET_con_503_ProblemDetails_NO_se_reintenta_y_llega_tal_cual()
+    {
+        var servicio = new ServicioQueFalla().RespondeConProblema(HttpStatusCode.ServiceUnavailable);
+        var cliente = Cliente(servicio, Opciones());
+
+        var respuesta = await cliente.SendAsync(Pedido(HttpMethod.Get), CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, respuesta.StatusCode);
+        Assert.Equal(1, servicio.Llamadas);
+    }
+
+    [Fact]
+    public async Task Varios_503_ProblemDetails_seguidos_NO_abren_el_breaker()
+    {
+        var servicio = new ServicioQueFalla().RespondeConProblema(HttpStatusCode.ServiceUnavailable);
+        var cliente = Cliente(servicio, Opciones(minimoPedidos: 2));
+
+        for (var i = 0; i < 10; i++)
+        {
+            var respuesta = await cliente.SendAsync(Pedido(HttpMethod.Get), CancellationToken.None);
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, respuesta.StatusCode);
+        }
+
+        // Los 10 pedidos llegaron al servicio: el circuito nunca se abrió.
+        Assert.Equal(10, servicio.Llamadas);
     }
 
     [Fact]

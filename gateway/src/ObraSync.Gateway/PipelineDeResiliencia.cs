@@ -58,6 +58,9 @@ public static class PipelineDeResiliencia
     /// <summary>
     /// Qué cuenta como falla: no se pudo conectar, o el servicio respondió 502/503/504.
     /// Un 500 NO cuenta: es un error del código del servicio y repetir el pedido no lo arregla.
+    /// Un 503 con un ProblemDetails (application/problem+json) tampoco cuenta: el servicio está vivo y lo devolvió
+    /// a propósito (por ejemplo, "las notificaciones push no están configuradas"). Si contara, unos pocos pedidos
+    /// bastarían para abrir el breaker y cortar todo el servicio, login incluido.
     /// </summary>
     private static bool EsFalla(Outcome<HttpResponseMessage> resultado)
     {
@@ -66,8 +69,20 @@ public static class PipelineDeResiliencia
             return true;
         }
 
+        if (resultado.Result is { StatusCode: System.Net.HttpStatusCode.ServiceUnavailable } respuesta
+            && EsProblemDetails(respuesta))
+        {
+            return false;
+        }
+
         return resultado.Result is { StatusCode: System.Net.HttpStatusCode.BadGateway
             or System.Net.HttpStatusCode.ServiceUnavailable
             or System.Net.HttpStatusCode.GatewayTimeout };
     }
+
+    private static bool EsProblemDetails(HttpResponseMessage respuesta)
+        => string.Equals(
+            respuesta.Content?.Headers.ContentType?.MediaType,
+            "application/problem+json",
+            StringComparison.OrdinalIgnoreCase);
 }
