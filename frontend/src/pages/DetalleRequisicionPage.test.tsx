@@ -58,6 +58,8 @@ describe('DetalleRequisicionPage', () => {
     expect(screen.getByText('Creada el 15 de octubre de 2026')).toBeInTheDocument()
     expect(screen.getByText('Aprobada el 16 de octubre de 2026')).toBeInTheDocument()
     expect(screen.getByText(/12 metros cúbicos \(m³\) · Arena Fina a Granel/)).toBeInTheDocument()
+    expect(screen.getByText(/La requisición fue aprobada\./)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'revisá el estado en Licitaciones y cotizaciones' })).toHaveAttribute('href', '/compras/licitaciones')
   })
 
   it('una rechazada muestra las observaciones y no tiene fecha de aprobación', async () => {

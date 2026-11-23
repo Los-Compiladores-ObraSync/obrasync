@@ -202,6 +202,12 @@ export function DetalleRequisicionPage({ volverA }: DetalleRequisicionPageProps)
           <p className={styles.dato}>
             Obra: {nombresObras[requisicion.obraId] ?? requisicion.obraId}
           </p>
+          <p className={styles.dato}>
+            {requisicion.estado === 'Pendiente' && 'La requisición espera la revisión de Compras.'}
+            {requisicion.estado === 'Aprobada' && <>La requisición fue aprobada. El siguiente paso de Compras es publicar su licitación si todavía no existe; {puedePublicar ? <Link to="/compras/licitaciones">revisá el estado en Licitaciones y cotizaciones</Link> : 'Compras puede continuar desde Licitaciones y cotizaciones.'}</>}
+            {requisicion.estado === 'Rechazada' && 'La requisición fue rechazada. Revisá el motivo antes de volver a cargar el pedido.'}
+            {requisicion.estado === 'Cancelada' && 'La requisición fue cancelada y no continuará en el flujo de Compras.'}
+          </p>
           {requisicion.etapa && <p className={styles.dato}>Etapa: {requisicion.etapa}</p>}
           {requisicion.observaciones && (
             <p className={styles.dato}>Observaciones: {requisicion.observaciones}</p>

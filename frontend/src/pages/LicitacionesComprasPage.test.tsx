@@ -266,6 +266,10 @@ describe('LicitacionesComprasPage', () => {
         '¡Licitación adjudicada con éxito! Se emitió la Orden de Compra OC-2026-999.',
       ),
     ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ver la orden de compra' })).toHaveAttribute(
+      'href',
+      '/compras/ordenes?ordenCompraId=OC-2026-999',
+    )
 
     expect(cuerpoEnviado).toEqual({
       cotizacionId: 'c1111111-0000-0000-0000-000000000001',
@@ -273,6 +277,20 @@ describe('LicitacionesComprasPage', () => {
 
     // La licitación queda marcada como adjudicada
     expect(screen.getByText('Licitación ya adjudicada')).toBeInTheDocument()
+  })
+
+  it('conserva el éxito pero ofrece la lista cuando la respuesta no trae un identificador de orden válido', async () => {
+    const user = userEvent.setup()
+    server.use(http.post('*/api/licitaciones/:licitacionId/adjudicar', () => HttpResponse.json({
+      id: ' ', licitacionId: LIC_ABIERTA_ID, cotizacionId: 'c1111111-0000-0000-0000-000000000001', estado: 'Emitida', fechaEmision: new Date().toISOString(),
+    })))
+    renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+    await user.click(await screen.findByRole('button', { name: 'Adjudicar a proveedor f7a8b9c0' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar adjudicación' }))
+    expect(await screen.findByText('¡Licitación adjudicada con éxito!')).toBeInTheDocument()
+    expect(screen.getByText(/No recibimos un identificador válido/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Órdenes de compra' })).toHaveAttribute('href', '/compras/ordenes')
+    expect(screen.queryByRole('link', { name: 'Ver la orden de compra' })).not.toBeInTheDocument()
   })
 
   it('muestra mensaje del ProblemDetails cuando el servidor rechaza la adjudicación (error 409 conflicto)', async () => {

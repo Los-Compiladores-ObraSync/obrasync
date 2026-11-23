@@ -1,0 +1,64 @@
+.progreso {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  list-style: none;
+  counter-reset: etapa;
+}
+
+.etapa {
+  min-width: 0;
+  counter-increment: etapa;
+}
+
+.enlaceEtapa {
+  display: flex;
+  min-height: 6rem;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.9rem;
+  border: 2px solid var(--borde);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--texto);
+  text-decoration: none;
+}
+
+.enlaceEtapa::before {
+  content: counter(etapa);
+  display: grid;
+  width: 1.65rem;
+  height: 1.65rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--azul);
+  color: #fff;
+  font-weight: 800;
+}
+
+.enlaceEtapa:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.etiqueta {
+  font-weight: 800;
+}
+
+.cantidad {
+  color: var(--texto-suave);
+}
+
+@media (max-width: 760px) {
+  .progreso {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .enlaceEtapa {
+    min-height: 4.75rem;
+  }
+}
