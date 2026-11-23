@@ -58,6 +58,15 @@
       ],
       "maxLength": 200,
       "description": "Campo aditivo opcional (#216, #217): observación corta cargada por el Proveedor al despachar (máx. 200 caracteres)."
+    },
+    "esRedespacho": {
+      "type": "boolean",
+      "description": "Campo aditivo opcional (#248): true cuando el proveedor despacha un remanente tras una recepción parcial; false en el primer despacho."
+    },
+    "numeroDespacho": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Campo aditivo opcional (#248): número correlativo de envío/despacho de la orden (1 en el primer despacho, 2+ en re-despachos de remanente)."
     }
   },
   "additionalProperties": false

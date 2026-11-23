@@ -96,9 +96,12 @@ public class OrdenCompra
     public string Estado { get; set; } = "Emitida";
     public DateTime FechaEmision { get; set; } = DateTime.UtcNow;
     public DateTime? FechaDespacho { get; set; }
+    public int NumeroDespacho { get; set; }
     public Guid? DespachadaPor { get; set; }
     public DateTime? FechaEstimadaLlegada { get; set; }
     public string? Observacion { get; set; }
+    public bool TieneRecepcionParcialPendiente { get; set; }
+    public DateTime? FechaUltimaRecepcionParcial { get; set; }
     public bool RecibidaCompleta { get; set; }
     public DateTime? FechaRecepcionCompleta { get; set; }
     public bool TieneProblemaAbierto { get; set; }
@@ -123,6 +126,10 @@ public class OrdenCompra
     public bool FueDespachada =>
         string.Equals(Estado, "Despachada", StringComparison.OrdinalIgnoreCase) || FechaDespacho.HasValue;
 
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public bool PuedeRedespachar =>
+        FueDespachada && !RecibidaCompleta && TieneRecepcionParcialPendiente;
+
     public bool Despachar(
         Guid despachadaPor,
         DateTime? fechaDespachoUtc = null,
@@ -134,10 +141,16 @@ public class OrdenCompra
             throw new ArgumentException("El identificador del usuario que despacha es obligatorio.", nameof(despachadaPor));
         }
 
-        // Idempotencia primero (#216): si ya estaba despachada, no falla ni pisa los datos originales.
-        if (FueDespachada)
+        if (RecibidaCompleta)
         {
-            return false;
+            throw new InvalidOperationException(
+                "La orden de compra ya fue recibida completa y no admite nuevos despachos.");
+        }
+
+        if (FueDespachada && !TieneRecepcionParcialPendiente)
+        {
+            throw new InvalidOperationException(
+                "La orden de compra ya fue despachada y se encuentra en tránsito esperando recepción.");
         }
 
         var instante = NormalizarAUtc(fechaDespachoUtc ?? DateTime.UtcNow);
@@ -166,11 +179,29 @@ public class OrdenCompra
             }
         }
 
+        var esRedespacho = FueDespachada && TieneRecepcionParcialPendiente;
+
         Estado = "Despachada";
+        NumeroDespacho = esRedespacho
+            ? (NumeroDespacho > 0 ? NumeroDespacho + 1 : 2)
+            : 1;
         FechaDespacho = instante;
         DespachadaPor = despachadaPor;
         FechaEstimadaLlegada = fechaEstimadaUtc;
         Observacion = observacionNormalizada;
+        TieneRecepcionParcialPendiente = false;
+        return true;
+    }
+
+    public bool RegistrarRecepcionParcial(DateTime? fechaRecepcionUtc = null)
+    {
+        if (RecibidaCompleta)
+        {
+            return false;
+        }
+
+        TieneRecepcionParcialPendiente = true;
+        FechaUltimaRecepcionParcial = NormalizarAUtc(fechaRecepcionUtc ?? DateTime.UtcNow);
         return true;
     }
 
@@ -183,6 +214,7 @@ public class OrdenCompra
 
         FechaRecepcionCompleta = NormalizarAUtc(fechaRecepcionUtc ?? DateTime.UtcNow);
         RecibidaCompleta = true;
+        TieneRecepcionParcialPendiente = false;
         return true;
     }
 

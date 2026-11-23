@@ -13,5 +13,7 @@ public record OrdenCompraDespachadaEvent(
     Guid ObraId,
     DateTime FechaDespacho,
     DateTime? FechaEstimadaLlegada = null,
-    string? ObservacionDespacho = null
+    string? ObservacionDespacho = null,
+    bool EsRedespacho = false,
+    int NumeroDespacho = 1
 );

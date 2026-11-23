@@ -119,21 +119,28 @@ public class RecepcionConfirmadaConsumer : IConsumer<RecepcionConfirmadaEvent>
         var problemaCerrado = ordenCompra.ResolverProblema(fechaRecepcion, null);
 
         MensajeChatOrden? mensajeSistema = null;
-        if (msg.OrdenCompleta && ordenCompra.MarcarComoRecibidaCompleta(fechaRecepcion))
+        if (msg.OrdenCompleta)
         {
-            mensajeSistema = MensajeChatOrden.CrearDelSistema(
-                ordenCompra.OrdenCompraId,
-                "Llegó todo el pedido",
-                ahoraUtc);
+            if (ordenCompra.MarcarComoRecibidaCompleta(fechaRecepcion))
+            {
+                mensajeSistema = MensajeChatOrden.CrearDelSistema(
+                    ordenCompra.OrdenCompraId,
+                    "Llegó todo el pedido",
+                    ahoraUtc);
 
-            if (_chatOrdenRepository is not null)
-            {
-                await _chatOrdenRepository.AddMensajeAsync(mensajeSistema, context.CancellationToken);
+                if (_chatOrdenRepository is not null)
+                {
+                    await _chatOrdenRepository.AddMensajeAsync(mensajeSistema, context.CancellationToken);
+                }
+                else
+                {
+                    _db.MensajesChatOrden.Add(mensajeSistema);
+                }
             }
-            else
-            {
-                _db.MensajesChatOrden.Add(mensajeSistema);
-            }
+        }
+        else
+        {
+            ordenCompra.RegistrarRecepcionParcial(fechaRecepcion);
         }
 
         _db.EventosProcesados.Add(new EventoProcesado

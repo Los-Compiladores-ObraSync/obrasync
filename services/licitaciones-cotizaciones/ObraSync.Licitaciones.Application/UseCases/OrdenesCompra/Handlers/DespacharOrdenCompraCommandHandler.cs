@@ -81,21 +81,13 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
         }
 
         var ahoraUtc = DateTime.UtcNow;
-        var despachoAplicado = ordenCompra.Despachar(
+        var esRedespacho = ordenCompra.PuedeRedespachar;
+
+        ordenCompra.Despachar(
             despachadaPor: request.UsuarioId,
             fechaDespachoUtc: ahoraUtc,
             fechaEstimadaLlegada: request.FechaEstimadaLlegada,
             observacion: request.Observacion);
-
-        if (!despachoAplicado)
-        {
-            _logger.LogInformation(
-                "OrdenCompra {OrdenCompraId} ya se encontraba despachada; respuesta idempotente sin republicar evento. CorrelationId {CorrelationId}",
-                ordenCompra.OrdenCompraId,
-                correlationId);
-
-            return ordenCompra.ToDto();
-        }
 
         await _ordenCompraRepository.UpdateAsync(ordenCompra, cancellationToken);
 
@@ -107,18 +99,51 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
             ObraId: ordenCompra.ObraId,
             FechaDespacho: ordenCompra.FechaDespacho!.Value,
             FechaEstimadaLlegada: ordenCompra.FechaEstimadaLlegada,
-            ObservacionDespacho: ordenCompra.Observacion);
+            ObservacionDespacho: ordenCompra.Observacion,
+            EsRedespacho: esRedespacho,
+            NumeroDespacho: ordenCompra.NumeroDespacho);
 
         await _publishEndpoint.Publish<OrdenCompraDespachadaEvent>(evento, cancellationToken);
+
+        var textoAviso = esRedespacho
+            ? (string.IsNullOrWhiteSpace(ordenCompra.Observacion)
+                ? $"El Proveedor despachó el remanente de la orden (envío #{ordenCompra.NumeroDespacho})."
+                : $"El Proveedor despachó el remanente de la orden (envío #{ordenCompra.NumeroDespacho}): {ordenCompra.Observacion}")
+            : "El Proveedor despachó la orden";
 
         MensajeChatOrden? mensajeSistema = null;
         if (_chatOrdenRepository is not null)
         {
             mensajeSistema = MensajeChatOrden.CrearDelSistema(
                 ordenCompra.OrdenCompraId,
-                "El Proveedor despachó la orden",
+                textoAviso,
                 ahoraUtc);
             await _chatOrdenRepository.AddMensajeAsync(mensajeSistema, cancellationToken);
+        }
+
+        if (esRedespacho)
+        {
+            var fragmento = mensajeSistema is not null
+                ? mensajeSistema.ObtenerFragmento()
+                : (textoAviso.Length <= MensajeChatOrden.MaxLongitudFragmento
+                    ? textoAviso
+                    : string.Concat(textoAviso.AsSpan(0, MensajeChatOrden.MaxLongitudFragmento - 1), "…"));
+
+            var eventoCampanita = new MensajeChatEnviadoEvent(
+                EventId: Guid.NewGuid(),
+                OccurredAt: ahoraUtc,
+                CorrelationId: correlationId,
+                OrdenCompraId: ordenCompra.OrdenCompraId,
+                Remitente: new RemitenteChatEvent(
+                    UsuarioId: request.UsuarioId,
+                    Nombre: "Proveedor",
+                    Rol: "Proveedor"),
+                Destinatarios: new DestinatariosChatEvent(
+                    UsuarioIds: Array.Empty<Guid>(),
+                    Roles: new[] { "Comprador", "Admin", "Capataz" }),
+                Fragmento: fragmento);
+
+            await _publishEndpoint.Publish<MensajeChatEnviadoEvent>(eventoCampanita, cancellationToken);
         }
 
         // El evento se publica antes de guardar a propósito (#135 / #203): con el outbox transaccional,
@@ -142,8 +167,10 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
         }
 
         _logger.LogInformation(
-            "OrdenCompra {OrdenCompraId} marcada como despachada por Proveedor {ProveedorId}. CorrelationId {CorrelationId}",
+            "OrdenCompra {OrdenCompraId} {AccionDespacho} (#{NumeroDespacho}) por Proveedor {ProveedorId}. CorrelationId {CorrelationId}",
             ordenCompra.OrdenCompraId,
+            esRedespacho ? "re-despachada" : "marcada como despachada",
+            ordenCompra.NumeroDespacho,
             request.UsuarioId,
             correlationId);
 

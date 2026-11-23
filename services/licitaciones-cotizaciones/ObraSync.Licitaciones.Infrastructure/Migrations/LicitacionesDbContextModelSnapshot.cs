@@ -523,12 +523,20 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                     b.Property<DateTime?>("FechaRecepcionCompleta")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("FechaUltimaRecepcionParcial")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("LicitacionId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("MotivoProblemaAbierto")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("NumeroDespacho")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<string>("Observacion")
                         .HasMaxLength(200)
@@ -549,6 +557,11 @@ namespace ObraSync.Licitaciones.Infrastructure.Migrations
                         .HasDefaultValue(false);
 
                     b.Property<bool>("TieneProblemaAbierto")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("TieneRecepcionParcialPendiente")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);

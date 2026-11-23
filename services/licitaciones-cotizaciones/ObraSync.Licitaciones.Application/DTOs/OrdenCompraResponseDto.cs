@@ -29,5 +29,9 @@ public record OrdenCompraResponseDto(
     DateTime? FechaProblemaAbierto = null,
     DateTime? ProblemaResueltoEn = null,
     Guid? ProblemaResueltoPor = null,
-    int MensajesNoLeidos = 0
+    int MensajesNoLeidos = 0,
+    int NumeroDespacho = 0,
+    bool PuedeRedespachar = false,
+    bool TieneRecepcionParcialPendiente = false,
+    DateTime? FechaUltimaRecepcionParcial = null
 );
