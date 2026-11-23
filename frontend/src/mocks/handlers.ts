@@ -14,6 +14,10 @@ export const MOCK_TOKEN_COMPRADOR =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' +
   '.eyJzdWIiOiJhMWIyYzNkNC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDIiLCJlbWFpbCI6ImNvbXByYWRvckBvYnJhc3luYy5jb20iLCJyb2xlIjoiQ29tcHJhZG9yIn0' +
   '.MOCK_FIRMA_NO_VALIDA'
+export const MOCK_TOKEN_PROVEEDOR =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' +
+  '.eyJzdWIiOiJhMWIyYzNkNC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDMiLCJlbWFpbCI6InByb3ZlZWRvckBvYnJhc3luYy5jb20iLCJyb2xlIjoiUHJvdmVlZG9yIn0' +
+  '.MOCK_FIRMA_NO_VALIDA'
 
 // Una contraseña de prueba para todos los usuarios simulados.
 const MOCK_PASSWORD = 'Password123!'
@@ -848,9 +852,15 @@ export const handlers: RequestHandler[] = [
       password?: string
       rol?: string
     }
-    if (!body.nombreCompleto || !body.email || !body.password || (body.password?.length ?? 0) < 6) {
+    if (!body.nombreCompleto || !body.email || !body.password || body.password.length < 8 || !/\d/.test(body.password)) {
       return HttpResponse.json(
-        { title: 'Datos inválidos', status: 400, detail: 'Faltan datos del usuario.' },
+        { title: 'Datos inválidos', status: 400, detail: 'Los datos del usuario son inválidos.' },
+        { status: 400 },
+      )
+    }
+    if (body.rol !== 'Proveedor' && body.rol !== 'Capataz') {
+      return HttpResponse.json(
+        { title: 'Datos inválidos', status: 400, detail: 'El rol indicado no es válido.' },
         { status: 400 },
       )
     }
@@ -872,7 +882,7 @@ export const handlers: RequestHandler[] = [
     }
     USUARIOS_MOCK.push(nuevo)
     return HttpResponse.json(
-      { id: nuevo.id, nombreCompleto: nuevo.nombreCompleto, email: nuevo.email, token: MOCK_TOKEN_CAPATAZ, roles: [nuevo.rol] },
+      { id: nuevo.id, nombreCompleto: nuevo.nombreCompleto, email: nuevo.email, token: nuevo.rol === 'Proveedor' ? MOCK_TOKEN_PROVEEDOR : MOCK_TOKEN_CAPATAZ, roles: [nuevo.rol] },
       { status: 201 },
     )
   }),
