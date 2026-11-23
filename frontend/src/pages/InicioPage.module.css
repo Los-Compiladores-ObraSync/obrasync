@@ -5,6 +5,11 @@
   color: var(--texto-suave);
 }
 
+.pushCard { margin: 1.5rem 0; padding: 1rem 1.25rem; border: 1px solid var(--borde); border-radius: 12px; background: #fff; }
+.pushCard h2 { margin-top: 0; }
+.pushCard button { min-height: 44px; padding: 0.6rem 1rem; border: 0; border-radius: 8px; background: var(--azul); color: #fff; font: inherit; font-weight: 700; }
+.pushCard button:disabled { opacity: .65; }
+
 /* Tarjeta con los datos de quien inició sesión (va debajo de los accesos rápidos). */
 .perfil {
   margin-top: 2rem;

@@ -37,6 +37,10 @@ export const TIEMPO_LIMITE_ASISTENTE_MS = 60_000
 export interface OpcionesApi extends RequestInit {
   /** Milisegundos máximos del pedido completo (respuesta y cuerpo). Por defecto TIEMPO_LIMITE_MS. */
   tiempoLimiteMs?: number
+  /** Evita que una limpieza de sesión dispare nuevamente el cierre ante un 401. */
+  suprimirCierrePorUnauthorized?: boolean
+  /** Token capturado por una limpieza iniciada antes del logout. */
+  tokenParaLimpieza?: string
 }
 
 function errorDeTiempoAgotado(): ApiError {
@@ -57,7 +61,7 @@ async function ejecutar(
   /** 'json' (por defecto): el cuerpo se lee como texto y se intenta JSON. 'blob': se entrega el archivo tal cual. */
   formato: 'json' | 'blob' = 'json',
 ): Promise<RespuestaCruda> {
-  const { tiempoLimiteMs = TIEMPO_LIMITE_MS, signal: senalExterna, ...options } = opciones
+  const { tiempoLimiteMs = TIEMPO_LIMITE_MS, signal: senalExterna, suprimirCierrePorUnauthorized = false, tokenParaLimpieza, ...options } = opciones
   const headers = new Headers(options.headers)
   // Por defecto se pide JSON; una descarga (apiFetchBlob) pide otro tipo.
   if (!headers.has('Accept')) headers.set('Accept', 'application/json')
@@ -65,8 +69,9 @@ async function ejecutar(
   if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`)
+  const tokenAutorizacion = tokenParaLimpieza ?? token
+  if (tokenAutorizacion) {
+    headers.set('Authorization', `Bearer ${tokenAutorizacion}`)
   }
   if (!headers.has('X-Correlation-ID')) {
     headers.set('X-Correlation-ID', newCorrelationId())
@@ -94,7 +99,7 @@ async function ejecutar(
     if (!response.ok) {
       // Si el servidor devuelve 401 y ya había un token activo, la sesión expiró.
       // Notificamos a AuthContext para que limpie el estado sin romper el flujo normal de errores.
-      if (response.status === 401 && token && onUnauthorized) {
+      if (response.status === 401 && token && onUnauthorized && !suprimirCierrePorUnauthorized) {
         onUnauthorized()
       }
       const problem = (await response
