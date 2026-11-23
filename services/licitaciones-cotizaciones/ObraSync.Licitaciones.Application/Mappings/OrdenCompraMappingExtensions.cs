@@ -45,7 +45,11 @@ public static class OrdenCompraMappingExtensions
             FechaProblemaAbierto: NormalizarNullableAUtc(ordenCompra.FechaProblemaAbierto),
             ProblemaResueltoEn: NormalizarNullableAUtc(ordenCompra.ProblemaResueltoEn),
             ProblemaResueltoPor: ordenCompra.ProblemaResueltoPor,
-            MensajesNoLeidos: Math.Max(0, mensajesNoLeidos));
+            MensajesNoLeidos: Math.Max(0, mensajesNoLeidos),
+            NumeroDespacho: ordenCompra.NumeroDespacho,
+            PuedeRedespachar: ordenCompra.PuedeRedespachar,
+            TieneRecepcionParcialPendiente: ordenCompra.TieneRecepcionParcialPendiente,
+            FechaUltimaRecepcionParcial: NormalizarNullableAUtc(ordenCompra.FechaUltimaRecepcionParcial));
     }
 
     public static MensajeChatOrdenDto ToDto(this MensajeChatOrden mensaje)

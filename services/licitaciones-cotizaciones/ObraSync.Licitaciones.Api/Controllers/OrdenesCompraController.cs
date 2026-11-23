@@ -121,7 +121,7 @@ public class OrdenesCompraController : ControllerBase
 
     /// <summary>
     /// Marcar una orden de compra como despachada y publicar OrdenCompraDespachadaEvent
-    /// (Rol: Proveedor dueño de la orden). Operación idempotente.
+    /// (Rol: Proveedor dueño de la orden). Soporta el re-despacho del remanente tras una recepción parcial (#248).
     /// </summary>
     [HttpPost("{id:guid}/despachar")]
     [Authorize(Roles = "Proveedor")]
@@ -130,6 +130,7 @@ public class OrdenesCompraController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Despachar(
         Guid id,
         [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] DespacharOrdenCompraRequestDto? request = null,
@@ -175,6 +176,13 @@ public class OrdenesCompraController : ControllerBase
                 detail: ex.Message,
                 statusCode: StatusCodes.Status403Forbidden,
                 title: "Acceso denegado");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Conflicto al despachar la orden de compra");
         }
         catch (ArgumentException ex)
         {
@@ -529,6 +537,13 @@ public class OrdenesCompraController : ControllerBase
                 detail: ex.Message,
                 statusCode: StatusCodes.Status403Forbidden,
                 title: "Acceso denegado");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Conflicto al despachar la orden de compra");
         }
         catch (ArgumentException ex)
         {

@@ -309,7 +309,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
     }
 
     [Fact]
-    public async Task Handler_OrdenYaDespachada_EsIdempotenteNoPisaDatosYNoVuelveAPublicarEvento()
+    public async Task Handler_OrdenYaDespachadaSinRecepcionParcial_LanzaInvalidOperationExceptionNoPisaDatosYNoVuelveAPublicarEvento()
     {
         var ordenRepo = Substitute.For<IOrdenCompraRepository>();
         var publishEndpoint = Substitute.For<IPublishEndpoint>();
@@ -329,6 +329,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
             ProveedorId = proveedorId,
             ObraId = Guid.NewGuid(),
             Estado = "Despachada",
+            NumeroDespacho = 1,
             FechaEmision = DateTime.UtcNow.AddDays(-1),
             FechaDespacho = fechaOriginal,
             DespachadaPor = proveedorId,
@@ -340,22 +341,22 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
 
         var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, publishEndpoint, unitOfWork);
 
-        // Incluso enviando una fecha estimada que hoy ya sería pasada u otra observación, devuelve el estado guardado
-        var resultado = await handler.Handle(
-            new DespacharOrdenCompraCommand(
-                ordenId,
-                proveedorId,
-                Guid.NewGuid(),
-                FechaEstimadaLlegada: DateTime.UtcNow.Date.AddDays(-5),
-                Observacion: "Intento de pisar observación"),
-            CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            handler.Handle(
+                new DespacharOrdenCompraCommand(
+                    ordenId,
+                    proveedorId,
+                    Guid.NewGuid(),
+                    FechaEstimadaLlegada: DateTime.UtcNow.Date.AddDays(5),
+                    Observacion: "Intento de pisar observación"),
+                CancellationToken.None));
 
-        Assert.Equal("Despachada", resultado.Estado);
-        Assert.Equal(fechaOriginal, resultado.FechaDespacho);
-        Assert.Equal(fechaOriginal, resultado.DespachadaEn);
-        Assert.Equal(proveedorId, resultado.DespachadaPor);
-        Assert.Equal(fechaEstimadaOriginal, resultado.FechaEstimadaLlegada);
-        Assert.Equal(observacionOriginal, resultado.Observacion);
+        Assert.Equal("Despachada", orden.Estado);
+        Assert.Equal(fechaOriginal, orden.FechaDespacho);
+        Assert.Equal(fechaOriginal, orden.DespachadaEn);
+        Assert.Equal(proveedorId, orden.DespachadaPor);
+        Assert.Equal(fechaEstimadaOriginal, orden.FechaEstimadaLlegada);
+        Assert.Equal(observacionOriginal, orden.Observacion);
 
         await ordenRepo.DidNotReceive().UpdateAsync(Arg.Any<OrdenCompra>(), Arg.Any<CancellationToken>());
         await publishEndpoint.DidNotReceive().Publish<OrdenCompraDespachadaEvent>(
@@ -571,20 +572,15 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         Assert.Equal(fechaEstimada, ocListadoDespues.FechaEstimadaLlegada);
         Assert.Equal(observacion, ocListadoDespues.Observacion);
 
-        // 5. Segundo intento de despacho del mismo Proveedor dueño devuelve 200 OK idempotente,
-        //    conserva los datos originales y NO vuelve a publicar el evento.
+        // 5. Segundo intento de despacho del mismo Proveedor dueño sin recepción parcial intermedia devuelve 409 Conflict
+        //    con ProblemDetails y correlationId, conserva los datos originales y NO vuelve a publicar el evento (#248).
+        var cidSegundo = Guid.NewGuid().ToString();
+        clientProveedor.DefaultRequestHeaders.Remove("X-Correlation-ID");
+        clientProveedor.DefaultRequestHeaders.Add("X-Correlation-ID", cidSegundo);
         var segundoResp = await clientProveedor.PostAsJsonAsync(
             $"/api/ordenes-compra/{ocEmitida.Id}/despachar",
             new DespacharOrdenCompraRequestDto(DateTime.UtcNow.Date.AddDays(10), "Intento de sobrescritura"));
-        Assert.Equal(HttpStatusCode.OK, segundoResp.StatusCode);
-
-        var ocSegundoIntento = await segundoResp.Content.ReadFromJsonAsync<OrdenCompraResponseDto>();
-        Assert.NotNull(ocSegundoIntento);
-        Assert.Equal(ocDespachada.FechaDespacho, ocSegundoIntento.FechaDespacho);
-        Assert.Equal(ocDespachada.DespachadaEn, ocSegundoIntento.DespachadaEn);
-        Assert.Equal(proveedorId, ocSegundoIntento.DespachadaPor);
-        Assert.Equal(fechaEstimada, ocSegundoIntento.FechaEstimadaLlegada);
-        Assert.Equal(observacion, ocSegundoIntento.Observacion);
+        await AssertProblemDetailsWithCorrelationIdAsync(segundoResp, HttpStatusCode.Conflict, cidSegundo);
 
         await publishSpy.Received(1).Publish<OrdenCompraDespachadaEvent>(
             Arg.Any<OrdenCompraDespachadaEvent>(),

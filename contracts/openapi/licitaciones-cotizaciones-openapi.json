@@ -1063,8 +1063,8 @@
         "tags": [
           "OrdenesCompra"
         ],
-        "summary": "Marcar una orden de compra como despachada (Rol: Proveedor dueño de la orden)",
-        "description": "Permite únicamente al Proveedor titular de la orden de compra marcarla como despachada, registrando quién despachó (despachadaPor), cuándo (despachadaEn / fechaDespacho en UTC), una fecha estimada de llegada opcional (no anterior a hoy) y una observación opcional de hasta 200 caracteres, publicando OrdenCompraDespachadaEvent. Compras (Comprador), otros proveedores, Capataz y Admin reciben 403 Forbidden. La operación es idempotente: si la orden ya fue despachada devuelve 200 OK con el estado actual guardado sin sobrescribir los datos originales ni volver a publicar el evento.",
+        "summary": "Marcar una orden de compra (o su remanente tras recepción parcial) como despachada (Rol: Proveedor dueño de la orden)",
+        "description": "Permite únicamente al Proveedor titular de la orden de compra marcarla como despachada (y re-despachar el remanente cuando la orden tiene una recepción parcial pendiente, incrementando numeroDespacho, registrando el aviso en el chat y notificando a Compras y Capataz #248), registrando quién despachó (despachadaPor), cuándo (despachadaEn / fechaDespacho en UTC), fecha estimada de llegada opcional y observación opcional (máx. 200 caracteres), publicando OrdenCompraDespachadaEvent. Compras (Comprador), otros proveedores, Capataz y Admin reciben 403 Forbidden. Devuelve 409 Conflict si la orden ya está despachada en tránsito sin recepción parcial intermedia o si ya fue recibida completa.",
         "parameters": [
           {
             "name": "id",
@@ -1090,7 +1090,7 @@
         },
         "responses": {
           "200": {
-            "description": "Orden de compra marcada como despachada (o estado actual si ya había sido despachada previamente).",
+            "description": "Orden de compra o remanente marcado como despachado exitosamente.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1110,6 +1110,16 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "Conflict (La orden ya se encuentra despachada en tránsito o ya fue recibida completa)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -2488,6 +2498,26 @@
             "format": "int32",
             "minimum": 0,
             "description": "Cantidad de mensajes del chat pendientes de lectura para el usuario autenticado (#218)."
+          },
+          "numeroDespacho": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "description": "Cantidad de envíos registrados para esta orden (0 si emitida sin despachar, 1 en el primer despacho, 2+ tras re-despachos de remanente #248)."
+          },
+          "puedeRedespachar": {
+            "type": "boolean",
+            "description": "Indica si el proveedor puede despachar un remanente pendiente tras una recepción parcial (#248)."
+          },
+          "tieneRecepcionParcialPendiente": {
+            "type": "boolean",
+            "description": "Indica si la última recepción confirmada sobre la orden fue parcial dejando remanente pendiente de envío (#248)."
+          },
+          "fechaUltimaRecepcionParcial": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fecha y hora (en UTC) de la última recepción parcial registrada antes de un nuevo re-despacho, o null si no aplica (#248)."
           }
         },
         "additionalProperties": false

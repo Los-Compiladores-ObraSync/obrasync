@@ -116,9 +116,12 @@ public class LicitacionesDbContext : DbContext
             e.Property(x => x.TotalFlete).HasPrecision(18, 2);
             e.Property(x => x.FechaEmision).HasConversion(utcDateTimeConverter);
             e.Property(x => x.FechaDespacho).HasConversion(nullableUtcDateTimeConverter);
+            e.Property(x => x.NumeroDespacho).HasDefaultValue(0);
             e.Property(x => x.DespachadaPor);
             e.Property(x => x.FechaEstimadaLlegada).HasConversion(nullableUtcDateTimeConverter);
             e.Property(x => x.Observacion).HasMaxLength(OrdenCompra.MaxLongitudObservacionDespacho);
+            e.Property(x => x.TieneRecepcionParcialPendiente).HasDefaultValue(false);
+            e.Property(x => x.FechaUltimaRecepcionParcial).HasConversion(nullableUtcDateTimeConverter);
             e.Property(x => x.RecibidaCompleta).HasDefaultValue(false);
             e.Property(x => x.FechaRecepcionCompleta).HasConversion(nullableUtcDateTimeConverter);
             e.Property(x => x.TieneProblemaAbierto).HasDefaultValue(false);
@@ -129,6 +132,7 @@ public class LicitacionesDbContext : DbContext
             e.Ignore(x => x.ObraId);
             e.Ignore(x => x.DespachadaEn);
             e.Ignore(x => x.FueDespachada);
+            e.Ignore(x => x.PuedeRedespachar);
 
             e.HasMany(x => x.Items)
                 .WithOne()

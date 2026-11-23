@@ -450,9 +450,9 @@ public class ChatOrdenCompraTests : IClassFixture<WebApplicationFactory<Program>
         var respDesp1 = await clientProv.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null);
         Assert.Equal(HttpStatusCode.OK, respDesp1.StatusCode);
 
-        // Reintento idempotente de despacho -> no duplica mensaje del sistema
+        // Segundo intento sin recepción parcial intermedia -> 409 Conflict (#248) y no duplica mensaje del sistema
         var respDesp2 = await clientProv.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null);
-        Assert.Equal(HttpStatusCode.OK, respDesp2.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, respDesp2.StatusCode);
 
         await notifierSpy.Received(1).NotificarMensajeAsync(
             Arg.Is<MensajeChatOrdenDto>(m =>
