@@ -148,7 +148,9 @@ namespace ObraSync.Requisiciones.Application.Mappings
             return new RechazarRequisicionCommand(
                 requisicionId,
                 rechazadorId,
-                request.Motivo ?? string.Empty);
+                request.Motivo ?? string.Empty,
+                request.CategoriaMotivo,
+                request.Comentario);
         }
     }
 }
