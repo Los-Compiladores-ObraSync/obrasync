@@ -233,6 +233,7 @@ public class CorregirCotizacionEndpointTests : IClassFixture<WebApplicationFacto
     [Theory]
     [InlineData("Capataz")]
     [InlineData("Comprador")]
+    [InlineData("Admin")]
     public async Task Corregir_ConRolNoAutorizado_Devuelve403(string rol)
     {
         Escenario? e = null;

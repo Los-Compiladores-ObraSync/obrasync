@@ -27,7 +27,7 @@ public class CalificacionProveedorYPonderacionesTests
 
     [Theory]
     [InlineData("Comprador", 5)]
-    [InlineData("Admin", 1)]
+    [InlineData("Comprador", 1)]
     public async Task UpsertYGetCalificacionProveedor_ConRolAutorizado_Devuelve200OK(string rol, int calificacion)
     {
         var dbName = $"TestDb_CalifOk_{Guid.NewGuid()}";
@@ -93,18 +93,18 @@ public class CalificacionProveedorYPonderacionesTests
         await using var factory = CreateFactory(dbName);
         var proveedorId = Guid.NewGuid();
 
-        // El comprador califica con 4 y después el admin (otro usuario) con 2: el proveedor queda en 3, no en 2.
+        // El comprador 1 califica con 4 y después otro comprador (otro usuario) con 2: el proveedor queda en 3, no en 2.
         var comprador = factory.CreateClient();
         comprador.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GenerateJwt("Comprador"));
-        var admin = factory.CreateClient();
-        admin.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GenerateJwt("Admin"));
+        var comprador2 = factory.CreateClient();
+        comprador2.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GenerateJwt("Comprador"));
 
         var r1 = await comprador.PutAsJsonAsync(
             $"/api/cotizaciones/proveedores/{proveedorId}/calificacion",
             new UpsertCalificacionProveedorRequestDto(4));
         Assert.Equal(HttpStatusCode.OK, r1.StatusCode);
 
-        var r2 = await admin.PutAsJsonAsync(
+        var r2 = await comprador2.PutAsJsonAsync(
             $"/api/cotizaciones/proveedores/{proveedorId}/calificacion",
             new UpsertCalificacionProveedorRequestDto(2));
         Assert.Equal(HttpStatusCode.OK, r2.StatusCode);

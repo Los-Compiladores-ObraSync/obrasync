@@ -532,6 +532,11 @@ public class CalificacionPorOrdenYRecepcionCompletaTests : IClassFixture<WebAppl
         clientComprador.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador", compradorId));
 
+        var comprador2Id = Guid.NewGuid();
+        var clientComprador2 = factory.CreateClient();
+        clientComprador2.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador", comprador2Id));
+
         var clientAdmin = factory.CreateClient();
         clientAdmin.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Admin", adminId));
@@ -578,15 +583,20 @@ public class CalificacionPorOrdenYRecepcionCompletaTests : IClassFixture<WebAppl
         Assert.Equal(4.5m, dtoOrden2.PromedioProveedor);
         Assert.Equal(2, dtoOrden2.CantidadCalificacionesProveedor);
 
-        // 3) Admin califica orden 1 con 5 y comentario -> suma 3.ª calificación (promedio (5+4+5)/3 = 4.67)
-        var r3 = await clientAdmin.PutAsJsonAsync(
+        // 3) Admin no puede calificar (#232 -> 403), pero un segundo Comprador califica orden 1 con 5 y comentario -> suma 3.ª calificación (promedio (5+4+5)/3 = 4.67)
+        var rAdminRechazado = await clientAdmin.PutAsJsonAsync(
+            $"/api/ordenes-compra/{orden1Id}/calificacion",
+            new UpsertCalificacionOrdenCompraRequestDto(5, "Intento de admin"));
+        Assert.Equal(HttpStatusCode.Forbidden, rAdminRechazado.StatusCode);
+
+        var r3 = await clientComprador2.PutAsJsonAsync(
             $"/api/ordenes-compra/{orden1Id}/calificacion",
             new UpsertCalificacionOrdenCompraRequestDto(5, "Entrega impecable en obra"));
         Assert.Equal(HttpStatusCode.OK, r3.StatusCode);
-        var dtoAdmin = await r3.Content.ReadFromJsonAsync<CalificacionOrdenCompraResponseDto>();
-        Assert.NotNull(dtoAdmin);
-        Assert.Equal(4.67m, dtoAdmin.PromedioProveedor);
-        Assert.Equal(3, dtoAdmin.CantidadCalificacionesProveedor);
+        var dtoComprador2 = await r3.Content.ReadFromJsonAsync<CalificacionOrdenCompraResponseDto>();
+        Assert.NotNull(dtoComprador2);
+        Assert.Equal(4.67m, dtoComprador2.PromedioProveedor);
+        Assert.Equal(3, dtoComprador2.CantidadCalificacionesProveedor);
 
         // 4) GET /api/ordenes-compra/{id}/calificacion devuelve la calificación del usuario autenticado
         var miCalifComprador = await clientComprador.GetFromJsonAsync<CalificacionOrdenCompraResponseDto>(

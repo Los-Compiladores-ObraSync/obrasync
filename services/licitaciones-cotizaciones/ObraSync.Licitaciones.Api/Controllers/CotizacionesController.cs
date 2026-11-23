@@ -163,11 +163,11 @@ public class CotizacionesController : ControllerBase
     }
 
     /// <summary>
-    /// Cargar o actualizar la calificación global de un proveedor (1 a 5) (Roles: Comprador, Admin).
+    /// Cargar o actualizar la calificación global de un proveedor (1 a 5) (Rol: Comprador).
     /// </summary>
     [HttpPut("proveedores/{proveedorId:guid}/calificacion")]
     [HttpPut("/api/proveedores/{proveedorId:guid}/calificacion")]
-    [Authorize(Roles = "Comprador,Admin")]
+    [Authorize(Roles = "Comprador")]
     [ProducesResponseType(typeof(CalificacionProveedorResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -328,11 +328,11 @@ public class CotizacionesController : ControllerBase
     }
 
     /// <summary>
-    /// Cargar una cotización para un pliego (Roles: Proveedor, Admin).
-    /// Si el usuario es Proveedor, proveedorId debe coincidir exactamente con el claim 'sub' del JWT.
+    /// Cargar una cotización para un pliego (Rol: Proveedor).
+    /// proveedorId debe coincidir exactamente con el claim 'sub' del JWT.
     /// </summary>
     [HttpPost]
-    [Authorize(Roles = "Proveedor,Admin")]
+    [Authorize(Roles = "Proveedor")]
     [ProducesResponseType(typeof(CotizacionResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -352,7 +352,7 @@ public class CotizacionesController : ControllerBase
         }
 
         // Seguridad crítica: un Proveedor no puede impersonar a otro Proveedor
-        if (User.IsInRole("Proveedor") && !User.IsInRole("Admin") && request.ProveedorId != usuarioIdToken)
+        if (request.ProveedorId != usuarioIdToken)
         {
             return Problem(
                 detail: "Un usuario con rol Proveedor solo puede presentar cotizaciones en su propio nombre (proveedorId debe coincidir con el claim 'sub' del token JWT).",
@@ -368,9 +368,7 @@ public class CotizacionesController : ControllerBase
                 request.Flete,
                 request.PlazoEntregaDias,
                 request.Items,
-                // El nombre sale del JWT solo cuando la cotización es del propio usuario. Si un Admin carga la oferta de otro
-                // proveedor, el claim "name" sería el del Admin: se deja en null antes que mostrar un nombre equivocado.
-                request.ProveedorId == usuarioIdToken ? User.FindFirstValue("name") : null);
+                User.FindFirstValue("name"));
 
             var creada = await _crearCotizacionHandler.Handle(command, cancellationToken);
 
@@ -403,11 +401,11 @@ public class CotizacionesController : ControllerBase
     }
 
     /// <summary>
-    /// Corregir una cotización propia mientras la licitación siga abierta y dentro de plazo (Roles: Proveedor dueño, Admin).
+    /// Corregir una cotización propia mientras la licitación siga abierta y dentro de plazo (Rol: Proveedor dueño).
     /// Usa el mismo cuerpo que al cotizar; licitacionId y proveedorId del cuerpo se ignoran (valen los de la cotización guardada).
     /// </summary>
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "Proveedor,Admin")]
+    [Authorize(Roles = "Proveedor")]
     [ProducesResponseType(typeof(CotizacionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -431,7 +429,7 @@ public class CotizacionesController : ControllerBase
         {
             var corregida = await handler.Handle(
                 new ReemplazarCotizacionCommand(
-                    id, usuarioId, User.IsInRole("Admin"), request.Flete, request.PlazoEntregaDias, request.Items),
+                    id, usuarioId, false, request.Flete, request.PlazoEntregaDias, request.Items),
                 cancellationToken);
             return Ok(corregida);
         }

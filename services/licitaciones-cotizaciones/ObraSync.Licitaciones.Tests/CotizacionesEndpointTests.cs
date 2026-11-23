@@ -173,14 +173,16 @@ public class CotizacionesEndpointTests : IClassFixture<WebApplicationFactory<Pro
     }
 
     [Fact]
-    public async Task PostCotizacion_AdminCotizandoEnNombreDeUnProveedor_Retorna201Created()
+    public async Task PostCotizacion_AdminIntentandoCotizarEnNombreDeUnProveedor_Retorna403ForbiddenConProblemDetailsYCorrelationId()
     {
         var articulo = Guid.NewGuid();
         var licitacion = await SembrarLicitacionAsync(EstadoLicitacion.Abierta, null, articulo);
         var adminId = Guid.NewGuid();
         var proveedorTerceroId = Guid.NewGuid();
+        var correlationId = Guid.NewGuid().ToString();
 
         var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Admin", adminId));
 
@@ -197,11 +199,7 @@ public class CotizacionesEndpointTests : IClassFixture<WebApplicationFactory<Pro
         };
 
         var response = await client.PostAsJsonAsync("/api/cotizaciones", request);
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-        var creada = await response.Content.ReadFromJsonAsync<CotizacionResponseDto>();
-        Assert.NotNull(creada);
-        Assert.Equal(proveedorTerceroId, creada.ProveedorId);
+        await AssertProblemDetailsWithCorrelationIdAsync(response, HttpStatusCode.Forbidden, correlationId);
     }
 
     [Fact]
@@ -1173,12 +1171,14 @@ public class CotizacionesEndpointTests : IClassFixture<WebApplicationFactory<Pro
     }
 
     [Fact]
-    public async Task PostCotizacion_AdminEnNombreDeOtroProveedor_NoGuardaElNombreDelAdmin()
+    public async Task PostCotizacion_AdminEnNombreDeOtroProveedor_Retorna403ForbiddenConProblemDetails()
     {
         var articulo = Guid.NewGuid();
         var licitacion = await SembrarLicitacionAsync(EstadoLicitacion.Abierta, null, articulo);
+        var correlationId = Guid.NewGuid().ToString();
 
         var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Admin"));
 
         var response = await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
@@ -1189,10 +1189,7 @@ public class CotizacionesEndpointTests : IClassFixture<WebApplicationFactory<Pro
             PlazoEntregaDias = 3,
             Items = new List<CrearCotizacionItemDto> { new() { ArticuloId = articulo, PrecioUnitario = 10m } }
         });
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-        var creada = await response.Content.ReadFromJsonAsync<CotizacionResponseDto>();
-        Assert.Null(creada!.ProveedorNombre);
+        await AssertProblemDetailsWithCorrelationIdAsync(response, HttpStatusCode.Forbidden, correlationId);
     }
 
     [Fact]

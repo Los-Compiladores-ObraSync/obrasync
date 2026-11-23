@@ -347,22 +347,33 @@ public class ChatOrdenCompraTests : IClassFixture<WebApplicationFactory<Program>
             Arg.Is<MensajeChatOrdenDto>(m => m.Id == dtoComp.Id),
             Arg.Any<CancellationToken>());
 
-        // 3. Admin envía mensaje -> destinatario=[provId], roles=[]
+        // 3. Admin solo tiene lectura en el chat (#232 / #233 -> 403 al escribir); otro Comprador envía mensaje por ruta alias -> destinatario=[provId], roles=[]
         var clientAdmin = factory.CreateClient();
+        var cidAdmin = Guid.NewGuid().ToString();
         clientAdmin.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Admin", adminId, "Carlos Admin"));
-        var respAdmin = await clientAdmin.PostAsJsonAsync(
+        clientAdmin.DefaultRequestHeaders.Add("X-Correlation-ID", cidAdmin);
+        var respAdminRechazado = await clientAdmin.PostAsJsonAsync(
             $"/api/licitaciones/ordenes-compra/{ordenId}/chat/mensajes",
-            new { texto = "Revisado por administración" });
-        Assert.Equal(HttpStatusCode.Created, respAdmin.StatusCode);
+            new { texto = "Intento de escritura de Admin" });
+        await AssertProblemDetailsWithCorrelationIdAsync(respAdminRechazado, HttpStatusCode.Forbidden, cidAdmin);
+
+        var comprador2Id = Guid.NewGuid();
+        var clientComprador2 = factory.CreateClient();
+        clientComprador2.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador", comprador2Id, "Carlos Compras"));
+        var respComp2 = await clientComprador2.PostAsJsonAsync(
+            $"/api/licitaciones/ordenes-compra/{ordenId}/chat/mensajes",
+            new { texto = "Revisado por compras" });
+        Assert.Equal(HttpStatusCode.Created, respComp2.StatusCode);
 
         await publishSpy.Received(1).Publish<MensajeChatEnviadoEvent>(
             Arg.Is<MensajeChatEnviadoEvent>(e =>
-                e.Remitente.UsuarioId == adminId &&
-                e.Remitente.Rol == "Admin" &&
+                e.Remitente.UsuarioId == comprador2Id &&
+                e.Remitente.Rol == "Comprador" &&
                 e.Destinatarios.UsuarioIds.SequenceEqual(new[] { provId }) &&
                 e.Destinatarios.Roles.Count == 0 &&
-                e.Fragmento == "Revisado por administración"),
+                e.Fragmento == "Revisado por compras"),
             Arg.Any<CancellationToken>());
 
         // 4. Proveedor titular envía mensaje -> usuarioIds=[], roles=["Comprador", "Admin"]
@@ -405,7 +416,12 @@ public class ChatOrdenCompraTests : IClassFixture<WebApplicationFactory<Program>
         Assert.NotNull(pagina1);
         Assert.Equal(2, pagina1.Count);
         Assert.Equal("Comprador", pagina1[0].AutorRol);
-        Assert.Equal("Admin", pagina1[1].AutorRol);
+        Assert.Equal("Comprador", pagina1[1].AutorRol);
+
+        var paginaAdmin = await clientAdmin.GetFromJsonAsync<List<MensajeChatOrdenDto>>(
+            $"/api/ordenes-compra/{ordenId}/chat/mensajes?pagina=1&tamano=10");
+        Assert.NotNull(paginaAdmin);
+        Assert.Equal(3, paginaAdmin.Count);
 
         var pagina2 = await clientComprador.GetFromJsonAsync<List<MensajeChatOrdenDto>>(
             $"/api/ordenes-compra/{ordenId}/chat/mensajes?pagina=2&tamano=2");

@@ -59,6 +59,12 @@ public class EnviarMensajeChatOrdenCommandHandler
             request.RolUsuario,
             cancellationToken);
 
+        if (rolNormalizado == "Admin")
+        {
+            throw new UnauthorizedAccessException(
+                "El rol Admin tiene acceso de solo lectura al chat de la orden de compra y no puede enviar mensajes.");
+        }
+
         var ahoraUtc = DateTime.UtcNow;
         var mensaje = MensajeChatOrden.CrearDePersona(
             ordenCompraId: ordenCompra.OrdenCompraId,
