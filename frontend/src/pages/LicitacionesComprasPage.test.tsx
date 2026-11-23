@@ -31,6 +31,14 @@ describe('LicitacionesComprasPage', () => {
     expect(enlaceVolver).toHaveAttribute('href', '/')
   })
 
+  it('vuelve al historial con sus filtros y página al entrar desde un movimiento', () => {
+    renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}&desdeHistorial=1&tipo=licitaciones&obraId=obra-1&desde=2026-11-01&hasta=2026-11-30&pagina=2`)
+    expect(screen.getByRole('link', { name: '← Volver al inicio' })).toHaveAttribute(
+      'href',
+      '/compras/historial?tipo=licitaciones&obraId=obra-1&desde=2026-11-01&hasta=2026-11-30&pagina=2',
+    )
+  })
+
   it('muestra estado de carga y luego la lista de licitaciones', async () => {
     renderPagina()
 

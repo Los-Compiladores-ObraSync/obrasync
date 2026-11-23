@@ -10,6 +10,7 @@ import { textoLicitacionesParaCotizar, textoPendientes } from '../notificaciones
 import { usePendientes } from '../notificaciones/usePendientes'
 import { accionesParaRol } from '../portales/accionesRapidas'
 import { portalesParaRol } from '../portales/portales'
+import { ComprasPage } from './ComprasPage'
 import styles from './InicioPage.module.css'
 
 /** Desde el Historial se abre el detalle de cada requisición, donde se publica su licitación. */
@@ -82,7 +83,8 @@ export function InicioPage() {
       ))}
       {apruebaRequisiciones && <ResumenAprobacion />}
       {cotiza && <ResumenLicitaciones {...licitaciones} />}
-      {acciones.length > 0 && (
+      {usuario?.rol === 'Comprador' && <ComprasPage integrada descripcionPendientes={textoPendientes(pendientes)} />}
+      {acciones.length > 0 && usuario?.rol !== 'Comprador' && (
         <ul className="lista-acciones">
           {acciones.map((accion) => (
             <li key={accion.ruta}>

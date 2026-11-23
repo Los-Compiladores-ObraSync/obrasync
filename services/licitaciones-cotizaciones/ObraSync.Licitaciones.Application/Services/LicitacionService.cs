@@ -75,6 +75,9 @@ public class LicitacionService : ILicitacionService
         Estado = l.Estado.ToString(),
         FechaCreacion = l.FechaCreacion,
         FechaLimiteCotizacion = l.FechaLimiteCotizacion,
+        FechaAdjudicacion = l.FechaAdjudicacion.HasValue
+            ? DateTime.SpecifyKind(l.FechaAdjudicacion.Value, DateTimeKind.Utc)
+            : null,
         Items = l.Items.Select(i => new PliegoItemDto
         {
             ArticuloId = i.ArticuloId,

@@ -1898,6 +1898,12 @@
             "nullable": true,
             "description": "Fecha y hora (UTC) en que la licitación fue cerrada sin adjudicar (null si no fue cerrada manualmente)."
           },
+          "fechaAdjudicacion": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fecha y hora (UTC) en que se adjudicó la licitación. Null para licitaciones sin adjudicar y para adjudicaciones históricas anteriores a su persistencia."
+          },
           "items": {
             "type": "array",
             "minItems": 1,

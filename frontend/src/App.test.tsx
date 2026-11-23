@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
@@ -322,6 +322,58 @@ describe('App - acceso a los portales', () => {
     },
   )
 
+  it('el inicio del Comprador reúne Compras, el asistente y el acceso al historial', async () => {
+    iniciarSesionComo('Comprador')
+    renderApp('/')
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Bienvenido, Juan Pérez' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Asistente' })).toHaveAttribute('href', '/compras/asistente')
+    const progreso = await screen.findByRole('region', { name: 'Progreso del flujo de compras' })
+    expect(within(progreso).getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual([
+      '/compras/requisiciones', '/compras/licitaciones', '/compras/ordenes', '/compras/recepcion',
+    ])
+    expect(screen.getByRole('region', { name: 'Qué hago ahora' })).toBeInTheDocument()
+    const historial = await screen.findByRole('region', { name: 'Historial de actividad' })
+    expect(within(historial).getByText(/últimas novedades de Compras/)).toBeInTheDocument()
+    expect(within(historial).queryByRole('list')).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Tus datos' })).toHaveTextContent('Comprador')
+    expect(within(historial).getByRole('link', { name: 'Ver historial' })).toHaveAttribute('href', '/compras/historial')
+  })
+
+  it('el asistente del Comprador sigue abriendo desde el inicio unificado', async () => {
+    const usuario = userEvent.setup()
+    iniciarSesionComo('Comprador')
+    renderApp('/')
+
+    await usuario.click(screen.getByRole('link', { name: 'Asistente' }))
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Asistente' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Ver requisiciones pendientes/ })).toBeEnabled()
+  })
+
+  it('Ver historial abre el historial completo desde el inicio unificado', async () => {
+    const usuario = userEvent.setup()
+    iniciarSesionComo('Comprador')
+    renderApp('/')
+
+    await usuario.click(await screen.findByRole('link', { name: 'Ver historial' }))
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Historial de Compras' })).toBeInTheDocument()
+  })
+
+  it('mantiene /compras compatible para Comprador y Admin', async () => {
+    iniciarSesionComo('Comprador')
+    const comprador = renderApp('/compras')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Bienvenido, Juan Pérez' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Historial de actividad' })).toBeInTheDocument()
+    comprador.unmount()
+
+    localStorage.clear()
+    iniciarSesionComo('Admin')
+    renderApp('/compras')
+    expect(screen.getByRole('heading', { level: 1, name: 'Gestión y Compras' })).toBeInTheDocument()
+  })
+
   it('el Proveedor que escribe la dirección de otro portal ve "Sin acceso"', () => {
     iniciarSesionComo('Proveedor')
     renderApp('/obra')
@@ -565,7 +617,8 @@ describe('App - pendientes de aprobación del Comprador', () => {
     renderApp('/')
 
     expect(await screen.findByText('Tenés 2 requisiciones para aprobar')).toBeInTheDocument()
-    await usuario.click(screen.getByRole('link', { name: 'Aprobar requisiciones' }))
+    const resumen = screen.getByRole('region', { name: 'Resumen de aprobaciones' })
+    await usuario.click(within(resumen).getByRole('link', { name: 'Aprobar requisiciones' }))
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Aprobar requisiciones' }),
@@ -578,7 +631,8 @@ describe('App - pendientes de aprobación del Comprador', () => {
     renderApp('/')
 
     await usuario.click(await screen.findByRole('button', { name: 'Notificaciones: 4 sin leer' }))
-    await usuario.click(await screen.findByRole('link', { name: /REQ-2026-0012/ }))
+    const avisos = await screen.findByRole('region', { name: 'Avisos' })
+    await usuario.click(within(avisos).getByRole('link', { name: /REQ-2026-0012/ }))
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Aprobar requisiciones' }),

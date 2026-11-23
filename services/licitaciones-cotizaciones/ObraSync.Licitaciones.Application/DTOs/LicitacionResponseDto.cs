@@ -11,6 +11,7 @@ public class LicitacionResponseDto
     public DateTime FechaLimiteCotizacion { get; set; }
     public string? MotivoCierre { get; set; }
     public DateTime? FechaCierre { get; set; }
+    public DateTime? FechaAdjudicacion { get; set; }
     public IReadOnlyList<PliegoItemDto> Items { get; set; } = Array.Empty<PliegoItemDto>();
 
     /// <summary>

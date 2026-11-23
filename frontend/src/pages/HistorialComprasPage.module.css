@@ -1,0 +1,8 @@
+.contenedor { width: 100%; }
+.volver { display: inline-flex; align-items: center; min-height: 44px; color: var(--azul); font-weight: 700; text-decoration: none; }
+.filtros { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem 1rem; margin: 1rem 0 1.25rem; }
+.filtros label { display: flex; flex: 1 1 11rem; flex-direction: column; gap: 0.3rem; font-weight: 700; }
+.filtros select, .filtros input, .filtros button, .paginacion button { min-height: 46px; font: inherit; }
+.filtros button, .paginacion button { padding: 0.45rem 0.8rem; font-weight: 700; }
+.aviso { padding: 0.75rem 1rem; border-left: 5px solid #d97706; border-radius: 8px; background: #fffbeb; color: #78350f; }
+.paginacion { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.75rem; margin-top: 1rem; }

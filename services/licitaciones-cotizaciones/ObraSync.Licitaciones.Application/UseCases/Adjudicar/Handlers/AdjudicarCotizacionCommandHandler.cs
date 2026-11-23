@@ -19,6 +19,7 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<AdjudicarCotizacionCommandHandler> _logger;
+    private readonly TimeProvider _timeProvider;
 
     public AdjudicarCotizacionCommandHandler(
         ILicitacionRepository licitacionRepository,
@@ -26,7 +27,8 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
         IOrdenCompraRepository ordenCompraRepository,
         IPublishEndpoint publishEndpoint,
         IUnitOfWork unitOfWork,
-        ILogger<AdjudicarCotizacionCommandHandler>? logger = null)
+        ILogger<AdjudicarCotizacionCommandHandler>? logger = null,
+        TimeProvider? timeProvider = null)
     {
         _licitacionRepository = licitacionRepository;
         _cotizacionRepository = cotizacionRepository;
@@ -34,6 +36,7 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
         _publishEndpoint = publishEndpoint;
         _unitOfWork = unitOfWork;
         _logger = logger ?? NullLogger<AdjudicarCotizacionCommandHandler>.Instance;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public async Task<OrdenCompraResponseDto> Handle(AdjudicarCotizacionCommand request, CancellationToken cancellationToken)
@@ -85,6 +88,7 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
 
         decimal subtotalItems = cotizacion.Items.Sum(ci => ci.CalcularSubtotal(itemsPorArticulo[ci.ArticuloId].Cantidad));
         decimal montoTotal = subtotalItems + cotizacion.Flete;
+        var fechaAdjudicacionUtc = _timeProvider.GetUtcNow().UtcDateTime;
 
         // 4. Crear la entidad Orden de Compra
         var ordenCompraId = Guid.NewGuid();
@@ -119,6 +123,7 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
 
         // Actualizar estado de la licitación
         licitacion.Estado = EstadoLicitacion.Adjudicada;
+        licitacion.FechaAdjudicacion = fechaAdjudicacionUtc;
 
         await _ordenCompraRepository.AddAsync(ordenCompra, cancellationToken);
         await _licitacionRepository.UpdateAsync(licitacion, cancellationToken);

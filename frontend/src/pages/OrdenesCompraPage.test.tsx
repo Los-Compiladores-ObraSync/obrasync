@@ -86,6 +86,14 @@ describe('OrdenesCompraPage (#205, #223)', () => {
     expect(filas[1]).toHaveAttribute('id', 'orden-c1c2c3c4-0000-0000-0000-000000000002')
   })
 
+  it('vuelve al historial con filtros y página cuando la orden se abrió desde allí', () => {
+    renderPagina('/compras/ordenes?ordenCompraId=oc-1&desdeHistorial=1&tipo=ordenes&obraId=obra-1&desde=2026-11-01&hasta=2026-11-30&pagina=3')
+    expect(screen.getByRole('link', { name: '← Volver al inicio' })).toHaveAttribute(
+      'href',
+      '/compras/historial?tipo=ordenes&obraId=obra-1&desde=2026-11-01&hasta=2026-11-30&pagina=3',
+    )
+  })
+
   it('si falla la carga, avisa y "Reintentar" vuelve a pedir la lista', async () => {
     server.use(http.get(RUTA_LISTA, () => HttpResponse.error(), { once: true }))
     const user = userEvent.setup()

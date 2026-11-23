@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { listarCotizaciones, listarLicitaciones, listarOrdenesCompra } from '../licitaciones/licitacionesService'
 import { traerTodas } from '../api/paginacion'
-import { listarRequisiciones } from '../requisiciones/requisicionesService'
+import { listarRequisiciones, obtenerObras } from '../requisiciones/requisicionesService'
 import { ResumenAprobacion } from '../notificaciones/ResumenAprobacion'
 import { usePendientes } from '../notificaciones/usePendientes'
 import { InsigniaCantidad } from '../licitaciones/InsigniaCantidad'
 import { obtenerOrdenesPendientes } from '../recepciones/recepcionesService'
+import { cargarMovimientosCompras, type MovimientoCompra } from '../historialCompras/movimientos'
+import { ListaMovimientos } from '../historialCompras/ListaMovimientos'
 import styles from './ComprasPage.module.css'
 
 interface ResumenFlujo {
@@ -20,10 +22,32 @@ function cantidadConNombre(cantidad: number, singular: string, plural: string): 
   return `${cantidad} ${cantidad === 1 ? singular : plural}`
 }
 
-export function ComprasPage() {
+export function ComprasPage({
+  integrada = false,
+  descripcionPendientes,
+}: { integrada?: boolean; descripcionPendientes?: string } = {}) {
   const { cantidad: porAprobar, cargado: aprobacionesCargadas } = usePendientes()
   const [flujo, setFlujo] = useState<ResumenFlujo | null>(null)
   const [errorFlujo, setErrorFlujo] = useState(false)
+  const [movimientos, setMovimientos] = useState<MovimientoCompra[]>([])
+  const [nombresObras, setNombresObras] = useState<Record<string, string>>({})
+  const [errorHistorial, setErrorHistorial] = useState(false)
+  const [cargandoHistorial, setCargandoHistorial] = useState(true)
+
+  useEffect(() => {
+    if (integrada) return
+    let cancelado = false
+    void cargarMovimientosCompras().then((resultado) => {
+      if (cancelado) return
+      setMovimientos(resultado.movimientos.slice(0, 10))
+      setErrorHistorial(resultado.errores.length > 0)
+    }).catch(() => { if (!cancelado) setErrorHistorial(true) })
+      .finally(() => { if (!cancelado) setCargandoHistorial(false) })
+    void obtenerObras().then((obras) => {
+      if (!cancelado) setNombresObras(Object.fromEntries(obras.map((obra) => [obra.id, obra.nombre])))
+    }).catch(() => {})
+    return () => { cancelado = true }
+  }, [integrada])
 
   useEffect(() => {
     let cancelado = false
@@ -74,9 +98,29 @@ export function ComprasPage() {
 
   return (
     <section>
-      <h1>Gestión y Compras</h1>
-      <p className="intro">Cargá obras y aprobá los pedidos de materiales.</p>
-      <ResumenAprobacion />
+      {!integrada && <>
+        <h1>Gestión y Compras</h1>
+        <p className="intro">Cargá obras y aprobá los pedidos de materiales.</p>
+        <ResumenAprobacion />
+      </>}
+
+      <section className={styles.historial} aria-label={integrada ? 'Historial de actividad' : 'Lo último que pasó'}>
+        <div className={styles.encabezadoHistorial}>
+          <h2>{integrada ? 'Historial de actividad' : 'Lo último que pasó'}</h2>
+          <Link className="accion-secundaria" to="/compras/historial">
+            {integrada ? 'Ver historial' : 'Ver todo'}
+          </Link>
+        </div>
+        {integrada ? (
+          <p>Consultá las últimas novedades de Compras en el historial completo.</p>
+        ) : (
+          <>
+            {cargandoHistorial && <p role="status">Cargando movimientos…</p>}
+            {errorHistorial && <p role="status">Algunos movimientos no pudieron cargarse; se muestran los datos disponibles.</p>}
+            {!cargandoHistorial && <ListaMovimientos movimientos={movimientos} nombresObras={nombresObras} />}
+          </>
+        )}
+      </section>
 
       <section aria-label="Progreso del flujo de compras">
         <h2>Progreso del flujo</h2>
@@ -98,13 +142,13 @@ export function ComprasPage() {
       <h2>Accesos de Compras</h2>
       <ul className="lista-acciones">
         <li><Link to="/compras/requisiciones" className="accion-secundaria">Aprobar requisiciones</Link></li>
-        <li><Link to="/compras/requisiciones/historial" className="accion-secundaria">{aprobacionesCargadas && porAprobar > 0 ? <span>Historial de requisiciones<InsigniaCantidad cantidad={porAprobar} descripcion={`${porAprobar} requisiciones pendientes de aprobación`} /></span> : 'Historial de requisiciones'}</Link></li>
+        <li><Link to="/compras/requisiciones/historial" className="accion-secundaria">{aprobacionesCargadas && porAprobar > 0 ? <span>Historial de requisiciones<InsigniaCantidad cantidad={porAprobar} descripcion={descripcionPendientes ?? `${porAprobar} requisiciones pendientes de aprobación`} /></span> : 'Historial de requisiciones'}</Link></li>
         <li><Link to="/compras/licitaciones" className="accion-secundaria">Licitaciones y cotizaciones</Link></li>
         <li><Link to="/compras/ordenes" className="accion-secundaria">Órdenes de compra</Link></li>
         <li><Link to="/compras/presupuesto" className="accion-secundaria">Presupuesto</Link></li>
         <li><Link to="/compras/obras" className="accion-secundaria">Ver obras</Link></li>
         <li><Link to="/compras/insumos/carga" className="accion-secundaria">Cargar insumos (CSV)</Link></li>
-        <li><Link to="/" className="accion-secundaria">Volver al inicio</Link></li>
+        {!integrada && <li><Link to="/" className="accion-secundaria">Volver al inicio</Link></li>}
       </ul>
     </section>
   )

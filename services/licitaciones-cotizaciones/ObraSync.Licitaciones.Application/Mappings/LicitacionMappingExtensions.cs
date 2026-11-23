@@ -20,6 +20,9 @@ public static class LicitacionMappingExtensions
             FechaCierre = licitacion.FechaCierre.HasValue
                 ? DateTime.SpecifyKind(licitacion.FechaCierre.Value, DateTimeKind.Utc)
                 : null,
+            FechaAdjudicacion = licitacion.FechaAdjudicacion.HasValue
+                ? DateTime.SpecifyKind(licitacion.FechaAdjudicacion.Value, DateTimeKind.Utc)
+                : null,
             Items = licitacion.Items
                 .Select(i => new PliegoItemDto
                 {

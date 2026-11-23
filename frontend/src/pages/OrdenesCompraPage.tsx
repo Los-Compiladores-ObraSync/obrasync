@@ -8,6 +8,7 @@ import type { OrdenCompraListadoDto } from '../licitaciones/licitacionesTipos'
 import { SeguimientoEntrega } from '../recepciones/SeguimientoEntrega'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { obtenerObras } from '../requisiciones/requisicionesService'
+import { destinoDeRegreso } from '../historialCompras/contextoNavegacion'
 import styles from './OrdenesCompraPage.module.css'
 
 /** Código corto para nombrar una orden en pantalla: los primeros 8 caracteres de su id. */
@@ -81,7 +82,7 @@ export function OrdenesCompraPage() {
 
   return (
     <section className={styles.contenedor}>
-      <Link to="/" className={styles.volverEnlace}>
+      <Link to={destinoDeRegreso(searchParams)} className={styles.volverEnlace}>
         ← Volver al inicio
       </Link>
       <h1>Órdenes de compra</h1>
