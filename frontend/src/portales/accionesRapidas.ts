@@ -89,6 +89,10 @@ const MIS_ORDENES_PROVEEDOR: AccionRapida = {
   texto: 'Mis órdenes',
   ruta: '/proveedores/mis-ordenes',
 }
+const MI_REPUTACION_PROVEEDOR: AccionRapida = {
+  texto: 'Mi reputación',
+  ruta: '/proveedores/mi-reputacion',
+}
 
 // Sin barra de pestañas: el Inicio de cada rol trae todo lo que ese rol hace.
 // Quien aprueba requisiciones (Comprador y Admin) ve primero la tarjeta "Tenés N requisiciones para
@@ -127,7 +131,7 @@ const ACCIONES_POR_ROL: Record<string, readonly AccionRapida[]> = {
 
   // Igual que el Comprador: el Inicio del Proveedor arranca con la tarjeta de licitaciones para cotizar
   // (ResumenLicitaciones), que es la única entrada a cotizar; debajo van solo sus accesos al pasado.
-  Proveedor: [MIS_COTIZACIONES, MIS_ORDENES_PROVEEDOR],
+  Proveedor: [MIS_COTIZACIONES, MIS_ORDENES_PROVEEDOR, MI_REPUTACION_PROVEEDOR],
 }
 
 /** Accesos rápidos de un rol (lista vacía si el rol no tiene o no es conocido). */

@@ -37,12 +37,12 @@ async function tarjetas() {
 describe('OrdenesCompraPage (#205, #223)', () => {
   beforeEach(() => reiniciarOrdenesCompraMock())
 
-  it('solo las órdenes despachadas se pueden calificar (se califica a quien ya cumplió)', async () => {
+  it('no habilita calificar ninguna orden hasta que el servicio confirme la recepción completa', async () => {
     renderPagina()
     await tarjetas()
 
-    // En el mock hay una sola orden despachada y dos sin despachar.
-    expect(screen.getAllByRole('button', { name: 'Guardar calificación' })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Guardar calificación' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('Vas a poder calificar cuando llegue todo el pedido.')).toHaveLength(3)
   })
 
   it('lista las órdenes con la obra y su estado: primero las que faltan despachar', async () => {
@@ -105,5 +105,69 @@ describe('OrdenesCompraPage (#205, #223)', () => {
 
     expect(await screen.findByText('Todavía no hay órdenes de compra.')).toBeInTheDocument()
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
+  })
+
+  it('bloquea órdenes pendientes y con recepción parcial', async () => {
+    const ordenes = [
+      {
+        id: 'orden-pendiente', licitacionId: 'lic-1', cotizacionId: 'cot-1', obraId: 'obra-1', proveedorId: 'prov-1',
+        estado: 'Emitida', fechaEmision: '2026-11-18T12:00:00Z', fueDespachada: false, recibidaCompleta: false,
+      },
+      {
+        id: 'orden-parcial', licitacionId: 'lic-2', cotizacionId: 'cot-2', obraId: 'obra-1', proveedorId: 'prov-2',
+        estado: 'Despachada', fechaEmision: '2026-11-17T12:00:00Z', fueDespachada: true, recibidaCompleta: false,
+      },
+    ]
+    server.use(http.get(RUTA_LISTA, () => HttpResponse.json(ordenes)))
+    renderPagina()
+
+    await tarjetas()
+    expect(screen.getAllByText('Vas a poder calificar cuando llegue todo el pedido.')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: /de 5/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Guardar calificación' })).not.toBeInTheDocument()
+  })
+
+  it('envía la calificación por orden y la recupera al volver a entrar desde el listado del servicio', async () => {
+    const user = userEvent.setup()
+    const orden = {
+      id: 'orden-recibida', licitacionId: 'lic-3', cotizacionId: 'cot-3', obraId: 'obra-1', proveedorId: 'prov-3',
+      estado: 'Despachada', fechaEmision: '2026-11-16T12:00:00Z', fueDespachada: true, recibidaCompleta: true,
+      miCalificacion: null as number | null, miComentarioCalificacion: null as string | null,
+    }
+    let cuerpo: unknown = null
+    server.use(
+      http.get(RUTA_LISTA, () => HttpResponse.json([orden])),
+      http.put('*/api/ordenes-compra/:id/calificacion', async ({ params, request }) => {
+        cuerpo = await request.json()
+        const entrada = cuerpo as { calificacion: number; comentario?: string | null }
+        orden.miCalificacion = entrada.calificacion
+        orden.miComentarioCalificacion = entrada.comentario ?? null
+        return HttpResponse.json({
+          ordenCompraId: params.id,
+          proveedorId: orden.proveedorId,
+          usuarioId: 'usuario-comprador',
+          calificacion: entrada.calificacion,
+          comentario: entrada.comentario ?? null,
+          fechaActualizacion: '2026-11-22T12:00:00Z',
+          promedioProveedor: entrada.calificacion,
+          cantidadCalificacionesProveedor: 1,
+        })
+      }),
+    )
+    const primeraVista = renderPagina()
+    await screen.findByRole('list')
+    await user.click(screen.getByRole('button', { name: '5 de 5' }))
+    await user.type(screen.getByRole('textbox', { name: 'Comentario opcional, máximo 300 caracteres' }), 'Entrega completa')
+    await user.click(screen.getByRole('button', { name: 'Guardar calificación' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Calificaste con 5 de 5.')
+    expect(cuerpo).toEqual({ calificacion: 5, comentario: 'Entrega completa' })
+    expect(window.localStorage.getItem('obrasync.calificacion.orden.orden-recibida')).toBeNull()
+    primeraVista.unmount()
+
+    renderPagina()
+    await screen.findByRole('list')
+    expect(screen.getByRole('status')).toHaveTextContent('Calificaste con 5 de 5.')
+    expect(screen.getByText('Comentario: Entrega completa')).toBeInTheDocument()
   })
 })

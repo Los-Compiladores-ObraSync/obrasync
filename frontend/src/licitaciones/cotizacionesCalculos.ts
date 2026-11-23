@@ -97,6 +97,63 @@ export function desglosarCotizacion(
 
 export type MarcaDeComparacion = 'Más barata' | 'Flete más bajo' | 'Entrega más rápida'
 
+export type OrdenCotizaciones =
+  | 'mejor-puntaje'
+  | 'precio-asc'
+  | 'precio-desc'
+  | 'flete-asc'
+  | 'flete-desc'
+  | 'plazo-asc'
+  | 'plazo-desc'
+  | 'calificacion-desc'
+  | 'calificacion-asc'
+
+/** Ordena localmente ofertas cargadas; los empates del criterio se resuelven por puntaje y luego ID. */
+export function ordenarCotizaciones(
+  cotizaciones: CotizacionResponseDto[],
+  orden: OrdenCotizaciones,
+  licitacion: Pick<LicitacionResponseDto, 'items'>,
+): CotizacionResponseDto[] {
+  return [...cotizaciones].sort((a, b) => {
+    if (orden === 'mejor-puntaje') {
+      return b.puntajeTotal - a.puntajeTotal || a.cotizacionId.localeCompare(b.cotizacionId)
+    }
+
+    if (orden === 'calificacion-desc' || orden === 'calificacion-asc') {
+      const calificacionA = a.calificacionProveedor
+      const calificacionB = b.calificacionProveedor
+      if (calificacionA == null && calificacionB != null) return 1
+      if (calificacionA != null && calificacionB == null) return -1
+      if (calificacionA != null && calificacionB != null && calificacionA !== calificacionB) {
+        return orden === 'calificacion-desc'
+          ? calificacionB - calificacionA
+          : calificacionA - calificacionB
+      }
+    } else {
+      const ascendente = orden.endsWith('-asc')
+      const valor = (cotizacion: CotizacionResponseDto) => {
+        switch (orden) {
+          case 'precio-asc':
+          case 'precio-desc':
+            return cotizacion.subtotalItems ?? calcularPrecioTotalCotizacion(cotizacion, licitacion)
+          case 'flete-asc':
+          case 'flete-desc':
+            return cotizacion.flete ?? 0
+          case 'plazo-asc':
+          case 'plazo-desc':
+            return cotizacion.plazoEntregaDias ?? 0
+          default:
+            return 0
+        }
+      }
+      const diferencia = valor(a) - valor(b)
+      if (diferencia !== 0) return ascendente ? diferencia : -diferencia
+    }
+
+    return b.puntajeTotal - a.puntajeTotal || a.cotizacionId.localeCompare(b.cotizacionId)
+  })
+}
+
 /**
  * Qué cotizaciones son las mejores en costo total (precio + flete), flete y plazo, para marcarlas en pantalla.
  * Un flete sin informar cuenta como 0 y un plazo sin informar como "inmediato" (igual que se muestran).
@@ -135,29 +192,6 @@ export function marcasDeComparacion(
  */
 export function formatoPrecio(valor: number): string {
   return `$ ${valor.toLocaleString('es-AR')}`
-}
-
-/**
- * Ordena las ofertas de la de mayor a menor calificación (puntajeTotal), para que la mejor quede
- * arriba aunque Compras cambie los pesos. El servicio las manda por fecha de cotización.
- * Mismo desempate que usa el servicio para elegir la oferta destacada: entrega más rápida y,
- * si sigue empatado, la que se cotizó antes. La oferta destacada va siempre primera.
- * Devuelve una copia: no modifica la lista original.
- */
-export function ordenarPorCalificacion(
-  cotizaciones: CotizacionResponseDto[],
-): CotizacionResponseDto[] {
-  return [...cotizaciones].sort((a, b) => {
-    if (a.esGanadora !== b.esGanadora) return a.esGanadora ? -1 : 1
-    if (a.puntajeTotal !== b.puntajeTotal) return b.puntajeTotal - a.puntajeTotal
-    const plazoA = a.plazoEntregaDias ?? Number.POSITIVE_INFINITY
-    const plazoB = b.plazoEntregaDias ?? Number.POSITIVE_INFINITY
-    if (plazoA !== plazoB) return plazoA < plazoB ? -1 : 1
-    const fechaA = Date.parse(a.fechaCreacion)
-    const fechaB = Date.parse(b.fechaCreacion)
-    if (fechaA !== fechaB) return fechaA - fechaB
-    return a.cotizacionId.localeCompare(b.cotizacionId)
-  })
 }
 
 /** Pasa un puntaje de 0 a 100 a estrellas enteras de 0 a 5 (cada estrella son 20 puntos, redondeando). */

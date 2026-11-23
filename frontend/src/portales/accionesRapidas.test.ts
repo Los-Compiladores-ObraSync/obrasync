@@ -72,6 +72,7 @@ describe('accionesParaRol', () => {
     expect(accionesParaRol('Proveedor').map((a) => [a.texto, a.ruta])).toEqual([
       ['Historial de cotizaciones', '/proveedores/mis-cotizaciones'],
       ['Mis órdenes', '/proveedores/mis-ordenes'],
+      ['Mi reputación', '/proveedores/mi-reputacion'],
     ])
     expect(accionesParaRol('Inventado')).toEqual([])
   })

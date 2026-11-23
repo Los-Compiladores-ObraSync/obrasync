@@ -110,6 +110,26 @@
   margin: 0;
 }
 
+.selectorOrden {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-self: flex-start;
+  font-weight: 700;
+}
+
+.selectorOrden select {
+  min-height: 44px;
+  max-width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-weight: 400;
+}
+
 /* El número (REQ-2026-0001) no se corta en el guion: si no entra, baja entero a la línea siguiente. */
 .numeroTitulo {
   white-space: nowrap;
@@ -141,6 +161,18 @@
   font-size: 0.875rem;
   font-weight: 700;
   margin-top: 0.25rem;
+}
+
+.badgeAdjudicada {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid #16a34a;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.9375rem;
+  font-weight: 800;
 }
 
 /* Ofertas que no son iguales a lo pedido (#229): en azul y ámbar, para no confundirlas con las marcas verdes. */

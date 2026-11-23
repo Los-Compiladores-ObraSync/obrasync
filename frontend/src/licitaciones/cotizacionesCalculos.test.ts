@@ -7,7 +7,7 @@ import {
   estrellasDePuntaje,
   formatoPrecio,
   marcasDeComparacion,
-  ordenarPorCalificacion,
+  ordenarCotizaciones,
   subtotalDeItem,
   tieneCoberturaParcial,
   tienePresentacionDistinta,
@@ -247,7 +247,8 @@ describe('otra presentación en la oferta (#229)', () => {
   })
 })
 
-describe('ordenarPorCalificacion', () => {
+describe('ordenarCotizaciones', () => {
+  const pliego = { items: [{ articuloId: 'art-cemento', cantidad: 1, descripcion: 'Cemento', unidadMedida: 'u' }] }
   function oferta(
     id: string,
     puntajeTotal: number,
@@ -267,38 +268,57 @@ describe('ordenarPorCalificacion', () => {
     } as CotizacionResponseDto
   }
 
-  it('deja arriba la de mayor calificación', () => {
+  it('ordena por puntaje descendente y usa el ID para mantener orden determinista', () => {
     const lista = [oferta('a', 40), oferta('b', 90), oferta('c', 65)]
-
-    expect(ordenarPorCalificacion(lista).map((o) => o.cotizacionId)).toEqual(['b', 'c', 'a'])
+    expect(ordenarCotizaciones(lista, 'mejor-puntaje', pliego).map((o) => o.cotizacionId)).toEqual(['b', 'c', 'a'])
   })
 
-  it('con la misma calificación gana la que entrega más rápido, y después la que se cotizó antes', () => {
+  it.each([
+    ['precio-asc', ['a', 'b', 'c']],
+    ['precio-desc', ['c', 'b', 'a']],
+    ['flete-asc', ['a', 'b', 'c']],
+    ['flete-desc', ['c', 'b', 'a']],
+    ['plazo-asc', ['a', 'b', 'c']],
+    ['plazo-desc', ['c', 'b', 'a']],
+    ['calificacion-desc', ['c', 'b', 'a']],
+    ['calificacion-asc', ['a', 'b', 'c']],
+  ] as const)('ordena %s con ambos sentidos y desempata por puntaje', (orden, esperado) => {
     const lista = [
-      oferta('lenta', 80, { plazoEntregaDias: 10 }),
-      oferta('tarde', 80, { plazoEntregaDias: 3, fechaCreacion: '2026-11-05T10:00:00Z' }),
-      oferta('temprano', 80, { plazoEntregaDias: 3, fechaCreacion: '2026-11-02T10:00:00Z' }),
+      oferta('b', 80, { items: [{ articuloId: 'art-cemento', precioUnitario: 1000 }], flete: 20, plazoEntregaDias: 5, calificacionProveedor: 3 }),
+      oferta('c', 90, { items: [{ articuloId: 'art-cemento', precioUnitario: 2000 }], flete: 30, plazoEntregaDias: 8, calificacionProveedor: 5 }),
+      oferta('a', 70, { items: [{ articuloId: 'art-cemento', precioUnitario: 500 }], flete: 10, plazoEntregaDias: 2, calificacionProveedor: 1 }),
     ]
-
-    expect(ordenarPorCalificacion(lista).map((o) => o.cotizacionId)).toEqual([
-      'temprano',
-      'tarde',
-      'lenta',
-    ])
+    expect(ordenarCotizaciones(lista, orden, pliego).map((o) => o.cotizacionId)).toEqual(esperado)
   })
 
-  it('la oferta destacada va siempre primera', () => {
-    const lista = [oferta('a', 70), oferta('b', 70, { esGanadora: true })]
-
-    expect(ordenarPorCalificacion(lista)[0].cotizacionId).toBe('b')
+  it('deja sin calificación al final en ambos sentidos', () => {
+    const lista = [
+      oferta('sin', 100, { calificacionProveedor: null }),
+      oferta('baja', 50, { calificacionProveedor: 2 }),
+      oferta('alta', 70, { calificacionProveedor: 5 }),
+    ]
+    expect(ordenarCotizaciones(lista, 'calificacion-desc', pliego).map((o) => o.cotizacionId)).toEqual(['alta', 'baja', 'sin'])
+    expect(ordenarCotizaciones(lista, 'calificacion-asc', pliego).map((o) => o.cotizacionId)).toEqual(['baja', 'alta', 'sin'])
   })
 
-  it('no modifica la lista original', () => {
-    const lista = [oferta('a', 10), oferta('b', 20)]
+  it.each([
+    'precio-asc', 'precio-desc', 'flete-asc', 'flete-desc', 'plazo-asc', 'plazo-desc',
+    'calificacion-desc', 'calificacion-asc',
+  ] as const)('desempata %s usando puntaje y después ID', (orden) => {
+    const iguales = [
+      oferta('z', 70, { subtotalItems: 100, items: [{ articuloId: 'art-cemento', precioUnitario: 100 }], flete: 10, plazoEntregaDias: 5, calificacionProveedor: 3 }),
+      oferta('b', 90, { subtotalItems: 100, items: [{ articuloId: 'art-cemento', precioUnitario: 100 }], flete: 10, plazoEntregaDias: 5, calificacionProveedor: 3 }),
+      oferta('a', 90, { subtotalItems: 100, items: [{ articuloId: 'art-cemento', precioUnitario: 100 }], flete: 10, plazoEntregaDias: 5, calificacionProveedor: 3 }),
+    ]
+    expect(ordenarCotizaciones(iguales, orden, pliego).map((o) => o.cotizacionId)).toEqual(['a', 'b', 'z'])
+  })
 
-    ordenarPorCalificacion(lista)
+  it('desempata por puntaje y después por ID y no modifica la lista original', () => {
+    const lista = [oferta('b', 20), oferta('z', 20), oferta('a', 10)]
 
-    expect(lista.map((o) => o.cotizacionId)).toEqual(['a', 'b'])
+    ordenarCotizaciones(lista, 'mejor-puntaje', pliego)
+
+    expect(lista.map((o) => o.cotizacionId)).toEqual(['b', 'z', 'a'])
   })
 })
 

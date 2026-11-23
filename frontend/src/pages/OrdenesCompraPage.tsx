@@ -164,15 +164,19 @@ export function OrdenesCompraPage() {
                   alCambiarProblema={(estado) => chat.cambiarProblema(orden.id, estado)}
                 />
 
-                {orden.fueDespachada && (
-                  <CalificacionProveedor
-                    proveedorId={orden.proveedorId}
-                    nombreProveedor={`el proveedor de la orden ${codigo}`}
-                    titulo={`¿Cómo cumplió el proveedor de la orden ${codigo}?`}
-                    alGuardar={() => undefined}
-                    claveRecuerdo={`obrasync.calificacion.orden.${orden.id}`}
-                  />
-                )}
+                <CalificacionProveedor
+                  ordenCompraId={orden.id}
+                  nombreProveedor={`el proveedor de la orden ${codigo}`}
+                  titulo={`¿Cómo cumplió el proveedor de la orden ${codigo}?`}
+                  recibidaCompleta={orden.recibidaCompleta === true}
+                  calificacionActual={orden.miCalificacion}
+                  comentarioActual={orden.miComentarioCalificacion}
+                  alGuardar={(calificacion, comentario) =>
+                    setOrdenes((actuales) => actuales.map((actual) => actual.id === orden.id
+                      ? { ...actual, miCalificacion: calificacion, miComentarioCalificacion: comentario }
+                      : actual))
+                  }
+                />
               </li>
             )
           })}

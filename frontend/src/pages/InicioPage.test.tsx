@@ -105,6 +105,7 @@ describe('InicioPage', () => {
       '/proveedores/mis-cotizaciones',
     )
     expect(screen.getByRole('link', { name: 'Mis órdenes' })).toHaveAttribute('href', '/proveedores/mis-ordenes')
+    expect(screen.getByRole('link', { name: 'Mi reputación' })).toHaveAttribute('href', '/proveedores/mi-reputacion')
   })
 
   it('Proveedor: la tarjeta cuenta las licitaciones que le faltan cotizar y lleva a cotizarlas', async () => {

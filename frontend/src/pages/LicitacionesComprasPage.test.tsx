@@ -135,6 +135,51 @@ describe('LicitacionesComprasPage', () => {
     expect(screen.getByText('★ Oferta destacada')).toBeInTheDocument()
   })
 
+  it('al reabrir una licitación adjudicada marca la oferta del cotizacionId guardado en la orden', async () => {
+    const licitacion = {
+      licitacionId: LIC_ABIERTA_ID,
+      requisicionId: 'd1d2d3d4-0000-0000-0000-000000000011',
+      numeroRequisicion: 'REQ-2026-0011',
+      obraId: 'obra-1',
+      estado: 'Adjudicada',
+      fechaCreacion: '2026-10-20T10:00:00Z',
+      fechaLimiteCotizacion: '2026-11-20T18:00:00Z',
+      items: [{ articuloId: 'art-1', descripcion: 'Cemento', cantidad: 1, unidadMedida: 'unidad' }],
+    }
+    server.use(
+      http.get('*/api/licitaciones', () => HttpResponse.json([licitacion])),
+      http.get('*/api/cotizaciones', () => HttpResponse.json([
+        {
+          cotizacionId: 'cot-puntaje-mayor', licitacionId: LIC_ABIERTA_ID, proveedorId: 'prov-1',
+          proveedorNombre: 'Oferta con mayor puntaje', items: [{ articuloId: 'art-1', precioUnitario: 10 }],
+          puntajeTotal: 90, esGanadora: true, fechaCreacion: '2026-10-22T10:00:00Z',
+        },
+        {
+          cotizacionId: 'cot-adjudicada', licitacionId: LIC_ABIERTA_ID, proveedorId: 'prov-2',
+          proveedorNombre: 'Proveedor adjudicado', items: [{ articuloId: 'art-1', precioUnitario: 20 }],
+          puntajeTotal: 80, esGanadora: false, fechaCreacion: '2026-10-23T10:00:00Z',
+        },
+      ])),
+      http.get('*/api/ordenes-compra', ({ request }) => {
+        expect(new URL(request.url).searchParams.get('licitacionId')).toBe(LIC_ABIERTA_ID)
+        return HttpResponse.json([{
+          id: 'orden-adjudicada', licitacionId: LIC_ABIERTA_ID, cotizacionId: 'cot-adjudicada',
+          obraId: 'obra-1', proveedorId: 'prov-2', estado: 'Emitida',
+          fechaEmision: '2026-10-24T10:00:00Z', fueDespachada: false,
+        }])
+      }),
+    )
+
+    renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+
+    const lista = await screen.findByRole('list', { name: /^Cotizaciones recibidas para / })
+    const tarjetas = Array.from(lista.querySelectorAll(':scope > li')) as HTMLElement[]
+    expect(within(tarjetas[0]).queryByText('Adjudicada')).not.toBeInTheDocument()
+    const indicador = await within(tarjetas[1]).findByText('Adjudicada')
+    expect(indicador).toBeInTheDocument()
+    expect(indicador.className).toMatch(/badgeAdjudicada/)
+  })
+
   it('muestra mensaje cuando la licitación seleccionada no tiene cotizaciones', async () => {
     server.use(
       http.get('*/api/cotizaciones', () => {
@@ -456,6 +501,7 @@ describe('LicitacionesComprasPage', () => {
       proveedorId: 'a1b2c3d4-0000-0000-0000-000000000001',
       proveedorNombre: 'Corralón San Martín',
       calificacionProveedor: 4.5,
+      cantidadCalificacionesProveedor: 12,
       flete: 10000,
       plazoEntregaDias: 3,
       fechaCreacion: '2026-10-22T10:00:00Z',
@@ -473,9 +519,9 @@ describe('LicitacionesComprasPage', () => {
 
       const lista = await screen.findByRole('list', { name: /^Cotizaciones recibidas para / })
       expect(within(lista).getByText('Corralón San Martín')).toBeInTheDocument()
-      // Una vez como dato de la tarjeta y otra como criterio del desglose.
-      expect(within(lista).getAllByText('Calificación del proveedor')).toHaveLength(2)
-      expect(within(lista).getByText('4,5')).toBeInTheDocument()
+      expect(within(lista).getByText('Reputación del proveedor')).toBeInTheDocument()
+      expect(within(lista).getByText('Calificación del proveedor')).toBeInTheDocument()
+      expect(within(lista).getByText('4,5 ★ con 12')).toBeInTheDocument()
       expect(
         within(lista).getByRole('button', { name: 'Adjudicar a proveedor Corralón San Martín' }),
       ).toBeInTheDocument()
@@ -522,6 +568,8 @@ describe('LicitacionesComprasPage', () => {
       const lista = await screen.findByRole('list', { name: /^Cotizaciones recibidas para / })
 
       expect(within(lista).getByText('f7a8b9c0')).toBeInTheDocument()
+      expect(within(lista).getAllByText('Reputación del proveedor')).toHaveLength(2)
+      expect(within(lista).getAllByText('Sin calificaciones')).toHaveLength(2)
       expect(within(lista).queryByText('Calificación del proveedor')).not.toBeInTheDocument()
       expect(within(lista).queryByText('Calificación por criterio')).not.toBeInTheDocument()
     })

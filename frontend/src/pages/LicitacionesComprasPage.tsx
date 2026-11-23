@@ -9,7 +9,8 @@ import {
   estrellasDePuntaje,
   formatoPrecio,
   marcasDeComparacion,
-  ordenarPorCalificacion,
+  ordenarCotizaciones,
+  type OrdenCotizaciones,
   tieneCoberturaParcial,
   tienePresentacionDistinta,
 } from '../licitaciones/cotizacionesCalculos'
@@ -17,16 +18,15 @@ import {
   adjudicarLicitacion,
   listarCotizaciones,
   listarLicitaciones,
+  listarOrdenesCompra,
   obtenerPreciosHistoricos,
 } from '../licitaciones/licitacionesService'
 import type { PrecioPrevio } from '../licitaciones/cotizacionesCalculos'
 import type {
   CotizacionResponseDto,
-  CriteriosScoringDto,
   LicitacionResponseDto,
 } from '../licitaciones/licitacionesTipos'
 import { AccionesLicitacionAbierta } from '../licitaciones/AccionesLicitacionAbierta'
-import { PonderacionesScoring } from '../licitaciones/PonderacionesScoring'
 import { AvisoPorLicitar } from '../licitaciones/RequisicionesPorLicitar'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { cantidadConUnidad } from '../requisiciones/unidades'
@@ -38,6 +38,24 @@ const CRITERIOS = [
   { clave: 'plazo', etiqueta: 'Plazo de entrega' },
   { clave: 'calificacion', etiqueta: 'Calificación del proveedor' },
 ] as const
+
+const OPCIONES_ORDEN: Array<{ valor: OrdenCotizaciones; etiqueta: string }> = [
+  { valor: 'mejor-puntaje', etiqueta: 'Mejor puntaje' },
+  { valor: 'precio-asc', etiqueta: 'Precio: menor a mayor' },
+  { valor: 'precio-desc', etiqueta: 'Precio: mayor a menor' },
+  { valor: 'flete-asc', etiqueta: 'Flete: más barato' },
+  { valor: 'flete-desc', etiqueta: 'Flete: más caro' },
+  { valor: 'plazo-asc', etiqueta: 'Plazo de entrega: más rápido' },
+  { valor: 'plazo-desc', etiqueta: 'Plazo de entrega: más lento' },
+  { valor: 'calificacion-desc', etiqueta: 'Calificación del proveedor: mejor' },
+  { valor: 'calificacion-asc', etiqueta: 'Calificación del proveedor: peor' },
+]
+
+function ordenValido(valor: string | null): OrdenCotizaciones {
+  return OPCIONES_ORDEN.some((opcion) => opcion.valor === valor)
+    ? (valor as OrdenCotizaciones)
+    : 'mejor-puntaje'
+}
 
 /** Qué puntaje del desglose del servicio corresponde a cada criterio. */
 const CLAVES_DESGLOSE = {
@@ -71,6 +89,7 @@ function mensajeDeErrorAdjudicar(err: unknown): string {
 export function LicitacionesComprasPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const licitacionIdParam = searchParams.get('licitacionId')
+  const orden = ordenValido(searchParams.get('orden'))
 
   const [licitaciones, setLicitaciones] = useState<LicitacionResponseDto[]>([])
   const [cargandoLicitaciones, setCargandoLicitaciones] = useState(true)
@@ -83,17 +102,7 @@ export function LicitacionesComprasPage() {
   const [cargandoCotizaciones, setCargandoCotizaciones] = useState(false)
   const [errorCotizaciones, setErrorCotizaciones] = useState<string | null>(null)
   const [intentoCotizaciones, setIntentoCotizaciones] = useState(0)
-  // Pesos elegidos por el Comprador (#156). Se guardan junto con la licitación a la que pertenecen:
-  // al cambiar de licitación vuelven solos a los valores por defecto del servicio.
-  const [pesosElegidos, setPesosElegidos] = useState<{
-    licitacionId: string
-    pesos: CriteriosScoringDto
-  } | null>(null)
-  const [errorPesos, setErrorPesos] = useState<string | null>(null)
-  const pesosAplicados =
-    pesosElegidos && pesosElegidos.licitacionId === licitacionIdParam ? pesosElegidos.pesos : undefined
-
-  const [adjudicadaAca, setAdjudicadaAca] = useState<{
+  const [ofertaAdjudicada, setOfertaAdjudicada] = useState<{
     licitacionId: string
     cotizacionId: string
   } | null>(null)
@@ -139,6 +148,27 @@ export function LicitacionesComprasPage() {
   const licitacionSeleccionada =
     licitaciones.find((l) => l.licitacionId === licitacionIdParam) ?? null
 
+  // La orden adjudicada conserva el cotizacionId ganador; sirve para identificarla al reabrir la pantalla.
+  useEffect(() => {
+    const licitacion = licitacionSeleccionada
+    if (!licitacion || licitacion.estado !== 'Adjudicada') return
+    let cancelado = false
+    listarOrdenesCompra({ licitacionId: licitacion.licitacionId })
+      .then((ordenes) => {
+        if (cancelado) return
+        const orden = ordenes.find((item) => item.licitacionId === licitacion.licitacionId)
+        if (orden) {
+          setOfertaAdjudicada({ licitacionId: licitacion.licitacionId, cotizacionId: orden.cotizacionId })
+        } else {
+          setOfertaAdjudicada((actual) => actual?.licitacionId === licitacion.licitacionId ? actual : null)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelado = true
+    }
+  }, [licitacionSeleccionada])
+
   // Lo que se pagó antes por los materiales del pliego (para comparar cada oferta con la última compra)
   const idsDeMateriales = licitacionSeleccionada?.items.map((m) => m.articuloId).join(',') ?? ''
   useEffect(() => {
@@ -179,18 +209,12 @@ export function LicitacionesComprasPage() {
       }
 
       try {
-        const datos = await listarCotizaciones(licitacionIdParam, pesosAplicados)
+        const datos = await listarCotizaciones(licitacionIdParam)
         if (cancelado) return
         setCotizaciones(datos)
-      } catch (err) {
+      } catch {
         if (!cancelado) {
-          if (pesosAplicados && err instanceof ApiError && err.status === 400) {
-            // El servicio rechazó los pesos: se vuelve a los de por defecto y se avisa.
-            setErrorPesos(err.detail ?? 'El servicio rechazó esos pesos.')
-            setPesosElegidos(null)
-          } else {
-            setErrorCotizaciones('No se pudieron cargar las cotizaciones. Intentá nuevamente.')
-          }
+          setErrorCotizaciones('No se pudieron cargar las cotizaciones. Intentá nuevamente.')
         }
       } finally {
         if (!cancelado) {
@@ -203,9 +227,7 @@ export function LicitacionesComprasPage() {
     return () => {
       cancelado = true
     }
-  // pesosAplicados cambia de identidad solo cuando la persona toca "Recalcular".
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [licitacionIdParam, intentoCotizaciones, pesosElegidos])
+  }, [licitacionIdParam, intentoCotizaciones])
 
   function irATituloDeCotizaciones() {
     const titulo = tituloCotizacionesRef.current
@@ -243,7 +265,10 @@ export function LicitacionesComprasPage() {
       return
     }
     irACotizacionesRef.current = true
-    setSearchParams({ licitacionId: id })
+    setSearchParams((actuales) => {
+      actuales.set('licitacionId', id)
+      return actuales
+    })
   }
 
   async function handleConfirmarAdjudicacion(cotizacion: CotizacionResponseDto) {
@@ -266,9 +291,9 @@ export function LicitacionesComprasPage() {
         : '¡Licitación adjudicada con éxito!')
       setOrdenCompraGeneradaId(ordenId || null)
       setConfirmandoCotizacionId(null)
-      setAdjudicadaAca({
+      setOfertaAdjudicada({
         licitacionId: licitacionSeleccionada.licitacionId,
-        cotizacionId: cotizacion.cotizacionId,
+        cotizacionId: ordenCompra.cotizacionId,
       })
       // Actualizamos el estado local de la licitación a Adjudicada
       setLicitaciones((actuales) =>
@@ -287,20 +312,20 @@ export function LicitacionesComprasPage() {
   }
 
   const esLicitacionAdjudicada = licitacionSeleccionada?.estado === 'Adjudicada'
-  // El servicio no dice cuál oferta ganó, así que se recuerda la que se adjudicó en esta pantalla.
-  // Si la licitación se abre ya adjudicada (otra sesión), no se sabe cuál fue y no se marca ninguna.
+  // El ID de la oferta adjudicada se obtiene de la orden persistida, o de la respuesta del POST recién realizado.
   const cotizacionAdjudicadaId =
-    adjudicadaAca !== null &&
+    ofertaAdjudicada !== null &&
     esLicitacionAdjudicada &&
-    adjudicadaAca.licitacionId === licitacionSeleccionada?.licitacionId
-      ? adjudicadaAca.cotizacionId
+    ofertaAdjudicada.licitacionId === licitacionSeleccionada?.licitacionId
+      ? ofertaAdjudicada.cotizacionId
       : null
   const marcasPorCotizacion = licitacionSeleccionada
     ? marcasDeComparacion(cotizaciones, licitacionSeleccionada)
     : new Map<string, string[]>()
 
-  // La mejor oferta arriba: con otros pesos cambia el orden. El servicio las manda por fecha.
-  const cotizacionesOrdenadas = ordenarPorCalificacion(cotizaciones)
+  const cotizacionesOrdenadas = licitacionSeleccionada
+    ? ordenarCotizaciones(cotizaciones, orden, licitacionSeleccionada)
+    : cotizaciones
 
   return (
     <section className={`${styles.contenedor} pantalla-ancha`}>
@@ -462,23 +487,24 @@ export function LicitacionesComprasPage() {
             </p>
           </section>
 
-          {!errorCotizaciones && (cotizaciones.length > 0 || pesosAplicados) && cotizaciones[0]?.ponderacionesScoring && (
-            <PonderacionesScoring
-              key={JSON.stringify(cotizaciones[0].ponderacionesScoring)}
-              ponderacionesActuales={cotizaciones[0].ponderacionesScoring}
-              hayPesosPropios={pesosAplicados !== undefined}
-              recalculando={cargandoCotizaciones}
-              errorServicio={errorPesos}
-              alRecalcular={(pesos) => {
-                setErrorPesos(null)
-                setPesosElegidos({ licitacionId: licitacionSeleccionada.licitacionId, pesos })
+          <label className={styles.selectorOrden}>
+            Ordenar ofertas
+            <select
+              aria-label="Ordenar ofertas"
+              value={orden}
+              onChange={(evento) => {
+                const nuevoOrden = evento.currentTarget.value as OrdenCotizaciones
+                setSearchParams((actuales) => {
+                  actuales.set('orden', nuevoOrden)
+                  return actuales
+                })
               }}
-              alRestablecer={() => {
-                setErrorPesos(null)
-                setPesosElegidos(null)
-              }}
-            />
-          )}
+            >
+              {OPCIONES_ORDEN.map((opcion) => (
+                <option key={opcion.valor} value={opcion.valor}>{opcion.etiqueta}</option>
+              ))}
+            </select>
+          </label>
 
           {cargandoCotizaciones && <p role="status">Cargando cotizaciones…</p>}
 
@@ -541,6 +567,9 @@ export function LicitacionesComprasPage() {
                       {cot.esGanadora && (
                         <span className={styles.badgeGanadora}>★ Oferta destacada</span>
                       )}
+                      {cot.cotizacionId === cotizacionAdjudicadaId && (
+                        <span className={styles.badgeAdjudicada}>Adjudicada</span>
+                      )}
                       {presentacionDistinta && (
                         <span className={styles.insigniaPresentacion}>Presentación distinta</span>
                       )}
@@ -578,8 +607,17 @@ export function LicitacionesComprasPage() {
                       </div>
                       {cot.calificacionProveedor != null && (
                         <div className={styles.datoCalificacion}>
-                          <dt>Calificación del proveedor</dt>
-                          <dd>{formatoNumero(cot.calificacionProveedor)}</dd>
+                          <dt>Reputación del proveedor</dt>
+                          <dd>
+                            {formatoNumero(cot.calificacionProveedor)} ★
+                            {cot.cantidadCalificacionesProveedor != null && ` con ${cot.cantidadCalificacionesProveedor}`}
+                          </dd>
+                        </div>
+                      )}
+                      {cot.calificacionProveedor == null && (
+                        <div className={styles.datoCalificacion}>
+                          <dt>Reputación del proveedor</dt>
+                          <dd>Sin calificaciones</dd>
                         </div>
                       )}
                     </dl>

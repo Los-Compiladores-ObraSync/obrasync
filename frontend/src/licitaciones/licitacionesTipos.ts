@@ -67,6 +67,8 @@ export interface CotizacionResponseDto {
   proveedorNombre?: string | null
   /** Promedio de 1 a 5 (con decimales) de las calificaciones recibidas, o null si no tiene. */
   calificacionProveedor?: number | null
+  /** Cantidad de calificaciones que forman la reputación del proveedor (#222). */
+  cantidadCalificacionesProveedor?: number
   /** Puntos (0 a 100) que aportó cada criterio al puntajeTotal; la suma da puntajeTotal. */
   desglosePuntaje?: CriteriosScoringDto | null
   /** Peso de cada criterio (0 a 1) con el que se calculó el puntaje. */
@@ -136,6 +138,10 @@ export interface OrdenCompraListadoDto {
   fechaRecepcionCompleta?: string | null
   /** Calificación (1 a 5) que el usuario de Compras ya cargó para esta orden; null si todavía no (#222). */
   miCalificacion?: number | null
+  /** Comentario opcional del usuario de Compras para esta orden (#222). */
+  miComentarioCalificacion?: string | null
+  /** Fecha de actualización de la calificación del usuario de Compras (#222). */
+  fechaMiCalificacion?: string | null
   /** Mensajes del chat de la orden que el usuario autenticado todavía no leyó (#218). */
   mensajesNoLeidos?: number
 }
@@ -167,6 +173,18 @@ export interface CalificacionProveedorResponseDto {
   /** Cuántas calificaciones (de distintos usuarios) forman el promedio. */
   cantidadCalificaciones: number
   fechaActualizacion: string
+}
+
+/** Calificación del usuario actual sobre una orden recibida completa (#222). */
+export interface CalificacionOrdenCompraResponseDto {
+  ordenCompraId: string
+  proveedorId: string
+  usuarioId: string
+  calificacion: number
+  comentario?: string | null
+  fechaActualizacion: string
+  promedioProveedor: number
+  cantidadCalificacionesProveedor: number
 }
 
 /**
