@@ -527,11 +527,15 @@ function promedioDeProveedor(proveedorId: string): number | null {
   return Math.round((valores.reduce((a, b) => a + b, 0) / valores.length) * 100) / 100
 }
 
+// Magic Links generados por el mock (#252): solo para que cada token salga distinto y sea fácil de reconocer.
+let magicLinksGenerados = 0
+
 /** Solo para tests: vuelve las licitaciones y cotizaciones simuladas a su estado inicial. */
 export function reiniciarLicitacionesMock() {
   licitacionesMock = crearLicitacionesMock()
   cotizacionesMock = crearCotizacionesMock()
   calificacionesMock.clear()
+  magicLinksGenerados = 0
 }
 
 // Paginación de los listados (#172). Imita a los servicios: ?pagina=&tamano= opcionales
@@ -818,6 +822,17 @@ export const handlers: RequestHandler[] = [
     return responderPaginado(
       request,
       USUARIOS_MOCK.filter((u) => u.rol === 'Capataz').map((u) => ({
+        id: u.id,
+        nombreCompleto: u.nombreCompleto,
+      })),
+    )
+  }),
+
+  // Contrato: GET /api/usuarios/proveedores → 200 [{ id, nombreCompleto }] (Comprador, Admin; #157)
+  http.get('*/api/usuarios/proveedores', ({ request }) => {
+    return responderPaginado(
+      request,
+      USUARIOS_MOCK.filter((u) => u.rol === 'Proveedor').map((u) => ({
         id: u.id,
         nombreCompleto: u.nombreCompleto,
       })),
@@ -2089,6 +2104,35 @@ export const handlers: RequestHandler[] = [
     }
     licitacion.fechaLimiteCotizacion = nueva.toISOString()
     return HttpResponse.json(licitacion, { status: 200 })
+  }),
+
+  // Contrato: POST /api/licitaciones/{id}/magic-links → 200 GenerarMagicLinkResponseDto | 400 | 404 | 409 (#252)
+  http.post('*/api/licitaciones/:id/magic-links', async ({ params, request }) => {
+    const licitacion = licitacionesMock.find((l) => l.licitacionId === params.id)
+    if (!licitacion) return HttpResponse.json({ title: 'Licitación no encontrada', status: 404 }, { status: 404 })
+    const body = (await request.json().catch(() => ({}))) as { proveedorId?: string }
+    if (!body.proveedorId) {
+      return HttpResponse.json(
+        { title: 'Datos de enlace inválidos', status: 400, detail: 'El identificador del proveedor es obligatorio.' },
+        { status: 400 },
+      )
+    }
+    if (licitacion.estado !== 'Abierta') {
+      return HttpResponse.json({ title: 'Licitación no disponible para generar enlace', status: 409 }, { status: 409 })
+    }
+    magicLinksGenerados += 1
+    const token = `token-simulado-${magicLinksGenerados}`
+    return HttpResponse.json(
+      {
+        token,
+        hash: token,
+        url: `/api/licitaciones/magic-links/${token}/cotizar`,
+        fechaDeVencimiento: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        expiresIn: '1 hour',
+        horasVigencia: 1,
+      },
+      { status: 200 },
+    )
   }),
 
   // Contrato: POST /api/licitaciones/{id}/cerrar → 200 | 400 | 404 | 409 ProblemDetails

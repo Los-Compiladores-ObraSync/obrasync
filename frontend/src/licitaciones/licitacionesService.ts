@@ -9,6 +9,7 @@ import type {
   CotizacionResponseDto,
   CriteriosScoringDto,
   LicitacionResponseDto,
+  MagicLinkGeneradoDto,
   MiCotizacionDto,
   OrdenCompraAdjudicadaDto,
   OrdenCompraListadoDto,
@@ -257,4 +258,19 @@ export function obtenerCalificacionProveedor(proveedorId: string): Promise<Calif
  */
 export function obtenerMiReputacion(): Promise<ReputacionProveedorDto> {
   return apiFetch<ReputacionProveedorDto>('/api/cotizaciones/proveedores/mi-reputacion')
+}
+
+/**
+ * Genera un Magic Link: un enlace de un solo uso y con vencimiento para que un proveedor cotice sin usuario.
+ * Fuente: POST /api/licitaciones/{id}/magic-links (Comprador, Admin).
+ * 404 si la licitación no existe, 409 si no está abierta o el plazo ya venció, 400 si falta el proveedor.
+ */
+export function generarMagicLink(
+  licitacionId: string,
+  proveedor: { id: string; nombreCompleto: string },
+): Promise<MagicLinkGeneradoDto> {
+  return apiFetch<MagicLinkGeneradoDto>(`/api/licitaciones/${encodeURIComponent(licitacionId)}/magic-links`, {
+    method: 'POST',
+    body: JSON.stringify({ proveedorId: proveedor.id, proveedorNombre: proveedor.nombreCompleto }),
+  })
 }

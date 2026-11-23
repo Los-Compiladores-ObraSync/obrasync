@@ -211,3 +211,20 @@ export interface MiCotizacionDto {
   esGanadora: boolean
   estadoResultado: string
 }
+
+/**
+ * Respuesta de POST /api/licitaciones/{id}/magic-links (GenerarMagicLinkResponseDto del contrato).
+ * El token en claro viaja una sola vez: en la base solo queda su hash.
+ */
+export interface MagicLinkGeneradoDto {
+  token: string
+  /** Alias del token (compatibilidad). */
+  hash: string
+  /** Ruta de la API para cotizar con el enlace; no es una pantalla, no se le pasa al proveedor. */
+  url: string
+  /** Vencimiento exacto, en UTC. */
+  fechaDeVencimiento: string
+  /** Duración en texto del backend (en inglés, ej. "1 hour"); para mostrar usamos horasVigencia. */
+  expiresIn: string
+  horasVigencia: number
+}
