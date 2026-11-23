@@ -41,6 +41,33 @@ describe('CotizarLicitacionPage', () => {
     reiniciarLicitacionesMock()
   })
 
+  it('Admin no ve el formulario ni puede iniciar una cotización desde la ruta directa', async () => {
+    renderPagina(LIC_ABIERTA_ID, { ...proveedor, rol: 'Admin' })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Solo un proveedor puede cotizar esta licitación.')
+    expect(screen.queryByRole('button', { name: 'Enviar cotización' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Costo de flete ($)')).not.toBeInTheDocument()
+  })
+
+  it('muestra un mensaje claro ante 403 ProblemDetails al enviar la cotización', async () => {
+    const user = userEvent.setup()
+    server.use(http.post('*/api/cotizaciones', () => HttpResponse.json(
+      { title: 'Forbidden', status: 403, detail: 'User role not authorized' },
+      { status: 403, headers: { 'Content-Type': 'application/problem+json' } },
+    )))
+    renderPagina()
+    await screen.findByText('Cotizar REQ-2026-0011')
+    const precios = screen.getAllByLabelText('Precio unitario ($)')
+    await user.type(precios[0], '1000')
+    await user.type(precios[1], '350')
+    await user.type(screen.getByLabelText('Costo de flete ($)'), '0')
+    await user.type(screen.getByLabelText('Plazo de entrega (en días)'), '5')
+    await user.click(screen.getByRole('button', { name: 'Enviar cotización' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Solo los proveedores pueden realizar esta acción.')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('User role not authorized')
+  })
+
   it('no envía el formulario con datos inválidos y muestra errores de validación', async () => {
     const user = userEvent.setup()
     let peticionEnviada = false

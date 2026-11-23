@@ -3,15 +3,18 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { AuthContext } from '../auth/sessionContext'
 import { reiniciarLicitacionesMock } from '../mocks/handlers'
 import { server } from '../mocks/server'
 import { ProveedoresPage } from './ProveedoresPage'
 
 function renderPagina() {
   return render(
-    <MemoryRouter>
-      <ProveedoresPage />
-    </MemoryRouter>,
+    <AuthContext.Provider value={{ usuario: { id: 'prov-1', nombreCompleto: 'Proveedor', email: 'p@x.com', rol: 'Proveedor' }, login: () => {}, logout: () => {} }}>
+      <MemoryRouter>
+        <ProveedoresPage />
+      </MemoryRouter>
+    </AuthContext.Provider>,
   )
 }
 

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { AuthContext, type SesionUsuario } from '../auth/sessionContext'
 import { reiniciarOrdenesCompraMock } from '../mocks/handlers'
 import { server } from '../mocks/server'
 import { OrdenesCompraPage } from './OrdenesCompraPage'
@@ -20,11 +21,16 @@ vi.mock('../chat/useChatEnLista', () => ({
 
 const RUTA_LISTA = '*/api/ordenes-compra'
 
-function renderPagina(initialEntry = '/compras/ordenes') {
+const comprador: SesionUsuario = { id: 'comp-1', nombreCompleto: 'Comprador', email: 'c@x.com', rol: 'Comprador' }
+const admin: SesionUsuario = { id: 'admin-1', nombreCompleto: 'Admin', email: 'a@x.com', rol: 'Admin' }
+
+function renderPagina(initialEntry = '/compras/ordenes', usuario = comprador) {
   return render(
-    <MemoryRouter initialEntries={[initialEntry]}>
-      <OrdenesCompraPage />
-    </MemoryRouter>,
+    <AuthContext.Provider value={{ usuario, login: () => {}, logout: () => {} }}>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <OrdenesCompraPage />
+      </MemoryRouter>
+    </AuthContext.Provider>,
   )
 }
 
@@ -43,6 +49,16 @@ describe('OrdenesCompraPage (#205, #223)', () => {
 
     expect(screen.queryByRole('button', { name: 'Guardar calificación' })).not.toBeInTheDocument()
     expect(screen.getAllByText('Vas a poder calificar cuando llegue todo el pedido.')).toHaveLength(3)
+  })
+
+  it('Admin no ve la calificación ni sus acciones, incluidas las órdenes recibidas', async () => {
+    renderPagina('/compras/ordenes', admin)
+    await tarjetas()
+
+    expect(screen.queryByText(/¿Cómo cumplió el proveedor/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /de 5/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Guardar calificación' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cambiar calificación' })).not.toBeInTheDocument()
   })
 
   it('lista las órdenes con la obra y su estado: primero las que faltan despachar', async () => {

@@ -50,7 +50,7 @@ export function publicarLicitacion(
 
 /**
  * Carga una cotización para un pliego de licitación.
- * Fuente: POST /api/cotizaciones (Proveedor, Admin)
+ * Fuente: POST /api/cotizaciones (Proveedor). Admin recibe 403 ProblemDetails.
  */
 export function crearCotizacion(
   dto: CrearCotizacionRequestDto,
@@ -228,7 +228,7 @@ export function obtenerMisCotizaciones(): Promise<MiCotizacionDto[]> {
 
 /**
  * Corrige una cotización propia mientras la licitación siga abierta y dentro de plazo.
- * Fuente: PUT /api/cotizaciones/{id} (Proveedor dueño, Admin). Errores: 400 (cerrada/vencida/ítems), 403, 404.
+ * Fuente: PUT /api/cotizaciones/{id} (Proveedor dueño). Admin recibe 403 ProblemDetails. Errores: 400 (cerrada/vencida/ítems), 403, 404.
  */
 export function corregirCotizacion(
   cotizacionId: string,

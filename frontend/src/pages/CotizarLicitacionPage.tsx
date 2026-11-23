@@ -30,6 +30,22 @@ import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './CotizarLicitacionPage.module.css'
 
 export function CotizarLicitacionPage() {
+  const { usuario } = useAuth()
+  if (usuario?.rol !== 'Proveedor') {
+    return (
+      <section className={styles.contenedor}>
+        <div className={styles.tarjetaAviso} role="alert">
+          <h2>Sin acceso</h2>
+          <p>Solo un proveedor puede cotizar esta licitación.</p>
+          <Link to="/">Volver al inicio</Link>
+        </div>
+      </section>
+    )
+  }
+  return <FormularioCotizacion />
+}
+
+function FormularioCotizacion() {
   const { id } = useParams<{ id: string }>()
   const { usuario } = useAuth()
   // ?corregir=<cotizacionId>: el Proveedor corrige una oferta que ya envió (antes del cierre).
@@ -239,7 +255,9 @@ export function CotizarLicitacionPage() {
       let bloqueante = false
 
       if (err instanceof ApiError) {
-        mensaje = err.detail || mensaje
+        mensaje = err.status === 403
+          ? 'No tenés permiso para enviar o corregir cotizaciones. Solo los proveedores pueden realizar esta acción.'
+          : err.detail || mensaje
         const detailMin = (err.detail ?? '').toLowerCase()
         if (
           err.status === 409 ||
