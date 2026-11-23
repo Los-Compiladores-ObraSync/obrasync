@@ -872,7 +872,9 @@
                   "plazoEntregaDias": {
                     "type": "integer",
                     "format": "int32",
-                    "minimum": 1
+                    "minimum": 1,
+                    "example": 5,
+                    "description": "Plazo estimado de entrega expresado en días corridos (entero positivo, mínimo 1)."
                   },
                   "items": {
                     "type": "array",
@@ -2022,8 +2024,9 @@
           "plazoEntregaDias": {
             "type": "integer",
             "format": "int32",
-            "minimum": 0,
-            "description": "Plazo de entrega ofertado, en días."
+            "minimum": 1,
+            "example": 5,
+            "description": "Plazo estimado de entrega expresado en días corridos (entero positivo, mínimo 1)."
           },
           "items": {
             "type": "array",
@@ -2093,7 +2096,9 @@
           "plazoEntregaDias": {
             "type": "integer",
             "format": "int32",
-            "description": "Plazo de entrega ofertado, en días."
+            "minimum": 1,
+            "example": 5,
+            "description": "Plazo estimado de entrega expresado en días corridos (entero positivo, mínimo 1)."
           },
           "fechaCreacion": {
             "type": "string",
@@ -2323,7 +2328,9 @@
           "plazoEntregaDias": {
             "type": "integer",
             "format": "int32",
-            "description": "Plazo de entrega ofertado, en días."
+            "minimum": 1,
+            "example": 5,
+            "description": "Plazo estimado de entrega expresado en días corridos (entero positivo, mínimo 1)."
           },
           "fechaCreacion": {
             "type": "string",

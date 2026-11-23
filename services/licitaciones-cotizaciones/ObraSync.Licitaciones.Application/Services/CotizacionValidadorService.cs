@@ -53,7 +53,7 @@ public class CotizacionValidadorService : ICotizacionValidadorService
 
         if (plazoEntregaDias <= 0)
         {
-            throw new ArgumentException("El plazo de entrega en días debe ser mayor a cero.");
+            throw new ArgumentException("El plazo de entrega debe ser un número entero positivo expresado en días corridos (mayor a 0).");
         }
 
         if (items == null || items.Count == 0)
