@@ -126,6 +126,15 @@ public class MappingsTests
         Assert.Equal(solicitanteId, reenviarCmd.UsuarioId);
         Assert.True(reenviarCmd.EsAdmin);
         Assert.Equal("Estructura", reenviarCmd.Etapa);
+
+        var rechazarReq = new RechazarRequisicionRequestDto { Motivo = "Excede presupuesto" };
+        var rechazarCmd = rechazarReq.ToRechazarCommand(reqId, solicitanteId);
+        Assert.Equal(reqId, rechazarCmd.RequisicionId);
+        Assert.Equal(solicitanteId, rechazarCmd.RechazadorId);
+        Assert.Equal("Excede presupuesto", rechazarCmd.Motivo);
+
+        var rechazarSinMotivoCmd = new RechazarRequisicionRequestDto { Motivo = null }.ToRechazarCommand(reqId, solicitanteId);
+        Assert.Equal(string.Empty, rechazarSinMotivoCmd.Motivo);
     }
 
     [Fact]
@@ -138,6 +147,7 @@ public class MappingsTests
         HistorialRechazoRequisicion? historial = null;
         CrearRequisicionRequestDto? crearReq = null;
         EditarRequisicionRequestDto? editReq = null;
+        RechazarRequisicionRequestDto? rechazarReq = null;
 
         Assert.Throws<ArgumentNullException>(() => insumo!.ToDto());
         Assert.Throws<ArgumentNullException>(() => crearInsumoReq!.ToCommand());
@@ -148,5 +158,6 @@ public class MappingsTests
         Assert.Throws<ArgumentNullException>(() => historial!.ToDto());
         Assert.Throws<ArgumentNullException>(() => crearReq!.ToCreateCommand(Guid.NewGuid()));
         Assert.Throws<ArgumentNullException>(() => editReq!.ToReenviarCommand(Guid.NewGuid(), Guid.NewGuid(), false));
+        Assert.Throws<ArgumentNullException>(() => rechazarReq!.ToRechazarCommand(Guid.NewGuid(), Guid.NewGuid()));
     }
 }

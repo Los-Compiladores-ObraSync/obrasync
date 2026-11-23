@@ -1,352 +1,177 @@
 using System;
 using System.Collections.Generic;
-using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using ObraSync.Requisiciones.Api.Middlewares;
 using ObraSync.Requisiciones.Application.DTOs;
-using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Application.Mappings;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Commands;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Queries;
 
-namespace ObraSync.Requisiciones.Api.Controllers
+namespace ObraSync.Requisiciones.Api.Controllers;
+
+[Route("api/requisiciones")]
+[Authorize]
+[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+public class RequisicionesController : ApiControllerBase
 {
-    [ApiController]
-    [Route("api/requisiciones")]
-    [Authorize]
-    public class RequisicionesController : ControllerBase
+    private readonly CreateRequisicionCommandHandler _createHandler;
+    private readonly GetRequisicionesQueryHandler _getRequisicionesHandler;
+    private readonly GetRequisicionByIdQueryHandler _getByIdHandler;
+    private readonly AprobarRequisicionCommandHandler _aprobarHandler;
+    private readonly RechazarRequisicionCommandHandler _rechazarHandler;
+    private readonly ReenviarRequisicionCommandHandler _reenviarHandler;
+    private readonly CancelarRequisicionCommandHandler _cancelarHandler;
+
+    public RequisicionesController(
+        CreateRequisicionCommandHandler createHandler,
+        GetRequisicionesQueryHandler getRequisicionesHandler,
+        GetRequisicionByIdQueryHandler getByIdHandler,
+        AprobarRequisicionCommandHandler aprobarHandler,
+        RechazarRequisicionCommandHandler rechazarHandler,
+        ReenviarRequisicionCommandHandler reenviarHandler,
+        CancelarRequisicionCommandHandler cancelarHandler)
     {
-        private readonly CreateRequisicionCommandHandler _createHandler;
-        private readonly GetRequisicionesQueryHandler _getRequisicionesHandler;
-        private readonly GetRequisicionByIdQueryHandler _getByIdHandler;
-        private readonly AprobarRequisicionCommandHandler _aprobarHandler;
-        private readonly RechazarRequisicionCommandHandler _rechazarHandler;
-        private readonly ReenviarRequisicionCommandHandler? _reenviarHandler;
-        private readonly CancelarRequisicionCommandHandler? _cancelarHandler;
-        private readonly IObraAsignacionValidator? _obraAsignacionValidator;
+        _createHandler = createHandler;
+        _getRequisicionesHandler = getRequisicionesHandler;
+        _getByIdHandler = getByIdHandler;
+        _aprobarHandler = aprobarHandler;
+        _rechazarHandler = rechazarHandler;
+        _reenviarHandler = reenviarHandler;
+        _cancelarHandler = cancelarHandler;
+    }
 
-        public RequisicionesController(
-            CreateRequisicionCommandHandler createHandler,
-            GetRequisicionesQueryHandler getRequisicionesHandler,
-            GetRequisicionByIdQueryHandler getByIdHandler,
-            AprobarRequisicionCommandHandler aprobarHandler,
-            RechazarRequisicionCommandHandler rechazarHandler,
-            IObraAsignacionValidator? obraAsignacionValidator = null,
-            ReenviarRequisicionCommandHandler? reenviarHandler = null,
-            CancelarRequisicionCommandHandler? cancelarHandler = null)
-        {
-            _createHandler = createHandler;
-            _getRequisicionesHandler = getRequisicionesHandler;
-            _getByIdHandler = getByIdHandler;
-            _aprobarHandler = aprobarHandler;
-            _rechazarHandler = rechazarHandler;
-            _obraAsignacionValidator = obraAsignacionValidator;
-            _reenviarHandler = reenviarHandler;
-            _cancelarHandler = cancelarHandler;
-        }
+    /// <summary>
+    /// Listar requisiciones con filtros opcionales (Roles: Capataz, Comprador, Admin)
+    /// </summary>
+    [HttpGet]
+    [Authorize(Roles = "Capataz,Comprador,Admin")]
+    [ProducesResponseType(typeof(IEnumerable<RequisicionResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<RequisicionResponseDto>>> ListarRequisiciones(
+        [FromQuery] Guid? obraId = null,
+        [FromQuery] string? estado = null,
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamano = ParametrosPagina.TamanoMaximo,
+        CancellationToken cancellationToken = default)
+    {
+        var paginacion = ParametrosPagina.Crear(pagina, tamano);
+        var query = new GetRequisicionesQuery(obraId, estado, ObtenerSolicitanteRestringidoId(), paginacion);
+        var resultado = await _getRequisicionesHandler.Handle(query, cancellationToken);
+        return OkPaginado(resultado, paginacion);
+    }
 
-        /// <summary>
-        /// Listar requisiciones con filtros opcionales (Roles: Capataz, Comprador, Admin)
-        /// </summary>
-        [HttpGet]
-        [Authorize(Roles = "Capataz,Comprador,Admin")]
-        [ProducesResponseType(typeof(IEnumerable<RequisicionResponseDto>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<IReadOnlyList<RequisicionResponseDto>>> ListarRequisiciones(
-            [FromQuery] Guid? obraId = null,
-            [FromQuery] string? estado = null,
-            [FromQuery] int pagina = 1,
-            [FromQuery] int tamano = 50,
-            CancellationToken cancellationToken = default)
-        {
-            var p = new ParametrosPagina(pagina, tamano);
-            var error = p.Validar();
-            if (error is not null)
-            {
-                return Problem(
-                    detail: error,
-                    statusCode: StatusCodes.Status400BadRequest,
-                    title: "Paginación inválida");
-            }
+    /// <summary>
+    /// Obtener el detalle de una requisición por su identificador (Roles: Capataz, Comprador, Admin)
+    /// </summary>
+    [HttpGet("{id:guid}")]
+    [Authorize(Roles = "Capataz,Comprador,Admin")]
+    [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<RequisicionResponseDto>> ObtenerPorId(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetRequisicionByIdQuery(id, ObtenerSolicitanteRestringidoId());
+        return Ok(await _getByIdHandler.Handle(query, cancellationToken));
+    }
 
-            Guid? solicitanteId = null;
-            if (EsCapatazSinPrivilegiosSuperiores())
-            {
-                if (!TryGetUserId(out var userId))
-                {
-                    return Problem(
-                        detail: "El token JWT no contiene un claim 'sub' válido con formato GUID.",
-                        statusCode: StatusCodes.Status401Unauthorized,
-                        title: "Usuario no identificado");
-                }
-                solicitanteId = userId;
-            }
+    /// <summary>
+    /// Crear una nueva requisición de materiales para una obra (Roles: Capataz, Admin)
+    /// </summary>
+    [HttpPost]
+    [Authorize(Roles = "Capataz,Admin")]
+    [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
+    public async Task<ActionResult<RequisicionResponseDto>> CrearRequisicion(
+        [FromBody] CrearRequisicionRequestDto request,
+        [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey = null,
+        CancellationToken cancellationToken = default)
+    {
+        var command = request.ToCreateCommand(
+            solicitanteId: ObtenerUsuarioId(),
+            idempotencyKey: idempotencyKey,
+            validarObraAsignada: EsCapatazSinPrivilegiosSuperiores(),
+            authorizationHeader: ObtenerAuthorizationHeader(),
+            correlationId: ObtenerCorrelationId().ToString());
 
-            var query = new GetRequisicionesQuery(obraId, estado, solicitanteId, p);
-            var resultado = await _getRequisicionesHandler.Handle(query, cancellationToken);
+        var creada = await _createHandler.Handle(command, cancellationToken);
+        return CreatedAtAction(nameof(ObtenerPorId), new { id = creada.RequisicionId }, creada);
+    }
 
-            Response.Headers["X-Total-Count"] = resultado.Total.ToString();
-            Response.Headers["X-Page"] = p.Pagina.ToString();
-            Response.Headers["X-Page-Size"] = p.Tamano.ToString();
+    /// <summary>
+    /// Editar una requisición pendiente, o corregir y reenviar una rechazada conservando su número y el historial de rechazos (Roles: Capataz dueño, Admin)
+    /// </summary>
+    [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Capataz,Admin")]
+    [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<RequisicionResponseDto>> EditarReenviarRequisicion(
+        Guid id,
+        [FromBody] EditarRequisicionRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var command = request.ToReenviarCommand(id, ObtenerUsuarioId(), User.IsInRole("Admin"));
+        return Ok(await _reenviarHandler.Handle(command, cancellationToken));
+    }
 
-            return Ok(resultado.Items);
-        }
+    /// <summary>
+    /// Cancelar una requisición pendiente antes de que Compras la apruebe (Roles: Capataz dueño, Admin)
+    /// </summary>
+    [HttpPost("{id:guid}/cancelar")]
+    [Authorize(Roles = "Capataz,Admin")]
+    [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<RequisicionResponseDto>> CancelarRequisicion(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var command = new CancelarRequisicionCommand(id, ObtenerUsuarioId(), User.IsInRole("Admin"));
+        return Ok(await _cancelarHandler.Handle(command, cancellationToken));
+    }
 
-        /// <summary>
-        /// Obtener el detalle de una requisición por su identificador (Roles: Capataz, Comprador, Admin)
-        /// </summary>
-        [HttpGet("{id:guid}")]
-        [Authorize(Roles = "Capataz,Comprador,Admin")]
-        [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<RequisicionResponseDto>> ObtenerPorId(
-            Guid id,
-            CancellationToken cancellationToken = default)
-        {
-            Guid? solicitanteIdRestriccion = null;
-            if (EsCapatazSinPrivilegiosSuperiores())
-            {
-                if (!TryGetUserId(out var userId))
-                {
-                    return Problem(
-                        detail: "El token JWT no contiene un claim 'sub' válido con formato GUID.",
-                        statusCode: StatusCodes.Status401Unauthorized,
-                        title: "Usuario no identificado");
-                }
-                solicitanteIdRestriccion = userId;
-            }
+    /// <summary>
+    /// Aprobar una requisición pendiente y publicar RequisicionAprobadaEvent (Roles: Comprador, Admin)
+    /// </summary>
+    [HttpPost("{id:guid}/aprobar")]
+    [Authorize(Roles = "Comprador,Admin")]
+    [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<RequisicionResponseDto>> AprobarRequisicion(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var command = new AprobarRequisicionCommand(id, ObtenerUsuarioId(), ObtenerCorrelationId());
+        return Ok(await _aprobarHandler.Handle(command, cancellationToken));
+    }
 
-            var query = new GetRequisicionByIdQuery(id, solicitanteIdRestriccion);
-            var requisicion = await _getByIdHandler.Handle(query, cancellationToken);
-            return Ok(requisicion);
-        }
-
-        /// <summary>
-        /// Crear una nueva requisición de materiales para una obra (Roles: Capataz, Admin)
-        /// </summary>
-        [HttpPost]
-        [Authorize(Roles = "Capataz,Admin")]
-        [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status201Created)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
-        public async Task<ActionResult<RequisicionResponseDto>> CrearRequisicion(
-            [FromBody] CrearRequisicionRequestDto request,
-            [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey = null,
-            CancellationToken cancellationToken = default)
-        {
-            if (!TryGetUserId(out var solicitanteId))
-            {
-                return Problem(
-                    detail: "El token JWT no contiene un claim 'sub' válido con formato GUID.",
-                    statusCode: StatusCodes.Status401Unauthorized,
-                    title: "Usuario no identificado");
-            }
-
-            // #155: el Capataz solo puede crear requisiciones para obras que tiene asignadas
-            if (EsCapatazSinPrivilegiosSuperiores() && _obraAsignacionValidator != null)
-            {
-                var authHeader = Request?.Headers["Authorization"].ToString();
-                var asignada = await _obraAsignacionValidator.EstaAsignadaACapatazAsync(
-                    request.ObraId,
-                    authHeader,
-                    GetCorrelationId().ToString(),
-                    cancellationToken);
-
-                if (!asignada)
-                {
-                    return Problem(
-                        detail: "El capataz autenticado no tiene asignada la obra indicada para crear requisiciones.",
-                        statusCode: StatusCodes.Status403Forbidden,
-                        title: "Obra no asignada");
-                }
-            }
-
-            var keyEfectiva = !string.IsNullOrWhiteSpace(idempotencyKey)
-                ? idempotencyKey
-                : Request?.Headers["Idempotency-Key"].ToString();
-
-            var creada = await _createHandler.Handle(
-                request.ToCreateCommand(solicitanteId, keyEfectiva),
-                cancellationToken);
-
-            return CreatedAtAction(
-                nameof(ObtenerPorId),
-                new { id = creada.RequisicionId },
-                creada);
-        }
-
-        /// <summary>
-        /// Editar una requisición pendiente, o corregir y reenviar una rechazada conservando su número y el historial de rechazos (Roles: Capataz dueño, Admin)
-        /// </summary>
-        [HttpPut("{id:guid}")]
-        [Authorize(Roles = "Capataz,Admin")]
-        [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-        public async Task<ActionResult<RequisicionResponseDto>> EditarReenviarRequisicion(
-            Guid id,
-            [FromBody] EditarRequisicionRequestDto? request,
-            CancellationToken cancellationToken = default)
-        {
-            if (!TryGetUserId(out var usuarioId))
-            {
-                return Problem(
-                    detail: "El token JWT no contiene un claim 'sub' válido con formato GUID.",
-                    statusCode: StatusCodes.Status401Unauthorized,
-                    title: "Usuario no identificado");
-            }
-
-            if (request == null || request.Items == null || request.Items.Count == 0)
-            {
-                return Problem(
-                    detail: "La requisición debe contener al menos un ítem para poder reenviarse.",
-                    statusCode: StatusCodes.Status400BadRequest,
-                    title: "Datos de requisición inválidos");
-            }
-
-            var handler = _reenviarHandler
-                ?? HttpContext?.RequestServices.GetService(typeof(ReenviarRequisicionCommandHandler)) as ReenviarRequisicionCommandHandler
-                ?? throw new NotSupportedException("No se encontró el servicio ReenviarRequisicionCommandHandler.");
-
-            var reenviada = await handler.Handle(
-                request.ToReenviarCommand(id, usuarioId, User.IsInRole("Admin")),
-                cancellationToken);
-
-            return Ok(reenviada);
-        }
-
-        /// <summary>
-        /// Cancelar una requisición pendiente antes de que Compras la apruebe (Roles: Capataz dueño, Admin)
-        /// </summary>
-        [HttpPost("{id:guid}/cancelar")]
-        [Authorize(Roles = "Capataz,Admin")]
-        [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-        public async Task<ActionResult<RequisicionResponseDto>> CancelarRequisicion(
-            Guid id,
-            CancellationToken cancellationToken = default)
-        {
-            if (!TryGetUserId(out var usuarioId))
-            {
-                return Problem(
-                    detail: "El token JWT no contiene un claim 'sub' válido con formato GUID.",
-                    statusCode: StatusCodes.Status401Unauthorized,
-                    title: "Usuario no identificado");
-            }
-
-            var handler = _cancelarHandler
-                ?? HttpContext?.RequestServices.GetService(typeof(CancelarRequisicionCommandHandler)) as CancelarRequisicionCommandHandler
-                ?? throw new NotSupportedException("No se encontró el servicio CancelarRequisicionCommandHandler.");
-
-            var cancelada = await handler.Handle(
-                new CancelarRequisicionCommand(id, usuarioId, User.IsInRole("Admin")),
-                cancellationToken);
-
-            return Ok(cancelada);
-        }
-
-        /// <summary>
-        /// Aprobar una requisición pendiente y publicar RequisicionAprobadaEvent (Roles: Comprador, Admin)
-        /// </summary>
-        [HttpPost("{id:guid}/aprobar")]
-        [Authorize(Roles = "Comprador,Admin")]
-        [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-        public async Task<ActionResult<RequisicionResponseDto>> AprobarRequisicion(
-            Guid id,
-            CancellationToken cancellationToken = default)
-        {
-            if (!TryGetUserId(out var aprobadorId))
-            {
-                return Problem(
-                    detail: "El token JWT no contiene un claim 'sub' válido con formato GUID.",
-                    statusCode: StatusCodes.Status401Unauthorized,
-                    title: "Usuario no identificado");
-            }
-
-            var command = new AprobarRequisicionCommand(id, aprobadorId, GetCorrelationId());
-            var aprobada = await _aprobarHandler.Handle(command, cancellationToken);
-            return Ok(aprobada);
-        }
-
-        /// <summary>
-        /// Rechazar una requisición pendiente con motivo obligatorio (Roles: Comprador, Admin)
-        /// </summary>
-        [HttpPost("{id:guid}/rechazar")]
-        [Authorize(Roles = "Comprador,Admin")]
-        [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-        public async Task<ActionResult<RequisicionResponseDto>> RechazarRequisicion(
-            Guid id,
-            [FromBody] RechazarRequisicionRequestDto? request,
-            CancellationToken cancellationToken = default)
-        {
-            if (!TryGetUserId(out var rechazadorId))
-            {
-                return Problem(
-                    detail: "El token JWT no contiene un claim 'sub' válido con formato GUID.",
-                    statusCode: StatusCodes.Status401Unauthorized,
-                    title: "Usuario no identificado");
-            }
-
-            if (request == null || string.IsNullOrWhiteSpace(request.Motivo))
-            {
-                return Problem(
-                    detail: "El motivo de rechazo de la requisición es obligatorio.",
-                    statusCode: StatusCodes.Status400BadRequest,
-                    title: "Motivo de rechazo inválido");
-            }
-
-            var command = new RechazarRequisicionCommand(id, rechazadorId, request.Motivo);
-            var rechazada = await _rechazarHandler.Handle(command, cancellationToken);
-            return Ok(rechazada);
-        }
-
-        private bool EsCapatazSinPrivilegiosSuperiores() =>
-            User.IsInRole("Capataz") && !User.IsInRole("Comprador") && !User.IsInRole("Admin");
-
-        private bool TryGetUserId(out Guid userId)
-        {
-            var subClaim = User.FindFirstValue("sub")
-                ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            return Guid.TryParse(subClaim, out userId) && userId != Guid.Empty;
-        }
-
-        private Guid GetCorrelationId()
-        {
-            var header = HttpContext?.Items[CorrelationIdMiddleware.CorrelationIdItemKey] as string
-                ?? Request.Headers[CorrelationIdMiddleware.CorrelationIdHeader].ToString();
-            return Guid.TryParse(header, out var correlationId) && correlationId != Guid.Empty
-                ? correlationId
-                : Guid.NewGuid();
-        }
+    /// <summary>
+    /// Rechazar una requisición pendiente con motivo obligatorio (Roles: Comprador, Admin)
+    /// </summary>
+    [HttpPost("{id:guid}/rechazar")]
+    [Authorize(Roles = "Comprador,Admin")]
+    [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<RequisicionResponseDto>> RechazarRequisicion(
+        Guid id,
+        [FromBody] RechazarRequisicionRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var command = request.ToRechazarCommand(id, ObtenerUsuarioId());
+        return Ok(await _rechazarHandler.Handle(command, cancellationToken));
     }
 }

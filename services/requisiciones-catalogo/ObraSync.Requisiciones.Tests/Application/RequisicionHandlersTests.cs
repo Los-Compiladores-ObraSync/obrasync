@@ -103,6 +103,67 @@ namespace ObraSync.Requisiciones.Tests.Application
         }
 
         [Fact]
+        public async Task CreateRequisicion_ConValidarObraAsignadaYValidadorDevuelveFalse_DebeLanzarObraNoAsignadaExceptionSinConsultarRepos()
+        {
+            var requisicionRepo = Substitute.For<IRequisicionRepository>();
+            var insumoRepo = Substitute.For<IInsumoRepository>();
+            var obraValidator = Substitute.For<IObraAsignacionValidator>();
+
+            var obraId = Guid.NewGuid();
+            obraValidator.EstaAsignadaACapatazAsync(obraId, "Bearer jwt", "corr-1", Arg.Any<CancellationToken>())
+                .Returns(false);
+
+            var handler = new CreateRequisicionCommandHandler(requisicionRepo, insumoRepo, obraValidator);
+            var command = new CreateRequisicionCommand(
+                ObraId: obraId,
+                SolicitanteId: Guid.NewGuid(),
+                Items: new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = Guid.NewGuid(), Cantidad = 10m }
+                },
+                ValidarObraAsignada: true,
+                AuthorizationHeader: "Bearer jwt",
+                CorrelationId: "corr-1");
+
+            await Assert.ThrowsAsync<ObraNoAsignadaException>(() =>
+                handler.Handle(command, CancellationToken.None));
+
+            await insumoRepo.DidNotReceiveWithAnyArgs().GetByIdsAsync(default!, default);
+            await requisicionRepo.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+        }
+
+        [Fact]
+        public async Task CreateRequisicion_SinValidarObraAsignada_NoInvocaValidadorDeObra()
+        {
+            var requisicionRepo = Substitute.For<IRequisicionRepository>();
+            var insumoRepo = Substitute.For<IInsumoRepository>();
+            var obraValidator = Substitute.For<IObraAsignacionValidator>();
+
+            var cementoId = Guid.Parse("11111111-1111-1111-1111-111111110001");
+            insumoRepo.GetByIdsAsync(Arg.Any<IEnumerable<Guid>>(), Arg.Any<CancellationToken>())
+                .Returns(new List<Insumo>
+                {
+                    new(cementoId, "MAT-CEM-001", "Cemento Portland", UnidadesMedida.Bolsa, activo: true)
+                });
+            requisicionRepo.GetNextSequenceNumberAsync(Arg.Any<CancellationToken>()).Returns(1);
+
+            var handler = new CreateRequisicionCommandHandler(requisicionRepo, insumoRepo, obraValidator);
+            var command = new CreateRequisicionCommand(
+                ObraId: Guid.NewGuid(),
+                SolicitanteId: Guid.NewGuid(),
+                Items: new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = cementoId, Cantidad = 10m }
+                },
+                ValidarObraAsignada: false);
+
+            await handler.Handle(command, CancellationToken.None);
+
+            await obraValidator.DidNotReceiveWithAnyArgs()
+                .EstaAsignadaACapatazAsync(default, default, default, default);
+        }
+
+        [Fact]
         public async Task AprobarRequisicion_ConRequisicionPendiente_DebeAprobarYPublicarRequisicionAprobadaEventConEtapa()
         {
             var requisicionRepo = Substitute.For<IRequisicionRepository>();

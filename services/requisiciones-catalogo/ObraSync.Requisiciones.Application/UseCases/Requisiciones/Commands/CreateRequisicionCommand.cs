@@ -10,6 +10,9 @@ namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Commands
         IReadOnlyList<CrearRequisicionItemDto> Items,
         string? Etapa = null,
         string? Observaciones = null,
-        string? IdempotencyKey = null
+        string? IdempotencyKey = null,
+        bool ValidarObraAsignada = false,
+        string? AuthorizationHeader = null,
+        string? CorrelationId = null
     );
 }

@@ -35,11 +35,7 @@ namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers
             var requisicion = await _requisicionRepository.GetByIdAsync(command.RequisicionId, cancellationToken)
                 ?? throw new KeyNotFoundException($"No se encontró la requisición con Id '{command.RequisicionId}'.");
 
-            if (!command.EsAdmin && requisicion.SolicitanteId != command.UsuarioId)
-            {
-                throw new UnauthorizedAccessException("Solo el capataz solicitante dueño de la requisición o un administrador pueden cancelarla.");
-            }
-
+            requisicion.AsegurarPuedeSerModificadaPor(command.UsuarioId, command.EsAdmin, "cancelarla");
             requisicion.Cancelar();
 
             await _requisicionRepository.SaveChangesAsync(cancellationToken);

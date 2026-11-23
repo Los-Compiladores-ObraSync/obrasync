@@ -8,6 +8,8 @@ namespace ObraSync.Requisiciones.Domain.Entities
 {
     public class Requisicion
     {
+        public const int LongitudMaximaIdempotencyKey = 100;
+
         public Guid Id { get; set; } = Guid.NewGuid();
         public string NumeroRequisicion { get; set; } = string.Empty;
         public Guid ObraId { get; set; }
@@ -55,9 +57,7 @@ namespace ObraSync.Requisiciones.Domain.Entities
             if (listaItems.Count == 0)
                 throw new ArgumentException("La requisición debe contener al menos un ítem.", nameof(items));
 
-            var keyNormalizada = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey.Trim();
-            if (keyNormalizada != null && keyNormalizada.Length > 100)
-                throw new ArgumentException("El encabezado Idempotency-Key no puede superar los 100 caracteres.", nameof(idempotencyKey));
+            var keyNormalizada = NormalizarIdempotencyKey(idempotencyKey);
 
             Id = id == Guid.Empty ? Guid.NewGuid() : id;
             NumeroRequisicion = numeroRequisicion.Trim().ToUpperInvariant();
@@ -173,6 +173,44 @@ namespace ObraSync.Requisiciones.Domain.Entities
             Estado = EstadoRequisicion.Cancelada;
         }
 
+        public static string? NormalizarIdempotencyKey(string? idempotencyKey)
+        {
+            var normalizada = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey.Trim();
+            if (normalizada != null && normalizada.Length > LongitudMaximaIdempotencyKey)
+                throw new ArgumentException(
+                    $"El encabezado Idempotency-Key no puede superar los {LongitudMaximaIdempotencyKey} caracteres.",
+                    nameof(idempotencyKey));
+
+            return normalizada;
+        }
+
+        public static string FormatearNumero(int anio, int secuencia)
+        {
+            if (secuencia <= 0)
+                throw new ArgumentOutOfRangeException(nameof(secuencia), "La secuencia de requisición debe ser mayor a cero.");
+
+            return $"REQ-{anio}-{secuencia:D4}";
+        }
+
+        public void AsegurarPuedeSerModificadaPor(Guid usuarioId, bool esAdmin, string accion)
+        {
+            if (!esAdmin && SolicitanteId != usuarioId)
+            {
+                throw new UnauthorizedAccessException(
+                    $"Solo el capataz solicitante dueño de la requisición o un administrador pueden {accion}.");
+            }
+        }
+
+        public void AsegurarPuedeEditarse()
+        {
+            if (!string.Equals(Estado, EstadoRequisicion.Rechazada, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(Estado, EstadoRequisicion.Pendiente, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Solo se pueden editar requisiciones en estado '{EstadoRequisicion.Pendiente}' o '{EstadoRequisicion.Rechazada}'. Estado actual: '{Estado}'.");
+            }
+        }
+
         /// <summary>
         /// Edita los datos de la requisición. Sirve para una Rechazada (se corrige y vuelve a Pendiente, y queda el historial
         /// de rechazos) y para una Pendiente (se corrige antes de que Compras la apruebe; sigue Pendiente).
@@ -182,11 +220,7 @@ namespace ObraSync.Requisiciones.Domain.Entities
             string? etapa = null,
             string? observaciones = null)
         {
-            if (!string.Equals(Estado, EstadoRequisicion.Rechazada, StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(Estado, EstadoRequisicion.Pendiente, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException($"Solo se pueden editar requisiciones en estado '{EstadoRequisicion.Pendiente}' o '{EstadoRequisicion.Rechazada}'. Estado actual: '{Estado}'.");
-            }
+            AsegurarPuedeEditarse();
 
             var listaItems = nuevosItems?.ToList() ?? new List<RequisicionItem>();
             if (listaItems.Count == 0)

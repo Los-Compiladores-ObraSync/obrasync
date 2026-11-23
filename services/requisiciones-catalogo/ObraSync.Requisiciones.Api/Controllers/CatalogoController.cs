@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,86 +9,64 @@ using ObraSync.Requisiciones.Application.Mappings;
 using ObraSync.Requisiciones.Application.UseCases.Catalog.Handlers;
 using ObraSync.Requisiciones.Application.UseCases.Catalog.Queries;
 
-namespace ObraSync.Requisiciones.Api.Controllers
+namespace ObraSync.Requisiciones.Api.Controllers;
+
+[Route("api/catalogo")]
+[Authorize(Roles = "Capataz,Comprador,Admin")]
+[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+public class CatalogoController : ApiControllerBase
 {
-    [ApiController]
-    [Route("api/catalogo")]
-    [Authorize(Roles = "Capataz,Comprador,Admin")]
-    public class CatalogoController : ControllerBase
+    private readonly GetInsumosQueryHandler _getInsumosHandler;
+    private readonly CreateInsumoCommandHandler _createInsumoHandler;
+
+    public CatalogoController(
+        GetInsumosQueryHandler getInsumosHandler,
+        CreateInsumoCommandHandler createInsumoHandler)
     {
-        private readonly GetInsumosQueryHandler _getInsumosHandler;
-        private readonly CreateInsumoCommandHandler _createInsumoHandler;
+        _getInsumosHandler = getInsumosHandler;
+        _createInsumoHandler = createInsumoHandler;
+    }
 
-        public CatalogoController(
-            GetInsumosQueryHandler getInsumosHandler,
-            CreateInsumoCommandHandler createInsumoHandler)
-        {
-            _getInsumosHandler = getInsumosHandler;
-            _createInsumoHandler = createInsumoHandler;
-        }
+    /// <summary>
+    /// Listar los insumos del catálogo (Roles: Capataz, Comprador, Admin)
+    /// </summary>
+    /// <param name="search">Filtro opcional por código o descripción del insumo. Búsqueda por subcadena (contiene), insensible a mayúsculas/minúsculas pero sensible a tildes según la collation de la base de datos (SQL_Latin1_General_CP1_CI_AS).</param>
+    /// <param name="soloActivos">Filtrar únicamente insumos activos (por defecto true).</param>
+    /// <param name="pagina">Número de página (1 en adelante).</param>
+    /// <param name="tamano">Cantidad de elementos por página (entre 1 y 50).</param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
+    [HttpGet("insumos")]
+    [ProducesResponseType(typeof(IEnumerable<InsumoCatalogoDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<InsumoCatalogoDto>>> ListarInsumos(
+        [FromQuery] string? search = null,
+        [FromQuery] bool soloActivos = true,
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamano = ParametrosPagina.TamanoMaximo,
+        CancellationToken cancellationToken = default)
+    {
+        var paginacion = ParametrosPagina.Crear(pagina, tamano);
+        var query = new GetInsumosQuery(search, soloActivos, paginacion);
+        var resultado = await _getInsumosHandler.Handle(query, cancellationToken);
+        return OkPaginado(resultado, paginacion);
+    }
 
-        /// <summary>
-        /// Listar los insumos del catálogo (Roles: Capataz, Comprador, Admin)
-        /// </summary>
-        /// <param name="search">Filtro opcional por código o descripción del insumo. Búsqueda por subcadena (contiene), insensible a mayúsculas/minúsculas pero sensible a tildes según la collation de la base de datos (SQL_Latin1_General_CP1_CI_AS).</param>
-        /// <param name="soloActivos">Filtrar únicamente insumos activos (por defecto true).</param>
-        /// <param name="pagina">Número de página (1 en adelante).</param>
-        /// <param name="tamano">Cantidad de elementos por página (entre 1 y 50).</param>
-        /// <param name="cancellationToken">Token de cancelación.</param>
-        [HttpGet("insumos")]
-        [ProducesResponseType(typeof(IEnumerable<InsumoCatalogoDto>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<IReadOnlyList<InsumoCatalogoDto>>> ListarInsumos(
-            [FromQuery] string? search = null,
-            [FromQuery] bool soloActivos = true,
-            [FromQuery] int pagina = 1,
-            [FromQuery] int tamano = 50,
-            CancellationToken cancellationToken = default)
-        {
-            var p = new ParametrosPagina(pagina, tamano);
-            var error = p.Validar();
-            if (error is not null)
-            {
-                return Problem(
-                    detail: error,
-                    statusCode: StatusCodes.Status400BadRequest,
-                    title: "Paginación inválida");
-            }
-
-            var query = new GetInsumosQuery(search, soloActivos, p);
-            var resultado = await _getInsumosHandler.Handle(query, cancellationToken);
-
-            Response.Headers["X-Total-Count"] = resultado.Total.ToString();
-            Response.Headers["X-Page"] = p.Pagina.ToString();
-            Response.Headers["X-Page-Size"] = p.Tamano.ToString();
-
-            return Ok(resultado.Items);
-        }
-
-        /// <summary>
-        /// Dar de alta un nuevo insumo en el catálogo (Roles: Comprador, Admin)
-        /// </summary>
-        /// <param name="request">Datos del nuevo insumo.</param>
-        /// <param name="cancellationToken">Token de cancelación.</param>
-        [HttpPost("insumos")]
-        [Authorize(Roles = "Admin,Comprador")]
-        [ProducesResponseType(typeof(InsumoCatalogoDto), StatusCodes.Status201Created)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-        public async Task<ActionResult<InsumoCatalogoDto>> CrearInsumo(
-            [FromBody] CrearInsumoRequestDto request,
-            CancellationToken cancellationToken = default)
-        {
-            var creado = await _createInsumoHandler.Handle(request.ToCommand(), cancellationToken);
-
-            return CreatedAtAction(
-                nameof(ListarInsumos),
-                new { search = creado.Codigo },
-                creado);
-        }
+    /// <summary>
+    /// Dar de alta un nuevo insumo en el catálogo (Roles: Comprador, Admin)
+    /// </summary>
+    /// <param name="request">Datos del nuevo insumo.</param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
+    [HttpPost("insumos")]
+    [Authorize(Roles = "Admin,Comprador")]
+    [ProducesResponseType(typeof(InsumoCatalogoDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<InsumoCatalogoDto>> CrearInsumo(
+        [FromBody] CrearInsumoRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var creado = await _createInsumoHandler.Handle(request.ToCommand(), cancellationToken);
+        return CreatedAtAction(nameof(ListarInsumos), new { search = creado.Codigo }, creado);
     }
 }

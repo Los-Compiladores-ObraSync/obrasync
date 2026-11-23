@@ -102,7 +102,10 @@ namespace ObraSync.Requisiciones.Application.Mappings
         public static CreateRequisicionCommand ToCreateCommand(
             this CrearRequisicionRequestDto request,
             Guid solicitanteId,
-            string? idempotencyKey = null)
+            string? idempotencyKey = null,
+            bool validarObraAsignada = false,
+            string? authorizationHeader = null,
+            string? correlationId = null)
         {
             ArgumentNullException.ThrowIfNull(request);
 
@@ -112,7 +115,10 @@ namespace ObraSync.Requisiciones.Application.Mappings
                 request.Items,
                 request.Etapa,
                 request.Observaciones,
-                idempotencyKey);
+                idempotencyKey,
+                validarObraAsignada,
+                authorizationHeader,
+                correlationId);
         }
 
         public static ReenviarRequisicionCommand ToReenviarCommand(
@@ -130,6 +136,19 @@ namespace ObraSync.Requisiciones.Application.Mappings
                 request.Items,
                 request.Etapa,
                 request.Observaciones);
+        }
+
+        public static RechazarRequisicionCommand ToRechazarCommand(
+            this RechazarRequisicionRequestDto request,
+            Guid requisicionId,
+            Guid rechazadorId)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+
+            return new RechazarRequisicionCommand(
+                requisicionId,
+                rechazadorId,
+                request.Motivo ?? string.Empty);
         }
     }
 }
