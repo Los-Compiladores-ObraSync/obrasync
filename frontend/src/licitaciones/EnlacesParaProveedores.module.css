@@ -1,0 +1,66 @@
+.enlaces {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0; /* el espacio con lo de arriba y abajo lo da el contenedor */
+  padding: 1.25rem 1.5rem;
+  border: 2px solid var(--borde);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.encabezado { display: flex; flex-direction: column; gap: 0.25rem; }
+.titulo { margin: 0; font-size: 1.25rem; }
+.subtitulo { margin: 0; color: var(--texto-suave); }
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.resultado { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.75rem; border-top: 1px solid #e2e8f0; }
+
+.fila { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.etiqueta { font-weight: 700; }
+
+.selector, .campoEnlace {
+  flex: 1 1 14rem;
+  min-height: 48px;
+  padding: 0 0.75rem;
+  font-size: 1.0625rem;
+  border: 2px solid var(--borde);
+  border-radius: 10px;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.boton, .botonPrincipal {
+  min-height: 48px; /* tamaño cómodo para tocar con guantes */
+  padding: 0 1.25rem;
+  border: 2px solid #1f3864;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1f3864;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.botonPrincipal { border-color: var(--accion); background: var(--accion); color: #ffffff; }
+.botonPrincipal:hover:not(:disabled) { background: var(--accion-oscura); border-color: var(--accion-oscura); }
+.boton:disabled, .botonPrincipal:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.ayuda { margin: 0; color: var(--texto-suave); }
+.error { margin: 0; color: #991b1b; }
+.aviso { margin: 0; color: #15803d; font-weight: 700; }
+
+/* Celular: cada botón ocupa todo el ancho, más fácil de tocar. */
+@media (max-width: 600px) {
+  .enlaces { padding: 1rem; }
+  .fila > * { flex: 1 1 100%; }
+}

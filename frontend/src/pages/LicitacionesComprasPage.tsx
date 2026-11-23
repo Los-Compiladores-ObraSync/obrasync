@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
+import { AuthContext } from '../auth/sessionContext'
 import {
   calcularPrecioTotalCotizacion,
   calcularTotalConFlete,
@@ -27,6 +28,7 @@ import type {
   LicitacionResponseDto,
 } from '../licitaciones/licitacionesTipos'
 import { AccionesLicitacionAbierta } from '../licitaciones/AccionesLicitacionAbierta'
+import { EnlacesParaProveedores } from '../licitaciones/EnlacesParaProveedores'
 import { AvisoPorLicitar } from '../licitaciones/RequisicionesPorLicitar'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { cantidadConUnidad } from '../requisiciones/unidades'
@@ -89,6 +91,10 @@ function mensajeDeErrorAdjudicar(err: unknown): string {
 
 export function LicitacionesComprasPage() {
   const [searchParams, setSearchParams] = useSearchParams()
+  // Solo el Comprador arma enlaces para proveedores (#252); el Admin es de solo lectura (#233).
+  // Se lee el contexto sin useAuth para no exigir un AuthProvider en las pruebas de esta pantalla.
+  const sesion = useContext(AuthContext)
+  const puedeArmarEnlaces = sesion?.usuario?.rol === 'Comprador'
   const licitacionIdParam = searchParams.get('licitacionId')
   const orden = ordenValido(searchParams.get('orden'))
 
@@ -460,6 +466,13 @@ export function LicitacionesComprasPage() {
                   actuales.map((l) => (l.licitacionId === actualizada.licitacionId ? { ...l, ...actualizada } : l)),
                 )
               }
+            />
+          )}
+
+          {licitacionSeleccionada.estado === 'Abierta' && puedeArmarEnlaces && (
+            <EnlacesParaProveedores
+              key={licitacionSeleccionada.licitacionId}
+              licitacionId={licitacionSeleccionada.licitacionId}
             />
           )}
 
