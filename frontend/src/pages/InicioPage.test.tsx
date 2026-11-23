@@ -56,16 +56,23 @@ describe('InicioPage', () => {
       'href',
       '/obra/requisiciones',
     )
+    expect(screen.queryByRole('region', { name: 'Progreso del flujo de compras' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Presupuesto' })).toHaveAttribute('href', '/obra/presupuesto')
     expect(screen.queryByRole('region', { name: 'Resumen de aprobaciones' })).not.toBeInTheDocument()
     expect(screen.queryByText('Licitaciones abiertas')).not.toBeInTheDocument()
   })
 
-  it('Comprador: ve el resumen de aprobaciones y el asistente de su portal', async () => {
+  it('Comprador: reúne el resumen, asistente y tablero de Compras en el inicio', async () => {
     renderInicio('Comprador')
 
     expect(await screen.findByRole('region', { name: 'Resumen de aprobaciones' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Asistente' })).toHaveAttribute('href', '/compras/asistente')
+    expect(await screen.findByRole('region', { name: 'Progreso del flujo de compras' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Qué hago ahora' })).toBeInTheDocument()
+    const historial = await screen.findByRole('region', { name: 'Historial de actividad' })
+    expect(within(historial).getByText(/últimas novedades de Compras/)).toBeInTheDocument()
+    expect(within(historial).getByRole('link', { name: 'Ver historial' })).toHaveAttribute('href', '/compras/historial')
+    expect(within(historial).queryByRole('list')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Ver obras' })).toHaveAttribute('href', '/compras/obras')
     expect(screen.getByRole('link', { name: 'Presupuesto' })).toHaveAttribute('href', '/compras/presupuesto')
     // Los botones pasan a ser secundarios cuando hay tarjeta de aprobaciones.
@@ -100,6 +107,7 @@ describe('InicioPage', () => {
 
     expect(await screen.findByRole('region', { name: 'Resumen de licitaciones' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Resumen de aprobaciones' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Progreso del flujo de compras' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /^Historial de cotizaciones/ })).toHaveAttribute(
       'href',
       '/proveedores/mis-cotizaciones',

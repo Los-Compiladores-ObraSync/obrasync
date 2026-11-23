@@ -32,6 +32,13 @@ import { RutaProtegida } from './routes/RutaProtegida'
 import { SoloPortal } from './routes/SoloPortal'
 import { SoloSinSesion } from './routes/SoloSinSesion'
 import { FranjaModoSimulado } from './layout/FranjaModoSimulado'
+import { useAuth } from './auth/useAuth'
+
+/** /compras sigue siendo una dirección válida; para Comprador lleva al inicio ya unificado. */
+function ComprasPortalIndex() {
+  const { usuario } = useAuth()
+  return usuario?.rol === 'Comprador' ? <Navigate to="/" replace /> : <ComprasPage />
+}
 
 // El Router (BrowserRouter) se pone en main.tsx; acá solo se declaran las rutas.
 // Así las pruebas pueden envolver <App /> en un MemoryRouter y elegir la ruta inicial.
@@ -78,7 +85,7 @@ function App() {
                 <Route path="requisiciones/:id/seguimiento" element={<SeguimientoPedidoPage />} />
               </Route>
               <Route path="compras" element={<SoloPortal portalId="compras" />}>
-                <Route index element={<ComprasPage />} />
+                <Route index element={<ComprasPortalIndex />} />
                 <Route path="obras" element={<ObrasPage />} />
                 <Route path="obras/nueva" element={<NuevaObraPage />} />
                 <Route path="obras/:id/editar" element={<EditarObraPage />} />
