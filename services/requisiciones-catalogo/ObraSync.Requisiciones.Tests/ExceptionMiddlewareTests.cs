@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using ObraSync.Requisiciones.Api.Exceptions;
 using ObraSync.Requisiciones.Api.Middlewares;
 using ObraSync.Requisiciones.Application.Exceptions;
 using Xunit;
@@ -78,6 +79,40 @@ public class ExceptionMiddlewareTests
         Assert.Equal(StatusCodes.Status503ServiceUnavailable, status);
         using var json = JsonDocument.Parse(cuerpo);
         Assert.Equal("No se pudo verificar la obra", json.RootElement.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task ObraNoAsignadaException_Devuelve403ForbiddenConTituloObraNoAsignada()
+    {
+        var (status, _, cuerpo) = await EjecutarAsync(
+            new ObraNoAsignadaException("El capataz no tiene asignada la obra."));
+
+        Assert.Equal(StatusCodes.Status403Forbidden, status);
+        using var json = JsonDocument.Parse(cuerpo);
+        Assert.Equal("Obra no asignada", json.RootElement.GetProperty("title").GetString());
+        Assert.Equal("El capataz no tiene asignada la obra.", json.RootElement.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task UsuarioNoIdentificadoException_Devuelve401Unauthorized()
+    {
+        var (status, _, cuerpo) = await EjecutarAsync(new UsuarioNoIdentificadoException());
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, status);
+        using var json = JsonDocument.Parse(cuerpo);
+        Assert.Equal("Usuario no identificado", json.RootElement.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task PaginacionInvalidaException_Devuelve400BadRequestConTituloPaginacionInvalida()
+    {
+        var (status, _, cuerpo) = await EjecutarAsync(
+            new PaginacionInvalidaException("La página debe ser 1 o mayor."));
+
+        Assert.Equal(StatusCodes.Status400BadRequest, status);
+        using var json = JsonDocument.Parse(cuerpo);
+        Assert.Equal("Paginación inválida", json.RootElement.GetProperty("title").GetString());
+        Assert.Equal("La página debe ser 1 o mayor.", json.RootElement.GetProperty("detail").GetString());
     }
 
     [Fact]

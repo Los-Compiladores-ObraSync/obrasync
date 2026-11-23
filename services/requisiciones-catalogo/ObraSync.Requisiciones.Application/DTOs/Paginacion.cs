@@ -1,10 +1,23 @@
 using System.Collections.Generic;
+using ObraSync.Requisiciones.Application.Exceptions;
 
 namespace ObraSync.Requisiciones.Application.DTOs
 {
     public sealed record ParametrosPagina(int Pagina = 1, int Tamano = 50)
     {
         public const int TamanoMaximo = 50;
+
+        public static ParametrosPagina Crear(int pagina = 1, int tamano = TamanoMaximo)
+        {
+            var parametros = new ParametrosPagina(pagina, tamano);
+            var error = parametros.Validar();
+            if (error is not null)
+            {
+                throw new PaginacionInvalidaException(error);
+            }
+
+            return parametros;
+        }
 
         public string? Validar()
         {

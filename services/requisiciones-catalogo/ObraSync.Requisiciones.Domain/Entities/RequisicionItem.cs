@@ -41,5 +41,23 @@ namespace ObraSync.Requisiciones.Domain.Entities
             Cantidad = cantidad;
             UnidadMedida = unidadMedida.Trim().ToUpperInvariant();
         }
+
+        public static RequisicionItem CrearDesde(Guid requisicionId, Insumo insumo, decimal cantidad)
+        {
+            ArgumentNullException.ThrowIfNull(insumo);
+
+            if (!insumo.Activo)
+                throw new ArgumentException(
+                    $"El artículo '{insumo.Codigo} - {insumo.Descripcion}' se encuentra inactivo y no puede solicitarse.",
+                    nameof(insumo));
+
+            return new RequisicionItem(
+                Guid.NewGuid(),
+                requisicionId,
+                insumo.Id,
+                insumo.Descripcion,
+                cantidad,
+                insumo.UnidadMedida);
+        }
     }
 }

@@ -285,5 +285,53 @@ namespace ObraSync.Requisiciones.Tests.Domain
             Assert.Throws<ArgumentException>(() =>
                 requisicion.Rechazar(Guid.NewGuid(), motivoLargo));
         }
+
+        [Fact]
+        public void RequisicionItemCrearDesde_InsumoActivo_CopiaDatosYInactivoLanzaArgumentException()
+        {
+            var requisicionId = Guid.NewGuid();
+            var activo = new Insumo(Guid.NewGuid(), "MAT-CEM-001", "Cemento Portland", UnidadesMedida.Bolsa, activo: true);
+            var inactivo = new Insumo(Guid.NewGuid(), "MAT-OBS-001", "Insumo discontinuado", UnidadesMedida.Bolsa, activo: false);
+
+            var item = RequisicionItem.CrearDesde(requisicionId, activo, 25m);
+
+            Assert.Equal(requisicionId, item.RequisicionId);
+            Assert.Equal(activo.Id, item.ArticuloId);
+            Assert.Equal("Cemento Portland", item.Descripcion);
+            Assert.Equal(25m, item.Cantidad);
+            Assert.Equal(UnidadesMedida.Bolsa, item.UnidadMedida);
+
+            Assert.Throws<ArgumentException>(() => RequisicionItem.CrearDesde(requisicionId, inactivo, 10m));
+        }
+
+        [Fact]
+        public void FormatearNumeroYNormalizarIdempotencyKey_AplicanReglasDeDominio()
+        {
+            Assert.Equal("REQ-2026-0007", Requisicion.FormatearNumero(2026, 7));
+            Assert.Throws<ArgumentOutOfRangeException>(() => Requisicion.FormatearNumero(2026, 0));
+
+            Assert.Null(Requisicion.NormalizarIdempotencyKey("   "));
+            Assert.Equal("clave-1", Requisicion.NormalizarIdempotencyKey("  clave-1  "));
+            Assert.Throws<ArgumentException>(() => Requisicion.NormalizarIdempotencyKey(new string('x', 101)));
+        }
+
+        [Fact]
+        public void AsegurarPuedeSerModificadaPor_PermiteDuenoOAdminYRechazaATerceros()
+        {
+            var duenoId = Guid.NewGuid();
+            var otroId = Guid.NewGuid();
+            var requisicion = new Requisicion(
+                Guid.NewGuid(),
+                "REQ-2026-0010",
+                Guid.NewGuid(),
+                duenoId,
+                new[] { new RequisicionItem(Guid.NewGuid(), Guid.Empty, Guid.NewGuid(), "Cemento", 10m, UnidadesMedida.Bolsa) });
+
+            requisicion.AsegurarPuedeSerModificadaPor(duenoId, esAdmin: false, "cancelarla");
+            requisicion.AsegurarPuedeSerModificadaPor(otroId, esAdmin: true, "cancelarla");
+
+            Assert.Throws<UnauthorizedAccessException>(() =>
+                requisicion.AsegurarPuedeSerModificadaPor(otroId, esAdmin: false, "cancelarla"));
+        }
     }
 }

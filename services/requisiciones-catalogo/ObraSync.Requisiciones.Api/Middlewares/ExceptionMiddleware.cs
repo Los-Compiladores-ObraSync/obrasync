@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using ObraSync.Requisiciones.Api.Exceptions;
 using ObraSync.Requisiciones.Application.Exceptions;
 
 namespace ObraSync.Requisiciones.Api.Middlewares;
@@ -59,6 +60,24 @@ public class ExceptionMiddleware
                 "No se pudo verificar la obra",
                 "No se pudo verificar que la obra esté asignada al capataz porque el servicio Usuarios y Obras no respondió. Reintentá en unos segundos.",
                 "https://tools.ietf.org/html/rfc9110#section-15.6.4"
+            ),
+            ObraNoAsignadaException ex => (
+                StatusCodes.Status403Forbidden,
+                "Obra no asignada",
+                ex.Message,
+                "https://tools.ietf.org/html/rfc9110#section-15.5.4"
+            ),
+            UsuarioNoIdentificadoException ex => (
+                StatusCodes.Status401Unauthorized,
+                "Usuario no identificado",
+                ex.Message,
+                "https://tools.ietf.org/html/rfc9110#section-15.5.2"
+            ),
+            PaginacionInvalidaException ex => (
+                StatusCodes.Status400BadRequest,
+                "Paginación inválida",
+                ex.Message,
+                "https://tools.ietf.org/html/rfc9110#section-15.5.1"
             ),
             InvalidOperationException ex => (
                 StatusCodes.Status409Conflict,
