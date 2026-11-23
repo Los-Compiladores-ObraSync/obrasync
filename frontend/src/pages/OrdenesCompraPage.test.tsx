@@ -2,16 +2,27 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { reiniciarOrdenesCompraMock } from '../mocks/handlers'
 import { server } from '../mocks/server'
 import { OrdenesCompraPage } from './OrdenesCompraPage'
 
+// Estas pruebas cubren el listado y la navegación; el chat de órdenes tiene su propia suite.
+vi.mock('../chat/ChatOrden', () => ({ ChatOrden: () => null }))
+vi.mock('../chat/useChatEnLista', () => ({
+  useChatEnLista: () => ({
+    problemaDe: () => ({ abierto: false, motivo: null }),
+    noLeidosDe: () => 0,
+    marcarLeida: () => {},
+    cambiarProblema: () => {},
+  }),
+}))
+
 const RUTA_LISTA = '*/api/ordenes-compra'
 
-function renderPagina() {
+function renderPagina(initialEntry = '/compras/ordenes') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <OrdenesCompraPage />
     </MemoryRouter>,
   )
@@ -65,6 +76,14 @@ describe('OrdenesCompraPage (#205, #223)', () => {
     expect(within(filas[2]).getByText('Despachada el 13 de noviembre de 2026 por el proveedor')).toBeInTheDocument()
     expect(within(filas[2]).getByText('Llega el 20 de noviembre de 2026')).toBeInTheDocument()
     expect(within(filas[2]).getByText('Observación: Sale en camión por la mañana')).toBeInTheDocument()
+    expect(within(filas[2]).getByRole('link', { name: 'Ir a Recepción' })).toHaveAttribute('href', '/compras/recepcion')
+  })
+
+  it('abre y señala la orden indicada por identificador', async () => {
+    renderPagina('/compras/ordenes?ordenCompraId=c1c2c3c4-0000-0000-0000-000000000002')
+    const filas = await tarjetas()
+    expect(within(filas[1]).getByRole('status')).toHaveTextContent('Esta es la orden generada por la adjudicación.')
+    expect(filas[1]).toHaveAttribute('id', 'orden-c1c2c3c4-0000-0000-0000-000000000002')
   })
 
   it('si falla la carga, avisa y "Reintentar" vuelve a pedir la lista', async () => {

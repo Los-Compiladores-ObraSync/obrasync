@@ -343,6 +343,11 @@ export function RecepcionPage() {
                 : 'Se registró la recepción.'}
           </p>
           <p className={styles.dato}>
+            {registrada.estado === 3
+              ? 'El seguimiento de esta entrega terminó.'
+              : 'Volvé a las órdenes pendientes para registrar la próxima entrega cuando llegue.'}
+          </p>
+          <p className={styles.dato}>
             <strong>Remito:</strong> {registrada.numeroRemito}
           </p>
           <p className={styles.dato}>

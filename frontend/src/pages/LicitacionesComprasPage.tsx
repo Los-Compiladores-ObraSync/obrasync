@@ -100,6 +100,7 @@ export function LicitacionesComprasPage() {
   const [confirmandoCotizacionId, setConfirmandoCotizacionId] = useState<string | null>(null)
   const [adjudicandoCotizacionId, setAdjudicandoCotizacionId] = useState<string | null>(null)
   const [mensajeExito, setMensajeExito] = useState<string | null>(null)
+  const [ordenCompraGeneradaId, setOrdenCompraGeneradaId] = useState<string | null>(null)
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
 
   const peticionEnVueloRef = useRef(false)
@@ -252,15 +253,18 @@ export function LicitacionesComprasPage() {
     setAdjudicandoCotizacionId(cotizacion.cotizacionId)
     setErrorAccion(null)
     setMensajeExito(null)
+    setOrdenCompraGeneradaId(null)
 
     try {
       const ordenCompra = await adjudicarLicitacion(
         licitacionSeleccionada.licitacionId,
         cotizacion.cotizacionId,
       )
-      setMensajeExito(
-        `¡Licitación adjudicada con éxito! Se emitió la Orden de Compra ${ordenCompra.id}.`,
-      )
+      const ordenId = typeof ordenCompra?.id === 'string' ? ordenCompra.id.trim() : ''
+      setMensajeExito(ordenId
+        ? `¡Licitación adjudicada con éxito! Se emitió la Orden de Compra ${ordenId}.`
+        : '¡Licitación adjudicada con éxito!')
+      setOrdenCompraGeneradaId(ordenId || null)
       setConfirmandoCotizacionId(null)
       setAdjudicadaAca({
         licitacionId: licitacionSeleccionada.licitacionId,
@@ -313,9 +317,24 @@ export function LicitacionesComprasPage() {
         Consultá las licitaciones abiertas, compará cotizaciones recibidas y adjudicá las compras.
       </p>
 
+      {licitacionSeleccionada && !cargandoCotizaciones && !errorCotizaciones && (
+        <p role="status">
+          {licitacionSeleccionada.estado === 'Adjudicada'
+            ? 'Esta licitación ya fue adjudicada. El siguiente paso es seguir la Orden de compra.'
+            : licitacionSeleccionada.estado === 'Abierta' && cotizaciones.length === 0
+              ? 'La licitación está abierta y todavía no tiene cotizaciones. Esperá nuevas ofertas; cuando lleguen, comparalas y adjudicá.'
+              : licitacionSeleccionada.estado === 'Abierta'
+                ? `${cotizaciones.length} cotización${cotizaciones.length === 1 ? '' : 'es'} recibida${cotizaciones.length === 1 ? '' : 's'}. Comparalas y adjudicá para emitir la Orden de compra.`
+                : `La licitación está ${licitacionSeleccionada.estado.toLowerCase()}. Consultá Órdenes de compra para continuar el seguimiento.`}
+          {licitacionSeleccionada.estado === 'Adjudicada' && <> <Link to="/compras/ordenes">Ir a Órdenes de compra</Link></>}
+        </p>
+      )}
+
       {mensajeExito && (
         <p className={styles.exito} role="status">
           {mensajeExito}
+          {ordenCompraGeneradaId && <> <Link to={`/compras/ordenes?ordenCompraId=${encodeURIComponent(ordenCompraGeneradaId)}`}>Ver la orden de compra</Link></>}
+          {!ordenCompraGeneradaId && <span> No recibimos un identificador válido de la orden. Podés buscarla en <Link to="/compras/ordenes">Órdenes de compra</Link>.</span>}
         </p>
       )}
 

@@ -231,6 +231,7 @@ describe('RecepcionPage', () => {
     await user.type(screen.getByLabelText('Número de remito'), 'R-001')
     await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
     expect(await screen.findByText(/Recepción parcial: todavía queda/i)).toBeInTheDocument()
+    expect(screen.getByText('Volvé a las órdenes pendientes para registrar la próxima entrega cuando llegue.')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Recibir otra orden' }))
     await user.click(await screen.findByRole('button', { name: /Cemento Portland Especial 25kg.*Pendiente 25 bolsas/ }))
@@ -239,6 +240,7 @@ describe('RecepcionPage', () => {
     await user.type(screen.getByLabelText('Número de remito'), 'R-002')
     await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
     expect(await screen.findByText('La orden quedó recibida por completo.')).toBeInTheDocument()
+    expect(screen.getByText('El seguimiento de esta entrega terminó.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Recibir otra orden' }))
     expect(await screen.findAllByRole('button', { name: /Torre Alvear/ })).toHaveLength(1)
 

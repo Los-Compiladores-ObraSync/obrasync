@@ -2,7 +2,8 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+vi.mock('./chat/conexionChat', () => ({ abrirConexionChat: vi.fn() }))
 import App from './App'
 import { setToken } from './api/client'
 import { server } from './mocks/server'
@@ -402,6 +403,16 @@ describe('App - alta de obra', () => {
       expect(
         await screen.findByRole('heading', { level: 1, name: 'Órdenes de compra' }),
       ).toBeInTheDocument()
+      unmount()
+    }
+  })
+
+  it('el Comprador y el Admin pueden continuar el flujo desde Recepción', async () => {
+    for (const rol of ['Comprador', 'Admin']) {
+      localStorage.clear()
+      iniciarSesionComo(rol)
+      const { unmount } = renderApp('/compras/recepcion')
+      expect(await screen.findByRole('heading', { level: 1, name: 'Recibir mercadería' })).toBeInTheDocument()
       unmount()
     }
   })

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { ChatOrden } from '../chat/ChatOrden'
 import { useChatEnLista } from '../chat/useChatEnLista'
 import { CalificacionProveedor } from '../licitaciones/CalificacionProveedor'
@@ -26,6 +26,8 @@ function ordenarParaDespachar(ordenes: OrdenCompraListadoDto[]): OrdenCompraList
 /** Órdenes de compra para Compras (#205, #223): el despacho lo marca el Proveedor (#216) y acá solo se ve.
  *  Recién después el Capataz ve la orden en "Recibir mercadería". Solo Comprador y Admin. */
 export function OrdenesCompraPage() {
+  const [searchParams] = useSearchParams()
+  const ordenSolicitadaId = searchParams.get('ordenCompraId')
   const [ordenes, setOrdenes] = useState<OrdenCompraListadoDto[]>([])
   const [nombresObras, setNombresObras] = useState<Record<string, string>>({})
   const [cargando, setCargando] = useState(true)
@@ -71,6 +73,12 @@ export function OrdenesCompraPage() {
 
   const visibles = ordenarParaDespachar(ordenes)
 
+  useEffect(() => {
+    if (cargando || !ordenSolicitadaId) return
+    const tarjeta = document.getElementById(`orden-${ordenSolicitadaId}`)
+    if (tarjeta && typeof tarjeta.scrollIntoView === 'function') tarjeta.scrollIntoView({ block: 'center' })
+  }, [cargando, ordenSolicitadaId, ordenes])
+
   return (
     <section className={styles.contenedor}>
       <Link to="/" className={styles.volverEnlace}>
@@ -102,18 +110,23 @@ export function OrdenesCompraPage() {
         </div>
       )}
 
+      {!cargando && !errorCarga && ordenSolicitadaId && !ordenes.some((orden) => orden.id === ordenSolicitadaId) && (
+        <p role="alert">No encontramos la orden {ordenSolicitadaId} en la lista actual. Podés revisar todas las Órdenes de compra.</p>
+      )}
+
       {!cargando && !errorCarga && visibles.length > 0 && (
         <ul className={styles.lista}>
           {visibles.map((orden) => {
             const codigo = codigoDeOrden(orden.id)
             return (
-              <li key={orden.id} className={styles.orden} data-despachada={orden.fueDespachada}>
+              <li key={orden.id} id={`orden-${orden.id}`} className={styles.orden} data-despachada={orden.fueDespachada}>
                 <div className={styles.cabecera}>
                   <span className={styles.ordenObra}>{nombresObras[orden.obraId] ?? 'Obra'}</span>
                   <span className={styles.estado}>
                     {orden.fueDespachada ? 'Despachada' : 'Sin despachar'}
                   </span>
                 </div>
+                {orden.id === ordenSolicitadaId && <p role="status">Esta es la orden generada por la adjudicación.</p>}
                 {chat.problemaDe(orden).abierto && (
                   <p className={styles.problema} role="status">
                     Entrega con problema{chat.problemaDe(orden).motivo ? `: ${chat.problemaDe(orden).motivo}` : ''}
@@ -133,6 +146,10 @@ export function OrdenesCompraPage() {
                 {!orden.fueDespachada && (
                   <p className={styles.dato}>Esperando que el proveedor la despache.</p>
                 )}
+                {orden.fueDespachada && !orden.recibidaCompleta && (
+                  <p className={styles.dato}>Siguiente paso: Recepción debe registrar las entregas. <Link to="/compras/recepcion">Ir a Recepción</Link></p>
+                )}
+                {orden.recibidaCompleta && <p className={styles.dato}>La recepción está completa. Ya no requiere seguimiento de entrega.</p>}
 
                 {/* Seguimiento (#224): qué llegó y qué falta, y la historia de la entrega con sus problemas y fotos. */}
                 {orden.fueDespachada && <SeguimientoEntrega ordenCompraId={orden.id} codigo={codigo} />}
