@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from 'react-router'
+import { Navigate, Route, Routes, useNavigate } from 'react-router'
+import { useEffect } from 'react'
 import { AsistenteChatPage } from './asistente/AsistenteChatPage'
 import { AuthProvider } from './auth/AuthContext'
 import { LayoutApp } from './layout/LayoutApp'
@@ -40,6 +41,25 @@ function ComprasPortalIndex() {
   return usuario?.rol === 'Comprador' ? <Navigate to="/" replace /> : <ComprasPage />
 }
 
+function PushNavigationBridge() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    const worker = navigator.serviceWorker
+    if (!worker) return
+    const recibir = (evento: MessageEvent) => {
+      if (evento.data?.type === 'OBRASYNC_PUSH_VISIBILITY_QUERY') {
+        evento.ports[0]?.postMessage(document.visibilityState === 'visible' ? 'visible' : 'hidden')
+      }
+      if (evento.data?.type === 'OBRASYNC_PUSH_NAVIGATE' && typeof evento.data.ruta === 'string' && evento.data.ruta.startsWith('/') && !evento.data.ruta.startsWith('//')) {
+        navigate(evento.data.ruta)
+      }
+    }
+    worker.addEventListener('message', recibir)
+    return () => worker.removeEventListener('message', recibir)
+  }, [navigate])
+  return null
+}
+
 // El Router (BrowserRouter) se pone en main.tsx; acá solo se declaran las rutas.
 // Así las pruebas pueden envolver <App /> en un MemoryRouter y elegir la ruta inicial.
 // Si se cambia un `path` de un portal, hay que cambiar también `ruta` en portales.ts
@@ -47,6 +67,7 @@ function ComprasPortalIndex() {
 function App() {
   return (
     <>
+      <PushNavigationBridge />
       <FranjaModoSimulado />
       <AuthProvider>
         <Routes>
