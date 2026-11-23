@@ -22,6 +22,7 @@ import { ObrasPage } from './pages/ObrasPage'
 import { PresupuestoPage } from './pages/PresupuestoPage'
 import { MisCotizacionesPage } from './pages/MisCotizacionesPage'
 import { MisOrdenesProveedorPage } from './pages/MisOrdenesProveedorPage'
+import { MiReputacionProveedorPage } from './pages/MiReputacionProveedorPage'
 import { ProveedoresPage } from './pages/ProveedoresPage'
 import { RecepcionPage } from './pages/RecepcionPage'
 import { RecuperarContrasenaPage } from './pages/RecuperarContrasenaPage'
@@ -106,6 +107,7 @@ function App() {
                 <Route path="licitaciones/:id" element={<CotizarLicitacionPage />} />
                 <Route path="mis-cotizaciones" element={<MisCotizacionesPage />} />
                 <Route path="mis-ordenes" element={<MisOrdenesProveedorPage />} />
+                <Route path="mi-reputacion" element={<MiReputacionProveedorPage />} />
               </Route>
             </Route>
           </Route>

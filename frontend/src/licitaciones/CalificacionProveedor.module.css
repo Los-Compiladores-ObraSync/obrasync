@@ -20,6 +20,43 @@
   color: var(--texto-suave);
 }
 
+.espera {
+  margin: 0;
+  color: var(--texto-suave);
+}
+
+.campoComentario {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  margin: 0 0 0.75rem;
+  font-weight: 600;
+}
+
+.campoComentario textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 400;
+  resize: vertical;
+}
+
+.campoComentario span {
+  align-self: flex-end;
+  font-size: 0.875rem;
+  color: var(--texto-suave);
+  font-weight: 400;
+}
+
+.comentarioGuardado {
+  margin: 0.5rem 0;
+  color: var(--texto-suave);
+}
+
 .botones {
   display: flex;
   gap: 0.5rem;

@@ -1,94 +1,97 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ApiError } from '../api/ApiError'
-import { guardarCalificacionProveedor } from './licitacionesService'
+import { guardarCalificacionOrdenCompra, obtenerMiCalificacionOrdenCompra } from './licitacionesService'
 import styles from './CalificacionProveedor.module.css'
 
 const ESTRELLAS = [1, 2, 3, 4, 5] as const
 
-/** Lo que este navegador recuerda haber calificado en un pedido (el servicio guarda un solo puntaje por
- *  proveedor y no sabe de pedidos, así que la pantalla es la que se acuerda de qué pedido ya calificó). */
-function leerRecordada(clave?: string): number | null {
-  if (!clave) return null
-  try {
-    const crudo = window.localStorage.getItem(clave)
-    const n = crudo === null ? NaN : Number(crudo)
-    return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null
-  } catch {
-    return null
-  }
-}
-
-function recordar(clave: string | undefined, valor: number) {
-  if (!clave) return
-  try {
-    window.localStorage.setItem(clave, String(valor))
-  } catch {
-    // Sin almacenamiento solo se pierde la comodidad: la calificación igual quedó guardada en el servicio.
-  }
-}
-
 function mensajeDeError(err: unknown): string {
   if (err instanceof ApiError) {
-    if (err.status === 403) return 'No tenés permiso para calificar proveedores.'
-    if (err.status === 400) return err.detail ?? 'La calificación tiene que ser un número de 1 a 5.'
+    if (err.status === 403) return 'No tenés permiso para calificar esta orden.'
+    if (err.status === 409) return 'Vas a poder calificar cuando llegue todo el pedido.'
+    if (err.status === 400) return err.detail ?? 'La calificación debe ser de 1 a 5 estrellas y el comentario no puede superar 300 caracteres.'
   }
   return 'No se pudo guardar la calificación. Intentá nuevamente.'
 }
 
 interface Props {
-  proveedorId: string
-  /** Nombre para mostrar y para los lectores de pantalla (si el servicio no lo manda, "este proveedor"). */
+  ordenCompraId: string
   nombreProveedor: string
-  /**
-   * Calificación vigente (1 a 5), null si todavía no tiene, o undefined si la pantalla no la conoce
-   * (por ejemplo en Órdenes de compra, donde solo se carga una calificación nueva).
-   */
+  titulo: string
+  recibidaCompleta: boolean
   calificacionActual?: number | null
-  /** Texto del título. Si no se pasa, "Calificación de <proveedor>". */
-  titulo?: string
-  /** Se llama cuando el servicio guardó la calificación, para que la pantalla vuelva a pedir los puntajes. */
-  alGuardar: () => void
-  /**
-   * Si se pasa (por ejemplo, una clave por pedido), una vez guardada la calificación el componente queda
-   * fijo en "Calificaste con N de 5" y solo se vuelve a abrir con "Cambiar calificación". Sin esto, el
-   * formulario quedaba siempre abierto y parecía que no se había guardado nada.
-   */
-  claveRecuerdo?: string
+  comentarioActual?: string | null
+  alGuardar: (calificacion: number, comentario: string | null) => void
 }
 
-/**
- * Permite al Comprador cargar o cambiar la calificación (1 a 5) de un proveedor (#156).
- * Se usa en Órdenes de compra, cuando la orden ya fue despachada: se califica a quien ya cumplió.
- * Cambia el puntaje de TODAS las ofertas futuras de ese proveedor, por eso hay un botón "Guardar"
- * en lugar de guardar al tocar un número: evita un cambio por un toque equivocado.
- */
+/** Calificación por orden; la API es la fuente de verdad y el listado trae la calificación del usuario actual. */
 export function CalificacionProveedor({
-  proveedorId,
+  ordenCompraId,
   nombreProveedor,
-  calificacionActual,
   titulo,
+  recibidaCompleta,
+  calificacionActual,
+  comentarioActual,
   alGuardar,
-  claveRecuerdo,
 }: Props) {
-  const [recordada] = useState(() => leerRecordada(claveRecuerdo))
-  const [elegida, setElegida] = useState<number | null>(recordada ?? calificacionActual ?? null)
-  // Lo último que el servicio confirmó: sirve para apagar "Guardar" hasta que se elija otra cosa.
-  const [guardada, setGuardada] = useState<number | null>(recordada ?? calificacionActual ?? null)
-  // Fija: ya se calificó este pedido y no se puede volver a guardar sin pedir "Cambiar calificación".
-  const [fija, setFija] = useState(recordada !== null)
-  const [mostrarGuardada, setMostrarGuardada] = useState(false)
+  const [guardada, setGuardada] = useState<number | null>(calificacionActual ?? null)
+  const [elegida, setElegida] = useState<number | null>(calificacionActual ?? null)
+  const [comentario, setComentario] = useState(comentarioActual ?? '')
+  const [fija, setFija] = useState(calificacionActual != null)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // Un ref (y no solo el estado) frena el doble toque: el estado se actualiza recién en el próximo render.
   const enVueloRef = useRef(false)
+  const [cargandoRecuperada, setCargandoRecuperada] = useState(
+    recibidaCompleta && calificacionActual === undefined,
+  )
 
-  const cambio = elegida !== null && elegida !== guardada
+  useEffect(() => {
+    try {
+      window.localStorage.removeItem(`obrasync.calificacion.orden.${ordenCompraId}`)
+    } catch {
+      // La calificación ya se lee del servicio; sin almacenamiento no cambia el flujo.
+    }
+  }, [ordenCompraId])
 
-  function elegir(valor: number) {
-    // Tocar el número ya elegido lo deja igual (a diferencia de un filtro, acá no se puede "quitar").
-    setElegida(valor)
-    setError(null)
-    setMostrarGuardada(false)
+  // El listado normalmente incluye estos campos. Si una respuesta compatible los omite, recuperamos
+  // la calificación propia desde el GET por orden definido en el contrato.
+  useEffect(() => {
+    if (!recibidaCompleta || calificacionActual !== undefined) return
+    let cancelado = false
+    obtenerMiCalificacionOrdenCompra(ordenCompraId)
+      .then((respuesta) => {
+        if (cancelado) return
+        setGuardada(respuesta.calificacion)
+        setElegida(respuesta.calificacion)
+        setComentario(respuesta.comentario ?? '')
+        setFija(true)
+      })
+      .catch((err: unknown) => {
+        if (cancelado) return
+        if (err instanceof ApiError && err.status === 404) {
+          setFija(false)
+        } else {
+          setError(mensajeDeError(err))
+        }
+      })
+      .finally(() => {
+        if (!cancelado) setCargandoRecuperada(false)
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [calificacionActual, ordenCompraId, recibidaCompleta])
+
+  if (!recibidaCompleta) {
+    return (
+      <section className={styles.contenedor} aria-label={titulo}>
+        <p className={styles.espera}>Vas a poder calificar cuando llegue todo el pedido.</p>
+      </section>
+    )
+  }
+
+  if (cargandoRecuperada) {
+    return <section className={styles.contenedor} aria-label={titulo}><p role="status">Cargando calificación…</p></section>
   }
 
   async function guardar() {
@@ -97,12 +100,13 @@ export function CalificacionProveedor({
     setGuardando(true)
     setError(null)
     try {
-      await guardarCalificacionProveedor(proveedorId, elegida)
-      setGuardada(elegida)
-      setMostrarGuardada(true)
-      recordar(claveRecuerdo, elegida)
-      if (claveRecuerdo) setFija(true)
-      alGuardar()
+      const respuesta = await guardarCalificacionOrdenCompra(ordenCompraId, elegida, comentario)
+      const texto = respuesta.comentario?.trim() || null
+      setGuardada(respuesta.calificacion)
+      setElegida(respuesta.calificacion)
+      setComentario(texto ?? '')
+      setFija(true)
+      alGuardar(respuesta.calificacion, texto)
     } catch (err) {
       setError(mensajeDeError(err))
     } finally {
@@ -112,65 +116,63 @@ export function CalificacionProveedor({
   }
 
   return (
-    <section
-      className={styles.contenedor}
-      aria-label={titulo ?? `Calificación de ${nombreProveedor}`}
-    >
-      <p className={styles.titulo}>
-        {titulo ?? `Calificación de ${nombreProveedor}`}
-        {calificacionActual === null && <span className={styles.sinCalificar}> (sin calificar)</span>}
-      </p>
-      <div className={styles.botones}>
-        {ESTRELLAS.map((valor) => (
-          <button
-            key={valor}
-            type="button"
-            className={`${styles.boton} ${elegida !== null && valor <= elegida ? styles.llena : ''}`}
-            aria-pressed={elegida === valor}
-            aria-label={`${valor} de 5`}
-            disabled={guardando || fija}
-            onClick={() => elegir(valor)}
-          >
-            <span aria-hidden="true">★</span>
-          </button>
-        ))}
-      </div>
+    <section className={styles.contenedor} aria-label={titulo}>
+      <p className={styles.titulo}>{titulo || `Calificar ${nombreProveedor}`}</p>
       {fija ? (
         <>
-          <p role="status" className={styles.guardada}>
-            Calificaste con {guardada} de 5.
-          </p>
+          <p role="status" className={styles.guardada}>Calificaste con {guardada} de 5.</p>
+          {comentario && <p className={styles.comentarioGuardado}>Comentario: {comentario}</p>}
           <button
             type="button"
             className={styles.guardar}
-            onClick={() => {
-              setFija(false)
-              setMostrarGuardada(false)
-            }}
+            onClick={() => setFija(false)}
           >
             Cambiar calificación
           </button>
         </>
       ) : (
-        <button
-          type="button"
-          className={styles.guardar}
-          disabled={!cambio || guardando}
-          onClick={() => void guardar()}
-        >
-          {guardando ? 'Guardando…' : 'Guardar calificación'}
-        </button>
+        <>
+          <div className={styles.botones} role="group" aria-label="Calificación de 1 a 5 estrellas">
+            {ESTRELLAS.map((valor) => (
+              <button
+                key={valor}
+                type="button"
+                className={`${styles.boton} ${elegida !== null && valor <= elegida ? styles.llena : ''}`}
+                aria-pressed={elegida === valor}
+                aria-label={`${valor} de 5`}
+                disabled={guardando}
+                onClick={() => {
+                  setElegida(valor)
+                  setError(null)
+                }}
+              >
+                <span aria-hidden="true">★</span>
+              </button>
+            ))}
+          </div>
+          <label className={styles.campoComentario}>
+            Comentario (opcional)
+            <textarea
+              value={comentario}
+              maxLength={300}
+              rows={3}
+              disabled={guardando}
+              onChange={(evento) => setComentario(evento.currentTarget.value.slice(0, 300))}
+              aria-label="Comentario opcional, máximo 300 caracteres"
+            />
+            <span>{comentario.length}/300</span>
+          </label>
+          <button
+            type="button"
+            className={styles.guardar}
+            disabled={elegida === null || guardando}
+            onClick={() => void guardar()}
+          >
+            {guardando ? 'Guardando…' : 'Guardar calificación'}
+          </button>
+        </>
       )}
-      {mostrarGuardada && !fija && (
-        <p role="status" className={styles.guardada}>
-          Calificación guardada.
-        </p>
-      )}
-      {error && (
-        <p role="alert" className={styles.error}>
-          {error}
-        </p>
-      )}
+      {error && <p role="alert" className={styles.error}>{error}</p>}
     </section>
   )
 }

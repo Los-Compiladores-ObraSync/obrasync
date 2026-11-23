@@ -3,6 +3,7 @@ import { conPaginacion, traerTodas } from '../api/paginacion'
 import type { PrecioPrevio } from './cotizacionesCalculos'
 import type {
   CalificacionProveedorResponseDto,
+  CalificacionOrdenCompraResponseDto,
   CrearCotizacionRequestDto,
   CrearLicitacionRequestDto,
   CotizacionResponseDto,
@@ -126,10 +127,38 @@ export function adjudicarLicitacion(
  * Lista las órdenes de compra con su estado de despacho (#205).
  * Fuente: GET /api/ordenes-compra (Comprador, Admin y Proveedor; esta pantalla es solo de Compras).
  */
-export function listarOrdenesCompra(): Promise<OrdenCompraListadoDto[]> {
+export function listarOrdenesCompra(filtros: { licitacionId?: string } = {}): Promise<OrdenCompraListadoDto[]> {
+  const params = new URLSearchParams()
+  if (filtros.licitacionId) params.set('licitacionId', filtros.licitacionId)
+  const ruta = `/api/ordenes-compra${params.size ? `?${params}` : ''}`
   // Trae todas las páginas (#172): Compras necesita ver todas las órdenes para despacharlas.
   return traerTodas((pagina) =>
-    apiFetchPagina<OrdenCompraListadoDto>(conPaginacion('/api/ordenes-compra', pagina)),
+    apiFetchPagina<OrdenCompraListadoDto>(conPaginacion(ruta, pagina)),
+  )
+}
+
+/**
+ * Calificación que el usuario autenticado guardó para una orden recibida completa (#222).
+ * GET /api/ordenes-compra/{id}/calificacion. Responde 404 cuando aún no calificó.
+ */
+export function obtenerMiCalificacionOrdenCompra(ordenCompraId: string): Promise<CalificacionOrdenCompraResponseDto> {
+  return apiFetch<CalificacionOrdenCompraResponseDto>(
+    `/api/ordenes-compra/${encodeURIComponent(ordenCompraId)}/calificacion`,
+  )
+}
+
+/** Califica o cambia la calificación propia de una orden recibida completa (#222). */
+export function guardarCalificacionOrdenCompra(
+  ordenCompraId: string,
+  calificacion: number,
+  comentario?: string,
+): Promise<CalificacionOrdenCompraResponseDto> {
+  return apiFetch<CalificacionOrdenCompraResponseDto>(
+    `/api/ordenes-compra/${encodeURIComponent(ordenCompraId)}/calificacion`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ calificacion, comentario: comentario?.trim() || null }),
+    },
   )
 }
 
