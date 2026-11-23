@@ -52,6 +52,17 @@
   color: var(--texto-suave);
 }
 
+.historial {
+  margin: 1.5rem 0;
+}
+
+.encabezadoHistorial {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 @media (max-width: 760px) {
   .progreso {
     grid-template-columns: 1fr;

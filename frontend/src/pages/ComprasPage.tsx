@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { listarCotizaciones, listarLicitaciones, listarOrdenesCompra } from '../licitaciones/licitacionesService'
 import { traerTodas } from '../api/paginacion'
-import { listarRequisiciones } from '../requisiciones/requisicionesService'
+import { listarRequisiciones, obtenerObras } from '../requisiciones/requisicionesService'
 import { ResumenAprobacion } from '../notificaciones/ResumenAprobacion'
 import { usePendientes } from '../notificaciones/usePendientes'
 import { InsigniaCantidad } from '../licitaciones/InsigniaCantidad'
 import { obtenerOrdenesPendientes } from '../recepciones/recepcionesService'
+import { cargarMovimientosCompras, type MovimientoCompra } from '../historialCompras/movimientos'
+import { ListaMovimientos } from '../historialCompras/ListaMovimientos'
 import styles from './ComprasPage.module.css'
 
 interface ResumenFlujo {
@@ -24,6 +26,24 @@ export function ComprasPage() {
   const { cantidad: porAprobar, cargado: aprobacionesCargadas } = usePendientes()
   const [flujo, setFlujo] = useState<ResumenFlujo | null>(null)
   const [errorFlujo, setErrorFlujo] = useState(false)
+  const [movimientos, setMovimientos] = useState<MovimientoCompra[]>([])
+  const [nombresObras, setNombresObras] = useState<Record<string, string>>({})
+  const [errorHistorial, setErrorHistorial] = useState(false)
+  const [cargandoHistorial, setCargandoHistorial] = useState(true)
+
+  useEffect(() => {
+    let cancelado = false
+    void cargarMovimientosCompras().then((resultado) => {
+      if (cancelado) return
+      setMovimientos(resultado.movimientos.slice(0, 10))
+      setErrorHistorial(resultado.errores.length > 0)
+    }).catch(() => { if (!cancelado) setErrorHistorial(true) })
+      .finally(() => { if (!cancelado) setCargandoHistorial(false) })
+    void obtenerObras().then((obras) => {
+      if (!cancelado) setNombresObras(Object.fromEntries(obras.map((obra) => [obra.id, obra.nombre])))
+    }).catch(() => {})
+    return () => { cancelado = true }
+  }, [])
 
   useEffect(() => {
     let cancelado = false
@@ -77,6 +97,16 @@ export function ComprasPage() {
       <h1>Gestión y Compras</h1>
       <p className="intro">Cargá obras y aprobá los pedidos de materiales.</p>
       <ResumenAprobacion />
+
+      <section className={styles.historial} aria-label="Lo último que pasó">
+        <div className={styles.encabezadoHistorial}>
+          <h2>Lo último que pasó</h2>
+          <Link className="accion-secundaria" to="/compras/historial">Ver todo</Link>
+        </div>
+        {cargandoHistorial && <p role="status">Cargando movimientos…</p>}
+        {errorHistorial && <p role="status">Algunos movimientos no pudieron cargarse; se muestran los datos disponibles.</p>}
+        {!cargandoHistorial && <ListaMovimientos movimientos={movimientos} nombresObras={nombresObras} />}
+      </section>
 
       <section aria-label="Progreso del flujo de compras">
         <h2>Progreso del flujo</h2>

@@ -9,6 +9,7 @@ import { ComprasPage } from './pages/ComprasPage'
 import { CotizarLicitacionPage } from './pages/CotizarLicitacionPage'
 import { DetalleRequisicionPage } from './pages/DetalleRequisicionPage'
 import { HistorialRequisicionesPage } from './pages/HistorialRequisicionesPage'
+import { HistorialComprasPage } from './pages/HistorialComprasPage'
 import { SeguimientoPedidoPage } from './pages/SeguimientoPedidoPage'
 import { InicioPage } from './pages/InicioPage'
 import { LicitacionesComprasPage } from './pages/LicitacionesComprasPage'
@@ -86,6 +87,11 @@ function App() {
                 <Route path="licitaciones" element={<LicitacionesComprasPage />} />
                 <Route path="ordenes" element={<OrdenesCompraPage />} />
                 <Route path="recepcion" element={<RecepcionPage />} />
+                <Route path="historial" element={<HistorialComprasPage />} />
+                <Route
+                  path="historial/requisiciones/:id"
+                  element={<DetalleRequisicionPage volverA="/compras/historial" />}
+                />
                 <Route path="presupuesto" element={<PresupuestoPage />} />
                 <Route path="insumos/carga" element={<CargaMasivaInsumosPage />} />
                 <Route

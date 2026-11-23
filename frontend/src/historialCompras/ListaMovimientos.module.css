@@ -1,0 +1,41 @@
+.lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.movimiento {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.movimiento > div:first-child,
+.detalles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.85rem;
+}
+
+.documento,
+.detalles {
+  color: var(--texto-suave);
+}
+
+.detalles a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--azul);
+  font-weight: 700;
+}

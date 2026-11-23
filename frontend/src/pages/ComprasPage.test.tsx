@@ -143,4 +143,30 @@ describe('ComprasPage', () => {
       ])
     })
   })
+
+  it('muestra los diez movimientos más recientes en orden cronológico y enlaza con Ver todo', async () => {
+    const requisiciones = Array.from({ length: 12 }, (_, indice) => ({
+      requisicionId: `r-${indice}`,
+      numeroRequisicion: `REQ-${indice}`,
+      obraId: 'obra-1',
+      estado: 'Aprobada',
+      fechaCreacion: '2026-10-01T12:00:00Z',
+      fechaAprobacion: `2026-11-${String(indice + 1).padStart(2, '0')}T12:00:00Z`,
+    }))
+    server.use(
+      http.get('*/api/requisiciones', () => HttpResponse.json(requisiciones)),
+      http.get('*/api/licitaciones', () => HttpResponse.json([])),
+      http.get('*/api/ordenes-compra', () => HttpResponse.json([])),
+      http.get('*/api/recepciones', () => HttpResponse.json([])),
+      http.get('*/api/recepciones/ordenes-pendientes', () => HttpResponse.json([])),
+      http.get('*/api/obras', () => HttpResponse.json([])),
+    )
+    render(<MemoryRouter><ComprasPage /></MemoryRouter>)
+    const region = await screen.findByRole('region', { name: 'Lo último que pasó' })
+    const filas = await within(region).findAllByRole('listitem')
+    expect(filas).toHaveLength(10)
+    expect(filas[0]).toHaveTextContent('REQ-11')
+    expect(filas[9]).toHaveTextContent('REQ-2')
+    expect(within(region).getByRole('link', { name: 'Ver todo' })).toHaveAttribute('href', '/compras/historial')
+  })
 })

@@ -31,6 +31,7 @@ import { AvisoPorLicitar } from '../licitaciones/RequisicionesPorLicitar'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './LicitacionesComprasPage.module.css'
+import { destinoDeRegreso } from '../historialCompras/contextoNavegacion'
 
 const CRITERIOS = [
   { clave: 'precio', etiqueta: 'Precio' },
@@ -329,7 +330,7 @@ export function LicitacionesComprasPage() {
 
   return (
     <section className={`${styles.contenedor} pantalla-ancha`}>
-      <Link to="/" className={styles.volver}>
+      <Link to={destinoDeRegreso(searchParams)} className={styles.volver}>
         ← Volver al inicio
       </Link>
       <h1>Licitaciones y cotizaciones</h1>
