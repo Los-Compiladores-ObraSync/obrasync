@@ -124,10 +124,10 @@ describe('ComprasPage', () => {
     await screen.findByText('1 por licitar · 1 por adjudicar')
     const etapas = within(screen.getByRole('region', { name: 'Progreso del flujo de compras' })).getAllByRole('link')
     expect(etapas.map((link) => link.textContent)).toEqual([
-      'Requisición —3 por aprobar',
-      'Licitación —1 por licitar · 1 por adjudicar',
-      'Orden de compra —2 pendientes de seguimiento',
-      'Recepción —1 orden pendiente de recibir',
+      'Requisición 3 por aprobar',
+      'Licitación 1 por licitar · 1 por adjudicar',
+      'Orden de compra 2 pendientes de seguimiento',
+      'Recepción 1 orden pendiente de recibir',
     ])
     expect(etapas.map((link) => link.getAttribute('href'))).toEqual([
       '/compras/requisiciones', '/compras/licitaciones', '/compras/ordenes', '/compras/recepcion',
