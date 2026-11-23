@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
@@ -66,16 +66,26 @@ describe('ComprasPage', () => {
     expect(screen.getByRole('link', { name: 'Volver al inicio' })).toHaveAttribute('href', '/')
   })
 
-  it('el Historial de requisiciones muestra cuántas aprobadas esperan su licitación', async () => {
-    // Sin ninguna licitación publicada, todas las requisiciones aprobadas están por licitar.
-    server.use(http.get('*/api/licitaciones', () => HttpResponse.json([], { status: 200 })))
+  it('ordena los accesos principales y mantiene visibles las Órdenes de compra', () => {
     render(
       <MemoryRouter>
         <ComprasPage />
       </MemoryRouter>,
     )
 
-    const historial = screen.getByRole('link', { name: /Historial de requisiciones/ })
-    expect(await within(historial).findByRole('img', { name: /su licitación/ })).toBeInTheDocument()
+    const links = screen.getAllByRole('link')
+    const textos = links.map((link) => link.textContent?.trim())
+    expect(textos.indexOf('Aprobar requisiciones')).toBeLessThan(textos.indexOf('Historial de requisiciones'))
+    expect(textos.indexOf('Historial de requisiciones')).toBeLessThan(textos.indexOf('Licitaciones y cotizaciones'))
+    expect(textos.indexOf('Licitaciones y cotizaciones')).toBeLessThan(textos.indexOf('Órdenes de compra'))
+    expect(textos.indexOf('Órdenes de compra')).toBeLessThan(textos.indexOf('Presupuesto'))
+  })
+
+  it('centraliza por licitar en el flujo y no repite indicadores en los accesos', async () => {
+    server.use(http.get('*/api/licitaciones', () => HttpResponse.json([], { status: 200 })))
+    render(<MemoryRouter><ComprasPage /></MemoryRouter>)
+    expect(await screen.findByRole('region', { name: 'Progreso del flujo de compras' })).toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: /por licitar|su licitación/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Historial de requisiciones' })).toHaveAttribute('href', '/compras/requisiciones/historial')
   })
 })
