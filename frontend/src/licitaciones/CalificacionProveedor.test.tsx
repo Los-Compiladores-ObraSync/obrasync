@@ -25,6 +25,20 @@ function renderar(props: Partial<ComponentProps<typeof CalificacionProveedor>> =
 }
 
 describe('CalificacionProveedor por orden (#222)', () => {
+  it('muestra un mensaje claro si la API rechaza la calificación con 403 ProblemDetails', async () => {
+    const user = userEvent.setup()
+    server.use(http.put('*/api/ordenes-compra/:id/calificacion', () => HttpResponse.json(
+      { title: 'Forbidden', status: 403, detail: 'User role not authorized' },
+      { status: 403, headers: { 'Content-Type': 'application/problem+json' } },
+    )))
+    renderar()
+    await user.click(screen.getByRole('button', { name: '5 de 5' }))
+    await user.click(screen.getByRole('button', { name: 'Guardar calificación' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No tenés permiso para calificar esta orden.')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('User role not authorized')
+  })
+
   it('bloquea la calificación antes de recibir todo el pedido', async () => {
     window.localStorage.setItem(`obrasync.calificacion.orden.${ORDEN_ID}`, '4')
     const alGuardar = renderar({ recibidaCompleta: false })

@@ -67,6 +67,20 @@ type Fila =
  */
 export function MisCotizacionesPage() {
   const { usuario } = useAuth()
+  if (usuario?.rol !== 'Proveedor') {
+    return (
+      <section className={styles.contenedor}>
+        <Link to="/" className={styles.volver}>← Volver al inicio</Link>
+        <h1>Historial de cotizaciones</h1>
+        <p>Esta funcionalidad está disponible para proveedores.</p>
+      </section>
+    )
+  }
+  return <HistorialCotizaciones />
+}
+
+function HistorialCotizaciones() {
+  const { usuario } = useAuth()
   const [parametros, setParametros] = useSearchParams()
   const [cotizaciones, setCotizaciones] = useState<MiCotizacionDto[]>([])
   const [pendientes, setPendientes] = useState<LicitacionResponseDto[]>([])

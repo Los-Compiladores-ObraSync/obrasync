@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
+import { useAuth } from '../auth/useAuth'
 import { ChatOrden } from '../chat/ChatOrden'
 import { useChatEnLista } from '../chat/useChatEnLista'
 import { CalificacionProveedor } from '../licitaciones/CalificacionProveedor'
@@ -27,6 +28,8 @@ function ordenarParaDespachar(ordenes: OrdenCompraListadoDto[]): OrdenCompraList
 /** Órdenes de compra para Compras (#205, #223): el despacho lo marca el Proveedor (#216) y acá solo se ve.
  *  Recién después el Capataz ve la orden en "Recibir mercadería". Solo Comprador y Admin. */
 export function OrdenesCompraPage() {
+  const { usuario } = useAuth()
+  const puedeCalificar = usuario?.rol === 'Comprador'
   const [searchParams] = useSearchParams()
   const ordenSolicitadaId = searchParams.get('ordenCompraId')
   const [ordenes, setOrdenes] = useState<OrdenCompraListadoDto[]>([])
@@ -165,7 +168,7 @@ export function OrdenesCompraPage() {
                   alCambiarProblema={(estado) => chat.cambiarProblema(orden.id, estado)}
                 />
 
-                <CalificacionProveedor
+                {puedeCalificar && <CalificacionProveedor
                   ordenCompraId={orden.id}
                   nombreProveedor={`el proveedor de la orden ${codigo}`}
                   titulo={`¿Cómo cumplió el proveedor de la orden ${codigo}?`}
@@ -177,7 +180,7 @@ export function OrdenesCompraPage() {
                       ? { ...actual, miCalificacion: calificacion, miComentarioCalificacion: comentario }
                       : actual))
                   }
-                />
+                />}
               </li>
             )
           })}

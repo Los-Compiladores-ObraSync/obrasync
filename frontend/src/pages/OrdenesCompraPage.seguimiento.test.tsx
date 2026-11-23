@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { AuthContext } from '../auth/sessionContext'
 import { reiniciarOrdenesCompraMock } from '../mocks/handlers'
 import { server } from '../mocks/server'
 import { OrdenesCompraPage } from './OrdenesCompraPage'
@@ -13,9 +14,11 @@ const RUTA_SEGUIMIENTO = '*/api/recepciones/ordenes/:ordenCompraId'
 
 function renderPagina() {
   return render(
-    <MemoryRouter>
-      <OrdenesCompraPage />
-    </MemoryRouter>,
+    <AuthContext.Provider value={{ usuario: { id: 'comp-1', nombreCompleto: 'Comprador', email: 'c@x.com', rol: 'Comprador' }, login: () => {}, logout: () => {} }}>
+      <MemoryRouter>
+        <OrdenesCompraPage />
+      </MemoryRouter>
+    </AuthContext.Provider>,
   )
 }
 
