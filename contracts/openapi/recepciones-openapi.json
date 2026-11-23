@@ -1512,6 +1512,16 @@
             "type": "boolean",
             "description": "Indica si el último evento registrado sobre la orden fue una entrega con problema (Rechazada) aún no superada por una recepción válida posterior."
           },
+          "estadoEntrega": {
+            "type": "string",
+            "enum": [
+              "Pendiente",
+              "Entrega parcial / Pendiente de re-despacho",
+              "Con problema",
+              "Completa"
+            ],
+            "description": "Estado consolidado de la entrega de la orden (#236)."
+          },
           "items": {
             "type": "array",
             "items": {
@@ -1617,6 +1627,15 @@
           "tieneProblemaAbierto": {
             "type": "boolean",
             "description": "Indica si la última entrega registrada sobre esta orden fue un problema (Rechazada) sin una recepción válida posterior."
+          },
+          "estadoEntrega": {
+            "type": "string",
+            "enum": [
+              "Pendiente",
+              "Entrega parcial / Pendiente de re-despacho",
+              "Con problema"
+            ],
+            "description": "Estado intermedio de entrega de la orden pendiente (#236)."
           },
           "items": {
             "type": "array",

@@ -4,6 +4,7 @@ using ObraSync.Recepcion.Application.DTOs;
 using ObraSync.Recepcion.Application.Mappings;
 using ObraSync.Recepcion.Application.UseCases.Recepciones.Queries;
 using ObraSync.Recepcion.Domain.Common;
+using ObraSync.Recepcion.Domain.Constants;
 using ObraSync.Recepcion.Domain.Enums;
 
 namespace ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
@@ -107,6 +108,7 @@ public class ObtenerRecepcionesPorOrdenQueryHandler
             .FirstOrDefault();
 
         bool tieneProblemaAbierto = ultimaRecepcion?.Estado == EstadoRecepcion.Rechazada;
+        bool tieneRecepcionParcial = recepciones.Any(r => r.Estado == EstadoRecepcion.Parcial);
 
         return new RecepcionesDeOrdenDto
         {
@@ -119,6 +121,10 @@ public class ObtenerRecepcionesPorOrdenQueryHandler
             ObservacionDespacho = orden.ObservacionDespacho,
             EstaCompleta = estaCompleta,
             TieneProblemaAbierto = tieneProblemaAbierto,
+            EstadoEntrega = EstadosEntregaOrden.Calcular(
+                estaCompleta: estaCompleta,
+                tieneProblemaAbierto: tieneProblemaAbierto,
+                tieneRecepcionParcial: tieneRecepcionParcial),
             Items = itemsDto,
             Recepciones = recepciones
                 .Select(r => r.ToDto(

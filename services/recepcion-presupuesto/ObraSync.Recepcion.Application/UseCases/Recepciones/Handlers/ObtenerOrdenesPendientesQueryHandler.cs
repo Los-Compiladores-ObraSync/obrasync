@@ -3,6 +3,7 @@ using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.DTOs;
 using ObraSync.Recepcion.Application.UseCases.Recepciones.Queries;
 using ObraSync.Recepcion.Domain.Common;
+using ObraSync.Recepcion.Domain.Constants;
 using ObraSync.Recepcion.Domain.Enums;
 
 namespace ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
@@ -92,6 +93,11 @@ public class ObtenerOrdenesPendientesQueryHandler
                       .ThenByDescending(x => x.Id)
                       .First().Estado == EstadoRecepcion.Rechazada);
 
+        var ordenesConEntregaParcial = ultimosEstados
+            .Where(r => r.Estado == EstadoRecepcion.Parcial)
+            .Select(r => r.OrdenCompraId)
+            .ToHashSet();
+
         var items = ordenes
             .Select(o =>
             {
@@ -101,6 +107,8 @@ public class ObtenerOrdenesPendientesQueryHandler
                     .ToDictionary(g => g.Key, g => g.Sum(d => d.CantidadRecibida));
 
                 var saldosPendientes = o.CalcularSaldosPendientes(recibidosDeEstaOrden);
+                bool tieneProblemaAbierto = ordenConProblemaAbierto.GetValueOrDefault(o.Id, false);
+                bool tieneEntregaParcial = ordenesConEntregaParcial.Contains(o.Id);
 
                 return new OrdenPendienteDto
                 {
@@ -111,7 +119,11 @@ public class ObtenerOrdenesPendientesQueryHandler
                     FechaDespacho = FechaUtc.Normalizar(o.FechaDespacho),
                     FechaEstimadaLlegada = FechaUtc.Normalizar(o.FechaEstimadaLlegada),
                     ObservacionDespacho = o.ObservacionDespacho,
-                    TieneProblemaAbierto = ordenConProblemaAbierto.GetValueOrDefault(o.Id, false),
+                    TieneProblemaAbierto = tieneProblemaAbierto,
+                    EstadoEntrega = EstadosEntregaOrden.Calcular(
+                        estaCompleta: false,
+                        tieneProblemaAbierto: tieneProblemaAbierto,
+                        tieneRecepcionParcial: tieneEntregaParcial),
                     Items = o.Items
                         .Select(i =>
                         {
