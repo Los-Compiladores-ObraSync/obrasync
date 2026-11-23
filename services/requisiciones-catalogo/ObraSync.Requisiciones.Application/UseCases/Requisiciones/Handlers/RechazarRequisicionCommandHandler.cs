@@ -6,6 +6,7 @@ using ObraSync.Requisiciones.Application.DTOs;
 using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Application.Mappings;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Commands;
+using ObraSync.Requisiciones.Domain.Constants;
 
 namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers
 {
@@ -22,10 +23,11 @@ namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers
             RechazarRequisicionCommand command,
             CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrWhiteSpace(command.Motivo))
-            {
-                throw new ArgumentException("El motivo de rechazo es obligatorio.", nameof(command));
-            }
+            // Validamos el motivo antes de consultar el repositorio para responder 400 ante payload inválido.
+            var motivoValidado = MotivosRechazoRequisicion.ResolverYValidar(
+                command.Motivo,
+                command.CategoriaMotivo,
+                command.Comentario);
 
             var requisicion = await _repository.GetByIdAsync(command.RequisicionId, cancellationToken);
             if (requisicion == null)
@@ -33,7 +35,7 @@ namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers
                 throw new KeyNotFoundException($"No se encontró la requisición con Id '{command.RequisicionId}'.");
             }
 
-            requisicion.Rechazar(command.RechazadorId, command.Motivo, DateTime.UtcNow);
+            requisicion.Rechazar(command.RechazadorId, motivoValidado, DateTime.UtcNow);
 
             await _repository.SaveChangesAsync(cancellationToken);
 

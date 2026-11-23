@@ -10,6 +10,7 @@ using ObraSync.Requisiciones.Application.Mappings;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Commands;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Queries;
+using ObraSync.Requisiciones.Domain.Constants;
 
 namespace ObraSync.Requisiciones.Api.Controllers;
 
@@ -158,7 +159,18 @@ public class RequisicionesController : ApiControllerBase
     }
 
     /// <summary>
-    /// Rechazar una requisición pendiente con motivo obligatorio (Roles: Comprador, Admin)
+    /// Listar los motivos estandarizados permitidos para rechazar una requisición (#250).
+    /// </summary>
+    [HttpGet("motivos-rechazo")]
+    [Authorize(Roles = "Comprador,Admin,Capataz")]
+    [ProducesResponseType(typeof(IReadOnlyList<string>), StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<string>> GetMotivosRechazo()
+    {
+        return Ok(MotivosRechazoRequisicion.Permitidos);
+    }
+
+    /// <summary>
+    /// Rechazar una requisición pendiente con motivo válido (Roles: Comprador, Admin) (#250).
     /// </summary>
     [HttpPost("{id:guid}/rechazar")]
     [Authorize(Roles = "Comprador,Admin")]

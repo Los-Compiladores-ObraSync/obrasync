@@ -131,17 +131,17 @@ namespace ObraSync.Requisiciones.Domain.Entities
             FechaAprobacion = fechaAprobacion?.ToUniversalTime() ?? DateTime.UtcNow;
         }
 
-        public void Rechazar(Guid rechazadorId, string motivo, DateTime? fechaRechazo = null)
+        public void Rechazar(
+            Guid rechazadorId,
+            string motivo,
+            DateTime? fechaRechazo = null,
+            string? categoriaMotivo = null,
+            string? comentario = null)
         {
             if (rechazadorId == Guid.Empty)
                 throw new ArgumentException("El identificador del usuario que rechaza es obligatorio.", nameof(rechazadorId));
 
-            if (string.IsNullOrWhiteSpace(motivo))
-                throw new ArgumentException("El motivo de rechazo es obligatorio.", nameof(motivo));
-
-            var motivoLimpio = motivo.Trim();
-            if (motivoLimpio.Length > 500)
-                throw new ArgumentException("El motivo de rechazo no puede superar los 500 caracteres.", nameof(motivo));
+            var motivoLimpio = MotivosRechazoRequisicion.ResolverYValidar(motivo, categoriaMotivo, comentario);
 
             if (!string.Equals(Estado, EstadoRequisicion.Pendiente, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException($"No se puede rechazar una requisición en estado '{Estado}'. Solo se pueden rechazar requisiciones pendientes.");

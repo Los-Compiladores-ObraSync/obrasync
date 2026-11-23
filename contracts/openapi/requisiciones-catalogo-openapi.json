@@ -1036,12 +1036,64 @@
         }
       }
     },
+    "/api/requisiciones/motivos-rechazo": {
+      "get": {
+        "tags": [
+          "Requisiciones"
+        ],
+        "summary": "Listar los motivos estandarizados permitidos para rechazar una requisición (Roles: Comprador, Admin, Capataz) (#250)",
+        "responses": {
+          "200": {
+            "description": "Success (Lista de categorías válidas para el rechazo de requisiciones)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "Falta de presupuesto",
+                      "Precio fuera de rango",
+                      "Cantidad incorrecta",
+                      "Material o especificación incorrecta",
+                      "Pedido duplicado",
+                      "Otro"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/requisiciones/{id}/rechazar": {
       "post": {
         "tags": [
           "Requisiciones"
         ],
         "summary": "Rechazar una requisición pendiente especificando el motivo (Roles: Comprador, Admin)",
+        "description": "Rechaza una requisición pendiente validando el motivo (#250). Acepta el formato estructurado aditivo (categoriaMotivo de la lista oficial + comentario opcional; si categoriaMotivo es 'Otro', comentario es obligatorio con al menos 10 caracteres válidos) o el formato retrocompatible con 'motivo'. Rechaza con 400 ProblemDetails entradas vacías, categorías fuera de lista, 'Otro' sin detalle suficiente o texto basura (ej. 'asdasdas', repeticiones o secuencias de teclado).",
         "parameters": [
           {
             "name": "id",
@@ -1096,7 +1148,7 @@
             }
           },
           "400": {
-            "description": "Bad Request (El motivo de rechazo es obligatorio y no puede superar los 500 caracteres)",
+            "description": "Bad Request (Motivo ausente, categoría inválida, 'Otro' sin comentario mínimo de 10 caracteres, texto basura o longitud mayor a 500 caracteres)",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1475,15 +1527,33 @@
       },
       "RechazarRequisicionRequestDto": {
         "type": "object",
-        "required": [
-          "motivo"
-        ],
+        "description": "Payload para rechazar una requisición (#250). Permite enviar categoriaMotivo (aditivo, recomendado para #239) con comentario opcional (obligatorio >= 10 caracteres cuando categoriaMotivo es 'Otro'), o mantener retrocompatibilidad enviando solo motivo descriptivo (sin texto basura).",
         "properties": {
           "motivo": {
             "type": "string",
             "minLength": 1,
             "maxLength": 500,
-            "description": "Motivo obligatorio por el cual se rechaza la requisición."
+            "nullable": true,
+            "description": "Motivo de rechazo en formato texto (retrocompatible). Opcional si se informa categoriaMotivo. Si no coincide con una categoría oficial, debe ser descriptivo y no puede ser texto basura."
+          },
+          "categoriaMotivo": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "Falta de presupuesto",
+              "Precio fuera de rango",
+              "Cantidad incorrecta",
+              "Material o especificación incorrecta",
+              "Pedido duplicado",
+              "Otro"
+            ],
+            "description": "Categoría estandarizada del motivo de rechazo (campo aditivo y opcional, #250)."
+          },
+          "comentario": {
+            "type": "string",
+            "maxLength": 450,
+            "nullable": true,
+            "description": "Comentario aclaratorio del rechazo (campo aditivo y opcional, #250). Obligatorio con al menos 10 caracteres descriptivos cuando categoriaMotivo es 'Otro'."
           }
         },
         "additionalProperties": false
