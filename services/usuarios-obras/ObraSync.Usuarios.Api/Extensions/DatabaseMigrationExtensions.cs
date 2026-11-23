@@ -65,7 +65,8 @@ public static class DatabaseMigrationExtensions
             ("admin@obrasync.com", "Admin Sistema", UserRoles.Admin),
             ("capataz@obrasync.com", "Carlos Capataz", UserRoles.Capataz),
             ("comprador@obrasync.com", "Claudia Compradora", UserRoles.Comprador),
-            ("proveedor@obrasync.com", "Pedro Proveedor", UserRoles.Proveedor)
+            ("proveedor@obrasync.com", "Pedro Proveedor", UserRoles.Proveedor),
+            ("proveedor2@obrasync.com", "Sofía Suministros", UserRoles.Proveedor)
         };
 
         foreach (var (email, nombreCompleto, rol) in demoUsers)
