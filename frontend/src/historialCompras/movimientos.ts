@@ -66,9 +66,10 @@ function movimientosLicitacion(licitacion: LicitacionResponseDto): MovimientoCom
   const documento = licitacion.numeroRequisicion || licitacion.requisicionId
   const href = `/compras/licitaciones?licitacionId=${encodeURIComponent(licitacion.licitacionId)}`
   const publicada = movimiento('licitaciones', licitacion.licitacionId, 'publicada', 'Licitación publicada', documento, licitacion.fechaCreacion, licitacion.obraId, href)
-  // El listado informa el estado Adjudicada, pero no contiene la fecha del evento de adjudicación.
-  // No usar fechaCreacion ni la emisión de la orden como sustituto.
-  return publicada ? [publicada] : []
+  const adjudicada = licitacion.estado === 'Adjudicada'
+    ? movimiento('licitaciones', licitacion.licitacionId, 'adjudicada', 'Licitación adjudicada', documento, licitacion.fechaAdjudicacion, licitacion.obraId, href)
+    : null
+  return [publicada, adjudicada].filter((item): item is MovimientoCompra => item !== null)
 }
 
 function movimientosOrden(orden: OrdenCompraListadoDto): MovimientoCompra[] {
@@ -145,6 +146,6 @@ export async function cargarMovimientosCompras(): Promise<ResultadoMovimientos> 
   return {
     movimientos: deduplicados.sort((a, b) => instanteHistorial(b.fecha) - instanteHistorial(a.fecha)),
     errores,
-    adjudicacionesSinFecha: licitaciones.filter((l) => l.estado === 'Adjudicada').length,
+    adjudicacionesSinFecha: licitaciones.filter((l) => l.estado === 'Adjudicada' && !fechaValida(l.fechaAdjudicacion)).length,
   }
 }

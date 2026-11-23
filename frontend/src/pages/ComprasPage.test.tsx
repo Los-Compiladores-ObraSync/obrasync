@@ -155,7 +155,9 @@ describe('ComprasPage', () => {
     }))
     server.use(
       http.get('*/api/requisiciones', () => HttpResponse.json(requisiciones)),
-      http.get('*/api/licitaciones', () => HttpResponse.json([])),
+      http.get('*/api/licitaciones', () => HttpResponse.json([
+        { licitacionId: 'lic-adj', requisicionId: 'req-adj', numeroRequisicion: 'REQ-ADJ', obraId: 'obra-1', estado: 'Adjudicada', fechaCreacion: '2026-10-01T12:00:00Z', fechaLimiteCotizacion: '2026-10-15T12:00:00Z', fechaAdjudicacion: '2026-11-24T12:00:00Z', items: [] },
+      ])),
       http.get('*/api/ordenes-compra', () => HttpResponse.json([])),
       http.get('*/api/recepciones', () => HttpResponse.json([])),
       http.get('*/api/recepciones/ordenes-pendientes', () => HttpResponse.json([])),
@@ -165,8 +167,10 @@ describe('ComprasPage', () => {
     const region = await screen.findByRole('region', { name: 'Lo último que pasó' })
     const filas = await within(region).findAllByRole('listitem')
     expect(filas).toHaveLength(10)
-    expect(filas[0]).toHaveTextContent('REQ-11')
-    expect(filas[9]).toHaveTextContent('REQ-2')
+    expect(filas[0]).toHaveTextContent('Licitación adjudicada')
+    expect(filas[0]).toHaveTextContent('REQ-ADJ')
+    expect(filas[1]).toHaveTextContent('REQ-11')
+    expect(filas[9]).toHaveTextContent('REQ-3')
     expect(within(region).getByRole('link', { name: 'Ver todo' })).toHaveAttribute('href', '/compras/historial')
   })
 })

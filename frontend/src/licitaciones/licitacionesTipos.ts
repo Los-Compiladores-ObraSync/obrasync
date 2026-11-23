@@ -13,6 +13,8 @@ export interface LicitacionResponseDto {
   estado: string
   fechaCreacion: string
   fechaLimiteCotizacion: string
+  /** Fecha UTC real de adjudicación; es null cuando no fue adjudicada o es anterior a su persistencia. */
+  fechaAdjudicacion?: string | null
   items: PliegoItemDto[]
   /** Solo para el Proveedor: true si ya cotizó este pliego. Para Comprador y Admin viene en null. */
   yaCotizada?: boolean | null

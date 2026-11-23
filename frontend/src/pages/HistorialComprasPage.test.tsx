@@ -30,8 +30,10 @@ function configurarFuentes() {
     http.get('*/api/requisiciones', () => HttpResponse.json(requisiciones)),
     http.get('*/api/licitaciones', () => HttpResponse.json([
       { licitacionId: 'lic-pub', requisicionId: 'req-0', numeroRequisicion: 'REQ-0', obraId, estado: 'Abierta', fechaCreacion: '2026-11-23T12:00:00Z', fechaLimiteCotizacion: '2026-12-01T12:00:00Z', items: [] },
-      { licitacionId: 'lic-adj', requisicionId: 'req-1', obraId, estado: 'Adjudicada', fechaCreacion: '2026-11-03T12:00:00Z', fechaLimiteCotizacion: '2026-11-10T12:00:00Z', items: [] },
-      { licitacionId: 'lic-adj-2', requisicionId: 'req-2', obraId, estado: 'Adjudicada', fechaCreacion: '2026-11-04T12:00:00Z', fechaLimiteCotizacion: '2026-11-11T12:00:00Z', items: [] },
+      { licitacionId: 'lic-adj', requisicionId: 'req-1', numeroRequisicion: 'REQ-1', obraId, estado: 'Adjudicada', fechaCreacion: '2026-11-03T12:00:00Z', fechaLimiteCotizacion: '2026-11-10T12:00:00Z', fechaAdjudicacion: '2026-11-22T12:00:00Z', items: [] },
+      { licitacionId: 'lic-adj', requisicionId: 'req-1', numeroRequisicion: 'REQ-1', obraId, estado: 'Adjudicada', fechaCreacion: '2026-11-03T12:00:00Z', fechaLimiteCotizacion: '2026-11-10T12:00:00Z', fechaAdjudicacion: '2026-11-22T12:00:00Z', items: [] },
+      { licitacionId: 'lic-adj-2', requisicionId: 'req-2', obraId, estado: 'Adjudicada', fechaCreacion: '2026-11-04T12:00:00Z', fechaLimiteCotizacion: '2026-11-11T12:00:00Z', fechaAdjudicacion: null, items: [] },
+      { licitacionId: 'lic-adj-invalida', requisicionId: 'req-3', obraId, estado: 'Adjudicada', fechaCreacion: '2026-11-05T12:00:00Z', fechaLimiteCotizacion: '2026-11-12T12:00:00Z', fechaAdjudicacion: 'fecha-invalida', items: [] },
     ])),
     http.get('*/api/ordenes-compra', () => HttpResponse.json([
       { id: idOrden, licitacionId: 'lic-pub', cotizacionId: 'c1', obraId, proveedorId: 'p1', estado: 'Despachada', fechaEmision: '2026-11-21T12:00:00Z', fueDespachada: true, fechaDespacho: '2026-11-24T12:00:00Z' },
@@ -59,14 +61,21 @@ describe('HistorialComprasPage (#221)', () => {
     const lista = await screen.findByRole('list')
     const filas = within(lista).getAllByRole('listitem')
     expect(filas).toHaveLength(20)
+    const instantes = filas.map((fila) => Date.parse(within(fila).getByRole('time').getAttribute('datetime') ?? ''))
+    expect(instantes).toEqual([...instantes].sort((a, b) => b - a))
     expect(filas[0]).toHaveTextContent('Entrega con problema')
     expect(filas[1]).toHaveTextContent('Recepción completa')
     expect(filas[2]).toHaveTextContent('Orden de compra despachada')
     expect(within(lista).getByText('Licitación publicada')).toBeInTheDocument()
+    expect(within(lista).getAllByText('Licitación publicada')).toHaveLength(1)
+    expect(within(lista).getByText('Licitación adjudicada')).toBeInTheDocument()
+    expect(within(lista).getAllByText('Licitación adjudicada')).toHaveLength(1)
     expect(within(lista).getByText('Orden de compra emitida')).toBeInTheDocument()
     expect(within(lista).getByText('Requisición rechazada')).toBeInTheDocument()
-    expect(within(lista).queryByText('Licitación adjudicada')).not.toBeInTheDocument()
     expect(within(lista).getAllByText('Entrega con problema')).toHaveLength(1)
+    const detalleAdjudicacion = within(lista).getByRole('link', { name: /Ver detalle: Licitación adjudicada, REQ-1/ })
+    expect(detalleAdjudicacion.getAttribute('href')).toContain('/compras/licitaciones?licitacionId=lic-adj')
+    expect(detalleAdjudicacion.getAttribute('href')).toContain('desdeHistorial=1')
     expect(screen.getByText(/Se detectaron 2 licitación\(es\) adjudicada\(s\)/)).toHaveTextContent('no abarcar todo el histórico')
 
     await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))
@@ -102,6 +111,28 @@ describe('HistorialComprasPage (#221)', () => {
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Tipo de movimiento' }), 'requisiciones')
     expect(screen.queryByText(/Se detectaron .* licitación/)).not.toBeInTheDocument()
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Tipo de movimiento' }), 'licitaciones')
+    expect(screen.getByText(/Se detectaron 2 licitación\(es\) adjudicada\(s\)/)).toBeInTheDocument()
+  })
+
+  it('incluye adjudicaciones con fecha real en filtros por tipo y fecha, pero omite fechas null o inválidas', async () => {
+    configurarFuentes()
+    renderPagina('/compras/historial?tipo=licitaciones&desde=2026-11-22&hasta=2026-11-22')
+    const lista = await screen.findByRole('list')
+    expect(within(lista).getAllByRole('listitem')).toHaveLength(1)
+    expect(within(lista).getByText('Licitación adjudicada')).toBeInTheDocument()
+    expect(within(lista).getByText('22 de noviembre de 2026')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Ver detalle: Licitación adjudicada, REQ-1/ })).toHaveAttribute(
+      'href', expect.stringContaining('/compras/licitaciones?licitacionId=lic-adj'),
+    )
+  })
+
+  it('no genera eventos de adjudicación para fecha null o inválida aunque estén adjudicadas', async () => {
+    configurarFuentes()
+    renderPagina('/compras/historial?tipo=licitaciones&desde=2026-11-01&hasta=2026-11-10')
+    const lista = await screen.findByRole('list')
+    expect(within(lista).getAllByRole('listitem')).toHaveLength(3)
+    expect(within(lista).queryByText('Licitación adjudicada')).not.toBeInTheDocument()
+    expect(within(lista).getAllByText('Licitación publicada')).toHaveLength(3)
     expect(screen.getByText(/Se detectaron 2 licitación\(es\) adjudicada\(s\)/)).toBeInTheDocument()
   })
 
