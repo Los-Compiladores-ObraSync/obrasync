@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { setToken } from '../api/client'
 import { AvisosEnEsteCelular } from './AvisosEnEsteCelular'
-import { activarPush, decodificarClaveVapid, desactivarPush, limpiarPushAlCerrarSesion } from './pushService'
+import { activarPush, decodificarClaveVapid, desactivarPush, leerSuscripcion, limpiarPushAlCerrarSesion } from './pushService'
 
 afterEach(() => { cleanup(); setToken(null); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
@@ -78,5 +78,25 @@ describe('notificaciones push', () => {
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
     expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer token-antes-del-logout')
     expect(unsubscribe).toHaveBeenCalledOnce()
+  })
+
+  it('si el service worker nunca queda listo, activarPush falla con un mensaje en vez de colgarse', async () => {
+    vi.useFakeTimers()
+    try {
+      class FakePushManager {}
+      vi.stubGlobal('PushManager', FakePushManager)
+      vi.stubGlobal('Notification', { permission: 'granted', requestPermission: vi.fn() })
+      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: new Promise(() => undefined) } })
+
+      const comprobacion = expect(activarPush()).rejects.toThrow(/servicio de avisos/i)
+      await vi.advanceTimersByTimeAsync(8000)
+      await comprobacion
+
+      const lectura = leerSuscripcion()
+      await vi.advanceTimersByTimeAsync(8000)
+      await expect(lectura).resolves.toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
