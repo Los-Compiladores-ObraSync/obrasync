@@ -15,10 +15,36 @@ export function decodificarClaveVapid(clave: string): Uint8Array<ArrayBuffer> {
   return resultado
 }
 
+const ESPERA_MAXIMA_SERVICE_WORKER_MS = 8000
+
+/**
+ * `navigator.serviceWorker.ready` no falla nunca: si no hay service worker registrado
+ * (por ejemplo con `npm run dev`), la promesa queda esperando para siempre.
+ * Por eso la competimos contra un temporizador y fallamos con un mensaje claro.
+ */
+async function esperarServiceWorker(): Promise<ServiceWorkerRegistration> {
+  let temporizador: ReturnType<typeof setTimeout> | undefined
+  const vencimiento = new Promise<never>((_, rechazar) => {
+    temporizador = setTimeout(
+      () => rechazar(new Error('El servicio de avisos todavía no está listo. Recargá la página e intentá de nuevo.')),
+      ESPERA_MAXIMA_SERVICE_WORKER_MS,
+    )
+  })
+  try {
+    return await Promise.race([navigator.serviceWorker.ready, vencimiento])
+  } finally {
+    clearTimeout(temporizador)
+  }
+}
+
 export async function leerSuscripcion(): Promise<PushSubscription | null> {
   if (!soportaPush()) return null
-  const registro = await navigator.serviceWorker.ready
-  return registro.pushManager.getSubscription()
+  try {
+    const registro = await esperarServiceWorker()
+    return await registro.pushManager.getSubscription()
+  } catch {
+    return null // sin service worker listo no hay suscripción que leer
+  }
 }
 
 function camposSuscripcion(suscripcion: PushSubscription) {
@@ -35,7 +61,7 @@ export async function activarPush(): Promise<void> {
   if (Notification.permission === 'denied') throw new Error('El permiso está bloqueado en la configuración del navegador.')
   const permiso = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission()
   if (permiso !== 'granted') throw new Error('No se concedió el permiso para mostrar notificaciones.')
-  const registro = await navigator.serviceWorker.ready
+  const registro = await esperarServiceWorker()
   let suscripcion = await registro.pushManager.getSubscription()
   if (!suscripcion) {
     const { publicKey } = await apiFetch<{ publicKey: string }>(`${BASE}/vapid-public-key`)
