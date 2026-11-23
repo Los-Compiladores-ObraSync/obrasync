@@ -11,6 +11,13 @@ const ID_APROBADA = 'd1d2d3d4-0000-0000-0000-000000000009'
 const ID_PENDIENTE = 'd1d2d3d4-0000-0000-0000-000000000011'
 const ID_RECHAZADA = 'd1d2d3d4-0000-0000-0000-000000000013'
 
+const comprador: SesionUsuario = {
+  id: 'a1b2c3d4-0000-0000-0000-000000000002',
+  nombreCompleto: 'Marta Gómez',
+  email: 'comprador@obrasync.com',
+  rol: 'Comprador',
+}
+
 const capataz: SesionUsuario = {
   id: 'a1b2c3d4-0000-0000-0000-000000000001',
   nombreCompleto: 'Juan Pérez',
@@ -46,6 +53,28 @@ describe('SeguimientoPedidoPage', () => {
     expect(await screen.findByText(/Los proveedores están cotizando/)).toBeInTheDocument()
     expect(screen.getByText(/2 ofertas recibidas/)).toBeInTheDocument()
     expect(screen.getByText(/Compras lo aprobó/)).toBeInTheDocument()
+  })
+
+  it('Compras abre el seguimiento de cualquier requisición y vuelve a su detalle', async () => {
+    render(
+      <AuthContext.Provider value={{ usuario: comprador, login: () => {}, logout: () => {} }}>
+        <MemoryRouter initialEntries={[`/compras/historial/requisiciones/${ID_APROBADA}/seguimiento`]}>
+          <Routes>
+            <Route
+              path="/compras/historial/requisiciones/:id/seguimiento"
+              element={<SeguimientoPedidoPage volverABase="/compras/historial/requisiciones" />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>,
+    )
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Seguimiento de REQ-2026-0009' })).toBeInTheDocument()
+    expect(screen.getByText(/Compras lo aprobó/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '← Volver al pedido' })).toHaveAttribute(
+      'href',
+      `/compras/historial/requisiciones/${ID_APROBADA}`,
+    )
   })
 
   it('un pedido rechazado muestra el motivo', async () => {
