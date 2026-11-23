@@ -123,7 +123,16 @@ function App() {
                 <Route path="historial" element={<HistorialComprasPage />} />
                 <Route
                   path="historial/requisiciones/:id"
-                  element={<DetalleRequisicionPage volverA="/compras/historial" />}
+                  element={
+                    <DetalleRequisicionPage
+                      volverA="/compras/historial"
+                      rutaBaseSeguimiento="/compras/historial/requisiciones"
+                    />
+                  }
+                />
+                <Route
+                  path="historial/requisiciones/:id/seguimiento"
+                  element={<SeguimientoPedidoPage volverABase="/compras/historial/requisiciones" />}
                 />
                 <Route path="presupuesto" element={<PresupuestoPage />} />
                 <Route path="insumos/carga" element={<CargaMasivaInsumosPage />} />
@@ -138,7 +147,16 @@ function App() {
                 />
                 <Route
                   path="requisiciones/historial/:id"
-                  element={<DetalleRequisicionPage volverA="/compras/requisiciones/historial" />}
+                  element={
+                    <DetalleRequisicionPage
+                      volverA="/compras/requisiciones/historial"
+                      rutaBaseSeguimiento="/compras/requisiciones/historial"
+                    />
+                  }
+                />
+                <Route
+                  path="requisiciones/historial/:id/seguimiento"
+                  element={<SeguimientoPedidoPage volverABase="/compras/requisiciones/historial" />}
                 />
               </Route>
               <Route path="proveedores" element={<SoloPortal portalId="proveedores" />}>

@@ -13,6 +13,11 @@ import styles from './DetalleRequisicionPage.module.css'
 interface DetalleRequisicionPageProps {
   /** Ruta del historial al que vuelve (esta pantalla se usa en dos portales). */
   volverA: string
+  /**
+   * Ruta (sin el id) donde se abre el seguimiento del pedido. Compras la pasa para ver la línea de tiempo
+   * de cualquier requisición; si no se pasa, el botón es el del Capataz ("¿Qué pasó con mi pedido?").
+   */
+  rutaBaseSeguimiento?: string
 }
 
 const CLASE_POR_ESTADO: Record<string, string> = {
@@ -44,7 +49,7 @@ function mensajeDeError(err: unknown): string {
   return 'No se pudo publicar la licitación. Intentá nuevamente.'
 }
 
-export function DetalleRequisicionPage({ volverA }: DetalleRequisicionPageProps) {
+export function DetalleRequisicionPage({ volverA, rutaBaseSeguimiento }: DetalleRequisicionPageProps) {
   const { id = '' } = useParams()
   // Los filtros del historial viajan en la URL (?estado=…&obraId=…): al volver se conservan.
   const { search } = useLocation()
@@ -228,7 +233,16 @@ export function DetalleRequisicionPage({ volverA }: DetalleRequisicionPageProps)
             ))}
           </ul>
 
-          {puedeRepetir && requisicion.estado === 'Aprobada' && (
+          {rutaBaseSeguimiento && puedePublicar && (
+            <Link
+              to={`${rutaBaseSeguimiento}/${encodeURIComponent(requisicion.requisicionId)}/seguimiento`}
+              className={styles.botonRepetir}
+            >
+              Ver seguimiento del pedido
+            </Link>
+          )}
+
+          {!rutaBaseSeguimiento && puedeRepetir && requisicion.estado === 'Aprobada' && (
             <Link
               to={`/obra/requisiciones/${encodeURIComponent(requisicion.requisicionId)}/seguimiento`}
               className={styles.botonRepetir}

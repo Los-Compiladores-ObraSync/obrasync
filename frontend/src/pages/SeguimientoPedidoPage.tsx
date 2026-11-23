@@ -21,11 +21,16 @@ interface Datos {
   recepciones: { estado?: number }[]
 }
 
+interface SeguimientoPedidoPageProps {
+  /** Ruta del detalle de la requisición a la que vuelve (sin el id). Cada portal usa la suya. */
+  volverABase?: string
+}
+
 /**
  * "¿Qué pasó con mi pedido?": línea de tiempo de punta a punta (aprobación, cotizaciones, orden de compra,
  * despacho y recepción). Junta tres servicios, y cada uno aporta solo lo suyo.
  */
-export function SeguimientoPedidoPage() {
+export function SeguimientoPedidoPage({ volverABase = '/obra/requisiciones' }: SeguimientoPedidoPageProps = {}) {
   const { id = '' } = useParams()
   const { usuario } = useAuth()
   const [datos, setDatos] = useState<Datos | null>(null)
@@ -72,7 +77,7 @@ export function SeguimientoPedidoPage() {
 
   return (
     <section className={styles.contenedor}>
-      <Link to={`/obra/requisiciones/${encodeURIComponent(id)}`} className={styles.volver}>
+      <Link to={`${volverABase}/${encodeURIComponent(id)}`} className={styles.volver}>
         ← Volver al pedido
       </Link>
 

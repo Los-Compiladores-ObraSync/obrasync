@@ -25,6 +25,26 @@ const capataz: SesionUsuario = {
   rol: 'Capataz',
 }
 
+function renderConSeguimiento(usuario: SesionUsuario, id: string) {
+  return render(
+    <AuthContext.Provider value={{ usuario, login: () => {}, logout: () => {} }}>
+      <MemoryRouter initialEntries={[`/compras/requisiciones/historial/${id}`]}>
+        <Routes>
+          <Route
+            path="/compras/requisiciones/historial/:id"
+            element={
+              <DetalleRequisicionPage
+                volverA="/compras/requisiciones/historial"
+                rutaBaseSeguimiento="/compras/requisiciones/historial"
+              />
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    </AuthContext.Provider>,
+  )
+}
+
 function renderPagina(usuario: SesionUsuario, id: string, search = '') {
   return render(
     <AuthContext.Provider value={{ usuario, login: () => {}, logout: () => {} }}>
@@ -60,6 +80,21 @@ describe('DetalleRequisicionPage', () => {
     expect(screen.getByText(/12 metros cúbicos \(m³\) · Arena Fina a Granel/)).toBeInTheDocument()
     expect(screen.getByText(/La requisición fue aprobada\./)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'revisá el estado en Licitaciones y cotizaciones' })).toHaveAttribute('href', '/compras/licitaciones')
+  })
+
+  it('Compras ve el botón para abrir el seguimiento de una requisición aprobada', async () => {
+    renderConSeguimiento(comprador, ID_APROBADA)
+
+    const enlace = await screen.findByRole('link', { name: 'Ver seguimiento del pedido' })
+    expect(enlace).toHaveAttribute('href', `/compras/requisiciones/historial/${ID_APROBADA}/seguimiento`)
+    expect(screen.queryByRole('link', { name: '¿Qué pasó con mi pedido?' })).not.toBeInTheDocument()
+  })
+
+  it('el seguimiento para Compras no se ofrece si la requisición no está aprobada', async () => {
+    renderConSeguimiento(comprador, ID_PENDIENTE)
+
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('link', { name: 'Ver seguimiento del pedido' })).not.toBeInTheDocument()
   })
 
   it('una rechazada muestra las observaciones y no tiene fecha de aprobación', async () => {
