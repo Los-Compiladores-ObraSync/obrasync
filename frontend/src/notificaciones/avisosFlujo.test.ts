@@ -397,3 +397,23 @@ describe('agruparPorOrden', () => {
     expect(renglones.every((r) => r.titulo === undefined)).toBe(true)
   })
 })
+
+describe('entrega parcial y re-despacho (#249)', () => {
+  const parcialPendiente = { fueDespachada: true, puedeRedespachar: true, tieneRecepcionParcialPendiente: true }
+
+  it('Proveedor: si llegó parcial, "Para hacer" pide despachar lo que falta; sin remanente no avisa', () => {
+    const conRemanente = avisosDeFlujo('proveedor', { ordenesCompra: [orden(ORDEN_A, parcialPendiente)] }, {}, AHORA)
+    const aviso = conRemanente.find((a) => a.tipo === 'orden-por-despachar')
+    expect(aviso?.seccion).toBe('para-hacer')
+    expect(aviso?.texto).toContain('despachá lo que falta')
+
+    const sinRemanente = tipos('proveedor', { ordenesCompra: [orden(ORDEN_A, { fueDespachada: true, puedeRedespachar: false })] })
+    expect(sinRemanente).not.toContain('orden-por-despachar')
+  })
+
+  it('Compras: avisa la recepción parcial y no pide calificar', () => {
+    const t = tipos('compras', { ordenesCompra: [orden(ORDEN_A, { ...parcialPendiente, recibidaCompleta: false })] })
+    expect(t).toContain('recepcion-parcial')
+    expect(t).not.toContain('orden-calificar')
+  })
+})

@@ -157,3 +157,5 @@
   font-size: 1.0625rem;
   font-weight: 700;
 }
+
+.parcial { margin: 0; padding: 0.5rem 0.75rem; border: 2px solid #fcd34d; border-radius: 10px; background: #fffbeb; color: #92400e; font-weight: 700; }

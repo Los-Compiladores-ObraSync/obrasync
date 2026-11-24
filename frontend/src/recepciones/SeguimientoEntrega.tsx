@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from 'react'
 import { ApiError } from '../api/ApiError'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import { LineaDeTiempoOrden } from './LineaDeTiempoOrden'
+import { ESTADO_ENTREGA_PARCIAL } from '../licitaciones/entregaParcial'
 import { obtenerRecepcionesDeOrden } from './recepcionesService'
 import type { ItemOrdenPendiente, RecepcionesDeOrden } from './recepcionesTipos'
 import styles from './SeguimientoEntrega.module.css'
@@ -106,6 +107,11 @@ function Detalle({ datos }: { datos: RecepcionesDeOrden }) {
       {datos.tieneProblemaAbierto && (
         <p className={styles.aviso} role="status">
           Hay un problema de entrega abierto en esta orden.
+        </p>
+      )}
+      {datos.estadoEntrega === ESTADO_ENTREGA_PARCIAL && !datos.estaCompleta && (
+        <p className={styles.aviso} role="status">
+          {ESTADO_ENTREGA_PARCIAL}: llegó una parte y el Proveedor tiene que despachar el resto.
         </p>
       )}
       {datos.estaCompleta && (

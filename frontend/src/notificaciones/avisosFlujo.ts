@@ -258,6 +258,17 @@ function avisosDeOrdenes(
           'Llegó todo el pedido: calificá al proveedor',
         )
       }
+      // Recepción registró una parte y el resto está pendiente de re-despacho (#249).
+      if (orden.tieneRecepcionParcialPendiente === true) {
+        agregar(
+          orden,
+          'recepcion-parcial',
+          'novedades',
+          orden.fechaUltimaRecepcionParcial ?? 'parcial',
+          `La orden ${codigo} llegó parcial: falta que el proveedor despache el resto`,
+          'Llegó parcial: falta el resto del pedido',
+        )
+      }
       if (orden.fueDespachada) {
         agregar(
           orden,
@@ -279,6 +290,17 @@ function avisosDeOrdenes(
           '',
           `Te adjudicaron la orden ${codigo}: marcala como despachada`,
           'Te la adjudicaron: marcala como despachada',
+        )
+      }
+      // Llegó una parte: hay que despachar de nuevo lo que falta (#249).
+      if (orden.fueDespachada && orden.puedeRedespachar === true) {
+        agregar(
+          orden,
+          'orden-por-despachar',
+          'para-hacer',
+          '',
+          `La orden ${codigo} llegó parcial: despachá lo que falta`,
+          'Llegó parcial: despachá lo que falta',
         )
       }
       if (orden.recibidaCompleta === true) {

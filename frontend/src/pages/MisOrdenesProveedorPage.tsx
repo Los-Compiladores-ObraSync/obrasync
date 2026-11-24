@@ -7,6 +7,7 @@ import { ChatOrden } from '../chat/ChatOrden'
 import { useChatEnLista } from '../chat/useChatEnLista'
 import { SeguimientoEntrega } from '../recepciones/SeguimientoEntrega'
 import { fechaLarga } from '../requisiciones/formatoFecha'
+import { puedeDespachar } from '../licitaciones/entregaParcial'
 import styles from './MisOrdenesProveedorPage.module.css'
 
 const MAX_OBSERVACION = 200
@@ -16,10 +17,13 @@ function codigoDeOrden(id: string): string {
   return id.slice(0, 8).toUpperCase()
 }
 
-/** Primero las que faltan despachar (lo que el Proveedor tiene que hacer) y, dentro de cada grupo, las más nuevas. */
+/**
+ * Primero las que hay que despachar (sin despachar, o despachadas incompletas con el resto por re-despachar, #249)
+ * y, dentro de cada grupo, las más nuevas.
+ */
 function ordenarParaDespachar(ordenes: OrdenCompraListadoDto[]): OrdenCompraListadoDto[] {
   return [...ordenes].sort((a, b) => {
-    if (a.fueDespachada !== b.fueDespachada) return a.fueDespachada ? 1 : -1
+    if (puedeDespachar(a) !== puedeDespachar(b)) return puedeDespachar(a) ? -1 : 1
     return new Date(b.fechaEmision).getTime() - new Date(a.fechaEmision).getTime()
   })
 }
@@ -114,6 +118,8 @@ export function MisOrdenesProveedorPage() {
       setErrorForm(problema)
       return
     }
+    // Si la orden ya había salido y quedó incompleta, esto es un re-despacho del resto (#249).
+    const eraRedespacho = orden.fueDespachada && orden.puedeRedespachar === true
 
     enVueloRef.current = true
     setEnviando(true)
@@ -126,7 +132,9 @@ export function MisOrdenesProveedorPage() {
       })
       setOrdenes((actuales) => actuales.map((o) => (o.id === orden.id ? { ...o, ...actualizada } : o)))
       setMensajeExito(
-        `Avisaste que despachaste la orden ${codigoDeOrden(orden.id)}. Compras ya lo ve y el Capataz podrá recibirla.`,
+        eraRedespacho
+          ? `Avisaste que despachaste lo que faltaba de la orden ${codigoDeOrden(orden.id)}. Compras ya lo ve y el Capataz podrá recibir el resto.`
+          : `Avisaste que despachaste la orden ${codigoDeOrden(orden.id)}. Compras ya lo ve y el Capataz podrá recibirla.`,
       )
       setAbiertaId(null)
     } catch (err) {
@@ -140,23 +148,31 @@ export function MisOrdenesProveedorPage() {
   }
 
   const ordenadas = ordenarParaDespachar(ordenes)
-  const pendientes = ordenadas.filter((o) => !o.fueDespachada)
-  const despachadas = ordenadas.filter((o) => o.fueDespachada)
+  const pendientes = ordenadas.filter((o) => puedeDespachar(o))
+  const despachadas = ordenadas.filter((o) => !puedeDespachar(o))
 
   function tarjeta(o: OrdenCompraListadoDto) {
     const codigo = codigoDeOrden(o.id)
     const abierta = abiertaId === o.id
+    const hayQueDespachar = puedeDespachar(o)
+    const esRedespacho = o.fueDespachada && o.puedeRedespachar === true
     return (
       <li
         key={o.id}
-        className={`${styles.tarjeta} ${o.fueDespachada ? styles.tarjetaDespachada : styles.tarjetaPendiente}`}
+        className={`${styles.tarjeta} ${hayQueDespachar ? styles.tarjetaPendiente : styles.tarjetaDespachada}`}
       >
         <div className={styles.encabezado}>
           <h3>Orden {codigo}</h3>
-          <span className={`${styles.resultado} ${o.fueDespachada ? styles.gano : styles.enviada}`}>
-            {o.fueDespachada ? 'Despachada' : 'Emitida'}
+          <span className={`${styles.resultado} ${hayQueDespachar ? styles.enviada : styles.gano}`}>
+            {esRedespacho ? 'Entrega parcial' : o.fueDespachada ? 'Despachada' : 'Emitida'}
           </span>
         </div>
+
+        {esRedespacho && (
+          <p className={styles.parcial} role="status">
+            Entrega parcial: el Capataz recibió una parte del pedido. Falta despachar el resto.
+          </p>
+        )}
 
         {chat.problemaDe(o).abierto && (
           <p className={styles.problema} role="status">
@@ -169,6 +185,12 @@ export function MisOrdenesProveedorPage() {
             <dt>Emitida el</dt>
             <dd>{fechaLarga(o.fechaEmision)}</dd>
           </div>
+          {(o.numeroDespacho ?? 0) > 1 && (
+            <div>
+              <dt>Envío</dt>
+              <dd>N.º {o.numeroDespacho}</dd>
+            </div>
+          )}
           {o.fueDespachada && o.fechaDespacho && (
             <div>
               <dt>Despachada el</dt>
@@ -202,20 +224,20 @@ export function MisOrdenesProveedorPage() {
           alCambiarProblema={(estado) => chat.cambiarProblema(o.id, estado)}
         />
 
-        {!o.fueDespachada && !abierta && (
+        {hayQueDespachar && !abierta && (
           <div className={styles.acciones}>
             <button
               type="button"
               className={`${styles.accion} ${styles.accionPrincipal}`}
-              aria-label={`Marcar como despachada: orden ${codigo}`}
+              aria-label={`${esRedespacho ? 'Despachar lo que falta' : 'Marcar como despachada'}: orden ${codigo}`}
               onClick={() => abrirFormulario(o.id)}
             >
-              Marcar como despachada
+              {esRedespacho ? 'Despachar lo que falta' : 'Marcar como despachada'}
             </button>
           </div>
         )}
 
-        {!o.fueDespachada && abierta && (
+        {hayQueDespachar && abierta && (
           <form
             className={styles.formulario}
             noValidate

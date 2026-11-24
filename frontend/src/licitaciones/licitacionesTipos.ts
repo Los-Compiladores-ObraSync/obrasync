@@ -146,6 +146,14 @@ export interface OrdenCompraListadoDto {
   fechaMiCalificacion?: string | null
   /** Mensajes del chat de la orden que el usuario autenticado todavía no leyó (#218). */
   mensajesNoLeidos?: number
+  /** Cuántos envíos tiene la orden: 0 sin despachar, 1 el primer despacho, 2 o más tras re-despachos del remanente (#248). */
+  numeroDespacho?: number
+  /** true si el Proveedor puede despachar de nuevo lo que falta tras una recepción parcial (#248). */
+  puedeRedespachar?: boolean
+  /** true si la última recepción fue parcial y quedó un remanente pendiente de envío (#248). */
+  tieneRecepcionParcialPendiente?: boolean
+  /** Cuándo fue la última recepción parcial (UTC); null si no aplica (#248). */
+  fechaUltimaRecepcionParcial?: string | null
 }
 
 /** Un comentario de calificación recibido por el Proveedor (contrato: ComentarioCalificacionProveedorDto, #222). */

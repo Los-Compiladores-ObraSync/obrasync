@@ -14,6 +14,12 @@ export interface ItemOrdenPendiente {
   unidadMedida: string
 }
 
+/**
+ * Estado consolidado de la entrega de una orden (contrato de Recepciones, #236). Los textos los fija el contrato:
+ * no se inventan acá. En /ordenes-pendientes no viene "Completa" porque esas órdenes todavía no se recibieron por completo.
+ */
+export type EstadoEntrega = 'Pendiente' | 'Entrega parcial / Pendiente de re-despacho' | 'Con problema' | 'Completa'
+
 /** Orden de compra que todavía no se recibió por completo (OrdenPendienteDto). */
 export interface OrdenPendiente {
   ordenCompraId: string
@@ -28,6 +34,8 @@ export interface OrdenPendiente {
   observacionDespacho?: string | null
   /** true si lo último que se registró sobre la orden fue una entrega con problema, sin una recepción válida después (#217). */
   tieneProblemaAbierto?: boolean
+  /** Estado intermedio de la entrega (#236): "Pendiente", "Entrega parcial / Pendiente de re-despacho" o "Con problema". */
+  estadoEntrega?: EstadoEntrega
   items: ItemOrdenPendiente[]
 }
 
@@ -130,6 +138,8 @@ export interface RecepcionesDeOrden {
   /** true si ya hay una recepción Completa. */
   estaCompleta?: boolean
   tieneProblemaAbierto?: boolean
+  /** Estado consolidado de la entrega (#236). */
+  estadoEntrega?: EstadoEntrega
   items: ItemOrdenPendiente[]
   /** En orden cronológico. */
   recepciones: RecepcionHistorial[]
