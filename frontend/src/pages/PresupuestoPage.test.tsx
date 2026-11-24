@@ -279,7 +279,7 @@ describe('PresupuestoPage', () => {
       expect(await screen.findByRole('button', { name: 'Notificaciones: 2 sin leer' })).toBeInTheDocument()
 
       expect(
-        screen.getAllByText(/Orden bloqueada: supera la partida de la etapa por/),
+        screen.getAllByText(/Supera el presupuesto por/),
       ).toHaveLength(2)
 
       const botonesLiberar = screen.getAllByRole('button', { name: 'Autorizar y liberar' })

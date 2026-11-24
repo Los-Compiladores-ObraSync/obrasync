@@ -88,6 +88,11 @@
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
 }
 
+.tituloOrdenBloqueada {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
 .textoExceso {
   margin: 0;
   font-size: 1.125rem;
@@ -99,13 +104,6 @@
   margin: 0;
   font-size: 0.9375rem;
   color: var(--texto);
-}
-
-.motivoBloqueo {
-  margin: 0;
-  font-size: 0.9375rem;
-  color: var(--texto-suave);
-  font-style: italic;
 }
 
 .grillaBloqueada {

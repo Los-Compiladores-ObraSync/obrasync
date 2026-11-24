@@ -43,7 +43,10 @@ public class CreateRequisicionCommandHandler
             return existente;
 
         var ahoraUtc = DateTime.UtcNow;
-        await AsegurarSinDuplicadoRecienteAsync(command, itemsSolicitados, ahoraUtc, cancellationToken);
+        if (!command.RepeticionIntencional || idempotencyKey is null)
+        {
+            await AsegurarSinDuplicadoRecienteAsync(command, itemsSolicitados, ahoraUtc, cancellationToken);
+        }
 
         var requisicionId = Guid.NewGuid();
         var itemsDominio = await _insumoRepository.ConstruirItemsAsync(requisicionId, command.Items, cancellationToken);

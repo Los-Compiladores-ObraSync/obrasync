@@ -5,6 +5,14 @@ public record DespacharOrdenCompraRequestDto(
     string? Observacion = null
 );
 
+public record OrdenCompraItemResponseDto(
+    Guid ArticuloId,
+    string Descripcion,
+    decimal Cantidad,
+    string UnidadMedida,
+    string? PresentacionAdjudicada = null
+);
+
 public record OrdenCompraResponseDto(
     Guid Id,
     Guid LicitacionId,
@@ -33,5 +41,6 @@ public record OrdenCompraResponseDto(
     int NumeroDespacho = 0,
     bool PuedeRedespachar = false,
     bool TieneRecepcionParcialPendiente = false,
-    DateTime? FechaUltimaRecepcionParcial = null
+    DateTime? FechaUltimaRecepcionParcial = null,
+    IReadOnlyList<OrdenCompraItemResponseDto> Items = null!
 );

@@ -85,7 +85,8 @@ public class OrdenCompraDespachadaConsumer : IConsumer<OrdenCompraDespachadaEven
         ordenCompra.MarcarComoDespachada(
             msg.FechaDespacho,
             msg.FechaEstimadaLlegada,
-            msg.ObservacionDespacho);
+            msg.ObservacionDespacho,
+            msg.EsRedespacho);
 
         _db.EventosProcesados.Add(new EventoProcesado
         {

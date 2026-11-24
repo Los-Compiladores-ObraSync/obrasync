@@ -118,7 +118,8 @@ namespace ObraSync.Requisiciones.Application.Mappings
                 idempotencyKey,
                 validarObraAsignada,
                 authorizationHeader,
-                correlationId);
+                correlationId,
+                request.RepeticionIntencional);
         }
 
         public static ReenviarRequisicionCommand ToReenviarCommand(

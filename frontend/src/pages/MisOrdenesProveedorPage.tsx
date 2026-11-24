@@ -5,7 +5,10 @@ import { despacharOrdenCompra, listarOrdenesCompra } from '../licitaciones/licit
 import type { OrdenCompraListadoDto } from '../licitaciones/licitacionesTipos'
 import { ChatOrden } from '../chat/ChatOrden'
 import { useChatEnLista } from '../chat/useChatEnLista'
-import { SeguimientoEntrega } from '../recepciones/SeguimientoEntrega'
+import { saldoPendiente, SeguimientoEntrega } from '../recepciones/SeguimientoEntrega'
+import { obtenerRecepcionesDeOrden } from '../recepciones/recepcionesService'
+import type { RecepcionesDeOrden } from '../recepciones/recepcionesTipos'
+import { cantidadConUnidad } from '../requisiciones/unidades'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { puedeDespachar } from '../licitaciones/entregaParcial'
 import { useAvisos } from '../notificaciones/useAvisos'
@@ -135,7 +138,13 @@ export function MisOrdenesProveedorPage() {
         fechaEstimadaLlegada: fecha ? `${fecha}T12:00:00Z` : undefined,
         observacion: observacion.trim() || undefined,
       })
-      setOrdenes((actuales) => actuales.map((o) => (o.id === orden.id ? { ...o, ...actualizada } : o)))
+      setOrdenes((actuales) =>
+        actuales.map((o) =>
+          o.id === orden.id
+            ? { ...o, ...actualizada, items: Array.isArray(actualizada.items) ? actualizada.items : o.items }
+            : o,
+        ),
+      )
       setMensajeExito(
         eraRedespacho
           ? `Avisaste que despachaste lo que faltaba de la orden ${codigoDeOrden(orden.id)}. Compras ya lo ve y el Capataz podrá recibir el resto.`
@@ -163,6 +172,16 @@ export function MisOrdenesProveedorPage() {
     const abierta = abiertaId === o.id
     const hayQueDespachar = puedeDespachar(o)
     const esRedespacho = o.fueDespachada && o.puedeRedespachar === true
+    const numeroDespacho = o.numeroDespacho ?? 0
+    const problema = chat.problemaDe(o)
+    let estado = 'Emitida'
+    if (o.recibidaCompleta) {
+      estado = 'Entrega completa'
+    } else if (esRedespacho) {
+      estado = problema.abierto ? 'Pendiente de nuevo despacho' : 'Recepción parcial'
+    } else if (o.fueDespachada) {
+      estado = 'Despachada'
+    }
     return (
       <li
         key={o.id}
@@ -170,20 +189,20 @@ export function MisOrdenesProveedorPage() {
       >
         <div className={styles.encabezado}>
           <h3>Orden {codigo}</h3>
-          <span className={`${styles.resultado} ${hayQueDespachar ? styles.enviada : styles.gano}`}>
-            {esRedespacho ? 'Entrega parcial' : o.fueDespachada ? 'Despachada' : 'Emitida'}
+          <span className={`${styles.resultado} ${esRedespacho ? styles.resultadoIncidencia : hayQueDespachar ? styles.enviada : styles.gano}`}>
+            {estado}
           </span>
         </div>
 
-        {esRedespacho && (
+        {esRedespacho && !problema.abierto && (
           <p className={styles.parcial} role="status">
-            Entrega parcial: el Capataz recibió una parte del pedido. Falta despachar el resto.
+            La orden tiene mercadería pendiente de despacho.
           </p>
         )}
 
-        {chat.problemaDe(o).abierto && (
+        {problema.abierto && (
           <p className={styles.problema} role="status">
-            Entrega con problema{chat.problemaDe(o).motivo ? `: ${chat.problemaDe(o).motivo}` : ''}
+            Entrega con problema{problema.motivo ? `: ${problema.motivo}` : ''}
           </p>
         )}
 
@@ -192,10 +211,10 @@ export function MisOrdenesProveedorPage() {
             <dt>Emitida el</dt>
             <dd>{fechaLarga(o.fechaEmision)}</dd>
           </div>
-          {(o.numeroDespacho ?? 0) > 1 && (
+          {numeroDespacho > 1 && (
             <div>
-              <dt>Envío</dt>
-              <dd>N.º {o.numeroDespacho}</dd>
+              <dt>{o.recibidaCompleta ? 'Envíos realizados' : 'Envío'}</dt>
+              <dd>{o.recibidaCompleta ? numeroDespacho : `N.º ${numeroDespacho}`}</dd>
             </div>
           )}
           {o.fueDespachada && o.fechaDespacho && (
@@ -218,8 +237,26 @@ export function MisOrdenesProveedorPage() {
           )}
         </dl>
 
+        {hayQueDespachar && !esRedespacho && o.items && o.items.length > 0 && (
+          <div className={styles.materiales} aria-label="Materiales adjudicados">
+            <p className={styles.subtitulo}>Materiales a enviar</p>
+            <ul>
+              {o.items.map((item) => (
+                <li key={item.articuloId}>
+                  <strong>
+                    {cantidadParaDespacho(item.cantidad, item.unidadMedida, item.presentacionAdjudicada)}
+                  </strong>
+                  {item.descripcion && (item.presentacionAdjudicada?.trim()
+                    ? <div>{descripcionParaDespacho(item.descripcion, item.presentacionAdjudicada)}</div>
+                    : <span> · {item.descripcion}</span>)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Seguimiento (#224): qué llegó y qué falta, y la historia de la entrega con sus problemas y fotos. */}
-        {o.fueDespachada && <SeguimientoEntrega ordenCompraId={o.id} codigo={codigo} />}
+        {o.fueDespachada && <SeguimientoEntrega ordenCompraId={o.id} codigo={codigo} orden={o} />}
 
         {/* Chat con Compras (#225): en vivo, con contador de no leídos. */}
         <ChatOrden
@@ -230,6 +267,10 @@ export function MisOrdenesProveedorPage() {
           alLeer={() => chat.marcarLeida(o.id)}
           alCambiarProblema={(estado) => chat.cambiarProblema(o.id, estado)}
         />
+
+        {hayQueDespachar && esRedespacho && (
+          <SaldoParaDespacho key={o.fechaUltimaRecepcionParcial ?? o.id} orden={o} />
+        )}
 
         {hayQueDespachar && !abierta && (
           <div className={styles.acciones}>
@@ -340,4 +381,78 @@ export function MisOrdenesProveedorPage() {
       )}
     </section>
   )
+}
+
+function SaldoParaDespacho({ orden }: { orden: OrdenCompraListadoDto }) {
+  const [saldo, setSaldo] = useState<
+    { estado: 'cargando' } | { estado: 'lista'; datos: RecepcionesDeOrden } | { estado: 'error' }
+  >({ estado: 'cargando' })
+  const [intento, setIntento] = useState(0)
+
+  useEffect(() => {
+    let cancelado = false
+    obtenerRecepcionesDeOrden(orden.id)
+      .then((datos) => {
+        if (!cancelado) setSaldo({ estado: 'lista', datos })
+      })
+      .catch(() => {
+        if (!cancelado) setSaldo({ estado: 'error' })
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [orden.id, intento])
+
+  if (saldo.estado === 'cargando') return <p role="status">Consultando el saldo pendiente…</p>
+
+  if (saldo.estado === 'error') {
+    return (
+      <div className={styles.saldo}>
+        <p className={styles.errorApi} role="alert">El saldo pendiente no está disponible.</p>
+        <button type="button" className={styles.accion} onClick={() => {
+          setSaldo({ estado: 'cargando' })
+          setIntento((actual) => actual + 1)
+        }}>
+          Reintentar consulta del saldo
+        </button>
+      </div>
+    )
+  }
+
+  const pendientes = saldo.datos.items.filter((item) => saldoPendiente(item) > 0)
+  if (pendientes.length === 0) return <p>No hay materiales pendientes de enviar.</p>
+
+  return (
+    <div className={styles.saldo}>
+      <p className={styles.subtitulo}>Materiales pendientes de enviar</p>
+      <ul>
+        {pendientes.map((item) => {
+          const adjudicado = orden.items?.find((renglon) => renglon.articuloId === item.articuloId)
+          const presentacion = adjudicado?.presentacionAdjudicada
+          const descripcion = adjudicado?.descripcion ?? item.descripcionArticulo
+          return (
+            <li key={item.articuloId}>
+              <strong>{cantidadParaDespacho(saldoPendiente(item), item.unidadMedida, presentacion)}</strong>
+              {descripcion && (presentacion?.trim()
+                ? <div>{descripcionParaDespacho(descripcion, presentacion)}</div>
+                : <span> · {descripcion}</span>)}
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+function cantidadParaDespacho(cantidad: number, unidadMedida: string, presentacion?: string | null) {
+  return presentacion?.trim()
+    ? `Cantidad ${cantidad} · Presentación adjudicada ${presentacion}`
+    : cantidadConUnidad(cantidad, unidadMedida)
+}
+
+function descripcionParaDespacho(descripcion: string, presentacion?: string | null) {
+  if (!presentacion?.trim()) return descripcion
+  const sufijo = ` (${presentacion})`
+  const original = descripcion.endsWith(sufijo) ? descripcion.slice(0, -sufijo.length) : descripcion
+  return `Pedido original: ${original}`
 }

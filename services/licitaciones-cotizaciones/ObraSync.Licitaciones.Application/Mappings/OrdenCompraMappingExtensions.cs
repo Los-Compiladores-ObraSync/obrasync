@@ -8,7 +8,8 @@ public static class OrdenCompraMappingExtensions
     public static OrdenCompraResponseDto ToDto(
         this OrdenCompra ordenCompra,
         CalificacionProveedor? miCalificacion = null,
-        int mensajesNoLeidos = 0)
+        int mensajesNoLeidos = 0,
+        IReadOnlyDictionary<(Guid CotizacionId, Guid ArticuloId), string?>? presentacionesAdjudicadas = null)
     {
         ArgumentNullException.ThrowIfNull(ordenCompra);
 
@@ -49,7 +50,15 @@ public static class OrdenCompraMappingExtensions
             NumeroDespacho: ordenCompra.NumeroDespacho,
             PuedeRedespachar: ordenCompra.PuedeRedespachar,
             TieneRecepcionParcialPendiente: ordenCompra.TieneRecepcionParcialPendiente,
-            FechaUltimaRecepcionParcial: NormalizarNullableAUtc(ordenCompra.FechaUltimaRecepcionParcial));
+            FechaUltimaRecepcionParcial: NormalizarNullableAUtc(ordenCompra.FechaUltimaRecepcionParcial),
+            Items: ordenCompra.Items
+                .Select(item => new OrdenCompraItemResponseDto(
+                    ArticuloId: item.ArticuloId,
+                    Descripcion: item.Descripcion,
+                    Cantidad: item.Cantidad,
+                    UnidadMedida: item.UnidadMedida,
+                    PresentacionAdjudicada: presentacionesAdjudicadas?.GetValueOrDefault((ordenCompra.CotizacionId, item.ArticuloId))))
+                .ToList());
     }
 
     public static MensajeChatOrdenDto ToDto(this MensajeChatOrden mensaje)

@@ -8,6 +8,7 @@ namespace ObraSync.Requisiciones.Application.DTOs
         public Guid ObraId { get; set; }
         public string? Etapa { get; set; }
         public string? Observaciones { get; set; }
+        public bool RepeticionIntencional { get; set; }
         public List<CrearRequisicionItemDto> Items { get; set; } = new();
     }
 }

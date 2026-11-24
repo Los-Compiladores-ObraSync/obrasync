@@ -51,6 +51,7 @@ export function EntregaConProblemaForm({ orden, onRegistrada, onCancelar }: Entr
   const [errorFoto, setErrorFoto] = useState<string | null>(null)
   const [errores, setErrores] = useState<ErroresProblema>({})
   const [errorApi, setErrorApi] = useState<string | null>(null)
+  const [revisando, setRevisando] = useState(false)
   const [enviando, setEnviando] = useState(false)
   // Guard inmediato contra el doble toque: `enviando` recién cambia en el próximo render.
   const enviandoRef = useRef(false)
@@ -106,7 +107,7 @@ export function EntregaConProblemaForm({ orden, onRegistrada, onCancelar }: Entr
     setErrorFoto(null)
   }
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  function revisarReporte(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (enviandoRef.current || preparando) return
 
@@ -115,6 +116,11 @@ export function EntregaConProblemaForm({ orden, onRegistrada, onCancelar }: Entr
     if (hayErroresProblema(nuevosErrores) || motivo === '') return
 
     setErrorApi(null)
+    setRevisando(true)
+  }
+
+  async function confirmarReporte() {
+    if (enviandoRef.current || motivo === '') return
     enviandoRef.current = true
     setEnviando(true)
     try {
@@ -126,14 +132,40 @@ export function EntregaConProblemaForm({ orden, onRegistrada, onCancelar }: Entr
     } catch (err) {
       // Las fotos quedan elegidas: con mala señal no hay que volver a sacarlas.
       setErrorApi(mensajeDeErrorApi(err))
+      setRevisando(false)
     } finally {
       enviandoRef.current = false
       setEnviando(false)
     }
   }
 
+  if (revisando) {
+    return (
+      <section className={styles.formulario} aria-label="Revisá el reporte">
+        <h2>Revisá el reporte</h2>
+        <p><strong>Motivo:</strong> {motivo}</p>
+        {detalle.trim() && <p><strong>Detalle:</strong> {detalle.trim()}</p>}
+        {fotos.length > 0 && (
+          <ul className={styles.fotos} aria-label="Fotos del reporte">
+            {fotos.map((foto, indice) => (
+              <li key={foto.id} className={styles.foto}>
+                <img src={foto.vistaPrevia} alt={`Foto ${indice + 1} para enviar`} className={styles.imagen} />
+              </li>
+            ))}
+          </ul>
+        )}
+        <button type="button" className={styles.cancelar} disabled={enviando} onClick={() => setRevisando(false)}>
+          Editar
+        </button>
+        <button type="button" className={styles.boton} disabled={enviando} onClick={confirmarReporte}>
+          {enviando ? 'Guardando…' : 'Confirmar reporte'}
+        </button>
+      </section>
+    )
+  }
+
   return (
-    <form className={styles.formulario} onSubmit={handleSubmit} noValidate aria-label="Entrega con problema">
+    <form className={styles.formulario} onSubmit={revisarReporte} noValidate aria-label="Entrega con problema">
       <p className={styles.aclaracion}>
         Contanos qué pasó. No cambia lo que ya recibiste: la orden sigue esperando la mercadería.
       </p>
@@ -259,7 +291,7 @@ export function EntregaConProblemaForm({ orden, onRegistrada, onCancelar }: Entr
       </div>
 
       <button type="submit" className={styles.boton} disabled={enviando || preparando} aria-busy={enviando}>
-        {enviando ? 'Guardando…' : 'Registrar el problema'}
+        Revisar reporte
       </button>
       <button type="button" className={styles.cancelar} onClick={onCancelar} disabled={enviando}>
         Volver

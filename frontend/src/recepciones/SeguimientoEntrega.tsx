@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from 'react'
 import { ApiError } from '../api/ApiError'
+import type { OrdenCompraListadoDto } from '../licitaciones/licitacionesTipos'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import { LineaDeTiempoOrden } from './LineaDeTiempoOrden'
 import { ESTADO_ENTREGA_PARCIAL } from '../licitaciones/entregaParcial'
@@ -7,7 +8,10 @@ import { obtenerRecepcionesDeOrden } from './recepcionesService'
 import type { ItemOrdenPendiente, RecepcionesDeOrden } from './recepcionesTipos'
 import styles from './SeguimientoEntrega.module.css'
 
+type OrdenEnSeguimiento = Pick<OrdenCompraListadoDto, 'numeroDespacho' | 'puedeRedespachar' | 'items'>
+
 interface SeguimientoEntregaProps {
+  orden?: OrdenEnSeguimiento
   ordenCompraId: string
   /** Código corto de la orden (se usa para nombrar el botón). */
   codigo: string
@@ -15,7 +19,7 @@ interface SeguimientoEntregaProps {
 
 type Carga = { tipo: 'cargando' } | { tipo: 'lista'; datos: RecepcionesDeOrden } | { tipo: 'sinDatos' } | { tipo: 'error' }
 
-function saldoPendiente(item: ItemOrdenPendiente): number {
+export function saldoPendiente(item: ItemOrdenPendiente): number {
   return item.cantidadPendiente ?? Math.max(item.cantidadEsperada - item.cantidadRecibida, 0)
 }
 
@@ -24,7 +28,7 @@ function saldoPendiente(item: ItemOrdenPendiente): number {
  * llegó y qué falta, y la historia (despacho, entregas parciales, problemas con sus fotos, recepción completa).
  * Es un desplegable: recién se consulta al abrirlo, así la lista de órdenes no hace un pedido por cada una.
  */
-export function SeguimientoEntrega({ ordenCompraId, codigo }: SeguimientoEntregaProps) {
+export function SeguimientoEntrega({ ordenCompraId, codigo, orden }: SeguimientoEntregaProps) {
   const [abierto, setAbierto] = useState(false)
   const [carga, setCarga] = useState<Carga>({ tipo: 'cargando' })
   // Cada vez que cambia "intento" se vuelve a pedir (así funciona "Reintentar").
@@ -93,30 +97,48 @@ export function SeguimientoEntrega({ ordenCompraId, codigo }: SeguimientoEntrega
             </div>
           )}
 
-          {carga.tipo === 'lista' && <Detalle datos={carga.datos} />}
+          {carga.tipo === 'lista' && <Detalle datos={carga.datos} orden={orden} />}
         </div>
       )}
     </div>
   )
 }
 
-function Detalle({ datos }: { datos: RecepcionesDeOrden }) {
+function Detalle({ datos, orden }: { datos: RecepcionesDeOrden; orden?: OrdenEnSeguimiento }) {
+  const parcial = datos.estadoEntrega === ESTADO_ENTREGA_PARCIAL && !datos.estaCompleta
+  const numeroDespacho = orden?.numeroDespacho ?? 0
+  const remanenteEnviado = parcial && numeroDespacho > 1 && orden?.puedeRedespachar === false
+  const materiales = new Map(orden?.items?.map((item) => [item.articuloId, item]))
+  const recepciones = datos.recepciones.map((recepcion) => ({
+    ...recepcion,
+    detalles: recepcion.detalles?.map((detalle) => ({
+      ...detalle,
+      descripcionArticulo: detalle.articuloId
+        ? materiales.get(detalle.articuloId)?.presentacionAdjudicada?.trim() || detalle.descripcionArticulo
+        : detalle.descripcionArticulo,
+    })),
+  }))
   const hayMovimientos = Boolean(datos.fechaDespacho) || datos.recepciones.length > 0
   return (
     <>
+      {datos.esperaNuevoDespacho && <p className={styles.aviso} role="status">Esperando nuevo despacho.</p>}
       {datos.tieneProblemaAbierto && (
         <p className={styles.aviso} role="status">
           Hay un problema de entrega abierto en esta orden.
         </p>
       )}
-      {datos.estadoEntrega === ESTADO_ENTREGA_PARCIAL && !datos.estaCompleta && (
-        <p className={styles.aviso} role="status">
-          {ESTADO_ENTREGA_PARCIAL}: llegó una parte y el Proveedor tiene que despachar el resto.
+      {parcial && !datos.tieneProblemaAbierto && (
+        <p className={remanenteEnviado ? styles.ayuda : styles.aviso} role="status">
+          {remanenteEnviado ? (
+            <><strong>Envío N.º {numeroDespacho} despachado.</strong> El capataz debe confirmar la recepción.</>
+          ) : (
+            <><strong>Entrega parcial.</strong> El proveedor debe despachar el resto.</>
+          )}
         </p>
       )}
       {datos.estaCompleta && (
         <p className={styles.completa} role="status">
-          La orden se recibió por completo.
+          <strong>Entrega completa.</strong> Se recibieron todos los materiales.
         </p>
       )}
 
@@ -124,13 +146,30 @@ function Detalle({ datos }: { datos: RecepcionesDeOrden }) {
         <>
           <p className={styles.subtitulo}>Materiales</p>
           <ul className={styles.materiales} aria-label="Materiales de la orden">
-            {datos.items.map((item) => (
-              <li key={item.articuloId}>
-                {item.descripcionArticulo}: Pedido {cantidadConUnidad(item.cantidadEsperada, item.unidadMedida)} · Recibido{' '}
-                {cantidadConUnidad(item.cantidadRecibida, item.unidadMedida)} · Pendiente{' '}
-                {cantidadConUnidad(saldoPendiente(item), item.unidadMedida)}
-              </li>
-            ))}
+            {datos.items.map((item) => {
+              const adjudicado = materiales.get(item.articuloId)
+              const presentacion = adjudicado?.presentacionAdjudicada?.trim()
+              const descripcion = adjudicado?.descripcion || item.descripcionArticulo
+              const sufijo = ` (${adjudicado?.presentacionAdjudicada})`
+              const original = presentacion && descripcion.endsWith(sufijo)
+                ? descripcion.slice(0, -sufijo.length)
+                : descripcion
+              const etiquetaSaldo = parcial && !remanenteEnviado && !datos.tieneProblemaAbierto
+                ? 'Por despachar'
+                : 'Por recibir'
+
+              return (
+                <li key={item.articuloId}>
+                  <strong>{presentacion || descripcion}</strong>
+                  <div>
+                    Adjudicado: {cantidadConUnidad(item.cantidadEsperada, item.unidadMedida)} · Recibido:{' '}
+                    {cantidadConUnidad(item.cantidadRecibida, item.unidadMedida)} ·{' '}
+                    <strong>{etiquetaSaldo}: {cantidadConUnidad(saldoPendiente(item), item.unidadMedida)}</strong>
+                  </div>
+                  {presentacion && original && <div>Pedido original: {original}</div>}
+                </li>
+              )
+            })}
           </ul>
         </>
       )}
@@ -144,7 +183,7 @@ function Detalle({ datos }: { datos: RecepcionesDeOrden }) {
               fechaEstimadaLlegada: datos.fechaEstimadaLlegada,
               observacionDespacho: datos.observacionDespacho,
             }}
-            recepciones={datos.recepciones}
+            recepciones={recepciones}
           />
         </>
       ) : (

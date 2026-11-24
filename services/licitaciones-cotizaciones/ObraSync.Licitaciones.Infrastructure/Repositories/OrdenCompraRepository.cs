@@ -132,6 +132,7 @@ public class OrdenCompraRepository : IOrdenCompraRepository
 
         var pag = paginacion ?? new ParametrosPagina();
         var items = await query
+            .Include(oc => oc.Items)
             .OrderByDescending(oc => oc.FechaEmision)
             .ThenBy(oc => oc.OrdenCompraId)
             .Skip(pag.Saltear)

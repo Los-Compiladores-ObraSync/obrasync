@@ -35,8 +35,8 @@ describe('MisOrdenesProveedorPage: entrega parcial (#249)', () => {
     renderPagina()
 
     expect(await screen.findByRole('button', { name: /^Despachar lo que falta/ })).toBeInTheDocument()
-    expect(screen.getByText(/Falta despachar el resto/)).toBeInTheDocument()
-    expect(screen.getByText('Entrega parcial', { selector: 'span' })).toBeInTheDocument()
+    expect(screen.getByText(/mercadería pendiente de despacho/)).toBeInTheDocument()
+    expect(screen.getByText('Recepción parcial', { selector: 'span' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Marcar como despachada/ })).not.toBeInTheDocument()
   })
 

@@ -72,6 +72,7 @@ export function LineaDeTiempoOrden({ despacho, recepciones }: LineaDeTiempoOrden
         return (
           <li key={recepcion.id ?? indice} className={styles.hito}>
             <strong>Remito {recepcion.numeroRemito ?? 'sin número'}</strong> · {fechaDeRecepcion(recepcion.fechaRecepcion)} · {textoDeEstado(recepcion.estado)}
+            {recepcion.observaciones && <p className={styles.detalle}>Observaciones: {recepcion.observaciones}</p>}
             {(recepcion.detalles ?? []).length > 0 && (
               <ul className={styles.materiales}>
                 {recepcion.detalles?.map((detalle, posicion) => (

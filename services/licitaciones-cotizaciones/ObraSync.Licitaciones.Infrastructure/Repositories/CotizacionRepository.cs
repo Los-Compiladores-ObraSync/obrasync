@@ -113,4 +113,29 @@ public class CotizacionRepository : ICotizacionRepository
             .Include(c => c.Items)
             .FirstOrDefaultAsync(c => c.CotizacionId == id, cancellationToken);
     }
+
+    public async Task<IReadOnlyDictionary<(Guid CotizacionId, Guid ArticuloId), string?>> GetPresentacionesOfrecidasAsync(
+        IReadOnlyCollection<(Guid CotizacionId, Guid ArticuloId)> items,
+        CancellationToken cancellationToken = default)
+    {
+        if (items.Count == 0)
+        {
+            return new Dictionary<(Guid CotizacionId, Guid ArticuloId), string?>();
+        }
+
+        var cotizacionIds = items.Select(x => x.CotizacionId).Distinct().ToList();
+        var articuloIds = items.Select(x => x.ArticuloId).Distinct().ToList();
+        var encontradas = await _context.Cotizaciones
+            .AsNoTracking()
+            .Where(c => cotizacionIds.Contains(c.CotizacionId))
+            .SelectMany(c => c.Items
+                .Where(i => articuloIds.Contains(i.ArticuloId))
+                .Select(i => new { c.CotizacionId, i.ArticuloId, i.PresentacionOfrecida }))
+            .ToListAsync(cancellationToken);
+
+        var solicitadas = items.ToHashSet();
+        return encontradas
+            .Where(x => solicitadas.Contains((x.CotizacionId, x.ArticuloId)))
+            .ToDictionary(x => (x.CotizacionId, x.ArticuloId), x => x.PresentacionOfrecida);
+    }
 }

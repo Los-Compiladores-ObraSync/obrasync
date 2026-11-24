@@ -187,6 +187,17 @@ public class CrearRecepcionCommandHandler
             throw new RecepcionConflictoException("Ya existe una recepción con ese número de remito para esta orden de compra.");
         }
 
+        var esperaDespacho = await _context.Recepciones.AnyAsync(
+            r => r.OrdenCompraId == command.OrdenCompraId &&
+                 (r.Estado == EstadoRecepcion.Parcial || r.Estado == EstadoRecepcion.Rechazada) &&
+                 r.CreatedAt >= ordenCompra.FechaDespacho!.Value,
+            cancellationToken);
+
+        if (esperaDespacho)
+        {
+            throw new RecepcionConflictoException("La orden está esperando que el proveedor despache lo pendiente.");
+        }
+
         var recibidosPrevios = await _context.Recepciones
             .AsNoTracking()
             .Where(r => r.OrdenCompraId == command.OrdenCompraId &&

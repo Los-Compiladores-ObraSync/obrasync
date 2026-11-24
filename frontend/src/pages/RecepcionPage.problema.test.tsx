@@ -97,7 +97,7 @@ describe('RecepcionPage: despacho y entrega con problema (#224)', () => {
 
     await user.click(screen.getByRole('button', { name: '← Volver a la recepción' }))
 
-    expect(screen.getByRole('button', { name: 'Confirmar recepción' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Revisar recepción' })).toBeInTheDocument()
   })
 
   it('registra el problema y confirma que la orden sigue esperando la mercadería', async () => {
@@ -107,7 +107,8 @@ describe('RecepcionPage: despacho y entrega con problema (#224)', () => {
 
     await abrirFormularioDelProblema(user)
     await user.click(screen.getByRole('radio', { name: 'Llegó dañada' }))
-    await user.click(screen.getByRole('button', { name: 'Registrar el problema' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar reporte' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar reporte' }))
 
     expect(await screen.findByRole('heading', { name: 'Problema registrado' })).toBeInTheDocument()
     expect(screen.getByText(/La orden sigue esperando la mercadería/)).toBeInTheDocument()
@@ -124,7 +125,8 @@ describe('RecepcionPage: despacho y entrega con problema (#224)', () => {
 
     await abrirFormularioDelProblema(user)
     await user.click(screen.getByRole('radio', { name: 'No llegó nada' }))
-    await user.click(screen.getByRole('button', { name: 'Registrar el problema' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar reporte' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar reporte' }))
     await user.click(await screen.findByRole('button', { name: 'Volver a las órdenes' }))
 
     expect(await screen.findAllByRole('button', { name: /Torre Alvear/ })).toHaveLength(2)
@@ -137,10 +139,11 @@ describe('RecepcionPage: despacho y entrega con problema (#224)', () => {
 
     await abrirFormularioDelProblema(user)
     await user.click(screen.getByRole('radio', { name: 'No llegó nada' }))
-    await user.click(screen.getByRole('button', { name: 'Registrar el problema' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar reporte' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar reporte' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo conectar con el servidor')
-    expect(screen.getByRole('button', { name: 'Registrar el problema' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Revisar reporte' })).toBeEnabled()
   })
 
   it('una entrega con problema ya registrada aparece en la línea de tiempo con su motivo y sus fotos', async () => {

@@ -55,7 +55,7 @@ describe('RecepcionPage', () => {
     expect(screen.getByLabelText(/Cemento Portland Especial 25kg.*recibido en esta entrega/i)).toHaveValue(80)
     expect(screen.getByLabelText('Número de remito')).toBeInTheDocument()
     expect(screen.getByLabelText('Fecha de recepción')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Confirmar recepción' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Revisar recepción' })).toBeEnabled()
   })
 
   it('la fecha arranca en hoy y no deja elegir fechas futuras', async () => {
@@ -84,7 +84,7 @@ describe('RecepcionPage', () => {
     renderPagina()
 
     await elegirPrimeraOrden(user)
-    await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
 
     expect(screen.getByText('El número de remito es obligatorio.')).toBeInTheDocument()
   })
@@ -96,7 +96,7 @@ describe('RecepcionPage', () => {
     await elegirPrimeraOrden(user)
     await user.type(screen.getByLabelText('Número de remito'), '0001-00012345')
     fireEvent.change(screen.getByLabelText('Fecha de recepción'), { target: { value: '2999-12-31' } })
-    await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
 
     expect(screen.getByText('La fecha de recepción no puede ser futura.')).toBeInTheDocument()
   })
@@ -107,6 +107,7 @@ describe('RecepcionPage', () => {
 
     await elegirPrimeraOrden(user)
     await user.type(screen.getByLabelText('Número de remito'), '0001-00012345')
+    await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
     await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Recepción registrada' })).toBeInTheDocument()
@@ -133,11 +134,21 @@ describe('RecepcionPage', () => {
     renderPagina()
 
     await elegirPrimeraOrden(user)
-    await user.type(screen.getByLabelText('Número de remito'), 'R-1')
+    await user.type(screen.getByLabelText('Número de remito'), 'R-ERROR')
+    await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
+    expect(cuerpo).toBeUndefined()
+    await user.click(screen.getByRole('button', { name: 'Editar' }))
+    const remito = screen.getByLabelText('Número de remito')
+    expect(remito).toHaveValue('R-ERROR')
+    await user.clear(remito)
+    await user.type(remito, 'R-1')
+    await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
+    expect(cuerpo).toBeUndefined()
     await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
     await screen.findByRole('heading', { level: 1, name: 'Recepción registrada' })
 
     const detalles = (cuerpo as { detalles: { cantidadEsperada: number; cantidadRecibida: number; conforme: boolean }[] }).detalles
+    expect(cuerpo).toMatchObject({ numeroRemito: 'R-1' })
     expect(detalles).toHaveLength(2)
     expect(detalles.every((d) => d.cantidadRecibida === d.cantidadEsperada && d.conforme)).toBe(true)
   })
@@ -162,11 +173,12 @@ describe('RecepcionPage', () => {
     await user.click(marcas[0])
 
     // Sin contar qué pasó no se puede confirmar
-    await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
     expect(await screen.findByText(/Contanos qué pasó con este material/)).toBeInTheDocument()
     expect(cuerpo).toBeUndefined()
 
     await user.type(screen.getByRole('textbox', { name: /Qué pasó con/ }), '3 bolsas rotas')
+    await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
     await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
     await screen.findByRole('heading', { level: 1, name: 'Recepción registrada' })
 
@@ -205,6 +217,7 @@ describe('RecepcionPage', () => {
     await user.clear(screen.getByLabelText(/Arena Fina a Granel.*recibido en esta entrega/i))
     await user.type(screen.getByLabelText(/Arena Fina a Granel.*recibido en esta entrega/i), '12')
     await user.type(screen.getByLabelText('Número de remito'), 'R-P')
+    await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
     await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
     expect(await screen.findByText(/todavía queda mercadería pendiente/i)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Recibir otra orden' }))
@@ -229,6 +242,7 @@ describe('RecepcionPage', () => {
     await user.clear(screen.getByLabelText(/Arena Fina a Granel.*recibido en esta entrega/i))
     await user.type(screen.getByLabelText(/Arena Fina a Granel.*recibido en esta entrega/i), '12')
     await user.type(screen.getByLabelText('Número de remito'), 'R-001')
+    await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
     await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
     expect(await screen.findByText(/Recepción parcial: todavía queda/i)).toBeInTheDocument()
     expect(screen.getByText('Volvé a las órdenes pendientes para registrar la próxima entrega cuando llegue.')).toBeInTheDocument()
@@ -238,6 +252,7 @@ describe('RecepcionPage', () => {
     expect(await screen.findByText('Remito R-001')).toBeInTheDocument()
     expect(screen.getByLabelText('Historial de recepciones').textContent).toContain('Parcial')
     await user.type(screen.getByLabelText('Número de remito'), 'R-002')
+    await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
     await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
     expect(await screen.findByText('La orden quedó recibida por completo.')).toBeInTheDocument()
     expect(screen.getByText('El seguimiento de esta entrega terminó.')).toBeInTheDocument()
@@ -274,14 +289,14 @@ describe('RecepcionPage', () => {
     await user.clear(cemento)
     await user.type(cemento, '81')
     await user.type(screen.getByLabelText('Número de remito'), 'R-X')
-    await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
     expect(screen.getByText(/No puede superar el saldo de 80/)).toBeInTheDocument()
     expect(llamadas).toBe(0)
     await user.clear(cemento)
     await user.type(cemento, '0')
     await user.clear(screen.getByLabelText(/Arena Fina a Granel.*recibido en esta entrega/i))
     await user.type(screen.getByLabelText(/Arena Fina a Granel.*recibido en esta entrega/i), '0')
-    await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
     expect(screen.getByText(/al menos un artículo/i)).toBeInTheDocument()
     expect(llamadas).toBe(0)
   })
@@ -295,7 +310,7 @@ describe('RecepcionPage', () => {
     const campo = screen.getByLabelText(/Cemento Portland Especial 25kg.*recibido en esta entrega/i)
     fireEvent.change(campo, { target: { value: '-1' } })
     await user.type(screen.getByLabelText('Número de remito'), 'R-NEG')
-    await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
     expect(screen.getByText('La cantidad no puede ser negativa.')).toBeInTheDocument()
     expect(llamadas).toBe(0)
   })
@@ -312,11 +327,13 @@ describe('RecepcionPage', () => {
     renderPagina()
     await elegirPrimeraOrden(user)
     await user.type(screen.getByLabelText('Número de remito'), 'R-CORREGIR')
+    await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
     await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('El remito requiere corrección.')
     expect(screen.getByLabelText('Número de remito')).toHaveValue('R-CORREGIR')
     await user.clear(screen.getByLabelText('Número de remito'))
     await user.type(screen.getByLabelText('Número de remito'), 'R-OK')
+    await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
     await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
     expect(await screen.findByText('La orden quedó recibida por completo.')).toBeInTheDocument()
     expect(llamadas).toBe(2)
@@ -359,6 +376,7 @@ describe('RecepcionPage', () => {
 
     await elegirPrimeraOrden(user)
     await user.type(screen.getByLabelText('Número de remito'), '0001-00012345')
+    await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
     await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('El número de remito ya se usó en esta orden.')
@@ -597,11 +615,11 @@ describe('RecepcionPage', () => {
       const carga = user.upload(screen.getByLabelText('Foto del remito'), foto())
       await solicitudIniciada
       expect(await screen.findByRole('button', { name: 'Leyendo el remito…' })).toBeDisabled()
-      expect(screen.getByRole('button', { name: 'Confirmar recepción' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Revisar recepción' })).toBeDisabled()
       liberarRespuesta?.()
       await carga
       await waitFor(() => expect(screen.getByRole('button', { name: 'Sacar foto del remito' })).toBeEnabled())
-      expect(screen.getByRole('button', { name: 'Confirmar recepción' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Revisar recepción' })).toBeEnabled()
     })
 
     it('si se cambia de orden mientras lee, la lectura vieja no pisa el formulario nuevo', async () => {
@@ -648,6 +666,7 @@ describe('RecepcionPage', () => {
       await sacarFoto(user)
       await screen.findByText(/Leí el número y la fecha del remito/)
 
+      await user.click(screen.getByRole('button', { name: 'Revisar recepción' }))
       await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }))
 
       await screen.findByRole('heading', { level: 1, name: 'Recepción registrada' })

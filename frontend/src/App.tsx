@@ -28,6 +28,7 @@ import { MisCotizacionesPage } from './pages/MisCotizacionesPage'
 import { MisOrdenesProveedorPage } from './pages/MisOrdenesProveedorPage'
 import { MiReputacionProveedorPage } from './pages/MiReputacionProveedorPage'
 import { ProveedoresPage } from './pages/ProveedoresPage'
+import { HistorialRecepcionesPage } from './pages/HistorialRecepcionesPage'
 import { RecepcionPage } from './pages/RecepcionPage'
 import { RecuperarContrasenaPage } from './pages/RecuperarContrasenaPage'
 import { RestablecerContrasenaPage } from './pages/RestablecerContrasenaPage'
@@ -76,6 +77,7 @@ function App() {
                 <Route index element={<ObraPage />} />
                 <Route path="requisicion/nueva" element={<NuevaRequisicionPage />} />
                 <Route path="recepcion" element={<RecepcionPage />} />
+                <Route path="recepcion/historial" element={<HistorialRecepcionesPage />} />
                 <Route path="asistente" element={<AsistenteChatPage />} />
                 {/* Misma pantalla que en Compras: el Capataz solo consulta (el formulario es de Comprador y Admin) */}
                 <Route path="presupuesto" element={<PresupuestoPage />} />
@@ -100,7 +102,7 @@ function App() {
                 <Route path="asistente" element={<AsistenteChatPage portal="compras" />} />
                 <Route path="licitaciones" element={<LicitacionesComprasPage />} />
                 <Route path="ordenes" element={<OrdenesCompraPage />} />
-                <Route path="recepcion" element={<RecepcionPage />} />
+                <Route path="recepcion" element={<Navigate to="/compras/ordenes" replace />} />
                 <Route path="historial" element={<HistorialComprasPage />} />
                 <Route
                   path="historial/requisiciones/:id"

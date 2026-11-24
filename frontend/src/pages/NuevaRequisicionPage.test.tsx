@@ -121,9 +121,9 @@ describe('NuevaRequisicionPage', () => {
     expect(screen.getByLabelText('Insumo #1')).toHaveValue('Cemento Portland Especial 25kg')
     expect(screen.getByLabelText('Cantidad')).toHaveValue(25)
 
-    await user.click(screen.getByRole('button', { name: 'Enviar requisición' }))
+    await user.click(screen.getByRole('button', { name: 'Crear nuevo pedido' }))
     expect(await screen.findByRole('heading', { name: 'Requisición enviada con éxito' })).toBeInTheDocument()
-    expect(payload).toMatchObject({ obraId: OBRA_ID, items: [{ articuloId: ARTICULO_CEMENTO_ID, cantidad: 25 }] })
+    expect(payload).toMatchObject({ obraId: OBRA_ID, repeticionIntencional: true, items: [{ articuloId: ARTICULO_CEMENTO_ID, cantidad: 25 }] })
     expect(metodoPut).toBe(false)
   })
 
@@ -186,6 +186,17 @@ describe('NuevaRequisicionPage', () => {
     expect(
       screen.getByText(/80 bolsas — Cemento Portland Especial 25kg/),
     ).toBeInTheDocument()
+    server.use(http.get('*/api/requisiciones/d1d2d3d4-0000-0000-0000-000000000001', () =>
+      HttpResponse.json({
+        requisicionId: 'd1d2d3d4-0000-0000-0000-000000000001',
+        obraId: OBRA_ID, etapa: 'Estructura', estado: 'Pendiente',
+        items: [{ articuloId: ARTICULO_CEMENTO_ID, descripcion: 'Cemento Portland Especial 25kg', cantidad: 80, unidadMedida: 'BOLSA' }],
+      }),
+    ))
+    await user.click(screen.getByRole('link', { name: 'Editar requisición' }))
+    expect(await screen.findByRole('heading', { name: 'Editar y reenviar requisición' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Cantidad')).toHaveValue(80)
+    expect(screen.getByLabelText('Obra')).toHaveValue(OBRA_ID)
   })
 
   it('muestra validaciones inline sin llamar a la API si faltan campos obligatorios o la cantidad es 0 o vacía', async () => {

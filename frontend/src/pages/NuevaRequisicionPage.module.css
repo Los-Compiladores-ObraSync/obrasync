@@ -300,6 +300,14 @@
   margin-top: 0.5rem;
 }
 
+.accionesExito > :is(a, button) {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--alto-toque);
+  font: inherit;
+  font-weight: 700;
+}
+
 .enlaceBoton {
   display: flex;
   align-items: center;

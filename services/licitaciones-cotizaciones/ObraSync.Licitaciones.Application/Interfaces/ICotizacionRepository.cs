@@ -44,6 +44,10 @@ public interface ICotizacionRepository
         Guid id,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyDictionary<(Guid CotizacionId, Guid ArticuloId), string?>> GetPresentacionesOfrecidasAsync(
+        IReadOnlyCollection<(Guid CotizacionId, Guid ArticuloId)> items,
+        CancellationToken cancellationToken = default);
+
     Task AddAsync(
         Cotizacion cotizacion,
         CancellationToken cancellationToken = default);

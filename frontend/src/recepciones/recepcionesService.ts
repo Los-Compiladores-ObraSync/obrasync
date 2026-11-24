@@ -35,10 +35,13 @@ export function registrarRecepcion(datos: CrearRecepcionRequest): Promise<Recepc
   })
 }
 
-/** Historial completo de recepciones de una orden, respetando la paginación del API. */
-export function obtenerHistorialRecepciones(ordenCompraId: string): Promise<RecepcionHistorial[]> {
+/** Historial de una orden o de todas las obras accesibles para el usuario. */
+export function obtenerHistorialRecepciones(ordenCompraId?: string): Promise<RecepcionHistorial[]> {
+  const ruta = ordenCompraId
+    ? `/api/recepciones?ordenCompraId=${encodeURIComponent(ordenCompraId)}`
+    : '/api/recepciones'
   return traerTodas((pagina) =>
-    apiFetchPagina<RecepcionHistorial>(conPaginacion(`/api/recepciones?ordenCompraId=${encodeURIComponent(ordenCompraId)}`, pagina)),
+    apiFetchPagina<RecepcionHistorial>(conPaginacion(ruta, pagina)),
   )
 }
 

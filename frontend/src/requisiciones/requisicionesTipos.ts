@@ -21,6 +21,7 @@ export interface CrearRequisicionItemDto {
 }
 
 export interface CrearRequisicionRequestDto {
+  repeticionIntencional?: boolean
   obraId: string
   etapa?: string | null
   observaciones?: string | null

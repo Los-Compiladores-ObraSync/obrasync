@@ -57,7 +57,7 @@ describe('EntregaConProblemaForm', () => {
     const user = userEvent.setup()
     renderFormulario()
 
-    await user.click(screen.getByRole('button', { name: 'Registrar el problema' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar reporte' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Elegí qué pasó con la entrega.')
     expect(registrarEntregaConProblema).not.toHaveBeenCalled()
@@ -69,7 +69,12 @@ describe('EntregaConProblemaForm', () => {
 
     await user.click(screen.getByRole('radio', { name: 'Llegó dañada' }))
     await user.type(screen.getByLabelText('Detalle (opcional)'), '  3 bolsas rotas  ')
-    await user.click(screen.getByRole('button', { name: 'Registrar el problema' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar reporte' }))
+    expect(registrarEntregaConProblema).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Editar' }))
+    expect(screen.getByLabelText('Detalle (opcional)')).toHaveValue('  3 bolsas rotas  ')
+    await user.click(screen.getByRole('button', { name: 'Revisar reporte' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar reporte' }))
 
     await waitFor(() => expect(onRegistrada).toHaveBeenCalledWith(REGISTRADA))
     expect(registrarEntregaConProblema).toHaveBeenCalledWith(
@@ -83,7 +88,8 @@ describe('EntregaConProblemaForm', () => {
     renderFormulario()
 
     await user.click(screen.getByRole('radio', { name: 'No llegó nada' }))
-    await user.click(screen.getByRole('button', { name: 'Registrar el problema' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar reporte' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar reporte' }))
 
     await waitFor(() => expect(registrarEntregaConProblema).toHaveBeenCalled())
     expect(vi.mocked(registrarEntregaConProblema).mock.calls[0][0]).toEqual({
@@ -145,7 +151,8 @@ describe('EntregaConProblemaForm', () => {
     await user.click(screen.getByRole('radio', { name: 'Llegó dañada' }))
     await user.upload(screen.getByLabelText('Elegir fotos de la galería'), [foto('a.jpg'), foto('b.jpg')])
     await screen.findByAltText('Foto 2 para enviar')
-    await user.click(screen.getByRole('button', { name: 'Registrar el problema' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar reporte' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar reporte' }))
 
     await waitFor(() => expect(registrarEntregaConProblema).toHaveBeenCalled())
     expect(vi.mocked(registrarEntregaConProblema).mock.calls[0][1]).toEqual(achicadas)
@@ -194,11 +201,11 @@ describe('EntregaConProblemaForm', () => {
     await user.upload(screen.getByLabelText('Sacar foto'), foto())
 
     expect(await screen.findByRole('status')).toHaveTextContent('Preparando la foto…')
-    expect(screen.getByRole('button', { name: 'Registrar el problema' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Revisar reporte' })).toBeDisabled()
 
     terminar(new Blob(['x']))
     expect(await screen.findByAltText('Foto 1 para enviar')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Registrar el problema' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Revisar reporte' })).toBeEnabled()
   })
 
   it('si el servidor rechaza (409) muestra el motivo y conserva las fotos para reintentar', async () => {
@@ -209,12 +216,13 @@ describe('EntregaConProblemaForm', () => {
     await user.click(screen.getByRole('radio', { name: 'Llegó dañada' }))
     await user.upload(screen.getByLabelText('Sacar foto'), foto())
     await screen.findByAltText('Foto 1 para enviar')
-    await user.click(screen.getByRole('button', { name: 'Registrar el problema' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar reporte' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar reporte' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('La orden de compra está bloqueada.')
     expect(onRegistrada).not.toHaveBeenCalled()
     expect(screen.getByAltText('Foto 1 para enviar')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Registrar el problema' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Revisar reporte' })).toBeEnabled()
   })
 
   it('si no hay conexión avisa que las fotos siguen ahí', async () => {
@@ -223,7 +231,8 @@ describe('EntregaConProblemaForm', () => {
     renderFormulario()
 
     await user.click(screen.getByRole('radio', { name: 'No llegó nada' }))
-    await user.click(screen.getByRole('button', { name: 'Registrar el problema' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar reporte' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar reporte' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Tus fotos siguen acá')
   })
@@ -235,8 +244,9 @@ describe('EntregaConProblemaForm', () => {
     const { onRegistrada } = renderFormulario()
 
     await user.click(screen.getByRole('radio', { name: 'No es lo pedido' }))
-    const boton = screen.getByRole('button', { name: 'Registrar el problema' })
+    const boton = screen.getByRole('button', { name: 'Revisar reporte' })
     await user.click(boton)
+    await user.click(screen.getByRole('button', { name: 'Confirmar reporte' }))
     await user.click(screen.getByRole('button', { name: 'Guardando…' }))
 
     expect(registrarEntregaConProblema).toHaveBeenCalledTimes(1)

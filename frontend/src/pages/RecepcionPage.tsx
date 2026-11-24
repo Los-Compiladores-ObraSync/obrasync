@@ -81,6 +81,7 @@ export function RecepcionPage() {
   const [errorHistorial, setErrorHistorial] = useState(false)
   const [errores, setErrores] = useState<ErroresRecepcion>({})
   const [errorApi, setErrorApi] = useState<string | null>(null)
+  const [revisando, setRevisando] = useState(false)
   const [enviando, setEnviando] = useState(false)
   // Guard inmediato contra el doble envío (mismo criterio que #109): el estado `enviando` recién
   // cambia en el próximo render y un segundo toque podría colarse antes.
@@ -210,6 +211,7 @@ export function RecepcionPage() {
   function recibirOtra() {
     descartarLecturaDeFoto()
     setRegistrada(null)
+    setRevisando(false)
     setReportandoProblema(false)
     setProblemaRegistrado(null)
     setElegida(null)
@@ -220,7 +222,7 @@ export function RecepcionPage() {
     return nombresObras[obraId] ?? 'Obra'
   }
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  function revisarRecepcion(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (enviandoRef.current || !elegida) return
 
@@ -246,6 +248,11 @@ export function RecepcionPage() {
     if (Object.keys(nuevosErrores).length) return
     setErrores({})
     setErrorApi(null)
+    setRevisando(true)
+  }
+
+  async function confirmarRecepcion() {
+    if (enviandoRef.current || !elegida) return
     enviandoRef.current = true
     setEnviando(true)
 
@@ -270,6 +277,7 @@ export function RecepcionPage() {
       setRegistrada(creada)
     } catch (err) {
       setErrorApi(mensajeDeErrorApi(err))
+      setRevisando(false)
     } finally {
       enviandoRef.current = false
       setEnviando(false)
@@ -297,6 +305,9 @@ export function RecepcionPage() {
             </p>
           )}
           <div className={styles.accionesExito}>
+            <Link to="/obra/recepcion/historial" className={styles.enlaceBoton}>
+              Ver historial de recepciones
+            </Link>
             <button type="button" className={styles.boton} onClick={recibirOtra}>
               Volver a las órdenes
             </button>
@@ -363,6 +374,9 @@ export function RecepcionPage() {
             ))}
           </ul>
           <div className={styles.accionesExito}>
+            <Link to="/obra/recepcion/historial" className={styles.enlaceBoton}>
+              Ver historial de recepciones
+            </Link>
             <button type="button" className={styles.boton} onClick={recibirOtra}>
               Recibir otra orden
             </button>
@@ -376,6 +390,36 @@ export function RecepcionPage() {
   }
 
   // ── Formulario del remito ───────────────────────────────────────────────────
+  if (elegida && revisando) {
+    return (
+      <section className={styles.contenedor} aria-labelledby="titulo-revision-recepcion">
+        <h1 id="titulo-revision-recepcion">Revisá la recepción</h1>
+        <div className={styles.tarjeta}>
+          <p className={styles.dato}><strong>Obra:</strong> {nombreDeObra(elegida.obraId)}</p>
+          <p className={styles.dato}><strong>Remito:</strong> {numeroRemito.trim()}</p>
+          <p className={styles.dato}><strong>Fecha:</strong> {fechaEnPalabras(fecha)}</p>
+          <ul className={styles.items}>
+            {elegida.items.map((item) => (
+              <li key={item.articuloId}>
+                {item.descripcionArticulo}: {cantidadConUnidad(Number(cantidades[item.articuloId]), item.unidadMedida)}
+                {conProblema[item.articuloId] && <p>{notasProblema[item.articuloId]}</p>}
+              </li>
+            ))}
+          </ul>
+          {observaciones.trim() && <p className={styles.dato}><strong>Observaciones:</strong> {observaciones.trim()}</p>}
+        </div>
+        <div className={styles.accionesExito}>
+          <button type="button" className={styles.volver} disabled={enviando} onClick={() => setRevisando(false)}>
+            Editar
+          </button>
+          <button type="button" className={styles.boton} disabled={enviando} onClick={confirmarRecepcion}>
+            {enviando ? 'Guardando…' : 'Confirmar recepción'}
+          </button>
+        </div>
+      </section>
+    )
+  }
+
   if (elegida) {
     return (
       <section className={styles.contenedor}>
@@ -436,7 +480,7 @@ export function RecepcionPage() {
 
         <form
           className={styles.formulario}
-          onSubmit={handleSubmit}
+          onSubmit={revisarRecepcion}
           noValidate
           aria-describedby={errorApi ? 'recepcion-error-api' : undefined}
         >
@@ -597,7 +641,7 @@ export function RecepcionPage() {
             disabled={enviando || foto.tipo === 'leyendo'}
             aria-busy={enviando}
           >
-            {enviando ? 'Guardando…' : 'Confirmar recepción'}
+            Revisar recepción
           </button>
         </form>
       </section>
@@ -611,6 +655,9 @@ export function RecepcionPage() {
         ← Volver al inicio
       </Link>
       <h1>Recibir mercadería</h1>
+      <Link to="/obra/recepcion/historial" className={styles.enlaceBoton}>
+        Ver historial de recepciones
+      </Link>
       <p className="intro">
         Elegí la orden que llegó a la obra. Acá solo aparecen las órdenes que el Proveedor ya despachó.
       </p>

@@ -13,6 +13,7 @@ namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Commands
         string? IdempotencyKey = null,
         bool ValidarObraAsignada = false,
         string? AuthorizationHeader = null,
-        string? CorrelationId = null
+        string? CorrelationId = null,
+        bool RepeticionIntencional = false
     );
 }

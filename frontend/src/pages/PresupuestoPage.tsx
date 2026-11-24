@@ -256,16 +256,15 @@ export function PresupuestoPage() {
           <ul className={styles.listaBloqueadas}>
             {ordenesBloqueadas.map((orden) => (
               <li key={orden.ordenCompraId} className={styles.tarjetaBloqueada}>
+                <h3 className={styles.tituloOrdenBloqueada}>
+                  Orden {orden.ordenCompraId.slice(0, 8).toUpperCase()}
+                </h3>
                 <p className={styles.textoExceso}>
-                  Orden bloqueada: supera la partida de la etapa por{' '}
-                  {formatearPesos(orden.exceso)}
+                  Supera el presupuesto por {formatearPesos(orden.exceso)}
                 </p>
                 <p className={styles.datoBloqueada}>
                   <strong>Obra:</strong> {nombresObras[orden.obraId] ?? orden.obraId} ·{' '}
                   <strong>Etapa:</strong> {orden.etapa ?? 'General de la obra'}
-                </p>
-                <p className={styles.motivoBloqueo}>
-                  <strong>Motivo:</strong> {orden.motivo}
                 </p>
 
                 <div className={styles.grillaBloqueada}>
@@ -276,21 +275,15 @@ export function PresupuestoPage() {
                     </span>
                   </div>
                   <div className={styles.montoFila}>
-                    <span className={styles.montoLabel}>Asignado en partida:</span>
+                    <span className={styles.montoLabel}>Presupuesto asignado:</span>
                     <span className={styles.montoValor}>
                       {formatearPesos(orden.montoAsignadoPartida)}
                     </span>
                   </div>
                   <div className={styles.montoFila}>
-                    <span className={styles.montoLabel}>Comprometido actual:</span>
+                    <span className={styles.montoLabel}>Ya comprometido:</span>
                     <span className={styles.montoValor}>
                       {formatearPesos(orden.montoComprometidoActual)}
-                    </span>
-                  </div>
-                  <div className={styles.montoFila}>
-                    <span className={styles.montoLabel}>Exceso proyectado:</span>
-                    <span className={styles.valorExcedido}>
-                      {formatearPesos(orden.exceso)}
                     </span>
                   </div>
                 </div>

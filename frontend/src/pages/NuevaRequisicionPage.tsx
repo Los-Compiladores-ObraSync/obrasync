@@ -270,6 +270,7 @@ export function NuevaRequisicionPage() {
             etapa: etapa.trim(),
             observaciones: observaciones.trim() || null,
             items: itemsDto,
+            ...(requisicionIdRepetir ? { repeticionIntencional: true } : {}),
           }, idempotencyKeyRef.current)
       setRequisicionCreada(creada)
     } catch (err) {
@@ -369,6 +370,19 @@ export function NuevaRequisicionPage() {
           </div>
 
           <div className={styles.accionesExito}>
+            {!requisicionIdEdicion && requisicionCreada.estado === 'Pendiente' && (
+              <Link
+                to={`/obra/requisicion/nueva?editar=${encodeURIComponent(requisicionCreada.requisicionId)}`}
+                className={styles.enlaceBoton}
+                onClick={(event) => {
+                  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+                  setCargandoEdicion(true)
+                  setRequisicionCreada(null)
+                }}
+              >
+                Editar requisición
+              </Link>
+            )}
             {requisicionIdEdicion && (
               <Link to={rutaHistorial} className={styles.enlaceBoton}>
                 Volver al historial
@@ -612,7 +626,7 @@ export function NuevaRequisicionPage() {
         </div>
 
         <button type="submit" className={styles.boton} disabled={enviando}>
-          {enviando ? 'Enviando…' : requisicionIdEdicion ? 'Guardar y reenviar' : 'Enviar requisición'}
+          {enviando ? 'Enviando…' : requisicionIdEdicion ? 'Guardar y reenviar' : requisicionIdRepetir ? 'Crear nuevo pedido' : 'Enviar requisición'}
         </button>
       </form>
     </section>

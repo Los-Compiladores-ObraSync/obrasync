@@ -160,7 +160,7 @@ export function OrdenesCompraPage() {
                   <p className={styles.dato}>Esperando que el proveedor la despache.</p>
                 )}
                 {orden.fueDespachada && !orden.recibidaCompleta && !entregaParcial && (
-                  <p className={styles.dato}>Siguiente paso: Recepción debe registrar las entregas. <Link to="/compras/recepcion">Ir a Recepción</Link></p>
+                  <p className={styles.dato}>Pendiente de recepción en obra.</p>
                 )}
                 {orden.recibidaCompleta && <p className={styles.dato}>La recepción está completa. Ya no requiere seguimiento de entrega.</p>}
 

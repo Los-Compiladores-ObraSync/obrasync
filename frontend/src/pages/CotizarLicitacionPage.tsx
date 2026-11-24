@@ -8,7 +8,7 @@ import {
   obtenerLicitacion,
   obtenerMisCotizaciones,
 } from '../licitaciones/licitacionesService'
-import { formatoPrecio } from '../licitaciones/cotizacionesCalculos'
+import { calcularTotalConFlete, desglosarCotizacion, formatoPrecio } from '../licitaciones/cotizacionesCalculos'
 import { PlazoEntregaOpciones } from '../licitaciones/PlazoEntregaOpciones'
 import type {
   CotizacionResponseDto,
@@ -32,6 +32,7 @@ import styles from './CotizarLicitacionPage.module.css'
 
 export function CotizarLicitacionPage() {
   const { usuario } = useAuth()
+  const { id } = useParams<{ id: string }>()
   if (usuario?.rol !== 'Proveedor') {
     return (
       <section className={styles.contenedor}>
@@ -43,7 +44,7 @@ export function CotizarLicitacionPage() {
       </section>
     )
   }
-  return <FormularioCotizacion />
+  return <FormularioCotizacion key={id} />
 }
 
 function FormularioCotizacion() {
@@ -51,7 +52,9 @@ function FormularioCotizacion() {
   const { usuario } = useAuth()
   // ?corregir=<cotizacionId>: el Proveedor corrige una oferta que ya envió (antes del cierre).
   const [busqueda] = useSearchParams()
-  const cotizacionACorregir = busqueda.get('corregir')
+  const cotizacionDeUrl = busqueda.get('corregir')
+  const [cotizacionParaEditar, setCotizacionParaEditar] = useState<string | null>(null)
+  const cotizacionACorregir = cotizacionParaEditar ?? cotizacionDeUrl
 
   const [licitacion, setLicitacion] = useState<LicitacionResponseDto | null>(null)
   const [cargandoLicitacion, setCargandoLicitacion] = useState(true)
@@ -96,10 +99,10 @@ function FormularioCotizacion() {
         const datos = await obtenerLicitacion(id)
         if (cancelado) return
         setLicitacion(datos)
-        if (cotizacionACorregir) {
+        if (cotizacionDeUrl) {
           const mias = await obtenerMisCotizaciones()
           if (cancelado) return
-          const previa = mias.find((c) => c.cotizacionId === cotizacionACorregir)
+          const previa = mias.find((c) => c.cotizacionId === cotizacionDeUrl)
           if (previa) {
             setFlete(String(previa.flete))
             setPlazoEntregaDias(String(previa.plazoEntregaDias))
@@ -144,7 +147,7 @@ function FormularioCotizacion() {
     return () => {
       cancelado = true
     }
-  }, [id, intento, cotizacionACorregir])
+  }, [id, intento, cotizacionDeUrl])
 
   function activarOtraPresentacion(articuloId: string, activa: boolean) {
     setOtras((prev) => {
@@ -249,7 +252,12 @@ function FormularioCotizacion() {
       const respuesta = cotizacionACorregir
         ? await corregirCotizacion(cotizacionACorregir, dto)
         : await crearCotizacion(dto)
-      setRespuestaEnviada(respuesta)
+      setRespuestaEnviada({
+        ...respuesta,
+        flete: respuesta.flete ?? dto.flete,
+        plazoEntregaDias: respuesta.plazoEntregaDias ?? dto.plazoEntregaDias,
+        items: respuesta.items ?? dto.items,
+      })
       setEnviadoExitoso(true)
     } catch (err) {
       let mensaje = 'Ocurrió un error al enviar la cotización. Intentá nuevamente.'
@@ -327,6 +335,9 @@ function FormularioCotizacion() {
     const itemsParciales = licitacion.items.filter(
       (it) => respuestaEnviada?.items?.find((i) => i.articuloId === it.articuloId)?.coberturaParcial,
     )
+    const puedeEditar = Boolean(respuestaEnviada?.cotizacionId)
+      && licitacion.estado === 'Abierta'
+      && new Date(licitacion.fechaLimiteCotizacion).getTime() > Date.now()
     const hayCoberturaParcial = Boolean(respuestaEnviada?.coberturaParcial) || itemsParciales.length > 0
 
     return (
@@ -340,6 +351,34 @@ function FormularioCotizacion() {
             <strong>{licitacion.numeroRequisicion ?? licitacion.licitacionId}</strong>{' '}
             {cotizacionACorregir ? 'fue actualizada correctamente.' : 'fue registrada correctamente.'}
           </p>
+          {respuestaEnviada && (
+            <section aria-label="Datos de la cotización">
+              <h3>Datos de la cotización</h3>
+              <ul>
+                {desglosarCotizacion(respuestaEnviada, licitacion).map((item) => (
+                  <li key={item.articuloId}>
+                    <strong>{item.descripcion}</strong>
+                    {item.precioUnitario !== undefined && (
+                      <>
+                        {' · '}{item.presentacionOfrecida
+                          ? `${item.cantidadOfrecida ?? item.cantidad} × ${item.presentacionOfrecida}`
+                          : cantidadConUnidad(item.cantidad, item.unidadMedida)}
+                        {' · '}{formatoPrecio(item.precioUnitario)} c/u
+                        {' · Subtotal: '}{formatoPrecio(item.subtotal)}
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <p><strong>Flete:</strong> {formatoPrecio(respuestaEnviada.flete ?? 0)}</p>
+              {respuestaEnviada.plazoEntregaDias !== undefined && (
+                <p><strong>Plazo de entrega:</strong> {respuestaEnviada.plazoEntregaDias} días</p>
+              )}
+              <p><strong>Total con flete:</strong> {formatoPrecio(
+                respuestaEnviada.costoTotal ?? calcularTotalConFlete(respuestaEnviada, licitacion),
+              )}</p>
+            </section>
+          )}
           {hayCoberturaParcial && (
             <div className={styles.avisoCobertura} role="alert">
               <strong>Esto no cubre todo lo pedido.</strong>
@@ -354,6 +393,14 @@ function FormularioCotizacion() {
                 </ul>
               )}
             </div>
+          )}
+          {puedeEditar && respuestaEnviada && (
+            <button type="button" className={styles.enlaceVolver} onClick={() => {
+              setCotizacionParaEditar(respuestaEnviada.cotizacionId)
+              setEnviadoExitoso(false)
+            }}>
+              Editar cotización
+            </button>
           )}
           <Link to="/proveedores" className={styles.enlaceVolver}>
             Volver a licitaciones

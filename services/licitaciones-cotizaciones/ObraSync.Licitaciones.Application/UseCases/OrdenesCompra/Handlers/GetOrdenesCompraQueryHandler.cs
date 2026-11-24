@@ -11,15 +11,18 @@ public class GetOrdenesCompraQueryHandler
     private readonly IOrdenCompraRepository _ordenCompraRepository;
     private readonly ICalificacionProveedorRepository? _calificacionRepository;
     private readonly IChatOrdenRepository? _chatOrdenRepository;
+    private readonly ICotizacionRepository? _cotizacionRepository;
 
     public GetOrdenesCompraQueryHandler(
         IOrdenCompraRepository ordenCompraRepository,
         ICalificacionProveedorRepository? calificacionRepository = null,
-        IChatOrdenRepository? chatOrdenRepository = null)
+        IChatOrdenRepository? chatOrdenRepository = null,
+        ICotizacionRepository? cotizacionRepository = null)
     {
         _ordenCompraRepository = ordenCompraRepository ?? throw new ArgumentNullException(nameof(ordenCompraRepository));
         _calificacionRepository = calificacionRepository;
         _chatOrdenRepository = chatOrdenRepository;
+        _cotizacionRepository = cotizacionRepository;
     }
 
     public async Task<PaginaDe<OrdenCompraResponseDto>> Handle(
@@ -49,6 +52,8 @@ public class GetOrdenesCompraQueryHandler
 
         IReadOnlyDictionary<Guid, CalificacionProveedor> misCalificaciones = new Dictionary<Guid, CalificacionProveedor>();
         IReadOnlyDictionary<Guid, int> noLeidosPorOrden = new Dictionary<Guid, int>();
+        IReadOnlyDictionary<(Guid CotizacionId, Guid ArticuloId), string?> presentacionesAdjudicadas =
+            new Dictionary<(Guid CotizacionId, Guid ArticuloId), string?>();
 
         if (query.UsuarioId is Guid usuarioId &&
             usuarioId != Guid.Empty &&
@@ -71,12 +76,25 @@ public class GetOrdenesCompraQueryHandler
                     usuarioId,
                     cancellationToken);
             }
+
+        }
+
+        if (_cotizacionRepository is not null && pagina.Items.Count > 0)
+        {
+            var clavesItems = pagina.Items
+                .SelectMany(o => o.Items.Select(item => (o.CotizacionId, item.ArticuloId)))
+                .Distinct()
+                .ToList();
+            presentacionesAdjudicadas = await _cotizacionRepository.GetPresentacionesOfrecidasAsync(
+                clavesItems,
+                cancellationToken);
         }
 
         var dtos = pagina.Items
             .Select(oc => oc.ToDto(
                 misCalificaciones.GetValueOrDefault(oc.OrdenCompraId),
-                noLeidosPorOrden.GetValueOrDefault(oc.OrdenCompraId, 0)))
+                noLeidosPorOrden.GetValueOrDefault(oc.OrdenCompraId, 0),
+                presentacionesAdjudicadas))
             .ToList();
         return new PaginaDe<OrdenCompraResponseDto>(dtos, pagina.Total);
     }

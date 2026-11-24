@@ -154,6 +154,15 @@ export interface OrdenCompraListadoDto {
   tieneRecepcionParcialPendiente?: boolean
   /** Cuándo fue la última recepción parcial (UTC); null si no aplica (#248). */
   fechaUltimaRecepcionParcial?: string | null
+  items?: OrdenCompraItemDto[] | null
+}
+
+export interface OrdenCompraItemDto {
+  articuloId: string
+  descripcion: string
+  cantidad: number
+  unidadMedida: string
+  presentacionAdjudicada?: string | null
 }
 
 /** Un comentario de calificación recibido por el Proveedor (contrato: ComentarioCalificacionProveedorDto, #222). */
