@@ -42,6 +42,7 @@ public class AuthServiceTests
 
     private readonly UserManager<AppUser> _userManager;
     private readonly IJwtProvider _jwtProvider;
+    private readonly IUsuarioQueryRepository _usuarioQueryRepository;
     private readonly ILogger<AuthService> _logger;
     private readonly AuthService _authService;
 
@@ -50,13 +51,14 @@ public class AuthServiceTests
         var store = Substitute.For<IUserStore<AppUser>>();
         _userManager = Substitute.For<UserManager<AppUser>>(store, null, null, null, null, null, null, null, null);
         _jwtProvider = Substitute.For<IJwtProvider>();
+        _usuarioQueryRepository = Substitute.For<IUsuarioQueryRepository>();
 
         _logger = Substitute.For<ILogger<AuthService>>();
 
         // BaseUrl con barra final a propósito: verifica que el enlace no quede con "//"
         var frontendOptions = Options.Create(new FrontendSettings { BaseUrl = "http://localhost:5173/" });
 
-        _authService = new AuthService(_userManager, _jwtProvider, _logger, frontendOptions);
+        _authService = new AuthService(_userManager, _jwtProvider, _usuarioQueryRepository, _logger, frontendOptions);
     }
 
     // Arma un ClaimsPrincipal autenticado usando roleType: "role", igual que Program.cs en producción
@@ -143,80 +145,60 @@ public class AuthServiceTests
     }
 
     [Fact]
-    public async Task GetCapatacesActivosAsync_DebeRetornarSoloCapatacesActivos()
+    public async Task GetCapatacesActivosAsync_DebeDelegarEnRepositorioYRetornarCapataces()
     {
-        // Arrange
-        var capataces = new List<AppUser>
+        // Arrange (#254)
+        var capatazId = Guid.NewGuid();
+        IReadOnlyList<UsuarioResumenDto> resumen = new List<UsuarioResumenDto>
         {
-            new AppUser { Id = Guid.NewGuid(), NombreCompleto = "Carlos Capataz", Activo = true },
-            new AppUser { Id = Guid.NewGuid(), NombreCompleto = "Inactivo Capataz", Activo = false }
+            new(capatazId, "Carlos Capataz")
         };
 
-        _userManager.GetUsersInRoleAsync(UserRoles.Capataz).Returns(capataces);
+        _usuarioQueryRepository
+            .GetActivosPorRolPaginadosAsync(UserRoles.Capataz, new ParametrosPagina(), Arg.Any<CancellationToken>())
+            .Returns((resumen, 1));
 
         // Act
         var result = await _authService.GetCapatacesActivosAsync();
 
         // Assert
         var unico = Assert.Single(result);
+        Assert.Equal(capatazId, unico.Id);
         Assert.Equal("Carlos Capataz", unico.NombreCompleto);
+        await _userManager.DidNotReceive().GetUsersInRoleAsync(Arg.Any<string>());
     }
 
     [Fact]
-    public async Task GetCapatacesActivosPaginadosAsync_OrdenEstableYPaginacion_DesempataPorIdYExcluyeInactivos()
+    public async Task GetCapatacesActivosPaginadosAsync_DebeDelegarPaginacionEnBaseDeDatosSinCargarEnMemoria()
     {
-        // Arrange (#182): 3 capataces activos (2 con el mismo NombreCompleto) y 1 inactivo
+        // Arrange (#182, #254)
         var idMenor = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var idMayor = Guid.Parse("99999999-9999-9999-9999-999999999999");
         var idZeta = Guid.Parse("55555555-5555-5555-5555-555555555555");
 
-        var capataces = new List<AppUser>
+        IReadOnlyList<UsuarioResumenDto> pagina1Repo = new List<UsuarioResumenDto>
         {
-            new AppUser { Id = idMayor, NombreCompleto = "Carlos Empate", Activo = true },
-            new AppUser { Id = Guid.NewGuid(), NombreCompleto = "Inactivo", Activo = false },
-            new AppUser { Id = idZeta, NombreCompleto = "Zulema Capataz", Activo = true },
-            new AppUser { Id = idMenor, NombreCompleto = "Carlos Empate", Activo = true }
+            new(idMenor, "Carlos Empate"),
+            new(idMayor, "Carlos Empate")
+        };
+        IReadOnlyList<UsuarioResumenDto> pagina2Repo = new List<UsuarioResumenDto>
+        {
+            new(idZeta, "Zulema Capataz")
         };
 
-        _userManager.GetUsersInRoleAsync(UserRoles.Capataz).Returns(capataces);
+        var p1 = new ParametrosPagina(1, 2);
+        var p2 = new ParametrosPagina(2, 2);
 
-        // Act: página 1 (tamaño 2) y página 2 (tamaño 2)
-        var (pag1, total1) = await _authService.GetCapatacesActivosPaginadosAsync(new ParametrosPagina(1, 2));
-        var (pag2, total2) = await _authService.GetCapatacesActivosPaginadosAsync(new ParametrosPagina(2, 2));
-
-        // Assert
-        Assert.Equal(3, total1);
-        Assert.Equal(3, total2);
-        Assert.Equal(2, pag1.Count);
-        Assert.Single(pag2);
-
-        // Desempate por Id en los dos "Carlos Empate", luego "Zulema Capataz"
-        Assert.Equal(idMenor, pag1[0].Id);
-        Assert.Equal(idMayor, pag1[1].Id);
-        Assert.Equal(idZeta, pag2[0].Id);
-    }
-
-    [Fact]
-    public async Task GetProveedoresActivosPaginadosAsync_DevuelveSoloProveedoresActivosEnOrdenEstable()
-    {
-        // Arrange (#157): 3 proveedores activos (2 con el mismo nombre) y 1 inactivo
-        var idMenor = Guid.Parse("11111111-1111-1111-1111-111111111111");
-        var idMayor = Guid.Parse("99999999-9999-9999-9999-999999999999");
-        var idZeta = Guid.Parse("55555555-5555-5555-5555-555555555555");
-
-        var proveedores = new List<AppUser>
-        {
-            new AppUser { Id = idMayor, NombreCompleto = "Corralón Empate", Activo = true },
-            new AppUser { Id = Guid.NewGuid(), NombreCompleto = "Proveedor Inactivo", Activo = false },
-            new AppUser { Id = idZeta, NombreCompleto = "Zulema Materiales", Activo = true },
-            new AppUser { Id = idMenor, NombreCompleto = "Corralón Empate", Activo = true }
-        };
-
-        _userManager.GetUsersInRoleAsync(UserRoles.Proveedor).Returns(proveedores);
+        _usuarioQueryRepository
+            .GetActivosPorRolPaginadosAsync(UserRoles.Capataz, p1, Arg.Any<CancellationToken>())
+            .Returns((pagina1Repo, 3));
+        _usuarioQueryRepository
+            .GetActivosPorRolPaginadosAsync(UserRoles.Capataz, p2, Arg.Any<CancellationToken>())
+            .Returns((pagina2Repo, 3));
 
         // Act
-        var (pag1, total1) = await _authService.GetProveedoresActivosPaginadosAsync(new ParametrosPagina(1, 2));
-        var (pag2, total2) = await _authService.GetProveedoresActivosPaginadosAsync(new ParametrosPagina(2, 2));
+        var (pag1, total1) = await _authService.GetCapatacesActivosPaginadosAsync(p1);
+        var (pag2, total2) = await _authService.GetCapatacesActivosPaginadosAsync(p2);
 
         // Assert
         Assert.Equal(3, total1);
@@ -226,7 +208,50 @@ public class AuthServiceTests
         Assert.Equal(idMenor, pag1[0].Id);
         Assert.Equal(idMayor, pag1[1].Id);
         Assert.Equal(idZeta, pag2[0].Id);
-        Assert.DoesNotContain(pag1.Concat(pag2), p => p.NombreCompleto == "Proveedor Inactivo");
+        await _userManager.DidNotReceive().GetUsersInRoleAsync(Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task GetProveedoresActivosPaginadosAsync_DebeDelegarPaginacionEnBaseDeDatosSinCargarEnMemoria()
+    {
+        // Arrange (#157, #254)
+        var idMenor = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var idMayor = Guid.Parse("99999999-9999-9999-9999-999999999999");
+        var idZeta = Guid.Parse("55555555-5555-5555-5555-555555555555");
+
+        IReadOnlyList<UsuarioResumenDto> pagina1Repo = new List<UsuarioResumenDto>
+        {
+            new(idMenor, "Corralón Empate"),
+            new(idMayor, "Corralón Empate")
+        };
+        IReadOnlyList<UsuarioResumenDto> pagina2Repo = new List<UsuarioResumenDto>
+        {
+            new(idZeta, "Zulema Materiales")
+        };
+
+        var p1 = new ParametrosPagina(1, 2);
+        var p2 = new ParametrosPagina(2, 2);
+
+        _usuarioQueryRepository
+            .GetActivosPorRolPaginadosAsync(UserRoles.Proveedor, p1, Arg.Any<CancellationToken>())
+            .Returns((pagina1Repo, 3));
+        _usuarioQueryRepository
+            .GetActivosPorRolPaginadosAsync(UserRoles.Proveedor, p2, Arg.Any<CancellationToken>())
+            .Returns((pagina2Repo, 3));
+
+        // Act
+        var (pag1, total1) = await _authService.GetProveedoresActivosPaginadosAsync(p1);
+        var (pag2, total2) = await _authService.GetProveedoresActivosPaginadosAsync(p2);
+
+        // Assert
+        Assert.Equal(3, total1);
+        Assert.Equal(3, total2);
+        Assert.Equal(2, pag1.Count);
+        Assert.Single(pag2);
+        Assert.Equal(idMenor, pag1[0].Id);
+        Assert.Equal(idMayor, pag1[1].Id);
+        Assert.Equal(idZeta, pag2[0].Id);
+        await _userManager.DidNotReceive().GetUsersInRoleAsync(Arg.Any<string>());
     }
 
     [Fact]
