@@ -67,6 +67,12 @@ public class ChatOrdenCompraTests : IClassFixture<WebApplicationFactory<Program>
             {
                 services.RemoveAll<IHostedService>();
 
+                var presupuesto = Substitute.For<IEstadoPresupuestarioOrden>();
+                presupuesto.EstaBloqueadaAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<bool?>(false));
+                services.RemoveAll<IEstadoPresupuestarioOrden>();
+                services.AddSingleton(presupuesto);
+
                 if (loggerProvider is not null)
                 {
                     services.AddSingleton<ILoggerProvider>(loggerProvider);

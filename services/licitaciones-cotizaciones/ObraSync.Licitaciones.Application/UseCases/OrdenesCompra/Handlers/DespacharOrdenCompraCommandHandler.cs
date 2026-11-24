@@ -16,6 +16,7 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
     private readonly IOrdenCompraRepository _ordenCompraRepository;
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IEstadoPresupuestarioOrden _estadoPresupuestarioOrden;
     private readonly ILicitacionRepository? _licitacionRepository;
     private readonly ILogger<DespacharOrdenCompraCommandHandler> _logger;
     private readonly IChatOrdenRepository? _chatOrdenRepository;
@@ -25,6 +26,7 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
         IOrdenCompraRepository ordenCompraRepository,
         IPublishEndpoint publishEndpoint,
         IUnitOfWork unitOfWork,
+        IEstadoPresupuestarioOrden estadoPresupuestarioOrden,
         ILicitacionRepository? licitacionRepository = null,
         ILogger<DespacharOrdenCompraCommandHandler>? logger = null,
         IChatOrdenRepository? chatOrdenRepository = null,
@@ -33,6 +35,8 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
         _ordenCompraRepository = ordenCompraRepository ?? throw new ArgumentNullException(nameof(ordenCompraRepository));
         _publishEndpoint = publishEndpoint ?? throw new ArgumentNullException(nameof(publishEndpoint));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+        _estadoPresupuestarioOrden = estadoPresupuestarioOrden
+            ?? throw new ArgumentNullException(nameof(estadoPresupuestarioOrden));
         _licitacionRepository = licitacionRepository;
         _logger = logger ?? NullLogger<DespacharOrdenCompraCommandHandler>.Instance;
         _chatOrdenRepository = chatOrdenRepository;
@@ -69,6 +73,22 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
         {
             throw new UnauthorizedAccessException(
                 "Solo el proveedor titular de la orden de compra puede marcarla como despachada.");
+        }
+
+        var bloqueada = await _estadoPresupuestarioOrden.EstaBloqueadaAsync(
+            ordenCompra.OrdenCompraId,
+            cancellationToken);
+
+        if (bloqueada == true)
+        {
+            throw new InvalidOperationException(
+                "La orden está bloqueada por presupuesto y requiere autorización del administrador.");
+        }
+
+        if (bloqueada is null)
+        {
+            throw new InvalidOperationException(
+                "Todavía no se pudo verificar el estado presupuestario de la orden. Reintentá en unos segundos.");
         }
 
         if (ordenCompra.ObraId == Guid.Empty && _licitacionRepository is not null)

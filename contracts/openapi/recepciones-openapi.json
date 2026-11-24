@@ -1474,7 +1474,12 @@
       "RecepcionesDeOrdenDto": {
         "type": "object",
         "description": "Resumen de una orden de compra con datos de despacho, saldos por material e historial cronológico de recepciones y problemas (#217).",
+        "required": ["bloqueadaPorPresupuesto"],
         "properties": {
+          "bloqueadaPorPresupuesto": {
+            "type": "boolean",
+            "description": "Indica si la orden está bloqueada por presupuesto. Licitaciones verifica este valor antes del despacho (#253)."
+          },
           "ordenCompraId": {
             "type": "string",
             "format": "uuid"
