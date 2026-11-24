@@ -10,6 +10,7 @@ import {
 import { adjudicarLicitacion, publicarLicitacion } from '../licitaciones/licitacionesService'
 import { formatoPrecio } from '../licitaciones/cotizacionesCalculos'
 import { fechaLocalEnDias, finDelDiaEnUtc } from '../licitaciones/plazoCotizacion'
+import { formatearPlazoEntrega } from '../licitaciones/plazoEntrega'
 import { fechaAIso } from '../obras/validacionObra'
 import { hoyComoTexto } from '../obras/fechaEnPalabras'
 import { registrarRecepcion } from '../recepciones/recepcionesService'
@@ -593,7 +594,7 @@ export function AsistenteChatPage({ portal = 'obra' }: { portal?: PortalAsistent
                       {formatoPrecio(mensaje.adjudicacion.resumen.flete)}
                     </p>
                     {mensaje.adjudicacion.resumen.plazoEntregaDias != null && (
-                      <p className={styles.dato}>Plazo de entrega: {mensaje.adjudicacion.resumen.plazoEntregaDias} días</p>
+                      <p className={styles.dato}>Plazo de entrega: {formatearPlazoEntrega(mensaje.adjudicacion.resumen.plazoEntregaDias)}</p>
                     )}
                     <p className={styles.dato}>
                       Puntaje: {formatoCantidad(mensaje.adjudicacion.resumen.puntajeTotal)}

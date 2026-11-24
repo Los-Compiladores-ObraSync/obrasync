@@ -12,6 +12,7 @@ import { formatearPesos } from '../presupuesto/formatoPesos'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './MisCotizacionesPage.module.css'
+import { formatearPlazoEntrega } from '../licitaciones/plazoEntrega'
 
 /** Texto y estilo de cada resultado que informa el servicio (estadoResultado). */
 const RESULTADOS: Record<string, { texto: string; clase: string }> = {
@@ -347,7 +348,7 @@ function HistorialCotizaciones() {
                 <div>
                   <dt>Plazo de entrega</dt>
                   <dd>
-                    {c.plazoEntregaDias} {c.plazoEntregaDias === 1 ? 'día' : 'días'}
+                    {formatearPlazoEntrega(c.plazoEntregaDias)}
                   </dd>
                 </div>
                 <div>

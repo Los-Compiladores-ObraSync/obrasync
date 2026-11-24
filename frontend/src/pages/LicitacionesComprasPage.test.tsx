@@ -243,6 +243,36 @@ describe('LicitacionesComprasPage', () => {
     expect(await screen.findByText('prov-000')).toBeInTheDocument()
   })
 
+  it('muestra el plazo de entrega siempre con su unidad: "1 día", "3 días" e "Inmediato" si no hay plazo', async () => {
+    const base = {
+      licitacionId: LIC_ABIERTA_ID,
+      items: [],
+      flete: 0,
+      fechaCreacion: '2026-10-22T00:00:00Z',
+      puntajeTotal: 80,
+      esGanadora: false,
+    }
+    server.use(
+      http.get('*/api/cotizaciones', () =>
+        HttpResponse.json(
+          [
+            { ...base, cotizacionId: 'cot-1', proveedorId: 'prov-0001-guid', plazoEntregaDias: 1 },
+            { ...base, cotizacionId: 'cot-2', proveedorId: 'prov-0002-guid', plazoEntregaDias: 3 },
+            { ...base, cotizacionId: 'cot-3', proveedorId: 'prov-0003-guid', plazoEntregaDias: 0 },
+          ],
+          { status: 200 },
+        ),
+      ),
+    )
+
+    renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
+
+    expect(await screen.findByText('1 día')).toBeInTheDocument()
+    expect(screen.getByText('3 días')).toBeInTheDocument()
+    expect(screen.getByText('Inmediato')).toBeInTheDocument()
+    expect(screen.queryByText('1 días')).not.toBeInTheDocument()
+  })
+
   it('solicita confirmación previa antes de adjudicar y permite cancelar sin enviar la petición', async () => {
     const user = userEvent.setup()
     let peticionEnviada = false
