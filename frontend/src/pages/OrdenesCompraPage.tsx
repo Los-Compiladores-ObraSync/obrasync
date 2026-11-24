@@ -10,6 +10,7 @@ import { SeguimientoEntrega } from '../recepciones/SeguimientoEntrega'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { obtenerObras } from '../requisiciones/requisicionesService'
 import { destinoDeRegreso } from '../historialCompras/contextoNavegacion'
+import { tieneEntregaParcial } from '../licitaciones/entregaParcial'
 import styles from './OrdenesCompraPage.module.css'
 
 /** Código corto para nombrar una orden en pantalla: los primeros 8 caracteres de su id. */
@@ -122,18 +123,26 @@ export function OrdenesCompraPage() {
         <ul className={styles.lista}>
           {visibles.map((orden) => {
             const codigo = codigoDeOrden(orden.id)
+            const entregaParcial = tieneEntregaParcial(orden)
             return (
               <li key={orden.id} id={`orden-${orden.id}`} className={styles.orden} data-despachada={orden.fueDespachada}>
                 <div className={styles.cabecera}>
                   <span className={styles.ordenObra}>{nombresObras[orden.obraId] ?? 'Obra'}</span>
                   <span className={styles.estado}>
-                    {orden.fueDespachada ? 'Despachada' : 'Sin despachar'}
+                    {entregaParcial && !orden.recibidaCompleta ? 'Entrega parcial' : orden.fueDespachada ? 'Despachada' : 'Sin despachar'}
                   </span>
                 </div>
                 {orden.id === ordenSolicitadaId && <p role="status">Esta es la orden generada por la adjudicación.</p>}
                 {chat.problemaDe(orden).abierto && (
                   <p className={styles.problema} role="status">
                     Entrega con problema{chat.problemaDe(orden).motivo ? `: ${chat.problemaDe(orden).motivo}` : ''}
+                  </p>
+                )}
+                {entregaParcial && !orden.recibidaCompleta && (
+                  <p className={styles.parcial} role="status">
+                    {orden.puedeRedespachar
+                      ? 'Entrega parcial: Recepción registró una parte del pedido. Falta que el proveedor despache el resto.'
+                      : 'Entrega parcial: falta recibir el resto del pedido.'}
                   </p>
                 )}
                 <p className={styles.dato}>Orden {codigo}</p>
@@ -150,7 +159,7 @@ export function OrdenesCompraPage() {
                 {!orden.fueDespachada && (
                   <p className={styles.dato}>Esperando que el proveedor la despache.</p>
                 )}
-                {orden.fueDespachada && !orden.recibidaCompleta && (
+                {orden.fueDespachada && !orden.recibidaCompleta && !entregaParcial && (
                   <p className={styles.dato}>Siguiente paso: Recepción debe registrar las entregas. <Link to="/compras/recepcion">Ir a Recepción</Link></p>
                 )}
                 {orden.recibidaCompleta && <p className={styles.dato}>La recepción está completa. Ya no requiere seguimiento de entrega.</p>}

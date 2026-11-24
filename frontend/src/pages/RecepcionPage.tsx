@@ -7,6 +7,7 @@ import { EntregaConProblemaForm } from '../recepciones/EntregaConProblemaForm'
 import { ErrorDeImagen, reducirImagen } from '../recepciones/imagenRemito'
 import { LineaDeTiempoOrden } from '../recepciones/LineaDeTiempoOrden'
 import { leerRemitoDeFoto, obtenerHistorialRecepciones, obtenerOrdenesPendientes, registrarRecepcion } from '../recepciones/recepcionesService'
+import { ESTADO_ENTREGA_PARCIAL } from '../licitaciones/entregaParcial'
 import type { ItemOrdenPendiente, OrdenPendiente, RecepcionHistorial, RecepcionRegistrada } from '../recepciones/recepcionesTipos'
 import {
   hayErrores,
@@ -646,7 +647,11 @@ export function RecepcionPage() {
                   {orden.fechaEstimadaLlegada && <span className={styles.ordenItem}>Llega el {fechaLarga(orden.fechaEstimadaLlegada)}</span>}
                   {orden.observacionDespacho && <span className={styles.ordenItem}>Observación del Proveedor: {orden.observacionDespacho}</span>}
                   {orden.tieneProblemaAbierto && <span className={styles.ordenProblema}>Problema de entrega abierto</span>}
-                  {tieneRecepciones && <span className={styles.ordenItem}>Recepción parcial: quedan materiales pendientes</span>}
+                  {orden.estadoEntrega === ESTADO_ENTREGA_PARCIAL ? (
+                    <span className={styles.ordenItem}>{ESTADO_ENTREGA_PARCIAL}: el Proveedor tiene que despachar el resto</span>
+                  ) : (
+                    tieneRecepciones && <span className={styles.ordenItem}>Recepción parcial: quedan materiales pendientes</span>
+                  )}
                   {orden.items.map((item) => {
                     const recibida = item.cantidadRecibida ?? 0
                     const pendiente = saldoPendiente(item)

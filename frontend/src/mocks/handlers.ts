@@ -316,9 +316,16 @@ function crearOrdenesCompraMock() {
     obraId: OBRA_MOCK_ID,
     proveedorId: 'a1b2c3d4-0000-0000-0000-000000000003',
   }
+  // Campos del re-despacho del remanente (#248): se tipan acá para que el mock pueda cambiarlos.
+  const despacho = {
+    numeroDespacho: undefined as number | undefined,
+    puedeRedespachar: undefined as boolean | undefined,
+    tieneRecepcionParcialPendiente: undefined as boolean | undefined,
+  }
   return [
     {
       ...base,
+      ...despacho,
       id: ORDEN_COMPRA_SIN_DESPACHAR_1_ID,
       estado: 'Emitida',
       fechaEmision: '2026-11-18T12:00:00Z',
@@ -329,6 +336,7 @@ function crearOrdenesCompraMock() {
     },
     {
       ...base,
+      ...despacho,
       id: ORDEN_COMPRA_SIN_DESPACHAR_2_ID,
       estado: 'Emitida',
       fechaEmision: '2026-11-17T12:00:00Z',
@@ -339,6 +347,7 @@ function crearOrdenesCompraMock() {
     },
     {
       ...base,
+      ...despacho,
       id: ORDEN_COMPRA_DESPACHADA_ID,
       estado: 'Despachada',
       fechaEmision: '2026-11-12T12:00:00Z',
@@ -1451,7 +1460,14 @@ export const handlers: RequestHandler[] = [
         { status: 404 },
       )
     }
-    if (orden.fueDespachada) return HttpResponse.json(orden, { status: 200 })
+    // Re-despacho del remanente (#248): solo si la recepción fue parcial; si ya está en camino o completa, 409.
+    const esRedespacho = orden.fueDespachada && orden.puedeRedespachar === true
+    if (orden.fueDespachada && !esRedespacho) {
+      return HttpResponse.json(
+        { title: 'Conflicto', status: 409, detail: 'La orden ya está en camino o ya se recibió completa.' },
+        { status: 409 },
+      )
+    }
 
     const texto = await request.text()
     const cuerpo = (texto ? JSON.parse(texto) : {}) as { fechaEstimadaLlegada?: string; observacion?: string }
@@ -1471,6 +1487,9 @@ export const handlers: RequestHandler[] = [
     }
     orden.estado = 'Despachada'
     orden.fueDespachada = true
+    orden.numeroDespacho = (orden.numeroDespacho ?? 0) + 1
+    orden.puedeRedespachar = false
+    orden.tieneRecepcionParcialPendiente = false
     orden.fechaDespacho = new Date().toISOString()
     orden.fechaEstimadaLlegada = cuerpo.fechaEstimadaLlegada ?? null
     orden.observacion = cuerpo.observacion?.trim() || null
