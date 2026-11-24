@@ -936,4 +936,57 @@ describe('NuevaRequisicionPage - paginación de insumos (#172)', () => {
     await user.click(screen.getByRole('button', { name: 'Ver más' }))
     expect(await screen.findByRole('button', { name: /Insumo de prueba 3/ })).toBeInTheDocument()
   })
+
+  // Cargar varios insumos seguidos sin tocar el mouse ni subir al principio (#237).
+  it('al elegir un insumo el cursor pasa a su cantidad', async () => {
+    iniciarSesionCapataz()
+    const user = userEvent.setup()
+    renderPagina()
+    await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' })
+
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
+
+    expect(screen.getAllByRole('spinbutton')[0]).toHaveFocus()
+  })
+
+  it('"+ Agregar otro insumo" deja el cursor en el buscador de la fila nueva', async () => {
+    iniciarSesionCapataz()
+    const user = userEvent.setup()
+    renderPagina()
+    await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' })
+
+    await user.click(screen.getByRole('button', { name: '+ Agregar otro insumo' }))
+
+    expect(screen.getByLabelText('Insumo #2')).toHaveFocus()
+  })
+
+  it('Enter en el buscador elige el primer resultado disponible', async () => {
+    iniciarSesionCapataz()
+    const user = userEvent.setup()
+    renderPagina()
+    await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' })
+
+    await user.type(screen.getByLabelText('Insumo #1'), 'cemento')
+    await screen.findByRole('button', { name: /MAT-CEM-001/ })
+    await user.keyboard('{Enter}')
+
+    expect(await screen.findByRole('button', { name: 'Cambiar el insumo 1' })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('Enter en la cantidad agrega la fila siguiente solo si hay insumo y cantidad', async () => {
+    iniciarSesionCapataz()
+    const user = userEvent.setup()
+    renderPagina()
+    await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' })
+
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
+    // Sin cantidad: no agrega nada ni envía el formulario.
+    await user.keyboard('{Enter}')
+    expect(screen.queryByLabelText('Insumo #2')).not.toBeInTheDocument()
+
+    await user.type(screen.getAllByRole('spinbutton')[0], '5{Enter}')
+
+    expect(screen.getByLabelText('Insumo #2')).toHaveFocus()
+  })
 })

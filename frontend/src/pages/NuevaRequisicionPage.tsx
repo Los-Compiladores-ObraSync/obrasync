@@ -71,6 +71,10 @@ export function NuevaRequisicionPage() {
   const [observaciones, setObservaciones] = useState('')
 
   const siguienteFilaId = useRef(2)
+  // Foco al cargar varios insumos seguidos (#237): la fila recién agregada enfoca su buscador y,
+  // al elegir un insumo, el cursor pasa a la cantidad de esa fila.
+  const [filaNuevaId, setFilaNuevaId] = useState<number | null>(null)
+  const enfocarCantidadDe = useRef<number | null>(null)
   const [items, setItems] = useState<FilaItemForm[]>([
     { id: 1, articuloId: '', cantidad: '' },
   ])
@@ -170,10 +174,9 @@ export function NuevaRequisicionPage() {
 
   function agregarFila() {
     idempotencyKeyRef.current = generarIdempotencyKey()
-    setItems((actuales) => [
-      ...actuales,
-      { id: siguienteFilaId.current++, articuloId: '', cantidad: '' },
-    ])
+    const nuevaId = siguienteFilaId.current++
+    setFilaNuevaId(nuevaId)
+    setItems((actuales) => [...actuales, { id: nuevaId, articuloId: '', cantidad: '' }])
   }
 
   function quitarFila(id: number) {
@@ -205,7 +208,15 @@ export function NuevaRequisicionPage() {
   function elegirInsumo(id: number, insumo: InsumoCatalogo) {
     setVistos((actuales) => ({ ...actuales, [insumo.articuloId]: insumo }))
     cambiarArticulo(id, insumo.articuloId)
+    enfocarCantidadDe.current = id
   }
+
+  // Cuando la fila ya muestra el insumo elegido, el cursor va a su cantidad.
+  useEffect(() => {
+    if (enfocarCantidadDe.current === null) return
+    document.getElementById(`item-cantidad-${enfocarCantidadDe.current}`)?.focus()
+    enfocarCantidadDe.current = null
+  }, [items])
 
   function limpiarFormulario() {
     setObraId('')
@@ -494,6 +505,7 @@ export function NuevaRequisicionPage() {
                   error={errorItem?.articuloId}
                   onElegir={(insumo) => elegirInsumo(item.id, insumo)}
                   onCambiar={() => cambiarArticulo(item.id, '')}
+                  enfocarAlAparecer={item.id === filaNuevaId}
                 />
 
                 <div className={styles.filaItemCantidad}>
@@ -522,6 +534,12 @@ export function NuevaRequisicionPage() {
                         className={`${claseInput(!!errorItem?.cantidad)} ${styles.inputCantidad}`}
                         value={item.cantidad}
                         onChange={(e) => cambiarCantidad(item.id, e.target.value)}
+                        // Enter con insumo y cantidad cargados agrega la fila siguiente (#237); si falta algo, no hace nada.
+                        onKeyDown={(e) => {
+                          if (e.key !== 'Enter') return
+                          e.preventDefault()
+                          if (item.articuloId && Number(item.cantidad) > 0) agregarFila()
+                        }}
                         placeholder="0"
                         aria-invalid={!!errorItem?.cantidad}
                         aria-describedby={

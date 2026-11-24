@@ -43,6 +43,8 @@ interface Props {
   onElegir: (insumo: InsumoCatalogo) => void
   /** Se tocó "Cambiar": la fila vuelve a quedar sin insumo para buscar otro. */
   onCambiar: () => void
+  /** Si es true, el cursor va al campo de búsqueda cuando aparece la fila (filas que se agregan para seguir cargando, #237). */
+  enfocarAlAparecer?: boolean
 }
 
 /**
@@ -51,7 +53,7 @@ interface Props {
  * con sus resultados; cuando se elige, se ve el insumo con un botón "Cambiar".
  * Cada fila tiene su propio buscador: por eso el estado de la búsqueda vive acá y no en la pantalla.
  */
-export function BuscadorInsumo({ numero, id, seleccionado, ocupados, error, onElegir, onCambiar }: Props) {
+export function BuscadorInsumo({ numero, id, seleccionado, ocupados, error, onElegir, onCambiar, enfocarAlAparecer }: Props) {
   const [busqueda, setBusqueda] = useState('')
   // Lo escrito, pero recién después de una pausa (#58): así no se pide en cada letra.
   const [terminoConEspera, setTerminoConEspera] = useState('')
@@ -97,6 +99,11 @@ export function BuscadorInsumo({ numero, id, seleccionado, ocupados, error, onEl
     }
   }, [terminoConEspera])
 
+  // Fila nueva agregada con "+ Agregar otro insumo": el cursor queda listo para buscar el siguiente (#237).
+  useEffect(() => {
+    if (enfocarAlAparecer) campo.current?.focus()
+  }, [enfocarAlAparecer])
+
   // Al tocar "Cambiar" la fila queda sin insumo: el cursor va directo al campo de búsqueda.
   useEffect(() => {
     if (!seleccionado && teniaSeleccion.current) {
@@ -112,6 +119,12 @@ export function BuscadorInsumo({ numero, id, seleccionado, ocupados, error, onEl
   const resultados = resultadoVigente !== null && !resultadoVigente.fallo ? resultadoVigente.lista : []
   const sinResultados =
     resultadoVigente !== null && !resultadoVigente.fallo && resultadoVigente.lista.length === 0
+
+  /** Elige un resultado: se vacía lo escrito para que, si después se toca "Cambiar", se busque de cero. */
+  function elegir(ins: InsumoCatalogo) {
+    setBusqueda('')
+    onElegir(ins)
+  }
 
   /** "Ver más" de los resultados de la búsqueda actual (#172). */
   async function verMas() {
@@ -183,9 +196,13 @@ export function BuscadorInsumo({ numero, id, seleccionado, ocupados, error, onEl
           className={`${error ? `${styles.input} ${styles.inputInvalido}` : styles.input} ${styles.buscador}`}
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          // Enter dentro de un formulario lo envía: acá solo se está buscando.
+          // Enter dentro de un formulario lo envía: acá solo se está buscando. Si ya hay resultados,
+          // elige el primero que no esté agregado (#237), así se carga sin soltar el teclado.
           onKeyDown={(e) => {
-            if (e.key === 'Enter') e.preventDefault()
+            if (e.key !== 'Enter') return
+            e.preventDefault()
+            const primero = resultados.find((ins) => !ocupados.has(ins.articuloId))
+            if (primero) elegir(primero)
           }}
           placeholder="Buscá por código o nombre (ej: cemento)"
           autoComplete="off"
@@ -241,11 +258,7 @@ export function BuscadorInsumo({ numero, id, seleccionado, ocupados, error, onEl
                     type="button"
                     className={`${styles.secundario} ${styles.resultado}`}
                     disabled={yaAgregado}
-                    onClick={() => {
-                      // Al elegir se vacía lo escrito: si después se toca "Cambiar", se busca de cero.
-                      setBusqueda('')
-                      onElegir(ins)
-                    }}
+                    onClick={() => elegir(ins)}
                   >
                     {textoInsumo(ins)}
                     {yaAgregado ? ' (ya agregado)' : ''}
