@@ -119,6 +119,8 @@ export function AvisosProvider({ children, intervaloMs = INTERVALO_REFRESCO_MS }
   const [estado, setEstado] = useState<Estado | null>(null)
   // La consulta del efecto, para poder pedirla desde afuera (refrescar) sin esperar al intervalo.
   const pedirRef = useRef<(() => Promise<void>) | null>(null)
+  // Cuándo empezó la última consulta (para no repetirla de más al abrir la campana).
+  const ultimaConsultaRef = useRef(0)
 
   useEffect(() => {
     if (!rol || !clave) return
@@ -126,13 +128,18 @@ export function AvisosProvider({ children, intervaloMs = INTERVALO_REFRESCO_MS }
     const claveActual = clave
 
     let cancelado = false
+    // Cada consulta lleva un número: si una vieja y lenta termina después de una más nueva, se descarta
+    // para que no pise datos más recientes (ej.: volver a mostrar "despachá" una orden ya despachada).
+    let ultimaSecuencia = 0
     if (memoria.current.clave !== claveActual) {
       memoria.current = { clave: claveActual, datos: {}, vistos: leerVistos(claveActual) }
     }
 
     async function pedir() {
+      const secuencia = ++ultimaSecuencia
+      ultimaConsultaRef.current = Date.now()
       const { datos, completo } = await pedirDatos(rolActual)
-      if (cancelado) return
+      if (cancelado || secuencia !== ultimaSecuencia) return
       const m = memoria.current
       m.datos = { ...m.datos, ...datos }
       const ahora = Date.now()
@@ -188,9 +195,12 @@ export function AvisosProvider({ children, intervaloMs = INTERVALO_REFRESCO_MS }
     [novedades],
   )
 
-  const refrescar = useCallback(() => {
+  const refrescar = useCallback((esperaMinimaMs?: number) => {
+    if (esperaMinimaMs && Date.now() - ultimaConsultaRef.current < esperaMinimaMs) return
     void pedirRef.current?.()
   }, [])
+
+  const datos = estado && estado.clave === clave ? estado.datos : null
 
   const valor = useMemo(
     () => ({
@@ -199,8 +209,9 @@ export function AvisosProvider({ children, intervaloMs = INTERVALO_REFRESCO_MS }
       novedades,
       marcarVistas,
       refrescar,
+      datos,
     }),
-    [paraHacer, novedades, marcarVistas, refrescar],
+    [paraHacer, novedades, marcarVistas, refrescar, datos],
   )
 
   return <AvisosContext.Provider value={valor}>{children}</AvisosContext.Provider>

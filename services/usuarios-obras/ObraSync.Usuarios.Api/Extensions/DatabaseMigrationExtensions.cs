@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -58,7 +59,21 @@ public static class DatabaseMigrationExtensions
         }
 
         // 3. Sembrado de Usuarios de Prueba para la Demo (Tarjeta #30)
-        const string defaultPassword = "Password123!";
+        // La contraseña de las cuentas de prueba se puede cambiar con la variable Seed__DemoPassword. Si no se define,
+        // se usa la de siempre (la que conoce todo el equipo). Debe cumplir la política de contraseñas (8+ con un número).
+        var configuracion = services.GetService<IConfiguration>();
+        var defaultPassword = configuracion?["Seed:DemoPassword"] is { Length: > 0 } personalizada
+            ? personalizada
+            : "Password123!";
+
+        var entornoActual = services.GetService<IHostEnvironment>();
+        if (entornoActual is not null && !entornoActual.IsDevelopment() && defaultPassword == "Password123!")
+        {
+            logger.LogWarning(
+                "Se están creando cuentas de prueba con la contraseña por defecto en el entorno {Entorno}. " +
+                "Definí Seed__DemoPassword o usá Production para no crearlas.",
+                entornoActual.EnvironmentName);
+        }
 
         var demoUsers = new (string Email, string NombreCompleto, string Rol)[]
         {

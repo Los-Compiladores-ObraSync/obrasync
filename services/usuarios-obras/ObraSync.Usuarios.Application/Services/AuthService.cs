@@ -40,17 +40,20 @@ public class AuthService : IAuthService
 
     private readonly UserManager<AppUser> _userManager;
     private readonly IJwtProvider _jwtProvider;
+    private readonly IUsuarioQueryRepository _usuarioQueryRepository;
     private readonly ILogger<AuthService> _logger;
     private readonly FrontendSettings _frontendSettings;
 
     public AuthService(
         UserManager<AppUser> userManager,
         IJwtProvider jwtProvider,
+        IUsuarioQueryRepository usuarioQueryRepository,
         ILogger<AuthService> logger,
         IOptions<FrontendSettings> frontendOptions)
     {
         _userManager = userManager;
         _jwtProvider = jwtProvider;
+        _usuarioQueryRepository = usuarioQueryRepository ?? throw new ArgumentNullException(nameof(usuarioQueryRepository));
         _logger = logger;
         _frontendSettings = frontendOptions.Value;
     }
@@ -199,50 +202,28 @@ public class AuthService : IAuthService
         return items;
     }
 
-    public async Task<(IReadOnlyList<CapatazDto> Items, int Total)> GetCapatacesActivosPaginadosAsync(
+    public Task<(IReadOnlyList<CapatazDto> Items, int Total)> GetCapatacesActivosPaginadosAsync(
         ParametrosPagina? paginacion = null)
+        => GetActivosPorRolPaginadosAsync(
+            UserRoles.Capataz,
+            paginacion,
+            u => new CapatazDto(u.Id, u.NombreCompleto));
+
+    public Task<(IReadOnlyList<ProveedorDto> Items, int Total)> GetProveedoresActivosPaginadosAsync(
+        ParametrosPagina? paginacion = null)
+        => GetActivosPorRolPaginadosAsync(
+            UserRoles.Proveedor,
+            paginacion,
+            u => new ProveedorDto(u.Id, u.NombreCompleto));
+
+    private async Task<(IReadOnlyList<TDto> Items, int Total)> GetActivosPorRolPaginadosAsync<TDto>(
+        string rol,
+        ParametrosPagina? paginacion,
+        Func<UsuarioResumenDto, TDto> mapper)
     {
         var p = paginacion ?? new ParametrosPagina();
-        var usuariosCapataz = await _userManager.GetUsersInRoleAsync(UserRoles.Capataz);
-
-        var activos = usuariosCapataz
-            .Where(u => u.Activo)
-            .ToList();
-
-        var total = activos.Count;
-
-        var items = activos
-            .OrderBy(u => u.NombreCompleto)
-            .ThenBy(u => u.Id)
-            .Skip(p.Saltear)
-            .Take(p.Tamano)
-            .Select(u => new CapatazDto(u.Id, u.NombreCompleto))
-            .ToList();
-
-        return (items, total);
-    }
-
-    public async Task<(IReadOnlyList<ProveedorDto> Items, int Total)> GetProveedoresActivosPaginadosAsync(
-        ParametrosPagina? paginacion = null)
-    {
-        var p = paginacion ?? new ParametrosPagina();
-        var usuariosProveedor = await _userManager.GetUsersInRoleAsync(UserRoles.Proveedor);
-
-        var activos = usuariosProveedor
-            .Where(u => u.Activo)
-            .ToList();
-
-        var total = activos.Count;
-
-        // Mismo orden que los capataces: por nombre y, si empatan, por Id (así la paginación es estable).
-        var items = activos
-            .OrderBy(u => u.NombreCompleto)
-            .ThenBy(u => u.Id)
-            .Skip(p.Saltear)
-            .Take(p.Tamano)
-            .Select(u => new ProveedorDto(u.Id, u.NombreCompleto))
-            .ToList();
-
+        var (usuarios, total) = await _usuarioQueryRepository.GetActivosPorRolPaginadosAsync(rol, p);
+        var items = usuarios.Select(mapper).ToList();
         return (items, total);
     }
 

@@ -413,7 +413,9 @@ function crearLicitacionesMock() {
       obraId: OBRA_MOCK_ID,
       estado: 'Abierta',
       fechaCreacion: '2026-10-21T11:00:00Z',
-      fechaLimiteCotizacion: '2026-11-25T18:00:00Z',
+      // Fecha fija y lejana: con una cercana, el día que faltaban menos de 24 h pasaba a "por vencer", sumaba un aviso
+      // a la campana y rompía tests que cuentan avisos. Con una relativa a hoy los tests no podrían verificar el texto.
+      fechaLimiteCotizacion: '2099-12-15T18:00:00Z',
       items: [
         {
           articuloId: MOCK_CATALOGO[0].articuloId,

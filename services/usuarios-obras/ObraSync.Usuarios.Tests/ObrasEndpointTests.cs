@@ -888,20 +888,77 @@ public class ObrasEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(HttpStatusCode.Unauthorized, sinToken.StatusCode);
     }
 
+    [Fact]
+    public async Task GetProveedoresYCapataces_EndpointsHttp_PaginanOrdenanYExcluyenInactivosYOtrosRoles()
+    {
+        // #254: verifica de punta a punta en el pipeline HTTP que paginación, desempate por Id,
+        // exclusión de inactivos/otros roles y headers funcionan idénticos al cambiar a consulta en BD.
+        var provInactivoId = await CrearUsuarioConRolAsync(UserRoles.Proveedor, activo: false, nombreCompleto: "000 AAA Proveedor Inactivo");
+        var provEmpateMenor = await CrearUsuarioConRolAsync(UserRoles.Proveedor, activo: true, nombreCompleto: "000 Empate Prueba 254", idExplicito: Guid.Parse("10000000-0000-0000-0000-000000000001"));
+        var provEmpateMayor = await CrearUsuarioConRolAsync(UserRoles.Proveedor, activo: true, nombreCompleto: "000 Empate Prueba 254", idExplicito: Guid.Parse("20000000-0000-0000-0000-000000000002"));
+        var capatazSoloId = await CrearUsuarioConRolAsync(UserRoles.Capataz, activo: true, nombreCompleto: "000 Empate Capataz 254", idExplicito: Guid.Parse("30000000-0000-0000-0000-000000000003"));
+        var capatazInactivoId = await CrearUsuarioConRolAsync(UserRoles.Capataz, activo: false, nombreCompleto: "000 Capataz Inactivo 254");
+
+        var comprador = _factory.CreateClient();
+        comprador.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Comprador));
+
+        var respProv1 = await comprador.GetAsync("/api/usuarios/proveedores?pagina=1&tamano=1");
+        var respProv2 = await comprador.GetAsync("/api/usuarios/proveedores?pagina=2&tamano=1");
+        Assert.Equal(HttpStatusCode.OK, respProv1.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, respProv2.StatusCode);
+        Assert.Equal("1", respProv1.Headers.GetValues("X-Page").Single());
+        Assert.Equal("1", respProv1.Headers.GetValues("X-Page-Size").Single());
+        Assert.Equal("2", respProv2.Headers.GetValues("X-Page").Single());
+
+        var totalProv = int.Parse(respProv1.Headers.GetValues("X-Total-Count").Single());
+        Assert.True(totalProv >= 2);
+        var itemProv1 = Assert.Single((await respProv1.Content.ReadFromJsonAsync<List<ProveedorDto>>())!);
+        var itemProv2 = Assert.Single((await respProv2.Content.ReadFromJsonAsync<List<ProveedorDto>>())!);
+        Assert.Equal(provEmpateMenor, itemProv1.Id);
+        Assert.Equal(provEmpateMayor, itemProv2.Id);
+
+        var respProvTodos = await comprador.GetAsync("/api/usuarios/proveedores?pagina=1&tamano=50");
+        var todosProv = (await respProvTodos.Content.ReadFromJsonAsync<List<ProveedorDto>>())!;
+        Assert.DoesNotContain(todosProv, p => p.Id == provInactivoId);
+        Assert.DoesNotContain(todosProv, p => p.Id == capatazSoloId);
+
+        var respCap1 = await comprador.GetAsync("/api/usuarios/capataces?pagina=1&tamano=1");
+        Assert.Equal(HttpStatusCode.OK, respCap1.StatusCode);
+        var itemCap1 = Assert.Single((await respCap1.Content.ReadFromJsonAsync<List<CapatazDto>>())!);
+        Assert.Equal(capatazSoloId, itemCap1.Id);
+
+        var respCapTodos = await comprador.GetAsync("/api/usuarios/capataces?pagina=1&tamano=50");
+        var todosCap = (await respCapTodos.Content.ReadFromJsonAsync<List<CapatazDto>>())!;
+        Assert.DoesNotContain(todosCap, c => c.Id == capatazInactivoId);
+        Assert.DoesNotContain(todosCap, c => c.Id == provEmpateMenor);
+
+        var sinPermiso = _factory.CreateClient();
+        sinPermiso.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateJwtToken(UserRoles.Capataz));
+        Assert.Equal(HttpStatusCode.Forbidden, (await sinPermiso.GetAsync("/api/usuarios/capataces")).StatusCode);
+    }
+
     // ── Tarjeta #200: Validación de Capataz al crear o editar una obra ────────
 
-    private async Task<Guid> CrearUsuarioConRolAsync(string rol, bool activo = true)
+    private async Task<Guid> CrearUsuarioConRolAsync(
+        string rol,
+        bool activo = true,
+        string? nombreCompleto = null,
+        Guid? idExplicito = null)
     {
         _factory.CreateClient();
         using var scope = _factory.Services.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
 
-        var email = $"test.{rol.ToLowerInvariant()}.{Guid.NewGuid():N}@obrasync.com";
+        var id = idExplicito ?? Guid.NewGuid();
+        var email = $"test.{rol.ToLowerInvariant()}.{id:N}@obrasync.com";
         var usuario = new AppUser
         {
+            Id = id,
             UserName = email,
             Email = email,
-            NombreCompleto = $"Usuario {rol}",
+            NombreCompleto = nombreCompleto ?? $"Usuario {rol}",
             Activo = activo,
             EmailConfirmed = true
         };

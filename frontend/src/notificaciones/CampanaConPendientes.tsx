@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { CampanaNotificaciones } from './CampanaNotificaciones'
 import styles from './CampanaConPendientes.module.css'
-import { UMBRAL_PENDIENTES } from './configuracionAvisos'
+import { ESPERA_MINIMA_AL_ABRIR_CAMPANA_MS, UMBRAL_PENDIENTES } from './configuracionAvisos'
 import { PanelNotificaciones } from './PanelNotificaciones'
 import { useAvisos } from './useAvisos'
 import { useBloqueadas } from './useBloqueadas'
@@ -64,7 +64,7 @@ export function CampanaConPendientes() {
         idPanel={idPanel}
         onClick={() => {
           // Al abrir el panel se actualizan los avisos: así no muestra algo que ya hiciste.
-          if (!abierto) refrescarAvisos()
+          if (!abierto) refrescarAvisos(ESPERA_MINIMA_AL_ABRIR_CAMPANA_MS)
           setAbierto((anterior) => !anterior)
         }}
       />

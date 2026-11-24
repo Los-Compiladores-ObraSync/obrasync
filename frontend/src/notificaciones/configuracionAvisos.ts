@@ -32,3 +32,7 @@ export const HORAS_LICITACION_POR_VENCER = 24
  *  cada 30 segundos se miran solo las más próximas a vencer. Mejora posible: que Licitaciones informe la
  *  cantidad de cotizaciones en GET /api/licitaciones (tarjeta para ese squad). */
 export const MAX_LICITACIONES_CONSULTADAS_PARA_COTIZACIONES = 10
+
+/** Al abrir la campana se actualizan los avisos, salvo que ya se hayan consultado hace menos de esto
+ *  (abrir y cerrar el panel seguido no tiene que disparar todos los pedidos cada vez). */
+export const ESPERA_MINIMA_AL_ABRIR_CAMPANA_MS = 5_000

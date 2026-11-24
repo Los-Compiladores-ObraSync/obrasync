@@ -1,3 +1,4 @@
+import { useAvisos } from '../notificaciones/useAvisos'
 import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
@@ -58,6 +59,7 @@ function mensajeDeErrorFoto(err: unknown): string {
 
 /** Recibir mercadería en obra: permite registrar entregas parciales y consultar su historial. */
 export function RecepcionPage() {
+  const { refrescar: refrescarAvisos } = useAvisos()
   const [ordenes, setOrdenes] = useState<OrdenPendiente[]>([])
   const [nombresObras, setNombresObras] = useState<Record<string, string>>({})
   const [cargando, setCargando] = useState(true)
@@ -275,6 +277,7 @@ export function RecepcionPage() {
         })),
       })
       setRegistrada(creada)
+      refrescarAvisos()
     } catch (err) {
       setErrorApi(mensajeDeErrorApi(err))
       setRevisando(false)

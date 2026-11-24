@@ -33,7 +33,7 @@ describe('ProveedoresPage', () => {
     expect(screen.getByText('2 ítems')).toBeInTheDocument()
     expect(screen.getByText('3 ítems')).toBeInTheDocument()
     expect(screen.getByText(/20 de noviembre de 2026/)).toBeInTheDocument()
-    expect(screen.getByText(/25 de noviembre de 2026/)).toBeInTheDocument()
+    expect(screen.getByText(/15 de diciembre de 2099/)).toBeInTheDocument()
 
     const enlacesCotizar = screen.getAllByRole('link', { name: 'Cotizar' })
     expect(enlacesCotizar).toHaveLength(2)
