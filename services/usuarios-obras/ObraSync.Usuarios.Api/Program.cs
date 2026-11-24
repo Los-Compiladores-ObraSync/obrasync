@@ -76,6 +76,7 @@ builder.Services
 
 // 4. Inyección de dependencias de servicios
 builder.Services.AddScoped<IJwtProvider, JwtProvider>();
+builder.Services.AddScoped<IUsuarioQueryRepository, UsuarioQueryRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IObraService, ObraService>();
 builder.Services.AddScoped<ISuscripcionPushRepository, SuscripcionPushRepository>();
