@@ -662,9 +662,9 @@ export const handlers: RequestHandler[] = [
         { status: 400 },
       )
     }
-    if (body.nuevaPassword.length < 6) {
+    if (body.nuevaPassword.length < 8) {
       return HttpResponse.json(
-        { title: 'Contraseña inválida', status: 400, detail: 'La contraseña debe tener al menos 6 caracteres.' },
+        { title: 'Contraseña inválida', status: 400, detail: 'La contraseña debe tener al menos 8 caracteres.' },
         { status: 400 },
       )
     }
@@ -708,8 +708,8 @@ export const handlers: RequestHandler[] = [
     if (body.passwordActual !== MOCK_PASSWORD) {
       return invalido('La contraseña actual es incorrecta.')
     }
-    if (body.nuevaPassword.length < 6) {
-      return invalido('La contraseña debe tener al menos 6 caracteres.')
+    if (body.nuevaPassword.length < 8) {
+      return invalido('La contraseña debe tener al menos 8 caracteres.')
     }
     return HttpResponse.json({ mensaje: 'Contraseña actualizada exitosamente.' }, { status: 200 })
   }),

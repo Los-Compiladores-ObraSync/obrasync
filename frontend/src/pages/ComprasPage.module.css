@@ -1,7 +1,8 @@
+/* Progreso del flujo: cuatro pasos en fila, unidos por flechas. El paso con trabajo pendiente se destaca. */
 .progreso {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 1.5rem;
   margin: 0 0 1.5rem;
   padding: 0;
   list-style: none;
@@ -9,36 +10,57 @@
 }
 
 .etapa {
+  position: relative;
   min-width: 0;
   counter-increment: etapa;
 }
 
+/* Flecha entre un paso y el siguiente. */
+.etapa:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -1.05rem;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-top: 3px solid var(--borde);
+  border-right: 3px solid var(--borde);
+  transform: translateY(-50%) rotate(45deg);
+}
+
 .enlaceEtapa {
-  display: flex;
-  min-height: 6rem;
-  flex-direction: column;
+  display: grid;
+  height: 100%;
+  min-height: 6.5rem;
+  grid-template-columns: auto 1fr;
+  align-content: center;
   align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  padding: 0.9rem;
-  text-align: center;
+  column-gap: 0.65rem;
+  row-gap: 0.3rem;
+  padding: 0.9rem 1rem;
   border: 2px solid var(--borde);
   border-radius: 12px;
   background: #fff;
   color: var(--texto);
+  text-align: left;
   text-decoration: none;
 }
 
 .enlaceEtapa::before {
   content: counter(etapa);
   display: grid;
-  width: 1.65rem;
-  height: 1.65rem;
+  width: 2rem;
+  height: 2rem;
   place-items: center;
+  border: 2px solid var(--borde);
   border-radius: 50%;
-  background: var(--azul);
-  color: #fff;
+  background: #fff;
+  color: var(--texto-suave);
   font-weight: 800;
+}
+
+.enlaceEtapa:hover {
+  border-color: var(--azul);
 }
 
 .enlaceEtapa:focus-visible {
@@ -47,11 +69,33 @@
 }
 
 .etiqueta {
+  font-size: 1.05rem;
   font-weight: 800;
+  line-height: 1.15;
 }
 
 .cantidad {
+  grid-column: 2;
   color: var(--texto-suave);
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+
+/* Paso con trabajo pendiente: borde y número en el color de acción, y la cantidad en negrita. */
+.etapa[data-pendiente='true'] .enlaceEtapa {
+  border-color: var(--accion);
+  background: #fff7ed;
+}
+
+.etapa[data-pendiente='true'] .enlaceEtapa::before {
+  border-color: var(--accion);
+  background: var(--accion);
+  color: #fff;
+}
+
+.etapa[data-pendiente='true'] .cantidad {
+  color: var(--accion-oscura);
+  font-weight: 700;
 }
 
 .historial {
@@ -68,10 +112,19 @@
 @media (max-width: 760px) {
   .progreso {
     grid-template-columns: 1fr;
-    gap: 0.5rem;
+    gap: 1rem;
   }
 
   .enlaceEtapa {
     min-height: 4.75rem;
+  }
+
+  /* En una sola columna la flecha apunta hacia abajo. */
+  .etapa:not(:last-child)::after {
+    top: auto;
+    right: auto;
+    bottom: -0.95rem;
+    left: 1.7rem;
+    transform: rotate(135deg);
   }
 }

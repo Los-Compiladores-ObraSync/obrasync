@@ -2,10 +2,12 @@ using MassTransit;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using ObraSync.Contracts.Events;
 using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Domain.Entities;
 using ObraSync.Recepcion.Domain.Presupuestos;
+using ObraSync.Recepcion.Infrastructure.Configuration;
 using ObraSync.Recepcion.Infrastructure.Persistence;
 
 namespace ObraSync.Recepcion.Infrastructure.Consumers;
@@ -15,15 +17,18 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
     private readonly RecepcionDbContext _db;
     private readonly IOrdenCompraRepository _ordenCompraRepository;
     private readonly ILogger<OrdenCompraEmitidaConsumer> _logger;
+    private readonly decimal _montoSemillaPorEtapa;
 
     public OrdenCompraEmitidaConsumer(
         RecepcionDbContext db,
         IOrdenCompraRepository ordenCompraRepository,
-        ILogger<OrdenCompraEmitidaConsumer> logger)
+        ILogger<OrdenCompraEmitidaConsumer> logger,
+        IOptions<PresupuestoSemillaOptions>? presupuestoSemilla = null)
     {
         _db = db;
         _ordenCompraRepository = ordenCompraRepository;
         _logger = logger;
+        _montoSemillaPorEtapa = presupuestoSemilla?.Value.MontoSemillaPorEtapa ?? 0m;
     }
 
     public async Task Consume(ConsumeContext<OrdenCompraEmitidaEvent> context)
@@ -122,6 +127,17 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
                 .ToListAsync(context.CancellationToken);
 
             var partida = EmparejadorPartidaPresupuestaria.BuscarPartida(partidasObra, msg.Etapa);
+
+            // Presupuesto semilla: si la obra todavía no tiene partida para esta etapa (ni una general) y el equipo
+            // configuró un monto semilla, se crea la partida acá mismo y la orden se evalúa contra ella como siempre.
+            if (partida is null && _montoSemillaPorEtapa > 0)
+            {
+                partida = PartidaSemilla.Crear(msg.ObraId, msg.Etapa, _montoSemillaPorEtapa);
+                _db.PartidasPresupuestarias.Add(partida);
+                _logger.LogInformation(
+                    "Partida semilla {CodigoPartida} creada para obra {ObraId} y etapa '{Etapa}' con monto {MontoAsignado}. CorrelationId: {CorrelationId}",
+                    partida.CodigoPartida, msg.ObraId, msg.Etapa ?? "sin etapa", partida.MontoAsignado, correlationId);
+            }
 
             if (partida is null)
             {

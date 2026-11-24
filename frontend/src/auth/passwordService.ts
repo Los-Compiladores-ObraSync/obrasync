@@ -12,14 +12,14 @@ export interface RestablecerPasswordRequest {
   email: string
   /** Token de recuperación que viene en el enlace. */
   token: string
-  /** Mínimo 6 caracteres. */
+  /** Mínimo 8 caracteres y al menos un número. */
   nuevaPassword: string
 }
 
 /** Cuerpo de POST /api/usuarios/cambiar-password (CambiarPasswordRequestDto del contrato). */
 export interface CambiarPasswordRequest {
   passwordActual: string
-  /** Mínimo 6 caracteres y distinta de la actual. */
+  /** Mínimo 8 caracteres, al menos un número y distinta de la actual. */
   nuevaPassword: string
   /** Tiene que coincidir con nuevaPassword. */
   confirmarPassword: string

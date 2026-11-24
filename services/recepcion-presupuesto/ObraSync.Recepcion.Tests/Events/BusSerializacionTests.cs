@@ -198,6 +198,43 @@ public class BusSerializacionTests
         Assert.Equal(evento, deserializado);
     }
 
+    // #248: Licitaciones publica esRedespacho y numeroDespacho. Como el evento rechaza campos que no conoce
+    // (JsonUnmappedMemberHandling.Disallow), si Recepción no los declara el despacho termina en la cola _error.
+    [Fact]
+    public async Task Bus_serializa_y_deserializa_OrdenCompraDespachadaEvent_con_campos_de_redespacho_248()
+    {
+        var evento = new OrdenCompraDespachadaEvent(
+            EventId: Guid.NewGuid(),
+            OccurredAt: new DateTime(2026, 11, 24, 14, 57, 23, DateTimeKind.Utc),
+            CorrelationId: Guid.NewGuid(),
+            OrdenCompraId: Guid.NewGuid(),
+            ObraId: Guid.NewGuid(),
+            FechaDespacho: new DateTime(2026, 11, 24, 14, 57, 23, DateTimeKind.Utc),
+            ObservacionDespacho: "Segundo envío con lo que faltaba",
+            EsRedespacho: true,
+            NumeroDespacho: 2);
+
+        var capturador = new CapturaCuerpo();
+
+        await using var provider = CrearProveedorConBus<CapturaCuerpoDespachoConsumer>(capturador);
+
+        var harness = provider.GetRequiredService<ITestHarness>();
+        await harness.Start();
+
+        await harness.Bus.Publish(evento);
+
+        var json = await capturador.EsperarCuerpoAsync(TimeSpan.FromSeconds(10));
+        Assert.True(await harness.Consumed.Any<OrdenCompraDespachadaEvent>());
+
+        var deserializado = JsonSerializer.Deserialize<OrdenCompraDespachadaEvent>(
+            json,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.NotNull(deserializado);
+        Assert.True(deserializado.EsRedespacho);
+        Assert.Equal(2, deserializado.NumeroDespacho);
+        Assert.Equal(evento, deserializado);
+    }
+
     [Fact]
     public async Task Bus_serializa_y_deserializa_RecepcionConProblemaEvent_segun_contrato_217()
     {

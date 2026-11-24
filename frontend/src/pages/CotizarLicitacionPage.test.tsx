@@ -68,6 +68,24 @@ describe('CotizarLicitacionPage', () => {
     expect(screen.getByRole('alert')).not.toHaveTextContent('User role not authorized')
   })
 
+  it('el plazo de entrega ofrece opciones frecuentes: tocar una completa el campo y se puede cambiar a mano', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+    await screen.findByText('Cotizar REQ-2026-0011')
+
+    const campo = screen.getByLabelText('Plazo de entrega (en días)')
+    await user.click(screen.getByRole('button', { name: '7 días' }))
+    expect(campo).toHaveValue('7')
+    expect(screen.getByRole('button', { name: '7 días' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.clear(campo)
+    await user.type(campo, '12')
+    expect(screen.getByRole('button', { name: '7 días' })).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(screen.getByRole('button', { name: '1 día' }))
+    expect(campo).toHaveValue('1')
+  })
+
   it('no envía el formulario con datos inválidos y muestra errores de validación', async () => {
     const user = userEvent.setup()
     let peticionEnviada = false

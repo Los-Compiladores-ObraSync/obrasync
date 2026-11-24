@@ -3,10 +3,8 @@ import { Link } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { IconoOjo } from '../auth/IconoOjo'
 import { cambiarPassword } from '../auth/passwordService'
+import { errorDePasswordNueva } from '../auth/validacionPassword'
 import styles from './CambiarContrasenaPage.module.css'
-
-// Mínimo de la regla actual de Identity (igual que el registro y restablecer).
-const LARGO_MINIMO = 6
 
 interface ErroresCampo {
   actual?: string
@@ -23,8 +21,8 @@ function validarCampos(actual: string, nueva: string, repetir: string): ErroresC
 
   if (!nueva) {
     errores.nueva = 'La nueva contraseña es obligatoria.'
-  } else if (nueva.length < LARGO_MINIMO) {
-    errores.nueva = `La contraseña debe tener al menos ${LARGO_MINIMO} caracteres.`
+  } else if (errorDePasswordNueva(nueva)) {
+    errores.nueva = errorDePasswordNueva(nueva)
   } else if (actual && nueva === actual) {
     errores.nueva = 'La nueva contraseña tiene que ser distinta de la actual.'
   }

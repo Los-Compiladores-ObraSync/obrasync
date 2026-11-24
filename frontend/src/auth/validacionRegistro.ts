@@ -1,4 +1,5 @@
 import { validarEmail } from './validacionEmail'
+import { errorDePasswordNueva } from './validacionPassword'
 
 export interface ErroresRegistro {
   nombreCompleto?: string
@@ -12,7 +13,9 @@ export function validarRegistro(nombreCompleto: string, email: string, password:
   const errorEmail = validarEmail(email)
   if (errorEmail) errores.email = errorEmail
   if (!password) errores.password = 'La contraseña es obligatoria.'
-  else if (password.length < 8) errores.password = 'La contraseña debe tener al menos 8 caracteres.'
-  else if (!/\d/.test(password)) errores.password = 'La contraseña debe incluir al menos un número.'
+  else {
+    const errorPassword = errorDePasswordNueva(password)
+    if (errorPassword) errores.password = errorPassword
+  }
   return errores
 }
