@@ -402,4 +402,26 @@ describe('AprobarRequisicionesPage - paginación (#172)', () => {
     })
     expect(enlace.getAttribute('href')).toMatch(/^\/compras\/requisiciones\/historial\/.+/)
   })
+  // Contrato de requisiciones: solo trae solicitanteId; el nombre sale de GET /api/usuarios/capataces (#238).
+  it('el detalle expandible muestra el nombre del solicitante', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+
+    await screen.findByText('REQ-2026-0011')
+    await user.click(screen.getAllByText('Ver detalle completo')[0])
+
+    expect(await screen.findAllByText(/Solicitante: Juan Pérez/)).not.toHaveLength(0)
+  })
+
+  it('si no se puede cargar la lista de capataces, el detalle se muestra sin solicitante', async () => {
+    server.use(http.get('*/api/usuarios/capataces', () => HttpResponse.json({ title: 'Error' }, { status: 500 })))
+    const user = userEvent.setup()
+    renderPagina()
+
+    await screen.findByText('REQ-2026-0011')
+    await user.click(screen.getAllByText('Ver detalle completo')[0])
+
+    expect(screen.getAllByRole('columnheader', { name: 'Precio ref.' })[0]).toBeVisible()
+    expect(screen.queryByText(/Solicitante:/)).not.toBeInTheDocument()
+  })
 })

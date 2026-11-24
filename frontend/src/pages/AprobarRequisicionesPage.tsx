@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { traerTodas } from '../api/paginacion'
 import { BotonVerMas } from '../componentes/BotonVerMas'
+import { obtenerCapataces } from '../obras/capatacesService'
 import {
   aprobarRequisicion,
   listarRequisiciones,
@@ -55,6 +56,8 @@ function mensajeDeErrorRechazar(err: unknown): string {
 export function AprobarRequisicionesPage() {
   const [pendientes, setPendientes] = useState<RequisicionResponseDto[]>([])
   const [nombresObras, setNombresObras] = useState<Record<string, string>>({})
+  // Nombre del solicitante por id (#238): el contrato de requisiciones solo trae el id.
+  const [nombresSolicitantes, setNombresSolicitantes] = useState<Record<string, string>>({})
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
 
@@ -94,16 +97,19 @@ export function AprobarRequisicionesPage() {
 
     async function cargar() {
       try {
-        const [pagina, obras] = await Promise.all([
+        const [pagina, obras, capataces] = await Promise.all([
           listarRequisiciones({ estado: 'Pendiente' }),
           // Si falla la lista de obras no es grave: se muestra el identificador.
           obtenerObras().catch(() => []),
+          // Tampoco es grave si falla la de capataces: el detalle se muestra sin el solicitante.
+          obtenerCapataces().catch(() => []),
         ])
         if (cancelado) return
         setPendientes(pagina.items)
         setTotal(pagina.total)
         setPaginaCargada(1)
         setNombresObras(Object.fromEntries(obras.map((o) => [o.id, o.nombre])))
+        setNombresSolicitantes(Object.fromEntries(capataces.map((c) => [c.id, c.nombreCompleto])))
       } catch {
         if (!cancelado) {
           setErrorCarga('No se pudieron cargar las requisiciones. Intentá nuevamente.')
@@ -329,6 +335,9 @@ export function AprobarRequisicionesPage() {
                 <summary className={styles.resumenDetalle}>
                   Ver detalle completo
                 </summary>
+                {nombresSolicitantes[req.solicitanteId] && (
+                  <p className={styles.dato}>Solicitante: {nombresSolicitantes[req.solicitanteId]}</p>
+                )}
                 <p className={styles.dato}>
                   Creada el {new Date(req.fechaCreacion).toLocaleDateString('es-AR')}
                 </p>
