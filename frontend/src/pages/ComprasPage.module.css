@@ -32,12 +32,13 @@
   display: grid;
   height: 100%;
   min-height: 6.5rem;
-  grid-template-columns: auto 1fr;
-  align-content: center;
-  align-items: center;
-  column-gap: 0.65rem;
-  row-gap: 0.3rem;
-  padding: 0.9rem 1rem;
+  /* El número arriba y el texto debajo, con todo el ancho de la tarjeta: las tarjetas son angostas. */
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  justify-items: start;
+  row-gap: 0.45rem;
+  padding: 0.85rem 0.9rem;
+  overflow-wrap: anywhere;
   border: 2px solid var(--borde);
   border-radius: 12px;
   background: #fff;
@@ -69,16 +70,15 @@
 }
 
 .etiqueta {
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 800;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
 .cantidad {
-  grid-column: 2;
   color: var(--texto-suave);
-  font-size: 0.95rem;
-  line-height: 1.25;
+  font-size: 0.9rem;
+  line-height: 1.3;
 }
 
 /* Paso con trabajo pendiente: borde y número en el color de acción, y la cantidad en negrita. */
@@ -104,27 +104,76 @@
 
 .encabezadoHistorial {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.5rem 1rem;
+}
+
+.encabezadoHistorial h2 {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+
+/* Versión compacta de "accion-secundaria" (que es una fila ancha de 64 px): acá es un botón chico de una línea.
+   Lleva el nombre del contenedor delante para ganarle a los estilos globales sin importar el orden de carga. */
+.encabezadoHistorial .botonHistorial {
+  flex: none;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+.encabezadoHistorial .botonHistorial::after {
+  font-size: 1.4rem;
 }
 
 @media (max-width: 760px) {
   .progreso {
     grid-template-columns: 1fr;
-    gap: 1rem;
+    /* Espacio suficiente para que la flecha entre una tarjeta y otra no toque los bordes. */
+    gap: 1.6rem;
   }
 
+  .encabezadoHistorial h2 {
+    font-size: 1.35rem;
+  }
+
+  /* En el celular cada paso es una fila baja: el número a la izquierda y el título con la cantidad al lado.
+     (Con el número arriba, como en la PC, los cuatro pasos ocupaban casi toda la pantalla.) */
   .enlaceEtapa {
-    min-height: 4.75rem;
+    min-height: 0;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-content: center;
+    align-items: center;
+    column-gap: 0.85rem;
+    row-gap: 0.1rem;
+    padding: 0.7rem 0.9rem;
   }
 
-  /* En una sola columna la flecha apunta hacia abajo. */
+  .enlaceEtapa::before {
+    grid-row: 1 / span 2;
+  }
+
+  .etiqueta,
+  .cantidad {
+    grid-column: 2;
+  }
+
+  /* En una sola columna la flecha apunta hacia abajo, centrada en el hueco entre dos tarjetas
+     (el hueco mide 1.6rem y la flecha 0.7rem: queda 0.45rem libre arriba y abajo). */
   .etapa:not(:last-child)::after {
     top: auto;
     right: auto;
-    bottom: -0.95rem;
-    left: 1.7rem;
-    transform: rotate(135deg);
+    bottom: -1.15rem;
+    left: 50%;
+    width: 0.7rem;
+    height: 0.7rem;
+    border-color: var(--texto-suave);
+    transform: translateX(-50%) rotate(135deg);
   }
 }

@@ -14,7 +14,7 @@ const ORDEN_1 = '11111111-0000-0000-0000-000000000001'
 const ORDEN_2 = '22222222-0000-0000-0000-000000000002'
 
 function Avisos() {
-  const { cantidad, paraHacer, novedades, marcarVistas } = useAvisos()
+  const { cantidad, paraHacer, novedades, marcarVistas, refrescar } = useAvisos()
   return (
     <>
       <p data-testid="cantidad">{cantidad}</p>
@@ -22,6 +22,9 @@ function Avisos() {
       <p data-testid="novedades">{novedades.map((a) => a.id).join(',')}</p>
       <button type="button" onClick={() => marcarVistas()}>
         Marcar todas
+      </button>
+      <button type="button" onClick={() => refrescar()}>
+        Refrescar ahora
       </button>
     </>
   )
@@ -108,6 +111,25 @@ describe('AvisosProvider (#219)', () => {
 
     lista = []
     await waitFor(() => expect(screen.getByTestId('cantidad')).toHaveTextContent('0'))
+  })
+
+  it('Proveedor: al refrescar, el aviso de una orden recién despachada desaparece sin esperar al intervalo', async () => {
+    const user = userEvent.setup()
+    let despachada = false
+    server.use(
+      http.get('*/api/ordenes-compra', () =>
+        HttpResponse.json([orden(ORDEN_1, { fueDespachada: despachada, fechaDespacho: despachada ? '2026-11-24T10:00:00Z' : null })]),
+      ),
+      http.get('*/api/cotizaciones/mias', () => HttpResponse.json([])),
+    )
+    renderizar('Proveedor')
+    await waitFor(() => expect(screen.getByTestId('cantidad')).toHaveTextContent('1'))
+
+    despachada = true
+    await user.click(screen.getByRole('button', { name: 'Refrescar ahora' }))
+
+    await waitFor(() => expect(screen.getByTestId('para-hacer')).toHaveTextContent(''))
+    expect(screen.getByTestId('para-hacer')).not.toHaveTextContent('orden-por-despachar')
   })
 
   it('Proveedor: la orden por despachar no se pierde ni se duplica al recargar', async () => {

@@ -412,8 +412,8 @@ export function LicitacionesComprasPage() {
                 <li
                   key={lic.licitacionId}
                   className={`${styles.tarjetaLicitacion} ${
-                    estaSeleccionada ? styles.licitacionSeleccionada : ''
-                  }`}
+                    lic.estado === 'Abierta' ? styles.tarjetaAbierta : ''
+                  } ${estaSeleccionada ? styles.licitacionSeleccionada : ''}`}
                 >
                   <h3 className={styles.numeroRequisicion}>
                     {lic.numeroRequisicion ?? 'Licitación'}
@@ -421,12 +421,12 @@ export function LicitacionesComprasPage() {
                   <span
                     className={`${styles.estadoBadge} ${
                       lic.estado === 'Adjudicada' ? styles.estadoAdjudicada : ''
-                    }`}
+                    } ${lic.estado === 'Abierta' ? styles.estadoAbierta : ''}`}
                   >
                     {lic.estado}
                   </span>
                   <p className={styles.dato}>{textoItems}</p>
-                  <p className={styles.dato}>
+                  <p className={`${styles.dato} ${lic.estado === 'Abierta' ? styles.fechaAbierta : ''}`}>
                     Fecha límite: {fechaLimiteTexto || 'Sin fecha límite'}
                   </p>
                   <button

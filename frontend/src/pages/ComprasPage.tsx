@@ -115,7 +115,7 @@ export function ComprasPage({
       <section className={styles.historial} aria-label={integrada ? 'Historial de actividad' : 'Lo último que pasó'}>
         <div className={styles.encabezadoHistorial}>
           <h2>{integrada ? 'Historial de actividad' : 'Lo último que pasó'}</h2>
-          <Link className="accion-secundaria" to="/compras/historial">
+          <Link className={`accion-secundaria ${styles.botonHistorial}`} to="/compras/historial">
             {integrada ? 'Ver historial' : 'Ver todo'}
           </Link>
         </div>
