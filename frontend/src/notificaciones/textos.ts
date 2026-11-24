@@ -10,6 +10,14 @@ export function textoPendientes(cantidad: number): string {
 
 /** Texto de la tarjeta de la pantalla principal del Proveedor: licitaciones abiertas que le faltan
  *  cotizar, en singular cuando hay una sola. */
+export function textoPedidosParaRecibir(cantidad: number): string {
+  return cantidad === 1 ? 'Tenés 1 pedido para recibir' : `Tenés ${cantidad} pedidos para recibir`
+}
+
+export function textoOrdenesParaDespachar(cantidad: number): string {
+  return cantidad === 1 ? 'Tenés 1 orden para despachar' : `Tenés ${cantidad} órdenes para despachar`
+}
+
 export function textoLicitacionesParaCotizar(cantidad: number): string {
   return cantidad === 1
     ? 'Tenés 1 licitación para cotizar'

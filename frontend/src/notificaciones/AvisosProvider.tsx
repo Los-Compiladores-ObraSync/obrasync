@@ -117,6 +117,8 @@ export function AvisosProvider({ children, intervaloMs = INTERVALO_REFRESCO_MS }
 
   const memoria = useRef<Memoria>({ clave: null, datos: {}, vistos: null })
   const [estado, setEstado] = useState<Estado | null>(null)
+  // La consulta del efecto, para poder pedirla desde afuera (refrescar) sin esperar al intervalo.
+  const pedirRef = useRef<(() => Promise<void>) | null>(null)
 
   useEffect(() => {
     if (!rol || !clave) return
@@ -143,6 +145,7 @@ export function AvisosProvider({ children, intervaloMs = INTERVALO_REFRESCO_MS }
       setEstado({ clave: claveActual, datos: m.datos, vistos: m.vistos, ahora })
     }
 
+    pedirRef.current = pedir
     void pedir()
 
     const temporizador = window.setInterval(() => {
@@ -156,6 +159,7 @@ export function AvisosProvider({ children, intervaloMs = INTERVALO_REFRESCO_MS }
 
     return () => {
       cancelado = true
+      pedirRef.current = null
       window.clearInterval(temporizador)
       document.removeEventListener('visibilitychange', alCambiarVisibilidad)
     }
@@ -184,14 +188,19 @@ export function AvisosProvider({ children, intervaloMs = INTERVALO_REFRESCO_MS }
     [novedades],
   )
 
+  const refrescar = useCallback(() => {
+    void pedirRef.current?.()
+  }, [])
+
   const valor = useMemo(
     () => ({
       cantidad: paraHacer.length + novedades.length,
       paraHacer,
       novedades,
       marcarVistas,
+      refrescar,
     }),
-    [paraHacer, novedades, marcarVistas],
+    [paraHacer, novedades, marcarVistas, refrescar],
   )
 
   return <AvisosContext.Provider value={valor}>{children}</AvisosContext.Provider>

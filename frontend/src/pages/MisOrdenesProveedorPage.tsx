@@ -8,6 +8,7 @@ import { useChatEnLista } from '../chat/useChatEnLista'
 import { SeguimientoEntrega } from '../recepciones/SeguimientoEntrega'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { puedeDespachar } from '../licitaciones/entregaParcial'
+import { useAvisos } from '../notificaciones/useAvisos'
 import styles from './MisOrdenesProveedorPage.module.css'
 
 const MAX_OBSERVACION = 200
@@ -57,6 +58,7 @@ function mensajeDeErrorDespacho(err: unknown): string {
  * El servicio solo le devuelve las órdenes propias.
  */
 export function MisOrdenesProveedorPage() {
+  const { refrescar: refrescarAvisos } = useAvisos()
   const [ordenes, setOrdenes] = useState<OrdenCompraListadoDto[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -137,6 +139,8 @@ export function MisOrdenesProveedorPage() {
           : `Avisaste que despachaste la orden ${codigoDeOrden(orden.id)}. Compras ya lo ve y el Capataz podrá recibirla.`,
       )
       setAbiertaId(null)
+      // La campana tiene que dejar de pedir despachar esta orden ya, no en el próximo ciclo.
+      refrescarAvisos()
     } catch (err) {
       setErrorForm(mensajeDeErrorDespacho(err))
       // Si la orden ya no existe, la lista en pantalla quedó vieja: se actualiza.
