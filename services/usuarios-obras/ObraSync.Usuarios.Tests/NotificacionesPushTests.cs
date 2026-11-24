@@ -677,6 +677,13 @@ public class NotificacionesPushTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Contains(lote3, e => e.UsuarioId == compradorId && e.Payload.Ruta == "/compras/ordenes");
         Assert.Contains(lote3, e => e.UsuarioId == adminId && e.Payload.Ruta == "/compras/ordenes");
 
+        // Un re-despacho del remanente (#248) le avisa al Capataz que viene el resto del pedido.
+        var evRedespacho = evDesp with { EventId = Guid.NewGuid(), EsRedespacho = true, NumeroDespacho = 2 };
+        await ocDespConsumer.Consume(CrearCtx(evRedespacho));
+        var loteRedespacho = DequeueAll(envios);
+        Assert.Contains(loteRedespacho, e =>
+            e.UsuarioId == capatazObraAId && e.Payload.Cuerpo.Contains("el resto de un pedido"));
+
         // 4. RecepcionConfirmadaEvent -> Compras (/compras/ordenes); y si llega ProveedorId opcional, también Proveedor
         var recConfConsumer = new RecepcionConfirmadaConsumer(db, destService, pushService, NullLogger<RecepcionConfirmadaConsumer>.Instance);
         var evRecConf = new RecepcionConfirmadaEvent(
@@ -767,7 +774,8 @@ public class NotificacionesPushTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Equal("/proveedores/mis-ordenes", unico.Payload.Ruta);
         Assert.Equal("Recibido, gracias", unico.Payload.Cuerpo);
 
-        Assert.Equal(7, await db.EventosProcesados.CountAsync());
+        // 7 eventos distintos del recorrido original + el re-despacho que se agregó (#248), que tiene su propio EventId.
+        Assert.Equal(8, await db.EventosProcesados.CountAsync());
     }
 
     [Fact]

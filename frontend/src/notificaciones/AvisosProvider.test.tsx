@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http, HttpResponse } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { AuthContext, type SesionUsuario } from '../auth/sessionContext'
 import { server } from '../mocks/server'
@@ -22,6 +22,9 @@ function Avisos() {
       <p data-testid="novedades">{novedades.map((a) => a.id).join(',')}</p>
       <button type="button" onClick={() => marcarVistas()}>
         Marcar todas
+      </button>
+      <button type="button" onClick={() => refrescar(60_000)}>
+        Refrescar con espera
       </button>
       <button type="button" onClick={() => refrescar()}>
         Refrescar ahora
@@ -128,7 +131,7 @@ describe('AvisosProvider (#219)', () => {
     despachada = true
     await user.click(screen.getByRole('button', { name: 'Refrescar ahora' }))
 
-    await waitFor(() => expect(screen.getByTestId('para-hacer')).toHaveTextContent(''))
+    await waitFor(() => expect(screen.getByTestId('para-hacer')).toBeEmptyDOMElement())
     expect(screen.getByTestId('para-hacer')).not.toHaveTextContent('orden-por-despachar')
   })
 
@@ -241,5 +244,51 @@ describe('AvisosProvider (#219)', () => {
     await new Promise((r) => setTimeout(r, 100))
     expect(pedidos).toBe(0)
     expect(screen.getByTestId('cantidad')).toHaveTextContent('0')
+  })
+
+  it('Proveedor: una respuesta vieja y lenta no pisa a la más nueva', async () => {
+    const user = userEvent.setup()
+    let llamadas = 0
+    server.use(
+      http.get('*/api/ordenes-compra', async () => {
+        llamadas += 1
+        if (llamadas === 1) {
+          // La consulta inicial tarda y trae la orden todavía sin despachar.
+          await delay(300)
+          return HttpResponse.json([orden(ORDEN_1, { fueDespachada: false })])
+        }
+        return HttpResponse.json([orden(ORDEN_1, { fueDespachada: true, fechaDespacho: '2026-11-24T10:00:00Z' })])
+      }),
+      http.get('*/api/cotizaciones/mias', () => HttpResponse.json([])),
+    )
+    renderizar('Proveedor')
+
+    await user.click(screen.getByRole('button', { name: 'Refrescar ahora' }))
+    await waitFor(() => expect(llamadas).toBe(2))
+    // Pasa el tiempo suficiente como para que la consulta lenta termine.
+    await new Promise((r) => setTimeout(r, 500))
+
+    expect(screen.getByTestId('cantidad')).toHaveTextContent('0')
+    expect(screen.getByTestId('para-hacer')).toBeEmptyDOMElement()
+  })
+
+  it('refrescar con espera mínima no vuelve a consultar si la última consulta fue reciente', async () => {
+    const user = userEvent.setup()
+    let pedidos = 0
+    server.use(
+      http.get('*/api/recepciones/ordenes-pendientes', () => {
+        pedidos += 1
+        return HttpResponse.json([])
+      }),
+    )
+    renderizar('Capataz')
+    await waitFor(() => expect(pedidos).toBe(1))
+
+    await user.click(screen.getByRole('button', { name: 'Refrescar con espera' }))
+    await new Promise((r) => setTimeout(r, 100))
+    expect(pedidos).toBe(1)
+
+    await user.click(screen.getByRole('button', { name: 'Refrescar ahora' }))
+    await waitFor(() => expect(pedidos).toBe(2))
   })
 })

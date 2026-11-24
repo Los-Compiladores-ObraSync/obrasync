@@ -57,6 +57,19 @@ export function InicioPage() {
   const recibe = usuario?.rol === 'Capataz'
   const porRecibir = useOrdenesPorRecibir(recibe)
 
+  // Qué accesos llevan numerito y qué dicen: una sola tabla en vez de un ternario por cada caso nuevo.
+  const insigniaPorRuta: Record<string, { cantidad: number; descripcion: string } | undefined> = {
+    [RUTA_HISTORIAL_REQUISICIONES]: resaltarHistorial
+      ? { cantidad: pendientes, descripcion: textoPendientes(pendientes) }
+      : undefined,
+    [RUTA_HISTORIAL_COTIZACIONES]: resaltarCotizaciones
+      ? { cantidad: porCotizar, descripcion: textoLicitacionesParaCotizar(porCotizar) }
+      : undefined,
+    [RUTA_MIS_ORDENES]: resaltarOrdenes
+      ? { cantidad: porDespachar, descripcion: textoOrdenesParaDespachar(porDespachar) }
+      : undefined,
+  }
+
   return (
     <>
       <h1>Bienvenido, {usuario?.nombreCompleto}</h1>
@@ -105,47 +118,32 @@ export function InicioPage() {
       {usuario?.rol === 'Comprador' && <ComprasPage integrada descripcionPendientes={textoPendientes(pendientes)} />}
       {acciones.length > 0 && usuario?.rol !== 'Comprador' && (
         <ul className="lista-acciones">
-          {acciones.map((accion) => (
-            <li key={accion.ruta}>
-              <Link
-                to={accion.ruta}
-                className={
-                  apruebaRequisiciones || cotiza
-                    ? (accion.ruta === RUTA_HISTORIAL_REQUISICIONES && resaltarHistorial) ||
-                      (accion.ruta === RUTA_HISTORIAL_COTIZACIONES && resaltarCotizaciones) ||
-                      (accion.ruta === RUTA_MIS_ORDENES && resaltarOrdenes)
-                      ? `accion-secundaria ${styles.conPendientes}`
-                      : 'accion-secundaria'
-                    : 'accion-grande'
-                }
-              >
-                {accion.ruta === RUTA_HISTORIAL_REQUISICIONES && resaltarHistorial ? (
-                  <span>
-                    {accion.texto}
-                    <InsigniaCantidad cantidad={pendientes} descripcion={textoPendientes(pendientes)} />
-                  </span>
-                ) : accion.ruta === RUTA_HISTORIAL_COTIZACIONES && resaltarCotizaciones ? (
-                  <span>
-                    {accion.texto}
-                    <InsigniaCantidad
-                      cantidad={porCotizar}
-                      descripcion={textoLicitacionesParaCotizar(porCotizar)}
-                    />
-                  </span>
-                ) : accion.ruta === RUTA_MIS_ORDENES && resaltarOrdenes ? (
-                  <span>
-                    {accion.texto}
-                    <InsigniaCantidad
-                      cantidad={porDespachar}
-                      descripcion={textoOrdenesParaDespachar(porDespachar)}
-                    />
-                  </span>
-                ) : (
-                  accion.texto
-                )}
-              </Link>
-            </li>
-          ))}
+          {acciones.map((accion) => {
+            const insignia = insigniaPorRuta[accion.ruta]
+            return (
+              <li key={accion.ruta}>
+                <Link
+                  to={accion.ruta}
+                  className={
+                    apruebaRequisiciones || cotiza
+                      ? insignia
+                        ? `accion-secundaria ${styles.conPendientes}`
+                        : 'accion-secundaria'
+                      : 'accion-grande'
+                  }
+                >
+                  {insignia ? (
+                    <span>
+                      {accion.texto}
+                      <InsigniaCantidad cantidad={insignia.cantidad} descripcion={insignia.descripcion} />
+                    </span>
+                  ) : (
+                    accion.texto
+                  )}
+                </Link>
+              </li>
+            )
+          })}
         </ul>
       )}
 

@@ -1233,6 +1233,92 @@ public class OrdenCompraEmitidaConsumerTests
             Arg.Any<CancellationToken>());
     }
 
+    private static OrdenCompraEmitidaEvent EventoParaIndiceUnico() => new(
+        EventId: Guid.NewGuid(),
+        OccurredAt: DateTime.UtcNow,
+        CorrelationId: Guid.NewGuid(),
+        OrdenCompraId: Guid.NewGuid(),
+        LicitacionId: Guid.NewGuid(),
+        RequisicionId: Guid.NewGuid(),
+        ObraId: Guid.NewGuid(),
+        ProveedorId: Guid.NewGuid(),
+        MontoTotal: 1_000m,
+        Items: new List<OrdenCompraEmitidaItemEvent> { new(Guid.NewGuid(), 1m, "UN", 1_000m, "Ítem") },
+        Etapa: "Estructura");
+
+    [Fact]
+    public async Task IndiceUnico_SinQueLaOcSeHayaGuardado_RelanzaParaQueMassTransitReintente()
+    {
+        // Caso: dos OC de la misma obra y etapa crean la partida semilla a la vez; la segunda choca con el índice
+        // único y NO se guardó. Descartarla en silencio la perdería.
+        var dbName = Guid.NewGuid().ToString();
+        var evento = EventoParaIndiceUnico();
+        using var db = new ChoqueDeIndiceDbContext(
+            new DbContextOptionsBuilder<RecepcionDbContext>().UseInMemoryDatabase(dbName).Options,
+            antesDeFallarAsync: () => Task.CompletedTask);
+        var consumer = new ConsumidorConIndiceUnicoSimulado(db, new OrdenCompraRepository(db),
+            Substitute.For<ILogger<OrdenCompraEmitidaConsumer>>());
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => consumer.Consume(CreateConsumeContext(evento)));
+
+        using var verif = CreateDbContext(dbName);
+        Assert.Empty(await verif.OrdenesCompra.ToListAsync());
+    }
+
+    [Fact]
+    public async Task IndiceUnico_CuandoLaOcYaFueProcesada_SeDescartaSinError()
+    {
+        // Caso: el mismo mensaje llega dos veces a la vez; el otro consumidor ya guardó la OC.
+        var dbName = Guid.NewGuid().ToString();
+        var evento = EventoParaIndiceUnico();
+
+        using var dbGanador = CreateDbContext(dbName);
+        var ganador = new OrdenCompraEmitidaConsumer(dbGanador, new OrdenCompraRepository(dbGanador),
+            Substitute.For<ILogger<OrdenCompraEmitidaConsumer>>());
+
+        using var db = new ChoqueDeIndiceDbContext(
+            new DbContextOptionsBuilder<RecepcionDbContext>().UseInMemoryDatabase(dbName).Options,
+            antesDeFallarAsync: () => ganador.Consume(CreateConsumeContext(evento)));
+        var consumer = new ConsumidorConIndiceUnicoSimulado(db, new OrdenCompraRepository(db),
+            Substitute.For<ILogger<OrdenCompraEmitidaConsumer>>());
+
+        await consumer.Consume(CreateConsumeContext(evento));
+
+        using var verif = CreateDbContext(dbName);
+        Assert.Single(await verif.OrdenesCompra.ToListAsync());
+    }
+
+    private sealed class ConsumidorConIndiceUnicoSimulado : OrdenCompraEmitidaConsumer
+    {
+        public ConsumidorConIndiceUnicoSimulado(
+            RecepcionDbContext db,
+            IOrdenCompraRepository repo,
+            ILogger<OrdenCompraEmitidaConsumer> logger)
+            : base(db, repo, logger)
+        {
+        }
+
+        protected override bool EsViolacionDeIndiceUnico(DbUpdateException ex) => true;
+    }
+
+    /// <summary>Simula que, al guardar, otro consumidor se adelantó y la base rechaza por índice único.</summary>
+    private sealed class ChoqueDeIndiceDbContext : RecepcionDbContext
+    {
+        private readonly Func<Task> _antesDeFallarAsync;
+
+        public ChoqueDeIndiceDbContext(DbContextOptions<RecepcionDbContext> options, Func<Task> antesDeFallarAsync)
+            : base(options)
+        {
+            _antesDeFallarAsync = antesDeFallarAsync;
+        }
+
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            await _antesDeFallarAsync();
+            throw new DbUpdateException("Índice único simulado");
+        }
+    }
+
     private sealed class ConcurrenciaIntercaladaDbContext : RecepcionDbContext
     {
         private readonly Func<Task> _antesDeGuardarAsync;

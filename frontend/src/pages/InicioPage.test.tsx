@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { AuthContext, type SesionUsuario } from '../auth/sessionContext'
 import { server } from '../mocks/server'
 import { reiniciarLicitacionesMock, reiniciarRequisicionesMock } from '../mocks/handlers'
+import { AvisosProvider } from '../notificaciones/AvisosProvider'
 import { PendientesProvider } from '../notificaciones/PendientesProvider'
 import { InicioPage } from './InicioPage'
 
@@ -16,9 +17,11 @@ function renderInicio(rol: string | null) {
   return render(
     <AuthContext.Provider value={{ usuario, login: () => {}, logout: () => {} }}>
       <PendientesProvider>
-        <MemoryRouter>
-          <InicioPage />
-        </MemoryRouter>
+        <AvisosProvider>
+          <MemoryRouter>
+            <InicioPage />
+          </MemoryRouter>
+        </AvisosProvider>
       </PendientesProvider>
     </AuthContext.Provider>,
   )
@@ -144,9 +147,9 @@ describe('InicioPage', () => {
     server.use(
       http.get('*/api/ordenes-compra', () =>
         HttpResponse.json([
-          { ordenCompraId: 'o-1', fueDespachada: false },
-          { ordenCompraId: 'o-2', fueDespachada: true },
-          { ordenCompraId: 'o-3', fueDespachada: true, puedeRedespachar: true },
+          { id: 'o-1', fueDespachada: false },
+          { id: 'o-2', fueDespachada: true },
+          { id: 'o-3', fueDespachada: true, puedeRedespachar: true },
         ]),
       ),
     )
@@ -158,7 +161,7 @@ describe('InicioPage', () => {
   })
 
   it('Proveedor: sin órdenes para despachar no muestra la tarjeta', async () => {
-    server.use(http.get('*/api/ordenes-compra', () => HttpResponse.json([{ ordenCompraId: 'o-1', fueDespachada: true }])))
+    server.use(http.get('*/api/ordenes-compra', () => HttpResponse.json([{ id: 'o-1', fueDespachada: true }])))
     renderInicio('Proveedor')
 
     expect(await screen.findByRole('region', { name: 'Resumen de licitaciones' })).toBeInTheDocument()
