@@ -8,7 +8,6 @@ import { ROLES_QUE_VEN_PENDIENTES } from '../notificaciones/configuracionAvisos'
 import { ResumenAprobacion } from '../notificaciones/ResumenAprobacion'
 import { textoLicitacionesParaCotizar, textoPendientes } from '../notificaciones/textos'
 import { usePendientes } from '../notificaciones/usePendientes'
-import { AvisosEnEsteCelular } from '../notificaciones/AvisosEnEsteCelular'
 import { accionesParaRol } from '../portales/accionesRapidas'
 import { portalesParaRol } from '../portales/portales'
 import { ComprasPage } from './ComprasPage'
@@ -85,7 +84,6 @@ export function InicioPage() {
       {apruebaRequisiciones && <ResumenAprobacion />}
       {cotiza && <ResumenLicitaciones {...licitaciones} />}
       {usuario?.rol === 'Comprador' && <ComprasPage integrada descripcionPendientes={textoPendientes(pendientes)} />}
-      <AvisosEnEsteCelular />
       {acciones.length > 0 && usuario?.rol !== 'Comprador' && (
         <ul className="lista-acciones">
           {acciones.map((accion) => (

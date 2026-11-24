@@ -1,7 +1,5 @@
 import { validarEmail } from '../auth/validacionEmail'
-
-// Mínimo de la regla actual de Identity (igual que el registro y restablecer contraseña).
-export const LARGO_MINIMO_PASSWORD = 6
+import { errorDePasswordNueva } from '../auth/validacionPassword'
 
 export interface ErroresCapataz {
   nombreCompleto?: string
@@ -20,8 +18,9 @@ export function validarCapataz(datos: {
   if (errorEmail) errores.email = errorEmail
   if (!datos.password) {
     errores.password = 'La contraseña inicial es obligatoria.'
-  } else if (datos.password.length < LARGO_MINIMO_PASSWORD) {
-    errores.password = `La contraseña debe tener al menos ${LARGO_MINIMO_PASSWORD} caracteres.`
+  } else {
+    const errorPassword = errorDePasswordNueva(datos.password)
+    if (errorPassword) errores.password = errorPassword
   }
   return errores
 }

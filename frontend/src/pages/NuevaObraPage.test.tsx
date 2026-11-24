@@ -370,7 +370,7 @@ describe('NuevaObraPage - crear capataz (#111)', () => {
 
     expect(screen.getByText('El nombre completo es obligatorio.')).toBeInTheDocument()
     expect(screen.getByText('Ingresá un email válido.')).toBeInTheDocument()
-    expect(screen.getByText(/al menos 6 caracteres/)).toBeInTheDocument()
+    expect(screen.getByText(/al menos 8 caracteres/)).toBeInTheDocument()
   })
 
   it('avisa con claridad si el email ya existe', async () => {

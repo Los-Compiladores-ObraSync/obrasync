@@ -132,6 +132,9 @@ describe('ComprasPage', () => {
     expect(etapas.map((link) => link.getAttribute('href'))).toEqual([
       '/compras/requisiciones', '/compras/licitaciones', '/compras/ordenes', '/compras/recepcion',
     ])
+    // Las cuatro etapas tienen trabajo pendiente: todas se destacan en el flujo.
+    const pasos = within(screen.getByRole('region', { name: 'Progreso del flujo de compras' })).getAllByRole('listitem')
+    expect(pasos.map((paso) => paso.getAttribute('data-pendiente'))).toEqual(['true', 'true', 'true', 'true'])
     const tareas = screen.getByRole('region', { name: 'Qué hago ahora' })
     await waitFor(() => {
       const enlaces = within(tareas).getAllByRole('link')

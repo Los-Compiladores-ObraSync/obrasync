@@ -74,7 +74,7 @@ describe('RestablecerContrasenaPage', () => {
     expect(llamadas).toBe(0)
   })
 
-  it('no llama a la API si la contraseña tiene menos de 6 caracteres', async () => {
+  it('no llama a la API si la contraseña tiene menos de 8 caracteres', async () => {
     let llamadas = 0
     server.use(
       http.post('*/api/usuarios/password/restablecer', () => {
@@ -88,7 +88,7 @@ describe('RestablecerContrasenaPage', () => {
     await completar(user, 'Ab1!', 'Ab1!')
 
     expect(
-      screen.getByText('La contraseña debe tener al menos 6 caracteres.'),
+      screen.getByText('La contraseña debe tener al menos 8 caracteres.'),
     ).toBeInTheDocument()
     expect(llamadas).toBe(0)
   })

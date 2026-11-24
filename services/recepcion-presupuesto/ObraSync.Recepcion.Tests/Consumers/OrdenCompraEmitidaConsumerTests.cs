@@ -1,6 +1,7 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using ObraSync.Contracts.Events;
 using ObraSync.Recepcion.Application.Interfaces;
@@ -8,6 +9,7 @@ using ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
 using ObraSync.Recepcion.Application.UseCases.Recepciones.Queries;
 using ObraSync.Recepcion.Domain.Entities;
 using ObraSync.Recepcion.Domain.Enums;
+using ObraSync.Recepcion.Infrastructure.Configuration;
 using ObraSync.Recepcion.Infrastructure.Consumers;
 using ObraSync.Recepcion.Infrastructure.Persistence;
 using ObraSync.Recepcion.Infrastructure.Persistence.Repositories;
@@ -651,6 +653,97 @@ public class OrdenCompraEmitidaConsumerTests
 
         var partidaActualizada = await db.PartidasPresupuestarias.SingleAsync(p => p.Id == partidaGeneral.Id);
         Assert.Equal(30_000m, partidaActualizada.MontoComprometido);
+    }
+
+    private static OrdenCompraEmitidaEvent EventoConEtapa(Guid obraId, string etapa, decimal montoTotal) => new(
+        EventId: Guid.NewGuid(),
+        OccurredAt: DateTime.UtcNow,
+        CorrelationId: Guid.NewGuid(),
+        OrdenCompraId: Guid.NewGuid(),
+        LicitacionId: Guid.NewGuid(),
+        RequisicionId: Guid.NewGuid(),
+        ObraId: obraId,
+        ProveedorId: Guid.NewGuid(),
+        MontoTotal: montoTotal,
+        Items: new List<OrdenCompraEmitidaItemEvent>
+        {
+            new(Guid.NewGuid(), 1m, "UN", montoTotal, "Insumo")
+        },
+        Etapa: etapa);
+
+    [Fact]
+    public async Task CasoQ_ConMontoSemilla_ObraSinPartida_CreaPartidaSemillaYComprometeLaOrden()
+    {
+        // Presupuesto semilla: la primera orden de una obra y etapa sin partida crea la partida y se evalúa contra ella.
+        using var db = CreateDbContext(Guid.NewGuid().ToString());
+        var repo = new OrdenCompraRepository(db);
+        var logger = new TestLogger<OrdenCompraEmitidaConsumer>();
+        var opciones = Options.Create(new PresupuestoSemillaOptions { MontoSemillaPorEtapa = 100_000m });
+        var consumer = new OrdenCompraEmitidaConsumer(db, repo, logger, opciones);
+
+        var obraId = Guid.NewGuid();
+        var evento = EventoConEtapa(obraId, "Pintura", 5_000m);
+        var context = CreateConsumeContext(evento);
+
+        await consumer.Consume(context);
+
+        var partida = await db.PartidasPresupuestarias.SingleAsync(p => p.ObraId == obraId);
+        Assert.Equal("Pintura", partida.Etapa);
+        Assert.StartsWith("SEMILLA-", partida.CodigoPartida);
+        Assert.Equal(100_000m, partida.MontoAsignado);
+        Assert.Equal(5_000m, partida.MontoComprometido);
+
+        var oc = await db.OrdenesCompra.SingleAsync(o => o.Id == evento.OrdenCompraId);
+        Assert.Equal(EstadoOrdenCompra.Activa, oc.Estado);
+        Assert.False(oc.SinPartidaPresupuestaria);
+    }
+
+    [Fact]
+    public async Task CasoR_ConMontoSemilla_OrdenQueSuperaLaSemilla_QuedaBloqueada()
+    {
+        using var db = CreateDbContext(Guid.NewGuid().ToString());
+        var repo = new OrdenCompraRepository(db);
+        var logger = new TestLogger<OrdenCompraEmitidaConsumer>();
+        var opciones = Options.Create(new PresupuestoSemillaOptions { MontoSemillaPorEtapa = 1_000m });
+        var consumer = new OrdenCompraEmitidaConsumer(db, repo, logger, opciones);
+
+        var obraId = Guid.NewGuid();
+        var evento = EventoConEtapa(obraId, "Pintura", 5_000m);
+        var context = CreateConsumeContext(evento);
+
+        await consumer.Consume(context);
+
+        var oc = await db.OrdenesCompra.SingleAsync(o => o.Id == evento.OrdenCompraId);
+        Assert.Equal(EstadoOrdenCompra.Bloqueada, oc.Estado);
+        Assert.False(oc.SinPartidaPresupuestaria);
+        await context.Received(1).Publish(Arg.Any<OrdenCompraBloqueadaEvent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CasoS_ConMontoSemilla_ObraConPartidaPropia_NoCreaOtraPartida()
+    {
+        using var db = CreateDbContext(Guid.NewGuid().ToString());
+        var repo = new OrdenCompraRepository(db);
+        var logger = new TestLogger<OrdenCompraEmitidaConsumer>();
+        var opciones = Options.Create(new PresupuestoSemillaOptions { MontoSemillaPorEtapa = 100_000m });
+        var consumer = new OrdenCompraEmitidaConsumer(db, repo, logger, opciones);
+
+        var obraId = Guid.NewGuid();
+        db.PartidasPresupuestarias.Add(new PartidaPresupuestaria
+        {
+            ObraId = obraId,
+            Etapa = "Pintura",
+            CodigoPartida = "P-001",
+            Descripcion = "Partida cargada por Compras",
+            MontoAsignado = 50_000m
+        });
+        await db.SaveChangesAsync();
+
+        await consumer.Consume(CreateConsumeContext(EventoConEtapa(obraId, "Pintura", 5_000m)));
+
+        var partida = await db.PartidasPresupuestarias.SingleAsync(p => p.ObraId == obraId);
+        Assert.Equal("P-001", partida.CodigoPartida);
+        Assert.Equal(5_000m, partida.MontoComprometido);
     }
 
     [Fact]

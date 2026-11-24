@@ -3,11 +3,9 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { IconoOjo } from '../auth/IconoOjo'
 import { restablecerPassword } from '../auth/passwordService'
+import { errorDePasswordNueva } from '../auth/validacionPassword'
 import loginStyles from './LoginPage.module.css'
 import styles from './RecuperarContrasenaPage.module.css'
-
-// Mínimo de la regla actual de Identity (igual que el registro).
-const LARGO_MINIMO = 6
 
 interface ErroresCampo {
   password?: string
@@ -25,8 +23,8 @@ function validarCampos(password: string, repetir: string): ErroresCampo {
 
   if (!password) {
     errores.password = 'La contraseña es obligatoria.'
-  } else if (password.length < LARGO_MINIMO) {
-    errores.password = `La contraseña debe tener al menos ${LARGO_MINIMO} caracteres.`
+  } else if (errorDePasswordNueva(password)) {
+    errores.password = errorDePasswordNueva(password)
   }
 
   if (!repetir) {

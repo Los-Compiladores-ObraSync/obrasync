@@ -256,3 +256,34 @@
 .avisoCobertura ul {
   margin: 0;
 }
+
+/* Plazos de entrega frecuentes: botones para elegir con un toque. */
+.opcionesPlazo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.opcionPlazo {
+  min-height: 44px;
+  padding: 0.4rem 0.9rem;
+  border: 2px solid var(--borde);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--texto);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.opcionPlazo:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.opcionPlazoActiva {
+  border-color: var(--accion);
+  background: var(--accion);
+  color: #fff;
+}

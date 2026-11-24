@@ -51,6 +51,8 @@ builder.Services.AddSwaggerGen(c =>
 
 // Persistencia y base de datos DB_Recepcion
 builder.Services.AddInfrastructureServices(builder.Configuration);
+builder.Services.Configure<ObraSync.Recepcion.Infrastructure.Configuration.PresupuestoSemillaOptions>(
+    builder.Configuration.GetSection(ObraSync.Recepcion.Infrastructure.Configuration.PresupuestoSemillaOptions.Seccion));
 
 // RabbitMQ + MassTransit (misma convención que Requisiciones y Licitaciones)
 var useInMemoryTransport = string.Equals(
