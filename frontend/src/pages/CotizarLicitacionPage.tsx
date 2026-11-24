@@ -78,6 +78,7 @@ function FormularioCotizacion() {
 
   const [enviando, setEnviando] = useState(false)
   const [enviadoExitoso, setEnviadoExitoso] = useState(false)
+  const [horaConfirmacion, setHoraConfirmacion] = useState(0)
   const [errorServidor, setErrorServidor] = useState<string | null>(null)
   const [esBloqueante, setEsBloqueante] = useState(false)
 
@@ -148,6 +149,12 @@ function FormularioCotizacion() {
       cancelado = true
     }
   }, [id, intento, cotizacionDeUrl])
+
+  useEffect(() => {
+    if (!enviadoExitoso) return
+    const reloj = window.setInterval(() => setHoraConfirmacion(Date.now()), 15_000)
+    return () => window.clearInterval(reloj)
+  }, [enviadoExitoso])
 
   function activarOtraPresentacion(articuloId: string, activa: boolean) {
     setOtras((prev) => {
@@ -258,6 +265,7 @@ function FormularioCotizacion() {
         plazoEntregaDias: respuesta.plazoEntregaDias ?? dto.plazoEntregaDias,
         items: respuesta.items ?? dto.items,
       })
+      setHoraConfirmacion(Date.now())
       setEnviadoExitoso(true)
     } catch (err) {
       let mensaje = 'Ocurrió un error al enviar la cotización. Intentá nuevamente.'
@@ -337,7 +345,7 @@ function FormularioCotizacion() {
     )
     const puedeEditar = Boolean(respuestaEnviada?.cotizacionId)
       && licitacion.estado === 'Abierta'
-      && new Date(licitacion.fechaLimiteCotizacion).getTime() > Date.now()
+      && new Date(licitacion.fechaLimiteCotizacion).getTime() > horaConfirmacion
     const hayCoberturaParcial = Boolean(respuestaEnviada?.coberturaParcial) || itemsParciales.length > 0
 
     return (

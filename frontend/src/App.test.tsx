@@ -330,7 +330,7 @@ describe('App - acceso a los portales', () => {
     expect(screen.getByRole('link', { name: 'Asistente' })).toHaveAttribute('href', '/compras/asistente')
     const progreso = await screen.findByRole('region', { name: 'Progreso del flujo de compras' })
     expect(within(progreso).getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual([
-      '/compras/requisiciones', '/compras/licitaciones', '/compras/ordenes', '/compras/recepcion',
+      '/compras/requisiciones', '/compras/licitaciones', '/compras/ordenes', '/compras/ordenes',
     ])
     expect(screen.getByRole('region', { name: 'Qué hago ahora' })).toBeInTheDocument()
     const historial = await screen.findByRole('region', { name: 'Historial de actividad' })
@@ -459,12 +459,12 @@ describe('App - alta de obra', () => {
     }
   })
 
-  it('el Comprador y el Admin pueden continuar el flujo desde Recepción', async () => {
+  it('el acceso anterior de Recepción lleva a Órdenes de compra para Comprador y Admin', async () => {
     for (const rol of ['Comprador', 'Admin']) {
       localStorage.clear()
       iniciarSesionComo(rol)
       const { unmount } = renderApp('/compras/recepcion')
-      expect(await screen.findByRole('heading', { level: 1, name: 'Recibir mercadería' })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 1, name: 'Órdenes de compra' })).toBeInTheDocument()
       unmount()
     }
   })

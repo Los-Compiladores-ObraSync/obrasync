@@ -5,7 +5,8 @@ import { cantidadConUnidad } from '../requisiciones/unidades'
 import { LineaDeTiempoOrden } from './LineaDeTiempoOrden'
 import { ESTADO_ENTREGA_PARCIAL } from '../licitaciones/entregaParcial'
 import { obtenerRecepcionesDeOrden } from './recepcionesService'
-import type { ItemOrdenPendiente, RecepcionesDeOrden } from './recepcionesTipos'
+import { saldoPendiente } from './saldoPendiente'
+import type { RecepcionesDeOrden } from './recepcionesTipos'
 import styles from './SeguimientoEntrega.module.css'
 
 type OrdenEnSeguimiento = Pick<OrdenCompraListadoDto, 'numeroDespacho' | 'puedeRedespachar' | 'items'>
@@ -18,10 +19,6 @@ interface SeguimientoEntregaProps {
 }
 
 type Carga = { tipo: 'cargando' } | { tipo: 'lista'; datos: RecepcionesDeOrden } | { tipo: 'sinDatos' } | { tipo: 'error' }
-
-export function saldoPendiente(item: ItemOrdenPendiente): number {
-  return item.cantidadPendiente ?? Math.max(item.cantidadEsperada - item.cantidadRecibida, 0)
-}
 
 /**
  * El seguimiento de la entrega de una orden despachada (#224), para Compras y para el Proveedor: qué se pidió, qué

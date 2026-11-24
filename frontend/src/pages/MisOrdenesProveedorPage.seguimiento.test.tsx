@@ -96,9 +96,9 @@ describe('MisOrdenesProveedorPage: seguimiento de la entrega (#224)', () => {
 
     await user.click(await screen.findByRole('button', { name: /Ver seguimiento de la entrega/ }))
 
-    expect(
-      await screen.findByText(/Arena Fina a Granel: Pedido 12 metros cúbicos \(m³\) · Recibido 5 metros cúbicos \(m³\) · Pendiente 7 metros cúbicos \(m³\)/),
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/Adjudicado: 12 metros cúbicos/)).toHaveTextContent(
+      'Recibido: 5 metros cúbicos (m³) · Por recibir: 7 metros cúbicos (m³)',
+    )
     expect(screen.getByText('Motivo: Llegó incompleta')).toBeInTheDocument()
     expect(screen.getByText('Remito R-9')).toBeInTheDocument()
   })

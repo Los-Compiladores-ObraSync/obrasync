@@ -23,7 +23,7 @@ describe('SeguimientoEntrega: entrega parcial (#249)', () => {
     render(<SeguimientoEntrega ordenCompraId="orden-1" codigo="ORDEN-1" />)
 
     await userEvent.setup().click(await screen.findByRole('button', { name: /Ver seguimiento/ }))
-    expect(await screen.findByText(/Entrega parcial \/ Pendiente de re-despacho: llegó una parte/)).toBeInTheDocument()
-    expect(screen.queryByText('La orden se recibió por completo.')).not.toBeInTheDocument()
+    expect(await screen.findByText('Entrega parcial.')).toBeInTheDocument()
+    expect(screen.queryByText('Entrega completa.')).not.toBeInTheDocument()
   })
 })

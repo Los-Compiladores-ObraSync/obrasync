@@ -87,7 +87,7 @@ describe('SeguimientoEntrega', () => {
     await user.click(screen.getByRole('button', { name: NOMBRE_VER }))
 
     const materiales = await screen.findByRole('list', { name: 'Materiales de la orden' })
-    expect(within(materiales).getByText(/Pedido 100 bolsas · Recibido 75 bolsas · Pendiente 25 bolsas/)).toBeInTheDocument()
+    expect(within(materiales).getByText(/Adjudicado: 100 bolsas/)).toHaveTextContent('Recibido: 75 bolsas · Por recibir: 25 bolsas')
   })
 
   it('muestra la historia con el despacho y la recepción parcial', async () => {
@@ -138,7 +138,7 @@ describe('SeguimientoEntrega', () => {
 
     await user.click(screen.getByRole('button', { name: NOMBRE_VER }))
 
-    expect(await screen.findByText('La orden se recibió por completo.')).toBeInTheDocument()
+    expect(await screen.findByText('Entrega completa.')).toBeInTheDocument()
   })
 
   it('si todavía no hay movimientos lo dice', async () => {
