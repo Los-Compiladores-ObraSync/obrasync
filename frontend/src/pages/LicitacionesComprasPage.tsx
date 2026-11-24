@@ -34,6 +34,7 @@ import { fechaLarga } from '../requisiciones/formatoFecha'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './LicitacionesComprasPage.module.css'
 import { destinoDeRegreso } from '../historialCompras/contextoNavegacion'
+import { formatearPlazoOInmediato } from '../licitaciones/plazoEntrega'
 
 const CRITERIOS = [
   { clave: 'precio', etiqueta: 'Precio' },
@@ -613,7 +614,7 @@ export function LicitacionesComprasPage() {
                       </div>
                       <div>
                         <dt>Plazo de entrega</dt>
-                        <dd>{cot.plazoEntregaDias ? `${cot.plazoEntregaDias} días` : 'Inmediato'}</dd>
+                        <dd>{formatearPlazoOInmediato(cot.plazoEntregaDias)}</dd>
                       </div>
                       <div className={styles.datoCalificacion}>
                         <dt>Calificación de la oferta</dt>
