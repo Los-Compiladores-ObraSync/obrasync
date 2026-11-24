@@ -30,7 +30,7 @@ public class CotizarConMagicLinkCommandHandler : IRequestHandler<CotizarConMagic
             throw new ArgumentException("El hash del enlace de cotización es obligatorio.");
         }
 
-        // 1. Buscar el Magic Link por el hash SHA-256 del token recibido (o coincidencia directa)
+        // 1. Buscar el Magic Link únicamente por el hash SHA-256 calculado a partir del token recibido (#255)
         var magicLink = await _magicLinkRepository.GetByHashAsync(request.Hash, cancellationToken);
         if (magicLink == null)
         {

@@ -35,7 +35,7 @@ public class MagicLinkRepository : IMagicLinkRepository
         return await _context.MagicLinks
             .AsNoTracking()
             .FirstOrDefaultAsync(
-                x => x.Hash == sha256 || x.Hash == tokenLimpio,
+                x => x.Hash == sha256,
                 cancellationToken);
     }
 
