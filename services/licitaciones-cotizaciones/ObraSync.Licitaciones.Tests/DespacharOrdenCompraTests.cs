@@ -39,7 +39,8 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
 
     private WebApplicationFactory<Program> CreateIsolatedFactory(
         out IPublishEndpoint publishSpy,
-        Action<LicitacionesDbContext>? seedAction = null)
+        Action<LicitacionesDbContext>? seedAction = null,
+        bool? bloqueadaPorPresupuesto = false)
     {
         var dbName = $"DB_Licit_Despachar_{Guid.NewGuid()}";
         var spy = Substitute.For<IPublishEndpoint>();
@@ -53,6 +54,12 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IHostedService>();
+
+                var presupuesto = Substitute.For<IEstadoPresupuestarioOrden>();
+                presupuesto.EstaBloqueadaAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult(bloqueadaPorPresupuesto));
+                services.RemoveAll<IEstadoPresupuestarioOrden>();
+                services.AddSingleton(presupuesto);
 
                 var descriptor = services.SingleOrDefault(
                     d => d.ServiceType == typeof(DbContextOptions<LicitacionesDbContext>));
@@ -603,6 +610,36 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         await publishSpy.Received(1).Publish<OrdenCompraDespachadaEvent>(
             Arg.Any<OrdenCompraDespachadaEvent>(),
             Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(true, "bloqueada por presupuesto")]
+    [InlineData(null, "no se pudo verificar el estado presupuestario")]
+    public async Task Despachar_PresupuestoNoHabilitado_Devuelve409YConservaOrden(
+        bool? bloqueada, string motivo)
+    {
+        Guid ordenId = Guid.Empty;
+        Guid proveedorId = Guid.Empty;
+        using var factory = CreateIsolatedFactory(out var publishSpy, db =>
+        {
+            (ordenId, _, proveedorId) = SembrarOrdenEmitida(db);
+        }, bloqueada);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorId));
+
+        using var response = await client.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Contains(motivo, problem.RootElement.GetProperty("detail").GetString() ?? "");
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LicitacionesDbContext>();
+        var orden = await db.OrdenesCompra.SingleAsync(o => o.OrdenCompraId == ordenId);
+        Assert.Equal("Emitida", orden.Estado);
+        Assert.Null(orden.FechaDespacho);
+        await publishSpy.DidNotReceive().Publish<OrdenCompraDespachadaEvent>(
+            Arg.Any<OrdenCompraDespachadaEvent>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
