@@ -33,6 +33,12 @@ public class ObtenerPartidasQueryHandler
             dbQuery = dbQuery.Where(p => p.ObraId == query.ObraId.Value);
         }
 
+        if (query.ObrasPermitidas is not null)
+        {
+            var permitidas = query.ObrasPermitidas;
+            dbQuery = dbQuery.Where(x => permitidas.Contains(x.ObraId));
+        }
+
         var p = query.Paginacion ?? new ParametrosPagina();
         int total;
         List<PartidaPresupuestaria> partidas;

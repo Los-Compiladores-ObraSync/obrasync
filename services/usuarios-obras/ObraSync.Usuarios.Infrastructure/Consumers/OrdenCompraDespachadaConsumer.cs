@@ -60,9 +60,11 @@ public class OrdenCompraDespachadaConsumer : IConsumer<OrdenCompraDespachadaEven
         var capatazId = await _destinatarios.GetCapatazIdDeObraAsync(msg.ObraId, context.CancellationToken);
         if (capatazId.HasValue)
         {
+            // Si es un re-despacho (#248) el Capataz ya recibió una parte: se le aclara que viene el resto.
+            var queSeDespacho = msg.EsRedespacho ? "el resto de un pedido" : "un pedido";
             var cuerpoCapataz = msg.FechaEstimadaLlegada.HasValue
-                ? $"El proveedor despachó un pedido para tu obra (llegada est.: {msg.FechaEstimadaLlegada.Value:dd/MM})."
-                : "El proveedor despachó un pedido para tu obra.";
+                ? $"El proveedor despachó {queSeDespacho} para tu obra (llegada est.: {msg.FechaEstimadaLlegada.Value:dd/MM})."
+                : $"El proveedor despachó {queSeDespacho} para tu obra.";
 
             await _pushService.EnviarAUsuariosAsync(
                 new[] { capatazId.Value },

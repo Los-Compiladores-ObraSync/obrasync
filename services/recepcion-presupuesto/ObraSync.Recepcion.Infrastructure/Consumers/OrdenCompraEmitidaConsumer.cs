@@ -260,14 +260,38 @@ public class OrdenCompraEmitidaConsumer : IConsumer<OrdenCompraEmitidaEvent>
                 msg.OrdenCompraId, msg.EventId);
             throw;
         }
-        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
+        catch (DbUpdateException ex) when (EsViolacionDeIndiceUnico(ex))
         {
+            // Un índice único puede saltar por dos motivos distintos:
+            //  a) el mensaje ya se había procesado (OC o evento duplicado): se descarta, no hay nada que hacer;
+            //  b) otra OC de la misma obra y etapa creó la partida semilla justo antes que esta: la OC NO se guardó,
+            //     así que hay que relanzar para que MassTransit reintente y esta vez encuentre la partida.
+            // Se limpia el ChangeTracker para que la consulta de abajo no vea las entidades que no se pudieron guardar.
+            _db.ChangeTracker.Clear();
+
+            var yaProcesado =
+                await _db.EventosProcesados.AnyAsync(e => e.EventId == msg.EventId, context.CancellationToken)
+                || await _ordenCompraRepository.ExisteAsync(msg.OrdenCompraId, context.CancellationToken);
+
+            if (!yaProcesado)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Violación de índice único al guardar OrdenCompra {OrdenCompraId} (Evento {EventId}) sin que el mensaje estuviera procesado. Se relanza para reintentar. CorrelationId: {CorrelationId}",
+                    msg.OrdenCompraId, msg.EventId, correlationId);
+                throw;
+            }
+
             _logger.LogInformation(
                 "OrdenCompra {OrdenCompraId} o Evento {EventId} duplicado (detectado por índice único en BD), se descarta. CorrelationId: {CorrelationId}",
                 msg.OrdenCompraId, msg.EventId, correlationId);
             return;
         }
     }
+
+    /// <summary>2601 / 2627 son los códigos de SQL Server para clave duplicada. Es virtual para poder probar el flujo sin una base real.</summary>
+    protected virtual bool EsViolacionDeIndiceUnico(DbUpdateException ex) =>
+        ex.InnerException is SqlException { Number: 2601 or 2627 };
 
     private static List<string> CompararOrdenCompraConEvento(OrdenCompra existente, OrdenCompraEmitidaEvent evento)
     {

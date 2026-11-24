@@ -1,4 +1,5 @@
 import { useContext, useEffect, useRef, useState } from 'react'
+import { useAvisos } from '../notificaciones/useAvisos'
 import { Link, useSearchParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { AuthContext } from '../auth/sessionContext'
@@ -91,6 +92,7 @@ function mensajeDeErrorAdjudicar(err: unknown): string {
 }
 
 export function LicitacionesComprasPage() {
+  const { refrescar: refrescarAvisos } = useAvisos()
   const [searchParams, setSearchParams] = useSearchParams()
   // Solo el Comprador arma enlaces para proveedores (#252); el Admin es de solo lectura (#233).
   // Se lee el contexto sin useAuth para no exigir un AuthProvider en las pruebas de esta pantalla.
@@ -298,6 +300,7 @@ export function LicitacionesComprasPage() {
         ? `¡Licitación adjudicada con éxito! Se emitió la Orden de Compra ${ordenId}.`
         : '¡Licitación adjudicada con éxito!')
       setOrdenCompraGeneradaId(ordenId || null)
+      refrescarAvisos()
       setConfirmandoCotizacionId(null)
       setOfertaAdjudicada({
         licitacionId: licitacionSeleccionada.licitacionId,

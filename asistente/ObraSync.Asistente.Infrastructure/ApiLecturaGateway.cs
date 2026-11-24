@@ -61,6 +61,10 @@ public sealed class ApiLecturaGateway : IClienteApiLectura
             if (!resp.IsSuccessStatusCode)
                 return RespuestaApiLectura.Falla("api_http_error");
 
+            // Si ya declara un tamaño mayor al tope, ni se descarga.
+            if (resp.Content.Headers.ContentLength is long declarado && declarado > MaxBytes)
+                return RespuestaApiLectura.Falla("respuesta_demasiado_grande");
+
             var bytes = await resp.Content.ReadAsByteArrayAsync(limite.Token);
             if (bytes.Length > MaxBytes)
                 return RespuestaApiLectura.Falla("respuesta_demasiado_grande");

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAvisos } from '../notificaciones/useAvisos'
 import { Link, useLocation, useParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { useAuth } from '../auth/useAuth'
@@ -50,6 +51,7 @@ function mensajeDeError(err: unknown): string {
 }
 
 export function DetalleRequisicionPage({ volverA, rutaBaseSeguimiento }: DetalleRequisicionPageProps) {
+  const { refrescar: refrescarAvisos } = useAvisos()
   const { id = '' } = useParams()
   // Los filtros del historial viajan en la URL (?estado=…&obraId=…): al volver se conservan.
   const { search } = useLocation()
@@ -161,6 +163,7 @@ export function DetalleRequisicionPage({ volverA, rutaBaseSeguimiento }: Detalle
         fechaLimiteCotizacion: finDelDiaEnUtc(fechaLimite),
       })
       setResultado({ tipo: 'ok', fechaLimite: licitacion.fechaLimiteCotizacion })
+      refrescarAvisos()
     } catch (err) {
       setResultado({ tipo: 'error', mensaje: mensajeDeError(err) })
     } finally {

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ObraSync.Recepcion.Application.DTOs;
 using ObraSync.Recepcion.Application.Exceptions;
+using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Application.UseCases.Partidas.Commands;
 using ObraSync.Recepcion.Application.UseCases.Partidas.Handlers;
 using ObraSync.Recepcion.Application.UseCases.Partidas.Queries;
@@ -20,12 +21,15 @@ public class PresupuestosController : ControllerBase
     private readonly CrearPartidaPresupuestariaCommandHandler _crearHandler;
     private readonly ObtenerPartidasQueryHandler _obtenerPartidasHandler;
     private readonly ObtenerPartidaPorIdQueryHandler _obtenerPorIdHandler;
+    private readonly IObraAsignacionValidator? _obraAsignacionValidator;
 
     public PresupuestosController(
         CrearPartidaPresupuestariaCommandHandler crearHandler,
         ObtenerPartidasQueryHandler obtenerPartidasHandler,
-        ObtenerPartidaPorIdQueryHandler obtenerPorIdHandler)
+        ObtenerPartidaPorIdQueryHandler obtenerPorIdHandler,
+        IObraAsignacionValidator? obraAsignacionValidator = null)
     {
+        _obraAsignacionValidator = obraAsignacionValidator;
         _crearHandler = crearHandler ?? throw new ArgumentNullException(nameof(crearHandler));
         _obtenerPartidasHandler = obtenerPartidasHandler ?? throw new ArgumentNullException(nameof(obtenerPartidasHandler));
         _obtenerPorIdHandler = obtenerPorIdHandler ?? throw new ArgumentNullException(nameof(obtenerPorIdHandler));
@@ -52,7 +56,33 @@ public class PresupuestosController : ControllerBase
             return Problem(detail: error, statusCode: StatusCodes.Status400BadRequest, title: "Paginación inválida");
         }
 
-        var result = await _obtenerPartidasHandler.Handle(new ObtenerPartidasQuery(obraId, etapa, p), cancellationToken);
+        // Un Capataz solo ve el presupuesto de las obras que tiene asignadas (igual que en Recepciones, #189).
+        IReadOnlyList<Guid>? obrasPermitidas = null;
+        if (EsCapatazSinPrivilegiosSuperiores() && _obraAsignacionValidator != null)
+        {
+            try
+            {
+                if (obraId.HasValue)
+                {
+                    var asignada = await _obraAsignacionValidator.EstaAsignadaACapatazAsync(
+                        obraId.Value, ObtenerAuthorization(), ObtenerCorrelationId(), cancellationToken);
+                    if (!asignada)
+                        return ObraNoAsignada();
+                }
+                else
+                {
+                    obrasPermitidas = await _obraAsignacionValidator.ObtenerObrasAsignadasAsync(
+                        ObtenerAuthorization(), ObtenerCorrelationId(), cancellationToken);
+                }
+            }
+            catch (ObraAsignacionNoVerificableException)
+            {
+                return ValidacionDeObraNoDisponible();
+            }
+        }
+
+        var result = await _obtenerPartidasHandler.Handle(
+            new ObtenerPartidasQuery(obraId, etapa, p, obrasPermitidas), cancellationToken);
 
         if (Response?.Headers is not null)
         {
@@ -93,6 +123,21 @@ public class PresupuestosController : ControllerBase
                 detail: $"No se encontró la partida presupuestaria con id '{id}'.");
         }
 
+        if (EsCapatazSinPrivilegiosSuperiores() && _obraAsignacionValidator != null)
+        {
+            try
+            {
+                var asignada = await _obraAsignacionValidator.EstaAsignadaACapatazAsync(
+                    result.ObraId, ObtenerAuthorization(), ObtenerCorrelationId(), cancellationToken);
+                if (!asignada)
+                    return ObraNoAsignada();
+            }
+            catch (ObraAsignacionNoVerificableException)
+            {
+                return ValidacionDeObraNoDisponible();
+            }
+        }
+
         return Ok(result);
     }
 
@@ -119,4 +164,28 @@ public class PresupuestosController : ControllerBase
             new { id = result.Id },
             result);
     }
+
+    private bool EsCapatazSinPrivilegiosSuperiores() =>
+        User?.Identity?.IsAuthenticated == true
+        && User.IsInRole("Capataz")
+        && !User.IsInRole("Admin")
+        && !User.IsInRole("Comprador");
+
+    private string? ObtenerAuthorization() => Request?.Headers["Authorization"].ToString();
+
+    private string ObtenerCorrelationId()
+    {
+        var header = Request?.Headers["X-Correlation-ID"].ToString();
+        return Guid.TryParse(header, out var id) && id != Guid.Empty ? id.ToString() : Guid.NewGuid().ToString();
+    }
+
+    private ObjectResult ObraNoAsignada() => Problem(
+        detail: "La obra no está asignada al capataz autenticado.",
+        statusCode: StatusCodes.Status403Forbidden,
+        title: "Obra no asignada");
+
+    private ObjectResult ValidacionDeObraNoDisponible() => Problem(
+        detail: "No se pudo verificar las obras asignadas al capataz porque el servicio Usuarios y Obras no respondió. Reintentá en unos segundos.",
+        statusCode: StatusCodes.Status503ServiceUnavailable,
+        title: "Servicio no disponible");
 }
