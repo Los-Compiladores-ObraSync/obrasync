@@ -54,6 +54,12 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
             {
                 services.RemoveAll<IHostedService>();
 
+                var presupuesto = Substitute.For<IEstadoPresupuestarioOrden>();
+                presupuesto.EstaBloqueadaAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<bool?>(false));
+                services.RemoveAll<IEstadoPresupuestarioOrden>();
+                services.AddSingleton(presupuesto);
+
                 var descriptor = services.SingleOrDefault(
                     d => d.ServiceType == typeof(DbContextOptions<LicitacionesDbContext>));
                 if (descriptor != null)
