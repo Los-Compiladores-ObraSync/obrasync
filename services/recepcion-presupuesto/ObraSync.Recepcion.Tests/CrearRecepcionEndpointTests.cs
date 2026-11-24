@@ -555,7 +555,9 @@ public class CrearRecepcionEndpointTests : IClassFixture<RecepcionApiFactory>
         Assert.NotNull(primeraDto);
         Assert.Equal(EstadoRecepcion.Parcial, primeraDto.Estado);
 
-        // 2. La OC sigue en GET /api/recepciones/ordenes-pendientes con cantidadRecibida = 75
+        await RedespachoDePrueba.RegistrarAsync(_factory.Services, ordenId);
+
+        // 2. El nuevo despacho vuelve a habilitar la orden con cantidadRecibida = 75
         var pendientesTrasPrimera = await (await client.GetAsync($"/api/recepciones/ordenes-pendientes?obraId={obraId}"))
             .Content.ReadFromJsonAsync<List<OrdenPendienteDto>>();
         Assert.NotNull(pendientesTrasPrimera);
@@ -609,6 +611,8 @@ public class CrearRecepcionEndpointTests : IClassFixture<RecepcionApiFactory>
         Assert.Equal(HttpStatusCode.Created, r1.StatusCode);
 
         // Segunda entrega: 30 de 100 (acumulado 105 > 100) -> 400 Bad Request
+        await RedespachoDePrueba.RegistrarAsync(_factory.Services, ordenId);
+
         var segunda = CrearSolicitud(ordenId, obraId, articuloId, cantidadEsperada: 100, cantidadRecibida: 30);
         var r2 = await client.PostAsJsonAsync("/api/recepciones", segunda);
         Assert.Equal(HttpStatusCode.BadRequest, r2.StatusCode);
@@ -681,6 +685,8 @@ public class CrearRecepcionEndpointTests : IClassFixture<RecepcionApiFactory>
                 new { articuloId = art2, descripcionArticulo = "Cemento Portland", cantidadEsperada = 30m, cantidadRecibida = 30m, unidadMedida = "BOLSA", conforme = true, observacion = (string?)null }
             }
         };
+
+        await RedespachoDePrueba.RegistrarAsync(_factory.Services, ordenId);
 
         var r2 = await client.PostAsJsonAsync("/api/recepciones", entrega2);
         Assert.Equal(HttpStatusCode.Created, r2.StatusCode);
@@ -756,6 +762,8 @@ public class CrearRecepcionEndpointTests : IClassFixture<RecepcionApiFactory>
         Assert.Equal(EstadoRecepcion.Parcial, dto1.Estado);
 
         // Consultar órdenes pendientes tras entrega 1
+        await RedespachoDePrueba.RegistrarAsync(_factory.Services, ordenId);
+
         var pendientes1 = await (await client.GetAsync($"/api/recepciones/ordenes-pendientes?obraId={obraId}"))
             .Content.ReadFromJsonAsync<List<OrdenPendienteDto>>();
         Assert.NotNull(pendientes1);
@@ -784,6 +792,8 @@ public class CrearRecepcionEndpointTests : IClassFixture<RecepcionApiFactory>
         Assert.Equal(EstadoRecepcion.Parcial, dto2.Estado);
 
         // Consultar órdenes pendientes tras entrega 2
+        await RedespachoDePrueba.RegistrarAsync(_factory.Services, ordenId);
+
         var pendientes2 = await (await client.GetAsync($"/api/recepciones/ordenes-pendientes?obraId={obraId}"))
             .Content.ReadFromJsonAsync<List<OrdenPendienteDto>>();
         Assert.NotNull(pendientes2);
@@ -884,6 +894,8 @@ public class CrearRecepcionEndpointTests : IClassFixture<RecepcionApiFactory>
         }
 
         // 2. Recepción de las 60 restantes ($60.000) -> MontoEjecutado = $100.000, MontoComprometido = $100.000
+        await RedespachoDePrueba.RegistrarAsync(_factory.Services, ordenId);
+
         var r2 = await client.PostAsJsonAsync("/api/recepciones",
             CrearSolicitud(ordenId, obraId, articuloId, cantidadEsperada: 60m, cantidadRecibida: 60m));
         Assert.Equal(HttpStatusCode.Created, r2.StatusCode);

@@ -113,7 +113,13 @@ public class RecepcionParcialEstadoIntermedioTests
         Assert.NotNull(dtoParcial);
         Assert.Equal(EstadoRecepcion.Parcial, dtoParcial.Estado);
 
-        // Verifica que sigue abierta en ordenes-pendientes con remanente = 6 y estado intermedio
+        var pendientesSinRedespacho = await client.GetFromJsonAsync<List<OrdenPendienteDto>>("/api/recepciones/ordenes-pendientes");
+        Assert.NotNull(pendientesSinRedespacho);
+        Assert.DoesNotContain(pendientesSinRedespacho, o => o.OrdenCompraId == ordenId);
+
+        // El nuevo despacho vuelve a habilitar la recepción de las 6 bolsas restantes.
+        await RedespachoDePrueba.RegistrarAsync(factory.Services, ordenId);
+
         var pendientesLuegoParcial = await client.GetFromJsonAsync<List<OrdenPendienteDto>>("/api/recepciones/ordenes-pendientes");
         Assert.NotNull(pendientesLuegoParcial);
         var ordenParcial = Assert.Single(pendientesLuegoParcial, o => o.OrdenCompraId == ordenId);
@@ -136,6 +142,8 @@ public class RecepcionParcialEstadoIntermedioTests
 
         var respProblema = await client.PostAsync("/api/recepciones/problemas", formProblema);
         Assert.Equal(HttpStatusCode.Created, respProblema.StatusCode);
+
+        await RedespachoDePrueba.RegistrarAsync(factory.Services, ordenId);
 
         var pendientesConProblema = await client.GetFromJsonAsync<List<OrdenPendienteDto>>("/api/recepciones/ordenes-pendientes");
         Assert.NotNull(pendientesConProblema);

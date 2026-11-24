@@ -332,6 +332,8 @@ public class EntregaConProblemaTests : IClassFixture<RecepcionApiFactory>
         Assert.Equal(4_000m, (await db.PartidasPresupuestarias.AsNoTracking().SingleAsync(p => p.Id == partida.Id)).MontoEjecutado);
 
         // 2. Entrega con problema: no llegó nada (0 bolsas)
+        await RedespachoDePrueba.RegistrarAsync(db, ocId);
+
         var problema = await crearHandler.Handle(new CrearRecepcionCommand(
             obraId, ocId, Guid.NewGuid(), "", DateTime.UtcNow.AddMinutes(-10), "No vino el fletero",
             Array.Empty<CrearDetalleRecepcionRequest>(),
@@ -343,6 +345,8 @@ public class EntregaConProblemaTests : IClassFixture<RecepcionApiFactory>
         Assert.Single(problema.Fotos);
 
         // Remanente intacto (60 pendientes, 40 recibidas) y presupuesto intacto (4_000m ejecutado)
+        await RedespachoDePrueba.RegistrarAsync(db, ocId);
+
         var pendientesTrasProblema = await pendientesHandler.Handle(new ObtenerOrdenesPendientesQuery(obraId));
         var ordenPendiente = Assert.Single(pendientesTrasProblema.Items);
         Assert.True(ordenPendiente.TieneProblemaAbierto);
@@ -648,6 +652,8 @@ public class EntregaConProblemaTests : IClassFixture<RecepcionApiFactory>
 
         for (int i = 0; i < 2; i++)
         {
+            if (i > 0) await RedespachoDePrueba.RegistrarAsync(_factory.Services, oc.Id);
+
             using var form = new MultipartFormDataContent();
             form.Add(new StringContent(obraId.ToString()), "obraId");
             form.Add(new StringContent(oc.Id.ToString()), "ordenCompraId");
@@ -709,6 +715,8 @@ public class EntregaConProblemaTests : IClassFixture<RecepcionApiFactory>
             }));
 
         // 2. Problema (Rechazada) -> publica RecepcionConProblemaEvent (no confirmada)
+        await RedespachoDePrueba.RegistrarAsync(db, oc.Id);
+
         await handler.Handle(new CrearRecepcionCommand(
             obraId, oc.Id, Guid.NewGuid(), "", DateTime.UtcNow.AddMinutes(-2), "No llegó el segundo viaje",
             Array.Empty<CrearDetalleRecepcionRequest>(),
@@ -716,6 +724,8 @@ public class EntregaConProblemaTests : IClassFixture<RecepcionApiFactory>
             MotivoProblema: MotivosProblemaRecepcion.NoLlegoNada));
 
         // 3. Remanente completo (60/60) -> OrdenCompleta = true
+        await RedespachoDePrueba.RegistrarAsync(db, oc.Id);
+
         await handler.Handle(new CrearRecepcionCommand(
             obraId, oc.Id, Guid.NewGuid(), "R-2", DateTime.UtcNow, null,
             new[]

@@ -509,6 +509,8 @@ public class FlujoIntegracionRecepcionTests : IClassFixture<RecepcionApiFactory>
         }
 
         var client = CrearCliente("Capataz");
+        await RedespachoDePrueba.RegistrarAsync(_factory.Services, ordenCompraId);
+
         var resPendientes = await client.GetAsync($"/api/recepciones/ordenes-pendientes?obraId={obraId}");
         Assert.Equal(HttpStatusCode.OK, resPendientes.StatusCode);
 
@@ -627,6 +629,8 @@ public class FlujoIntegracionRecepcionTests : IClassFixture<RecepcionApiFactory>
         Assert.Equal(HttpStatusCode.Created, r1.StatusCode);
 
         // Verificar pendientes y presupuesto tras Entrega 1
+        await RedespachoDePrueba.RegistrarAsync(_factory.Services, ordenCompraId);
+
         var pend1 = await (await client.GetAsync($"/api/recepciones/ordenes-pendientes?obraId={obraId}"))
             .Content.ReadFromJsonAsync<List<OrdenPendienteDto>>();
         Assert.NotNull(pend1);
@@ -660,6 +664,8 @@ public class FlujoIntegracionRecepcionTests : IClassFixture<RecepcionApiFactory>
         Assert.Equal(HttpStatusCode.Created, r2.StatusCode);
 
         // Verificar pendientes y presupuesto tras Entrega 2
+        await RedespachoDePrueba.RegistrarAsync(_factory.Services, ordenCompraId);
+
         var pend2 = await (await client.GetAsync($"/api/recepciones/ordenes-pendientes?obraId={obraId}"))
             .Content.ReadFromJsonAsync<List<OrdenPendienteDto>>();
         Assert.NotNull(pend2);

@@ -260,6 +260,7 @@ public class PaginacionRecepcionTests : IClassFixture<RecepcionApiFactory>
                 RecepcionadoPorUsuarioId = Guid.NewGuid(),
                 NumeroRemito = "REM-1",
                 FechaRecepcion = DateTime.UtcNow,
+                CreatedAt = oc1.FechaDespacho!.Value.AddSeconds(-1),
                 Estado = EstadoRecepcion.Parcial
             };
             rec1.Detalles.Add(new DetalleRecepcion

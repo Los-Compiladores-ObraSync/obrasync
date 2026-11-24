@@ -520,6 +520,12 @@ public class CrearRecepcionCommandHandlerTests
             cantidadEsperada: 25m,
             cantidadRecibida: 25m);
 
+        var conflicto = await Assert.ThrowsAsync<RecepcionConflictoException>(
+            () => handler.Handle(cmd2, CancellationToken.None));
+        Assert.Contains("esperando que el proveedor despache", conflicto.Message);
+
+        await RedespachoDePrueba.RegistrarAsync(db, oc.Id);
+
         var res2 = await handler.Handle(cmd2, CancellationToken.None);
         Assert.Equal(EstadoRecepcion.Completa, res2.Estado);
         Assert.Equal(25m, res2.Detalles.Single().CantidadRecibida);
@@ -542,6 +548,8 @@ public class CrearRecepcionCommandHandlerTests
         await handler.Handle(
             CrearComandoValido(obraId, oc.Id, articuloId, numeroRemito: "REM-1", cantidadEsperada: 100m, cantidadRecibida: 75m),
             CancellationToken.None);
+
+        await RedespachoDePrueba.RegistrarAsync(db, oc.Id);
 
         await handler.Handle(
             CrearComandoValido(obraId, oc.Id, articuloId, numeroRemito: "REM-2", cantidadEsperada: 100m, cantidadRecibida: 25m),
@@ -566,6 +574,8 @@ public class CrearRecepcionCommandHandlerTests
         await handler.Handle(
             CrearComandoValido(obraId, oc.Id, articuloId, numeroRemito: "REM-1", cantidadEsperada: 100m, cantidadRecibida: 75m),
             CancellationToken.None);
+
+        await RedespachoDePrueba.RegistrarAsync(db, oc.Id);
 
         // Segunda entrega con 30 (75 + 30 = 105 > 100)
         var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
@@ -636,6 +646,8 @@ public class CrearRecepcionCommandHandlerTests
                 new() { ArticuloId = art1, DescripcionArticulo = "Hierro", CantidadEsperada = 100m, CantidadRecibida = 0m, UnidadMedida = "UN", Conforme = true },
                 new() { ArticuloId = art2, DescripcionArticulo = "Cemento", CantidadEsperada = 30m, CantidadRecibida = 30m, UnidadMedida = "UN", Conforme = true }
             });
+
+        await RedespachoDePrueba.RegistrarAsync(db, oc.Id);
 
         var res2 = await handler.Handle(cmd2, CancellationToken.None);
         Assert.Equal(EstadoRecepcion.Completa, res2.Estado);
