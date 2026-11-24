@@ -121,6 +121,7 @@ public class ObtenerRecepcionesPorOrdenQueryHandler
             ObservacionDespacho = orden.ObservacionDespacho,
             EstaCompleta = estaCompleta,
             TieneProblemaAbierto = tieneProblemaAbierto,
+            BloqueadaPorPresupuesto = orden.EstaBloqueada,
             EstadoEntrega = EstadosEntregaOrden.Calcular(
                 estaCompleta: estaCompleta,
                 tieneProblemaAbierto: tieneProblemaAbierto,

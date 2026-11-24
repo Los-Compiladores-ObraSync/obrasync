@@ -450,7 +450,10 @@ public class RedespachoRemanenteOrdenCompraTests : IClassFixture<WebApplicationF
         unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
             .ThrowsAsync(new DbUpdateException("Fallo simulado al confirmar re-despacho"));
 
-        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, publishEndpoint, unitOfWork);
+        var estadoPresupuestario = Substitute.For<ObraSync.Licitaciones.Application.Interfaces.IEstadoPresupuestarioOrden>();
+        estadoPresupuestario.EstaBloqueadaAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<bool?>(false));
+        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, publishEndpoint, unitOfWork, estadoPresupuestario);
 
         await Assert.ThrowsAsync<DbUpdateException>(() =>
             handler.Handle(new DespacharOrdenCompraCommand(ordenId, proveedorId, Guid.NewGuid()), CancellationToken.None));

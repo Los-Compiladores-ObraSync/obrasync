@@ -47,6 +47,9 @@ function mensajeDeErrorDespacho(err: unknown): string {
     if (err.status === 400) return err.detail ?? 'Revisá los datos del despacho.'
     if (err.status === 403) return 'No podés despachar esta orden: solo la puede despachar el proveedor al que se la compraron.'
     if (err.status === 404) return err.detail ?? 'La orden de compra ya no existe. Se actualizó la lista.'
+    if (err.status === 409) {
+         return err.detail ?? 'No se pudo confirmar el despacho. Revisá el estado de la orden.'
+    }
   }
   return 'No se pudo conectar con el servidor. Intentá nuevamente.'
 }

@@ -24,6 +24,19 @@ const string signalRAccessTokenItemKey = "ObraSync.SignalR.AccessToken";
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddHttpClient("RecepcionPresupuesto", client =>
+{
+    var url = builder.Configuration["RecepcionPresupuesto:BaseUrl"]
+        ?? "http://localhost:5004";
+
+    client.BaseAddress = new Uri(url);
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+builder.Services.AddScoped<
+    ObraSync.Licitaciones.Application.Interfaces.IEstadoPresupuestarioOrden,
+    EstadoPresupuestarioOrdenClient>();
 builder.Services.AddSignalR();
 
 // Errores en formato ProblemDetails + correlationId
