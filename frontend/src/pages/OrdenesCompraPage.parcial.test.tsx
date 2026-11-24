@@ -10,7 +10,9 @@ import { OrdenesCompraPage } from './OrdenesCompraPage'
 vi.mock('../chat/ChatOrden', () => ({ ChatOrden: () => null }))
 vi.mock('../chat/useChatEnLista', () => ({
   useChatEnLista: () => ({
-    problemaDe: () => ({ abierto: false, motivo: null }),
+    problemaDe: (orden: { tieneProblemaAbierto?: boolean; motivoProblemaAbierto?: string }) => ({
+      abierto: orden.tieneProblemaAbierto === true, motivo: orden.motivoProblemaAbierto ?? null,
+    }),
     noLeidosDe: () => 0,
     marcarLeida: () => {},
     cambiarProblema: () => {},
@@ -52,9 +54,20 @@ describe('OrdenesCompraPage: entrega parcial (#249)', () => {
     renderPagina()
 
     expect(await screen.findByText(/Falta que el proveedor despache el resto/)).toBeInTheDocument()
-    expect(screen.getByText('Entrega parcial', { selector: 'span' })).toBeInTheDocument()
+    expect(screen.getByText('Recepción parcial', { selector: 'span' })).toBeInTheDocument()
     expect(screen.queryByText(/La recepción está completa/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Siguiente paso: Recepción debe registrar/)).not.toBeInTheDocument()
+  })
+
+  it('prioriza el motivo del problema cuando la orden espera un nuevo despacho', async () => {
+    server.use(http.get('*/api/ordenes-compra', () => HttpResponse.json([
+      { ...orden, tieneRecepcionParcialPendiente: false, tieneProblemaAbierto: true, motivoProblemaAbierto: 'Llegó dañada' },
+    ])))
+    renderPagina()
+
+    expect(await screen.findByText('Pendiente de nuevo despacho')).toBeInTheDocument()
+    expect(screen.getByText('Entrega con problema: Llegó dañada')).toBeInTheDocument()
+    expect(screen.queryByText('Recepción parcial')).not.toBeInTheDocument()
   })
 
   it('una orden despachada sin parcial sigue mostrando "Despachada"', async () => {
@@ -66,6 +79,6 @@ describe('OrdenesCompraPage: entrega parcial (#249)', () => {
     renderPagina()
 
     expect(await screen.findByText('Despachada', { selector: 'span' })).toBeInTheDocument()
-    expect(screen.queryByText('Entrega parcial', { selector: 'span' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Recepción parcial', { selector: 'span' })).not.toBeInTheDocument()
   })
 })

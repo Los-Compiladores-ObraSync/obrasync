@@ -98,7 +98,7 @@ describe('OrdenesCompraPage: seguimiento de la entrega (#224)', () => {
 
     await user.click(screen.getByRole('button', { name: /Ver seguimiento de la entrega/ }))
 
-    expect(await screen.findByText(/Pedido 80 bolsas · Recibido 0 bolsas · Pendiente 80 bolsas/)).toBeInTheDocument()
+    expect(await screen.findByText(/Adjudicado: 80 bolsas/)).toHaveTextContent('Recibido: 0 bolsas · Por recibir: 80 bolsas')
     expect(screen.getByText('Hay un problema de entrega abierto en esta orden.')).toBeInTheDocument()
     expect(screen.getByText('Motivo: No llegó nada')).toBeInTheDocument()
   })

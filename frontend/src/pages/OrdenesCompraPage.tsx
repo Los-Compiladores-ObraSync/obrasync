@@ -10,7 +10,6 @@ import { SeguimientoEntrega } from '../recepciones/SeguimientoEntrega'
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { obtenerObras } from '../requisiciones/requisicionesService'
 import { destinoDeRegreso } from '../historialCompras/contextoNavegacion'
-import { tieneEntregaParcial } from '../licitaciones/entregaParcial'
 import styles from './OrdenesCompraPage.module.css'
 
 /** Código corto para nombrar una orden en pantalla: los primeros 8 caracteres de su id. */
@@ -85,7 +84,7 @@ export function OrdenesCompraPage() {
   }, [cargando, ordenSolicitadaId, ordenes])
 
   return (
-    <section className={styles.contenedor}>
+    <section className={`${styles.contenedor} pantalla-ancha`}>
       <Link to={destinoDeRegreso(searchParams)} className={styles.volverEnlace}>
         ← Volver al inicio
       </Link>
@@ -123,33 +122,41 @@ export function OrdenesCompraPage() {
         <ul className={styles.lista}>
           {visibles.map((orden) => {
             const codigo = codigoDeOrden(orden.id)
-            const entregaParcial = tieneEntregaParcial(orden)
+            const problema = chat.problemaDe(orden)
+            const completa = orden.recibidaCompleta === true
+            const parcial = !completa && !problema.abierto && orden.tieneRecepcionParcialPendiente === true
+            const pendiente = !completa && orden.puedeRedespachar === true
+            const incidencia = !completa && (problema.abierto || parcial || pendiente)
+            let estado = orden.fueDespachada ? 'Despachada' : 'Sin despachar'
+            if (completa) estado = 'Entrega completa'
+            else if (problema.abierto) estado = pendiente ? 'Pendiente de nuevo despacho' : 'Entrega con problema'
+            else if (parcial) estado = 'Recepción parcial'
+            else if (pendiente) estado = 'Pendiente de nuevo despacho'
             return (
-              <li key={orden.id} id={`orden-${orden.id}`} className={styles.orden} data-despachada={orden.fueDespachada}>
+              <li key={orden.id} id={`orden-${orden.id}`} className={styles.orden}
+                data-despachada={orden.fueDespachada} data-incidencia={incidencia} data-completa={completa}>
                 <div className={styles.cabecera}>
-                  <span className={styles.ordenObra}>{nombresObras[orden.obraId] ?? 'Obra'}</span>
-                  <span className={styles.estado}>
-                    {entregaParcial && !orden.recibidaCompleta ? 'Entrega parcial' : orden.fueDespachada ? 'Despachada' : 'Sin despachar'}
-                  </span>
+                  <h2 className={styles.ordenObra}>Orden {codigo}</h2>
+                  <span className={styles.estado}>{estado}</span>
                 </div>
+                <p className={styles.dato}>{nombresObras[orden.obraId] ?? 'Obra'}</p>
                 {orden.id === ordenSolicitadaId && <p role="status">Esta es la orden generada por la adjudicación.</p>}
-                {chat.problemaDe(orden).abierto && (
+                {!completa && problema.abierto && (
                   <p className={styles.problema} role="status">
-                    Entrega con problema{chat.problemaDe(orden).motivo ? `: ${chat.problemaDe(orden).motivo}` : ''}
+                    Entrega con problema{problema.motivo ? `: ${problema.motivo}` : ''}
                   </p>
                 )}
-                {entregaParcial && !orden.recibidaCompleta && (
-                  <p className={styles.parcial} role="status">
-                    {orden.puedeRedespachar
-                      ? 'Entrega parcial: Recepción registró una parte del pedido. Falta que el proveedor despache el resto.'
-                      : 'Entrega parcial: falta recibir el resto del pedido.'}
+                {parcial && (
+                  <p className={styles.problema} role="status">
+                    {pendiente ? 'Falta que el proveedor despache el resto.' : 'Falta recibir el resto del pedido.'}
                   </p>
                 )}
-                <p className={styles.dato}>Orden {codigo}</p>
-                <p className={styles.dato}>Emitida el {fechaLarga(orden.fechaEmision)}</p>
-                {orden.fueDespachada && orden.fechaDespacho && (
-                  <p className={styles.dato}>Despachada el {fechaLarga(orden.fechaDespacho)} por el proveedor</p>
-                )}
+                <div className={styles.fechas}>
+                  <p className={styles.dato}>Emitida el {fechaLarga(orden.fechaEmision)}</p>
+                  {orden.fueDespachada && orden.fechaDespacho && (
+                    <p className={styles.dato}>Despachada el {fechaLarga(orden.fechaDespacho)} por el proveedor</p>
+                  )}
+                </div>
                 {orden.fueDespachada && orden.fechaEstimadaLlegada && (
                   <p className={styles.dato}>Llega el {fechaLarga(orden.fechaEstimadaLlegada)}</p>
                 )}
@@ -159,7 +166,7 @@ export function OrdenesCompraPage() {
                 {!orden.fueDespachada && (
                   <p className={styles.dato}>Esperando que el proveedor la despache.</p>
                 )}
-                {orden.fueDespachada && !orden.recibidaCompleta && !entregaParcial && (
+                {orden.fueDespachada && !completa && !incidencia && (
                   <p className={styles.dato}>Pendiente de recepción en obra.</p>
                 )}
                 {orden.recibidaCompleta && <p className={styles.dato}>La recepción está completa. Ya no requiere seguimiento de entrega.</p>}
@@ -172,7 +179,7 @@ export function OrdenesCompraPage() {
                   ordenCompraId={orden.id}
                   codigo={codigo}
                   noLeidos={chat.noLeidosDe(orden)}
-                  problema={chat.problemaDe(orden)}
+                  problema={problema}
                   alLeer={() => chat.marcarLeida(orden.id)}
                   alCambiarProblema={(estado) => chat.cambiarProblema(orden.id, estado)}
                 />
