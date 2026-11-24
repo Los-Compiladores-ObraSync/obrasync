@@ -115,7 +115,7 @@ export function CrearCapatazForm({ alCrear, alCancelar }: Props) {
           onChange={(e) => setPassword(e.target.value)}
           aria-invalid={!!errores.password}
         />
-        <p className={styles.ayuda}>Se la pasás al capataz por tu cuenta. Mínimo 6 caracteres.</p>
+        <p className={styles.ayuda}>Se la pasás al capataz por tu cuenta. Mínimo 8 caracteres y al menos un número.</p>
         {errores.password && <p className={styles.errorCampo}>{errores.password}</p>}
       </div>
 

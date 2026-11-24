@@ -69,7 +69,7 @@ describe('CambiarContrasenaPage', () => {
     expect(llamadas).toBe(0)
   })
 
-  it('no llama a la API si la nueva contraseña tiene menos de 6 caracteres', async () => {
+  it('no llama a la API si la nueva contraseña tiene menos de 8 caracteres', async () => {
     let llamadas = 0
     server.use(
       http.post(RUTA, () => {
@@ -82,7 +82,7 @@ describe('CambiarContrasenaPage', () => {
 
     await completar(user, ACTUAL_OK, 'abc12', 'abc12')
 
-    expect(screen.getByText('La contraseña debe tener al menos 6 caracteres.')).toBeInTheDocument()
+    expect(screen.getByText('La contraseña debe tener al menos 8 caracteres.')).toBeInTheDocument()
     expect(llamadas).toBe(0)
   })
 

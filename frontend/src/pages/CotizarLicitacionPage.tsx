@@ -9,6 +9,7 @@ import {
   obtenerMisCotizaciones,
 } from '../licitaciones/licitacionesService'
 import { formatoPrecio } from '../licitaciones/cotizacionesCalculos'
+import { PlazoEntregaOpciones } from '../licitaciones/PlazoEntregaOpciones'
 import type {
   CotizacionResponseDto,
   CrearCotizacionRequestDto,
@@ -573,8 +574,17 @@ function FormularioCotizacion() {
             Plazo de entrega (en días)
           </label>
           <p className={styles.ayudaCampo}>
-            Escribí solo el número de días corridos. Por ejemplo, 5 significa cinco días.
+            Elegí un plazo frecuente o escribí otro: solo el número de días corridos. Por ejemplo, 5 significa cinco días.
           </p>
+          <PlazoEntregaOpciones
+            valor={plazoEntregaDias}
+            deshabilitado={enviando || esBloqueante}
+            onElegir={(dias) => {
+              const val = String(dias)
+              setPlazoEntregaDias(val)
+              setErrores((prev) => ({ ...prev, plazoEntregaDias: validarPlazoEntregaDias(val) }))
+            }}
+          />
           <input
             id="plazoEntregaDias"
             type="text"

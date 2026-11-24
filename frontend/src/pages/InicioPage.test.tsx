@@ -112,8 +112,57 @@ describe('InicioPage', () => {
       'href',
       '/proveedores/mis-cotizaciones',
     )
-    expect(screen.getByRole('link', { name: 'Mis órdenes' })).toHaveAttribute('href', '/proveedores/mis-ordenes')
+    expect(screen.getByRole('link', { name: /^Mis órdenes/ })).toHaveAttribute('href', '/proveedores/mis-ordenes')
     expect(screen.getByRole('link', { name: 'Mi reputación' })).toHaveAttribute('href', '/proveedores/mi-reputacion')
+  })
+
+  it('Capataz: avisa cuántos pedidos despachados tiene para recibir y lleva a la recepción', async () => {
+    server.use(
+      http.get('*/api/recepciones/ordenes-pendientes', () =>
+        HttpResponse.json([
+          { ordenCompraId: 'o-1', obraId: 'ob-1', items: [] },
+          { ordenCompraId: 'o-2', obraId: 'ob-1', items: [] },
+        ]),
+      ),
+    )
+    renderInicio('Capataz')
+
+    expect(await screen.findByText('Tenés 2 pedidos para recibir')).toBeInTheDocument()
+    const tarjeta = screen.getByRole('region', { name: 'Resumen de pedidos por recibir' })
+    expect(within(tarjeta).getByRole('link', { name: 'Ver pedidos para recibir' })).toHaveAttribute('href', '/obra/recepcion')
+  })
+
+  it('Capataz: sin pedidos para recibir no muestra la tarjeta', async () => {
+    server.use(http.get('*/api/recepciones/ordenes-pendientes', () => HttpResponse.json([])))
+    renderInicio('Capataz')
+
+    expect(await screen.findByRole('link', { name: 'Nueva requisición' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Resumen de pedidos por recibir' })).not.toBeInTheDocument()
+  })
+
+  it('Proveedor: avisa cuántas órdenes tiene para despachar, lleva a Mis órdenes y lo marca en el acceso', async () => {
+    server.use(
+      http.get('*/api/ordenes-compra', () =>
+        HttpResponse.json([
+          { ordenCompraId: 'o-1', fueDespachada: false },
+          { ordenCompraId: 'o-2', fueDespachada: true },
+          { ordenCompraId: 'o-3', fueDespachada: true, puedeRedespachar: true },
+        ]),
+      ),
+    )
+    renderInicio('Proveedor')
+
+    expect(await screen.findByText('Tenés 2 órdenes para despachar')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Despachar órdenes' })).toHaveAttribute('href', '/proveedores/mis-ordenes')
+    expect(screen.getByRole('img', { name: 'Tenés 2 órdenes para despachar' })).toBeInTheDocument()
+  })
+
+  it('Proveedor: sin órdenes para despachar no muestra la tarjeta', async () => {
+    server.use(http.get('*/api/ordenes-compra', () => HttpResponse.json([{ ordenCompraId: 'o-1', fueDespachada: true }])))
+    renderInicio('Proveedor')
+
+    expect(await screen.findByRole('region', { name: 'Resumen de licitaciones' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Resumen de órdenes por despachar' })).not.toBeInTheDocument()
   })
 
   it('Proveedor: la tarjeta cuenta las licitaciones que le faltan cotizar y lleva a cotizarlas', async () => {

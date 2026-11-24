@@ -19,8 +19,9 @@ describe('validarCapataz', () => {
     expect(validarCapataz({ ...valido, email: 'ana@' }).email).toBe('Ingresá un email válido.')
   })
 
-  it('rechaza una contraseña de menos de 6 caracteres y acepta justo 6', () => {
-    expect(validarCapataz({ ...valido, password: '12345' }).password).toContain('al menos 6')
-    expect(validarCapataz({ ...valido, password: '123456' }).password).toBeUndefined()
+  it('rechaza una contraseña de menos de 8 caracteres o sin número, y acepta una válida', () => {
+    expect(validarCapataz({ ...valido, password: '1234567' }).password).toContain('al menos 8')
+    expect(validarCapataz({ ...valido, password: 'sinnumero' }).password).toContain('al menos un número')
+    expect(validarCapataz({ ...valido, password: 'secreta12' }).password).toBeUndefined()
   })
 })

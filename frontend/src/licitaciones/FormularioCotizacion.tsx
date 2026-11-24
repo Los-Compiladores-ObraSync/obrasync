@@ -2,6 +2,7 @@ import { type FormEvent, useState } from 'react'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from '../pages/CotizarLicitacionPage.module.css'
 import { formatoPrecio } from './cotizacionesCalculos'
+import { PlazoEntregaOpciones } from './PlazoEntregaOpciones'
 import type { PliegoItemDto } from './licitacionesTipos'
 import type { CotizarConMagicLinkRequestDto } from './magicLinkTipos'
 import {
@@ -211,7 +212,8 @@ export function FormularioCotizacion({ items, enviando, bloqueado, textoBoton, o
 
       <div className={styles.grupo}>
         <label htmlFor="plazoEntregaDias" className={styles.label}>Plazo de entrega (en días)</label>
-        <p className={styles.ayudaCampo}>Escribí solo el número de días corridos. Por ejemplo, 5 significa cinco días.</p>
+        <p className={styles.ayudaCampo}>Elegí un plazo frecuente o escribí otro: solo el número de días corridos. Por ejemplo, 5 significa cinco días.</p>
+        <PlazoEntregaOpciones valor={plazoEntregaDias} deshabilitado={deshabilitado} onElegir={(dias) => setPlazoEntregaDias(String(dias))} />
         <input
           id="plazoEntregaDias"
           type="text"

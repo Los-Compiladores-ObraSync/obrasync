@@ -3,14 +3,21 @@ import { iniciales } from '../auth/iniciales'
 import { useAuth } from '../auth/useAuth'
 import { InsigniaCantidad } from '../licitaciones/InsigniaCantidad'
 import { ResumenLicitaciones } from '../licitaciones/ResumenLicitaciones'
+import { ResumenOrdenesPorDespachar } from '../licitaciones/ResumenOrdenesPorDespachar'
 import { useLicitacionesPorCotizar } from '../licitaciones/useLicitacionesPorCotizar'
+import { useOrdenesPorDespachar } from '../licitaciones/useOrdenesPorDespachar'
 import { ROLES_QUE_VEN_PENDIENTES } from '../notificaciones/configuracionAvisos'
 import { ResumenAprobacion } from '../notificaciones/ResumenAprobacion'
-import { textoLicitacionesParaCotizar, textoPendientes } from '../notificaciones/textos'
+import {
+  textoLicitacionesParaCotizar,
+  textoOrdenesParaDespachar,
+  textoPendientes,
+} from '../notificaciones/textos'
 import { usePendientes } from '../notificaciones/usePendientes'
-import { AvisosEnEsteCelular } from '../notificaciones/AvisosEnEsteCelular'
 import { accionesParaRol } from '../portales/accionesRapidas'
 import { portalesParaRol } from '../portales/portales'
+import { ResumenOrdenesPorRecibir } from '../recepciones/ResumenOrdenesPorRecibir'
+import { useOrdenesPorRecibir } from '../recepciones/useOrdenesPorRecibir'
 import { ComprasPage } from './ComprasPage'
 import styles from './InicioPage.module.css'
 
@@ -18,6 +25,8 @@ import styles from './InicioPage.module.css'
 const RUTA_HISTORIAL_REQUISICIONES = '/compras/requisiciones/historial'
 /** Para el Proveedor, las licitaciones por cotizar figuran como "Pendientes" en su Historial de cotizaciones. */
 const RUTA_HISTORIAL_COTIZACIONES = '/proveedores/mis-cotizaciones'
+/** Para el Proveedor, desde acá despacha las órdenes que le adjudicaron. */
+const RUTA_MIS_ORDENES = '/proveedores/mis-ordenes'
 
 export function InicioPage() {
   const { usuario } = useAuth()
@@ -40,6 +49,13 @@ export function InicioPage() {
   const porCotizar = licitaciones.cantidad ?? 0
   // Igual que el Historial de requisiciones del Comprador: se resalta mientras haya pendientes.
   const resaltarCotizaciones = cotiza && porCotizar > 0
+  // Órdenes que le toca despachar: tarjeta arriba y numerito en "Mis órdenes".
+  const ordenes = useOrdenesPorDespachar(cotiza)
+  const porDespachar = ordenes.cantidad ?? 0
+  const resaltarOrdenes = cotiza && porDespachar > 0
+  // El Capataz recibe: la tarjeta le dice cuántos pedidos ya despachó el Proveedor.
+  const recibe = usuario?.rol === 'Capataz'
+  const porRecibir = useOrdenesPorRecibir(recibe)
 
   return (
     <>
@@ -83,9 +99,10 @@ export function InicioPage() {
         </Link>
       ))}
       {apruebaRequisiciones && <ResumenAprobacion />}
+      {recibe && <ResumenOrdenesPorRecibir cantidad={porRecibir.cantidad} />}
+      {cotiza && <ResumenOrdenesPorDespachar cantidad={ordenes.cantidad} />}
       {cotiza && <ResumenLicitaciones {...licitaciones} />}
       {usuario?.rol === 'Comprador' && <ComprasPage integrada descripcionPendientes={textoPendientes(pendientes)} />}
-      <AvisosEnEsteCelular />
       {acciones.length > 0 && usuario?.rol !== 'Comprador' && (
         <ul className="lista-acciones">
           {acciones.map((accion) => (
@@ -95,7 +112,8 @@ export function InicioPage() {
                 className={
                   apruebaRequisiciones || cotiza
                     ? (accion.ruta === RUTA_HISTORIAL_REQUISICIONES && resaltarHistorial) ||
-                      (accion.ruta === RUTA_HISTORIAL_COTIZACIONES && resaltarCotizaciones)
+                      (accion.ruta === RUTA_HISTORIAL_COTIZACIONES && resaltarCotizaciones) ||
+                      (accion.ruta === RUTA_MIS_ORDENES && resaltarOrdenes)
                       ? `accion-secundaria ${styles.conPendientes}`
                       : 'accion-secundaria'
                     : 'accion-grande'
@@ -112,6 +130,14 @@ export function InicioPage() {
                     <InsigniaCantidad
                       cantidad={porCotizar}
                       descripcion={textoLicitacionesParaCotizar(porCotizar)}
+                    />
+                  </span>
+                ) : accion.ruta === RUTA_MIS_ORDENES && resaltarOrdenes ? (
+                  <span>
+                    {accion.texto}
+                    <InsigniaCantidad
+                      cantidad={porDespachar}
+                      descripcion={textoOrdenesParaDespachar(porDespachar)}
                     />
                   </span>
                 ) : (

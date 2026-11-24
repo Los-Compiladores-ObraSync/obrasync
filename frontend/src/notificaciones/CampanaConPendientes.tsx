@@ -14,7 +14,13 @@ export function CampanaConPendientes() {
   const { cantidad: cantidadPendientes, pendientes } = usePendientes()
   const { cantidad: cantidadBloqueadas, cargado: bloqueadasCargadas, huboError, refrescar } = useBloqueadas()
   const { cantidad: cantidadNovedades, novedades, marcarVistas } = useNovedades()
-  const { cantidad: cantidadAvisos, paraHacer, novedades: novedadesDeFlujo, marcarVistas: marcarAvisos } = useAvisos()
+  const {
+    cantidad: cantidadAvisos,
+    paraHacer,
+    novedades: novedadesDeFlujo,
+    marcarVistas: marcarAvisos,
+    refrescar: refrescarAvisos,
+  } = useAvisos()
   const cantidadTotal = cantidadPendientes + cantidadBloqueadas + cantidadNovedades + cantidadAvisos
   const [abierto, setAbierto] = useState(false)
   const idPanel = useId()
@@ -56,7 +62,11 @@ export function CampanaConPendientes() {
         resaltada={cantidadTotal >= UMBRAL_PENDIENTES}
         abierto={abierto}
         idPanel={idPanel}
-        onClick={() => setAbierto((anterior) => !anterior)}
+        onClick={() => {
+          // Al abrir el panel se actualizan los avisos: así no muestra algo que ya hiciste.
+          if (!abierto) refrescarAvisos()
+          setAbierto((anterior) => !anterior)
+        }}
       />
       {abierto && (
         <PanelNotificaciones

@@ -1,6 +1,5 @@
 ﻿import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { setOnUnauthorized, setToken } from '../api/client'
-import { limpiarPushAlCerrarSesion } from '../notificaciones/pushService'
 import {
   AuthContext,
   leerSesionGuardada,
@@ -21,7 +20,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   })
 
   const logout = useCallback(() => {
-    limpiarPushAlCerrarSesion()
     localStorage.removeItem(STORAGE_KEY)
     setToken(null)
     setUsuario(null)
