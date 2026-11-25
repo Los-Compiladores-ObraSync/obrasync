@@ -94,9 +94,25 @@ public static class DefaultExceptionProblemMappers
         new DelegateExceptionProblemMapper<ArgumentException>(ex => Crear(
             StatusCodes.Status400BadRequest,
             "Datos inválidos",
-            ex.Message,
+            LimpiarMensajeArgumentException(ex.Message),
             "https://tools.ietf.org/html/rfc9110#section-15.5.1"))
     ];
+
+    private static string LimpiarMensajeArgumentException(string mensaje)
+    {
+        if (string.IsNullOrWhiteSpace(mensaje))
+            return string.Empty;
+
+        var indiceParametro = mensaje.IndexOf(" (Parameter '", StringComparison.Ordinal);
+        if (indiceParametro >= 0)
+            return mensaje.Substring(0, indiceParametro).Trim();
+
+        var indiceParametroAlt = mensaje.IndexOf(" (Parameter", StringComparison.Ordinal);
+        if (indiceParametroAlt >= 0)
+            return mensaje.Substring(0, indiceParametroAlt).Trim();
+
+        return mensaje.Trim();
+    }
 
     public static ProblemDetails CrearErrorInterno() => Crear(
         StatusCodes.Status500InternalServerError,

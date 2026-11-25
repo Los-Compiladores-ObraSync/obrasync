@@ -6,6 +6,7 @@ using ObraSync.Requisiciones.Application.DTOs;
 using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Application.Mappings;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Commands;
+using ObraSync.Requisiciones.Domain.Entities;
 
 namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers;
 
@@ -50,5 +51,6 @@ public class ReenviarRequisicionCommandHandler : ICommandHandler<ReenviarRequisi
             throw new ArgumentException("El identificador del usuario es obligatorio.", nameof(command));
 
         CatalogoItemsResolver.ExtraerArticuloIdsValidos(command.Items);
+        Requisicion.NormalizarObservaciones(command.Observaciones);
     }
 }

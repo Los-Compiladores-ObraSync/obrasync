@@ -1511,6 +1511,7 @@
           },
           "observaciones": {
             "type": "string",
+            "maxLength": 1000,
             "nullable": true,
             "description": "Notas o comentarios opcionales del solicitante."
           },
@@ -1701,7 +1702,7 @@
           },
           "observaciones": {
             "type": "string",
-            "maxLength": 500,
+            "maxLength": 1000,
             "nullable": true,
             "description": "Observaciones o justificación corregida al reenviar la requisición."
           },

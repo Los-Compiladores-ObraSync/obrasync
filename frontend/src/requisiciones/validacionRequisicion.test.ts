@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   hayErrores,
+  LARGO_MAXIMO_OBSERVACIONES,
   mapearEstadoRequisicion,
   validarRequisicion,
   type RequisicionForm,
@@ -99,6 +100,20 @@ describe('validarRequisicion', () => {
     })
     expect(hayErrores(errores)).toBe(true)
     expect(errores.items?.[1]?.articuloId).toBe('Este insumo ya fue agregado en la lista.')
+  })
+
+  it('acepta observaciones de hasta 1000 caracteres y rechaza si lo superan', () => {
+    const alLimite = `  ${'a'.repeat(LARGO_MAXIMO_OBSERVACIONES)}  `
+    const erroresLimite = validarRequisicion({ ...formValido, observaciones: alLimite })
+    expect(hayErrores(erroresLimite)).toBe(false)
+    expect(erroresLimite.observaciones).toBeUndefined()
+
+    const excedidas = 'a'.repeat(LARGO_MAXIMO_OBSERVACIONES + 1)
+    const erroresExcedidas = validarRequisicion({ ...formValido, observaciones: excedidas })
+    expect(hayErrores(erroresExcedidas)).toBe(true)
+    expect(erroresExcedidas.observaciones).toBe(
+      `Las observaciones no pueden superar los ${LARGO_MAXIMO_OBSERVACIONES} caracteres.`,
+    )
   })
 })
 

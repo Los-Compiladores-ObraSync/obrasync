@@ -16,6 +16,7 @@ import type {
 } from '../requisiciones/requisicionesTipos'
 import {
   hayErrores,
+  LARGO_MAXIMO_OBSERVACIONES,
   mapearEstadoRequisicion,
   validarRequisicion,
   type ErroresRequisicion,
@@ -46,6 +47,9 @@ function mensajeDeErrorApi(err: unknown, editando = false): string {
     if (err.status === 409) {
       if (editando) return 'La requisición ya fue aprobada, rechazada o cancelada y no puede editarse.'
       return err.detail ?? 'La requisición entra en conflicto con el estado actual. Revisá los datos.'
+    }
+    if (err.status >= 500) {
+      return err.detail ?? 'Ocurrió un error en el servidor. Intentá nuevamente.'
     }
   }
   return 'No se pudo conectar con el servidor. Intentá nuevamente.'
@@ -610,11 +614,28 @@ export function NuevaRequisicionPage() {
           </label>
           <textarea
             id="req-observaciones"
-            className={styles.textarea}
+            className={
+              errores.observaciones ? `${styles.textarea} ${styles.inputInvalido}` : styles.textarea
+            }
             value={observaciones}
             onChange={(e) => setObservaciones(e.target.value)}
+            maxLength={LARGO_MAXIMO_OBSERVACIONES}
             placeholder="Notas o detalles para la entrega"
+            aria-invalid={!!errores.observaciones}
+            aria-describedby={
+              errores.observaciones
+                ? 'req-observaciones-error req-observaciones-ayuda'
+                : 'req-observaciones-ayuda'
+            }
           />
+          <p id="req-observaciones-ayuda" className={styles.contadorCaracteres}>
+            {observaciones.length}/{LARGO_MAXIMO_OBSERVACIONES} caracteres
+          </p>
+          {errores.observaciones && (
+            <p id="req-observaciones-error" className={styles.errorCampo} role="alert">
+              {errores.observaciones}
+            </p>
+          )}
         </div>
 
         <button type="submit" className={styles.boton} disabled={enviando}>

@@ -42,6 +42,8 @@
 .tarjeta {
   display: flex;
   flex-direction: column;
+  /* Evita que una secuencia larga ensanche la columna del grid. */
+  min-width: 0;
   gap: 0.625rem;
   padding: 1.25rem;
   border: 0;
@@ -75,6 +77,12 @@
   margin: 0;
   font-size: 1.0625rem;
   color: var(--texto-suave);
+}
+
+/* Se conservan los saltos de línea y se corta cualquier texto sin espacios. */
+.observaciones {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* Los materiales van en un recuadro aparte: es lo que se está aprobando. */

@@ -1,5 +1,7 @@
 import { errorDeFormatoNumerico, esUnidadEntera, MENSAJE_SOLO_ENTEROS } from '../formularios/numeros'
 
+export const LARGO_MAXIMO_OBSERVACIONES = 1000
+
 export interface ItemRequisicionForm {
   articuloId: string
   cantidad: string
@@ -22,6 +24,7 @@ export interface ErroresItemRequisicion {
 export interface ErroresRequisicion {
   obraId?: string
   etapa?: string
+  observaciones?: string
   itemsGeneral?: string
   items?: Record<number, ErroresItemRequisicion>
 }
@@ -46,6 +49,10 @@ export function validarRequisicion(form: RequisicionForm): ErroresRequisicion {
 
   if (!form.etapa || form.etapa.trim() === '') {
     errores.etapa = 'Tenés que seleccionar una etapa de la obra.'
+  }
+
+  if ((form.observaciones?.trim().length ?? 0) > LARGO_MAXIMO_OBSERVACIONES) {
+    errores.observaciones = `Las observaciones no pueden superar los ${LARGO_MAXIMO_OBSERVACIONES} caracteres.`
   }
 
   if (!form.items || form.items.length === 0) {
@@ -101,7 +108,7 @@ export function validarRequisicion(form: RequisicionForm): ErroresRequisicion {
  * Determina si el objeto de errores tiene al menos una falla de validación.
  */
 export function hayErrores(errores: ErroresRequisicion): boolean {
-  if (errores.obraId || errores.etapa || errores.itemsGeneral) {
+  if (errores.obraId || errores.etapa || errores.observaciones || errores.itemsGeneral) {
     return true
   }
   if (errores.items && Object.keys(errores.items).length > 0) {

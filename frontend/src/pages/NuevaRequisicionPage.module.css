@@ -82,6 +82,13 @@
   color: #dc2626;
 }
 
+.contadorCaracteres {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--texto-suave);
+  text-align: right;
+}
+
 .itemsFieldset {
   display: flex;
   flex-direction: column;
@@ -243,6 +250,9 @@
   border-radius: 16px;
   background: #f0fdf4;
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .cabeceraExito {
@@ -283,6 +293,15 @@
   border-top: 1px solid #dcfce7;
   border-bottom: 1px solid #dcfce7;
   font-size: 1rem;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.datosConfirmacion p {
+  margin: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .listaItemsConfirmados {
