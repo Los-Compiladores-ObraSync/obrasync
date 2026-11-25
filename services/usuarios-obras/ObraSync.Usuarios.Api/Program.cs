@@ -84,12 +84,17 @@ builder.Services.AddScoped<IJwtProvider, JwtProvider>();
 builder.Services.AddScoped<IUsuarioQueryRepository, UsuarioQueryRepository>();
 builder.Services.AddScoped<ICorreoSaliente, SmtpCorreoSaliente>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IPasswordService, PasswordService>();
+builder.Services.AddScoped<IDirectorioUsuariosService, DirectorioUsuariosService>();
+builder.Services.AddScoped<IPlantillaObraRepository, PlantillaObraRepository>();
+builder.Services.AddScoped<IPlantillaObraService, PlantillaObraService>();
 builder.Services.AddScoped<IObraService, ObraService>();
 builder.Services.AddScoped<ISuscripcionPushRepository, SuscripcionPushRepository>();
 builder.Services.AddScoped<ISuscripcionPushService, SuscripcionPushService>();
 builder.Services.AddScoped<IDestinatariosNotificacionService, DestinatariosNotificacionService>();
 builder.Services.AddScoped<INotificacionPushService, NotificacionPushService>();
 builder.Services.AddHttpClient<IWebPushSender, WebPushSender>();
+builder.Services.AddExceptionProblemDetailsMapping();
 
 // 4b. RabbitMQ + MassTransit para consumir eventos de negocio y disparar Web Push (#227)
 var useInMemoryTransport = string.Equals(

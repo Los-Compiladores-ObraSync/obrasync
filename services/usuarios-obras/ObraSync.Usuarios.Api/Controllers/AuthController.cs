@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ObraSync.Usuarios.Application.DTOs;
 using ObraSync.Usuarios.Application.Interfaces;
-using ObraSync.Usuarios.Domain.Entities;
 
 namespace ObraSync.Usuarios.Api.Controllers;
 
@@ -14,7 +13,7 @@ public class AuthController : ControllerBase
 
     public AuthController(IAuthService authService)
     {
-        _authService = authService;
+        _authService = authService ?? throw new ArgumentNullException(nameof(authService));
     }
 
     /// <summary>
@@ -53,108 +52,5 @@ public class AuthController : ControllerBase
     {
         var response = await _authService.LoginAsync(request);
         return Ok(response);
-    }
-
-    /// <summary>
-    /// Crea una solicitud de recuperación de contraseña: si el email existe y la cuenta está activa,
-    /// genera un token de un solo uso (vigencia: 1 hora) y emite el enlace en los logs del servicio.
-    /// Siempre responde lo mismo, exista o no el email, para no revelar qué cuentas existen.
-    /// POST /api/usuarios/password/recuperaciones
-    /// </summary>
-    /// <remarks>
-    /// Endpoint público (sin JWT). RIESGO CONOCIDO: no tiene límite de intentos (rate limiting);
-    /// queda fuera del alcance de este sprint (tarjeta #53).
-    /// </remarks>
-    [HttpPost("password/recuperaciones")]
-    [AllowAnonymous]
-    [ProducesResponseType(typeof(MensajeResponseDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> RecuperarPassword([FromBody] RecuperarPasswordRequestDto request)
-    {
-        return Ok(await _authService.RecuperarPasswordAsync(request));
-    }
-
-    /// <summary>
-    /// Registra el restablecimiento de contraseña del usuario validando el token de recuperación de un solo uso.
-    /// POST /api/usuarios/password/restablecimientos
-    /// </summary>
-    [HttpPost("password/restablecimientos")]
-    [AllowAnonymous]
-    [ProducesResponseType(typeof(MensajeResponseDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> RestablecerPassword([FromBody] RestablecerPasswordRequestDto request)
-    {
-        return Ok(await _authService.RestablecerPasswordAsync(request));
-    }
-
-    /// <summary>
-    /// Registra el cambio de contraseña del usuario autenticado verificando su contraseña actual (tarjeta #121).
-    /// POST /api/usuarios/password/cambios
-    /// </summary>
-    [HttpPost("password/cambios")]
-    [Authorize]
-    [ProducesResponseType(typeof(MensajeResponseDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> CambiarPassword([FromBody] CambiarPasswordRequestDto request)
-    {
-        return Ok(await _authService.CambiarPasswordAsync(request, User));
-    }
-
-    [HttpGet("capataces")]
-    [Authorize(Roles = $"{UserRoles.Comprador},{UserRoles.Admin}")]
-    [ProducesResponseType(typeof(IEnumerable<CapatazDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<IEnumerable<CapatazDto>>> GetCapatacesActivos(
-        [FromQuery] int pagina = 1,
-        [FromQuery] int tamano = ParametrosPagina.TamanoMaximo)
-    {
-        var p = new ParametrosPagina(pagina, tamano);
-        var error = p.Validar();
-        if (error is not null)
-        {
-            return Problem(detail: error, statusCode: StatusCodes.Status400BadRequest, title: "Paginación inválida");
-        }
-
-        var (capataces, total) = await _authService.GetCapatacesActivosPaginadosAsync(p);
-
-        if (Response?.Headers is not null)
-        {
-            Response.Headers["X-Total-Count"] = total.ToString();
-            Response.Headers["X-Page"] = p.Pagina.ToString();
-            Response.Headers["X-Page-Size"] = p.Tamano.ToString();
-        }
-
-        return Ok(capataces);
-    }
-
-    /// <summary>
-    /// Listar proveedores activos (Roles: Comprador, Admin). Compras lo usa para elegir a quién generarle un Magic Link (#157).
-    /// </summary>
-    [HttpGet("proveedores")]
-    [Authorize(Roles = $"{UserRoles.Comprador},{UserRoles.Admin}")]
-    [ProducesResponseType(typeof(IEnumerable<ProveedorDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<IEnumerable<ProveedorDto>>> GetProveedoresActivos(
-        [FromQuery] int pagina = 1,
-        [FromQuery] int tamano = ParametrosPagina.TamanoMaximo)
-    {
-        var p = new ParametrosPagina(pagina, tamano);
-        var error = p.Validar();
-        if (error is not null)
-        {
-            return Problem(detail: error, statusCode: StatusCodes.Status400BadRequest, title: "Paginación inválida");
-        }
-
-        var (proveedores, total) = await _authService.GetProveedoresActivosPaginadosAsync(p);
-
-        if (Response?.Headers is not null)
-        {
-            Response.Headers["X-Total-Count"] = total.ToString();
-            Response.Headers["X-Page"] = p.Pagina.ToString();
-            Response.Headers["X-Page-Size"] = p.Tamano.ToString();
-        }
-
-        return Ok(proveedores);
     }
 }
