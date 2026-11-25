@@ -22,7 +22,7 @@ namespace ObraSync.Licitaciones.Tests;
 
 /// <summary>
 /// Tarjeta #251: Validar que plazoEntregaDias sea un entero positivo en días corridos (>= 1)
-/// en POST /api/cotizaciones, PUT /api/cotizaciones/{id} y POST /api/licitaciones/magic-links/{hash}/cotizaciones.
+/// (y <= 15: máximo 15 días corridos desde que se cotiza) en POST /api/cotizaciones, PUT /api/cotizaciones/{id} y POST /api/licitaciones/magic-links/{hash}/cotizaciones.
 /// </summary>
 public class PlazoEntregaValidacionTests : IClassFixture<WebApplicationFactory<Program>>
 {
@@ -151,7 +151,9 @@ public class PlazoEntregaValidacionTests : IClassFixture<WebApplicationFactory<P
     [Theory]
     [InlineData(0)]
     [InlineData(-3)]
-    public async Task PostCotizacion_PlazoCeroONegativo_Retorna400ProblemDetailsConUnidadYCorrelationId(int plazoInvalido)
+    [InlineData(16)]
+    [InlineData(365)]
+    public async Task PostCotizacion_PlazoFueraDeRango_Retorna400ProblemDetailsConUnidadYCorrelationId(int plazoInvalido)
     {
         Guid licId = Guid.Empty;
         Guid artId = Guid.Empty;
@@ -186,7 +188,9 @@ public class PlazoEntregaValidacionTests : IClassFixture<WebApplicationFactory<P
     [Theory]
     [InlineData(0)]
     [InlineData(-5)]
-    public async Task PutCotizacion_PlazoCeroONegativo_Retorna400ProblemDetailsConUnidadYCorrelationId(int plazoInvalido)
+    [InlineData(16)]
+    [InlineData(365)]
+    public async Task PutCotizacion_PlazoFueraDeRango_Retorna400ProblemDetailsConUnidadYCorrelationId(int plazoInvalido)
     {
         Guid licId = Guid.Empty;
         Guid artId = Guid.Empty;
@@ -241,7 +245,9 @@ public class PlazoEntregaValidacionTests : IClassFixture<WebApplicationFactory<P
     [Theory]
     [InlineData(0)]
     [InlineData(-2)]
-    public async Task MagicLinkCotizar_PlazoCeroONegativo_Retorna400ProblemDetailsSinQuemarElEnlace(int plazoInvalido)
+    [InlineData(16)]
+    [InlineData(365)]
+    public async Task MagicLinkCotizar_PlazoFueraDeRango_Retorna400ProblemDetailsSinQuemarElEnlace(int plazoInvalido)
     {
         Guid licId = Guid.Empty;
         Guid artId = Guid.Empty;
@@ -346,5 +352,40 @@ public class PlazoEntregaValidacionTests : IClassFixture<WebApplicationFactory<P
         var corregida = await putResp.Content.ReadFromJsonAsync<CotizacionResponseDto>();
         Assert.NotNull(corregida);
         Assert.Equal(1, corregida.PlazoEntregaDias);
+    }
+
+    [Theory]
+    [InlineData("BOLSA", null)]
+    [InlineData("M3", "Bolsa de 25 kg")]
+    public async Task PostCotizacion_FraccionDeBolsa_Retorna400(string unidadPliego, string? presentacion)
+    {
+        Guid licId = Guid.Empty;
+        Guid artId = Guid.Empty;
+        var proveedorId = Guid.NewGuid();
+
+        using var factory = CreateIsolatedFactory(db =>
+        {
+            (licId, artId) = SembrarLicitacionAbierta(db);
+            db.Licitaciones.Local.Single(l => l.LicitacionId == licId).Items.Single().UnidadMedida = unidadPliego;
+        });
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorId));
+
+        var resp = await client.PostAsJsonAsync("/api/cotizaciones", new CrearCotizacionRequestDto
+        {
+            LicitacionId = licId,
+            ProveedorId = proveedorId,
+            Flete = 100m,
+            PlazoEntregaDias = 5,
+            Items = new List<CrearCotizacionItemDto>
+            {
+                new() { ArticuloId = artId, PrecioUnitario = 1500m, PresentacionOfrecida = presentacion, CantidadOfrecida = 1.4m }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+        Assert.Contains("bolsas", await resp.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
     }
 }

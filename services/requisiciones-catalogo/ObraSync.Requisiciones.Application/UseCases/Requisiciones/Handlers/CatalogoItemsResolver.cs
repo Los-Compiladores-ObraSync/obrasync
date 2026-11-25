@@ -41,6 +41,12 @@ internal static class CatalogoItemsResolver
                 throw new KeyNotFoundException($"No se encontró el artículo con Id '{item.ArticuloId}' en el catálogo.");
             }
 
+            if (string.Equals(insumo.UnidadMedida, "BOLSA", StringComparison.OrdinalIgnoreCase)
+                && item.Cantidad != decimal.Truncate(item.Cantidad))
+            {
+                throw new ArgumentException($"Las bolsas se piden en cantidades enteras: '{insumo.Descripcion}' no admite fracciones.");
+            }
+
             resultado.Add(RequisicionItem.CrearDesde(requisicionId, insumo, item.Cantidad));
         }
 

@@ -79,6 +79,37 @@ namespace ObraSync.Requisiciones.Tests.Application
             await requisicionRepo.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         }
 
+        [Theory]
+        [InlineData(UnidadesMedida.Bolsa, 1.4, true)]
+        [InlineData(UnidadesMedida.Bolsa, 2, false)]
+        [InlineData(UnidadesMedida.Kilogramo, 1.4, false)]
+        public async Task CreateRequisicion_BolsasSoloEnteras(string unidad, double cantidad, bool debeRechazar)
+        {
+            var requisicionRepo = Substitute.For<IRequisicionRepository>();
+            var insumoRepo = Substitute.For<IInsumoRepository>();
+            var articuloId = Guid.NewGuid();
+            insumoRepo.GetByIdsAsync(Arg.Any<IEnumerable<Guid>>(), Arg.Any<CancellationToken>())
+                .Returns(new List<Insumo> { new(articuloId, "MAT-001", "Material de prueba", unidad, activo: true, precioReferencia: 100m) });
+            requisicionRepo.GetNextSequenceNumberAsync(Arg.Any<CancellationToken>()).Returns(1);
+
+            var handler = new CreateRequisicionCommandHandler(requisicionRepo, insumoRepo);
+            var command = new CreateRequisicionCommand(
+                ObraId: Guid.NewGuid(),
+                SolicitanteId: Guid.NewGuid(),
+                Items: new List<CrearRequisicionItemDto> { new() { ArticuloId = articuloId, Cantidad = (decimal)cantidad } });
+
+            if (debeRechazar)
+            {
+                var ex = await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(command, CancellationToken.None));
+                Assert.Contains("enteras", ex.Message);
+            }
+            else
+            {
+                var resultado = await handler.Handle(command, CancellationToken.None);
+                Assert.NotEqual(Guid.Empty, resultado.RequisicionId);
+            }
+        }
+
         [Fact]
         public async Task CreateRequisicion_ConArticuloInexistente_DebeLanzarKeyNotFoundException()
         {

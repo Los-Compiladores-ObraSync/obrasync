@@ -277,6 +277,12 @@ public class CrearRecepcionCommandHandler
                     throw new ArgumentException("La cantidad recibida no puede ser negativa.");
                 }
 
+                if (string.Equals(articuloComprado.UnidadMedida, "BOLSA", StringComparison.OrdinalIgnoreCase)
+                    && detalleRequest.CantidadRecibida != decimal.Truncate(detalleRequest.CantidadRecibida))
+                {
+                    throw new ArgumentException("Las bolsas se reciben en cantidades enteras: no se pueden recibir fracciones de bolsa.");
+                }
+
                 if (detalleRequest.CantidadRecibida > cantidadPendiente)
                 {
                     throw new ArgumentException("La cantidad recibida acumulada supera la cantidad pedida en la orden de compra.");
