@@ -1,6 +1,10 @@
+import { errorDeFormatoNumerico, esUnidadEntera, MENSAJE_SOLO_ENTEROS } from '../formularios/numeros'
+
 export interface ItemRequisicionForm {
   articuloId: string
   cantidad: string
+  /** Unidad de medida del insumo elegido (BOLSA, KG…). Si es BOLSA, la cantidad tiene que ser entera. */
+  unidadMedida?: string
 }
 
 export interface RequisicionForm {
@@ -29,7 +33,8 @@ export interface ErroresRequisicion {
  * 2. Etapa obligatoria en la UI.
  * 3. Al menos un ítem en la lista.
  * 4. Cada ítem debe tener un insumo seleccionado.
- * 5. Cantidad: número positivo mayor a 0 (permite decimales). Vacío, 0 o negativos no son válidos.
+ * 5. Cantidad: número positivo mayor a 0. Los decimales llevan punto (nunca coma) y las bolsas van enteras.
+ *    Vacío, 0 o negativos no son válidos.
  * 6. No se permite seleccionar el mismo insumo dos veces.
  */
 export function validarRequisicion(form: RequisicionForm): ErroresRequisicion {
@@ -68,9 +73,15 @@ export function validarRequisicion(form: RequisicionForm): ErroresRequisicion {
     if (cantidadStr === '') {
       errorItem.cantidad = 'Ingresá una cantidad.'
     } else {
+      const entera = esUnidadEntera(item.unidadMedida)
+      const errorFormato = errorDeFormatoNumerico(cantidadStr, entera)
       const cantidadNum = Number(cantidadStr)
-      if (Number.isNaN(cantidadNum) || cantidadNum <= 0) {
+      if (errorFormato) {
+        errorItem.cantidad = errorFormato
+      } else if (Number.isNaN(cantidadNum) || cantidadNum <= 0) {
         errorItem.cantidad = 'La cantidad debe ser mayor a 0.'
+      } else if (entera && !Number.isInteger(cantidadNum)) {
+        errorItem.cantidad = MENSAJE_SOLO_ENTEROS
       }
     }
 

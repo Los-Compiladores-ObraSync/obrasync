@@ -34,6 +34,8 @@ export interface OrdenPendiente {
   observacionDespacho?: string | null
   /** true si lo último que se registró sobre la orden fue una entrega con problema, sin una recepción válida después (#217). */
   tieneProblemaAbierto?: boolean
+  /** La entrega volvió al Proveedor por un problema: el Capataz no puede recibir hasta que despache de nuevo. */
+  esperaNuevoDespacho?: boolean
   /** Estado intermedio de la entrega (#236): "Pendiente", "Entrega parcial / Pendiente de re-despacho" o "Con problema". */
   estadoEntrega?: EstadoEntrega
   items: ItemOrdenPendiente[]
@@ -138,6 +140,8 @@ export interface RecepcionesDeOrden {
   /** true si ya hay una recepción Completa. */
   estaCompleta?: boolean
   tieneProblemaAbierto?: boolean
+  /** La entrega volvió al Proveedor por un problema: el Capataz no puede recibir hasta que despache de nuevo. */
+  esperaNuevoDespacho?: boolean
   /** Estado consolidado de la entrega (#236). */
   estadoEntrega?: EstadoEntrega
   items: ItemOrdenPendiente[]

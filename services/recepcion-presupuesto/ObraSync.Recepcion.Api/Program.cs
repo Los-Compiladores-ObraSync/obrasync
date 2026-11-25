@@ -64,6 +64,7 @@ builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<OrdenCompraEmitidaConsumer>();
     x.AddConsumer<OrdenCompraDespachadaConsumer>();
+    x.AddConsumer<ObraCreadaConsumer>();
     if (useInMemoryTransport)
     {
         x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));

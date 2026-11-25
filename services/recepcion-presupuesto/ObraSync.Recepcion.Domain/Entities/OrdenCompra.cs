@@ -218,7 +218,13 @@ public class OrdenCompra : BaseEntity
 
         if (FechaDespacho.HasValue && (!esRedespacho || fechaDespachoUtc <= FechaDespacho.Value))
         {
-            return;
+            // Un evento repetido conserva el primer despacho; un redespacho (el proveedor vuelve a enviar
+            // tras un problema o un remanente) solo cuenta si es más nuevo que el que ya teníamos.
+            var nuevo = FechaUtc.Normalizar(fechaDespachoUtc);
+            if (!esRedespacho || nuevo <= FechaDespacho.Value)
+            {
+                return;
+            }
         }
 
         string? observacionNormalizada = NormalizarObservacionDespacho(observacionDespacho);
@@ -229,6 +235,13 @@ public class OrdenCompra : BaseEntity
         ObservacionDespacho = observacionNormalizada;
         UpdatedAt = ahora;
     }
+
+    /// <summary>
+    /// ¿La orden está esperando que el proveedor la despache de nuevo? Pasa cuando el capataz marcó un problema
+    /// y el último despacho conocido es anterior (o igual) a ese problema. Mientras dure, el capataz no puede registrar recepciones.
+    /// </summary>
+    public bool EsperaNuevoDespachoTras(DateTime fechaUltimoProblemaUtc) =>
+        !FechaDespacho.HasValue || FechaDespacho.Value <= FechaUtc.Normalizar(fechaUltimoProblemaUtc);
 
     private static string? NormalizarObservacionDespacho(string? observacionDespacho)
     {

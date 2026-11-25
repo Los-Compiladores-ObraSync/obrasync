@@ -1462,6 +1462,11 @@
           "nombreCompleto": {
             "type": "string",
             "nullable": true
+          },
+          "telefono": {
+            "type": "string",
+            "nullable": true,
+            "description": "Teléfono con código de país si el proveedor lo cargó al registrarse; con él Compras abre WhatsApp directo a su chat."
           }
         },
         "additionalProperties": false
@@ -1623,6 +1628,12 @@
           "rol": {
             "type": "string",
             "nullable": true
+          },
+          "telefono": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^\\+?[0-9 ()\\-]{8,20}$",
+            "description": "Opcional. Teléfono con código de país (ej. +54 9 11 5555 1234). Sirve para mandarle por WhatsApp los enlaces de cotización."
           }
         },
         "additionalProperties": false

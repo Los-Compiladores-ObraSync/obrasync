@@ -27,11 +27,12 @@ public class CrearRecepcionCommandHandlerTests
 
     private static (OrdenCompra oc, Guid obraId, Guid articuloId) SembrarOrdenCompra(
         RecepcionDbContext db,
-        decimal cantidad = 100m)
+        decimal cantidad = 100m,
+        string unidadMedida = "UNIDAD")
     {
         var obraId = Guid.NewGuid();
         var articuloId = Guid.NewGuid();
-        var item = OrdenCompraItem.Crear(articuloId, cantidad, "UNIDAD", 10m, "Barras de hierro");
+        var item = OrdenCompraItem.Crear(articuloId, cantidad, unidadMedida, 10m, "Barras de hierro");
         var oc = OrdenCompra.Crear(Guid.NewGuid(), obraId, Guid.NewGuid(), cantidad * 10m, new List<OrdenCompraItem> { item },
             fechaDespacho: DateTime.UtcNow);
 
@@ -662,6 +663,46 @@ public class CrearRecepcionCommandHandlerTests
 
         Assert.Equal(0, await db.Recepciones.CountAsync());
         await publisher.DidNotReceiveWithAnyArgs().PublishRecepcionConfirmadaAsync(default!, default, default);
+    }
+
+    [Fact]
+    public async Task Handle_FraccionDeBolsa_LanzaArgumentException()
+    {
+        using var db = CreateInMemoryContext();
+        var (oc, obraId, articuloId) = SembrarOrdenCompra(db, cantidad: 100m, unidadMedida: "BOLSA");
+        var publisher = Substitute.For<IRecepcionEventPublisher>();
+        var handler = new CrearRecepcionCommandHandler(db, publisher, NullLogger<CrearRecepcionCommandHandler>.Instance);
+
+        var cmd = CrearComandoValido(
+            obraId, oc.Id, articuloId,
+            numeroRemito: "REM-BOLSA",
+            cantidadEsperada: 100m,
+            cantidadRecibida: 1.4m);
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            handler.Handle(cmd, CancellationToken.None));
+
+        Assert.Contains("bolsas", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, await db.Recepciones.CountAsync());
+    }
+
+    [Fact]
+    public async Task Handle_FraccionDeKilos_SiSeAcepta()
+    {
+        using var db = CreateInMemoryContext();
+        var (oc, obraId, articuloId) = SembrarOrdenCompra(db, cantidad: 100m, unidadMedida: "KG");
+        var publisher = Substitute.For<IRecepcionEventPublisher>();
+        var handler = new CrearRecepcionCommandHandler(db, publisher, NullLogger<CrearRecepcionCommandHandler>.Instance);
+
+        var cmd = CrearComandoValido(
+            obraId, oc.Id, articuloId,
+            numeroRemito: "REM-KG",
+            cantidadEsperada: 100m,
+            cantidadRecibida: 1.4m);
+
+        await handler.Handle(cmd, CancellationToken.None);
+
+        Assert.Equal(1, await db.Recepciones.CountAsync());
     }
 
     [Fact]

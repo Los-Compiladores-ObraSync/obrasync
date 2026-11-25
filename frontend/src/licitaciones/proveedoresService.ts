@@ -5,6 +5,8 @@ import { conPaginacion, traerTodas } from '../api/paginacion'
 export interface Proveedor {
   id: string
   nombreCompleto: string
+  /** Opcional, con código de país: sirve para abrirle WhatsApp con el enlace de cotización. */
+  telefono?: string | null
 }
 
 /**

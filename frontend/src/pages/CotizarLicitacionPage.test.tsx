@@ -125,11 +125,36 @@ describe('CotizarLicitacionPage', () => {
 
     const inputPlazo = screen.getByLabelText('Plazo de entrega (en días)')
     await user.click(inputPlazo)
-    await user.type(inputPlazo, '3,5')
+    await user.type(inputPlazo, '3.5')
     await user.tab()
 
     expect(
       await screen.findByText('El plazo de entrega debe ser un número entero de días.'),
+    ).toBeInTheDocument()
+  })
+
+  it('no deja escribir comas en precio, flete ni plazo, y rechaza plazos de más de 15 días', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+    await screen.findByText('Cotizar REQ-2026-0011')
+
+    const precio = screen.getAllByLabelText('Precio unitario ($)')[0]
+    const flete = screen.getByLabelText('Costo de flete ($)')
+    const plazo = screen.getByLabelText('Plazo de entrega (en días)')
+    await user.type(precio, '1200,50')
+    await user.type(flete, '500,5')
+    await user.type(plazo, '1,5')
+
+    // La coma no aparece: queda lo demás tal cual se tipeó.
+    expect(precio).toHaveValue('120050')
+    expect(flete).toHaveValue('5005')
+    expect(plazo).toHaveValue('15')
+
+    await user.clear(plazo)
+    await user.type(plazo, '16')
+    await user.tab()
+    expect(
+      await screen.findByText('El plazo de entrega no puede superar los 15 días, contados desde que cotizás.'),
     ).toBeInTheDocument()
   })
 
@@ -158,11 +183,11 @@ describe('CotizarLicitacionPage', () => {
     await screen.findByText('Cotizar REQ-2026-0011')
 
     const inputsPrecio = screen.getAllByLabelText('Precio unitario ($)')
-    await user.type(inputsPrecio[0], '1200,50')
+    await user.type(inputsPrecio[0], '1200.50')
     await user.type(inputsPrecio[1], '350')
 
     const inputFlete = screen.getByLabelText('Costo de flete ($)')
-    await user.type(inputFlete, '500,00')
+    await user.type(inputFlete, '500.00')
 
     const inputPlazo = screen.getByLabelText('Plazo de entrega (en días)')
     await user.type(inputPlazo, '10')
@@ -493,14 +518,14 @@ describe('CotizarLicitacionPage', () => {
       ).toBeInTheDocument()
       expect(screen.getByText('Ingresá la cantidad que ofrecés.')).toBeInTheDocument()
 
-      // Fuera de los límites del contrato: más de 100 caracteres y cantidad menor a 0,01.
+      // Fuera de los límites del contrato: más de 100 caracteres y cantidad menor a 0.01.
       await user.click(screen.getByLabelText('Presentación'))
       await user.paste('a'.repeat(101))
       await user.type(screen.getByLabelText('Cantidad de unidades'), '0')
       await user.tab()
 
       expect(await screen.findByText('La presentación no puede superar los 100 caracteres.')).toBeInTheDocument()
-      expect(screen.getByText('La cantidad ofrecida debe ser al menos 0,01.')).toBeInTheDocument()
+      expect(screen.getByText('La cantidad ofrecida debe ser al menos 0.01.')).toBeInTheDocument()
       expect(peticionEnviada).toBe(false)
     })
 

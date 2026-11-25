@@ -91,6 +91,12 @@ var useInMemoryTransport = string.Equals(
     "true",
     StringComparison.OrdinalIgnoreCase);
 
+if (!string.Equals(builder.Configuration["Presupuesto:RepublicarObrasAlIniciar"], "false", StringComparison.OrdinalIgnoreCase)
+    && !string.Equals(builder.Configuration["RabbitMQ:UseInMemory"], "true", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddHostedService<ObraSync.Usuarios.Infrastructure.Services.PublicarObrasExistentesService>();
+}
+
 builder.Services.AddMassTransit(x =>
 {
     // Prefijo propio del servicio: evita competir por las mismas colas que Licitaciones/Recepción en RabbitMQ.

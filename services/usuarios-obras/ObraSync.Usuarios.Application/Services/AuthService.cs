@@ -116,6 +116,7 @@ public class AuthService : IAuthService
             UserName = request.Email,
             Email = request.Email,
             NombreCompleto = request.NombreCompleto,
+            PhoneNumber = string.IsNullOrWhiteSpace(request.Telefono) ? null : request.Telefono.Trim(),
             FechaCreacion = DateTime.UtcNow,
             Activo = true
         };
@@ -214,7 +215,7 @@ public class AuthService : IAuthService
         => GetActivosPorRolPaginadosAsync(
             UserRoles.Proveedor,
             paginacion,
-            u => new ProveedorDto(u.Id, u.NombreCompleto));
+            u => new ProveedorDto(u.Id, u.NombreCompleto, u.Telefono));
 
     private async Task<(IReadOnlyList<TDto> Items, int Total)> GetActivosPorRolPaginadosAsync<TDto>(
         string rol,

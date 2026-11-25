@@ -100,7 +100,6 @@ function App() {
                 <Route path="asistente" element={<AsistenteChatPage portal="compras" />} />
                 <Route path="licitaciones" element={<LicitacionesComprasPage />} />
                 <Route path="ordenes" element={<OrdenesCompraPage />} />
-                <Route path="recepcion" element={<RecepcionPage />} />
                 <Route path="historial" element={<HistorialComprasPage />} />
                 <Route
                   path="historial/requisiciones/:id"

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:obrasync:events:obra-creada:v1",
+  "title": "ObraCreadaEvent",
+  "description": "Publicado por Usuarios y Obras al crear una obra (y al iniciar, para las obras ya existentes). Recepción y Control Presupuestario crea el presupuesto semilla de cada etapa si todavía no tiene partida.",
+  "type": "object",
+  "required": ["eventId", "occurredAt", "correlationId", "obraId", "nombre", "etapas"],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid", "description": "Identificador único para consumo idempotente." },
+    "occurredAt": { "type": "string", "format": "date-time", "description": "Fecha y hora UTC del evento." },
+    "correlationId": { "type": "string", "format": "uuid" },
+    "obraId": { "type": "string", "format": "uuid" },
+    "nombre": { "type": "string" },
+    "etapas": { "type": "array", "items": { "type": "string" }, "description": "Nombres de las etapas de la obra. Vacío: se crea una partida general de la obra." }
+  },
+  "additionalProperties": false
+}

@@ -107,7 +107,9 @@ public class ObtenerRecepcionesPorOrdenQueryHandler
             .ThenByDescending(r => r.Id)
             .FirstOrDefault();
 
-        bool tieneProblemaAbierto = ultimaRecepcion?.Estado == EstadoRecepcion.Rechazada;
+        // El problema sigue "abierto" hasta que el proveedor vuelve a despachar: ese redespacho reabre la entrega al capataz.
+        bool tieneProblemaAbierto = ultimaRecepcion?.Estado == EstadoRecepcion.Rechazada
+            && orden.EsperaNuevoDespachoTras(ultimaRecepcion.CreatedAt);
         bool tieneRecepcionParcial = recepciones.Any(r => r.Estado == EstadoRecepcion.Parcial);
 
         return new RecepcionesDeOrdenDto
@@ -121,6 +123,7 @@ public class ObtenerRecepcionesPorOrdenQueryHandler
             ObservacionDespacho = orden.ObservacionDespacho,
             EstaCompleta = estaCompleta,
             TieneProblemaAbierto = tieneProblemaAbierto,
+            EsperaNuevoDespacho = tieneProblemaAbierto,
             BloqueadaPorPresupuesto = orden.EstaBloqueada,
             EstadoEntrega = EstadosEntregaOrden.Calcular(
                 estaCompleta: estaCompleta,

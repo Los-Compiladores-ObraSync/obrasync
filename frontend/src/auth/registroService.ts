@@ -13,6 +13,8 @@ export interface DatosRegistroProveedor {
   nombreCompleto: string
   email: string
   password: string
+  /** Opcional: con código de país. Sirve para mandarle los enlaces de cotización por WhatsApp. */
+  telefono?: string
 }
 
 export async function registrarProveedor(
@@ -20,7 +22,7 @@ export async function registrarProveedor(
 ): Promise<{ usuario: SesionUsuario; token: string }> {
   const respuesta = await apiFetch<AuthResponseDto>('/api/usuarios', {
     method: 'POST',
-    body: JSON.stringify({ ...datos, rol: 'Proveedor' }),
+    body: JSON.stringify({ ...datos, telefono: datos.telefono?.trim() || undefined, rol: 'Proveedor' }),
   })
 
   return {

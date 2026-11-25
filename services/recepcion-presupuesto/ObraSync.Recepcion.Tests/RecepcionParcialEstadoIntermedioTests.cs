@@ -145,6 +145,33 @@ public class RecepcionParcialEstadoIntermedioTests
         Assert.Equal(4m, ordenConProblema.Items[0].CantidadRecibida);
         Assert.Equal(6m, ordenConProblema.Items[0].CantidadPendiente);
 
+        Assert.True(ordenConProblema.EsperaNuevoDespacho);
+
+        // 2b) Mientras el proveedor no despache de nuevo, el capataz no puede registrar la re-entrega
+        var respBloqueada = await client.PostAsJsonAsync("/api/recepciones", new CrearRecepcionRequest
+        {
+            OrdenCompraId = ordenId,
+            ObraId = obraId,
+            NumeroRemito = "REM-236-BLOQ",
+            FechaRecepcion = DateTime.UtcNow,
+            Detalles = new List<CrearDetalleRecepcionRequest>
+            {
+                new()
+                {
+                    ArticuloId = articuloId,
+                    DescripcionArticulo = "Cemento Portland x 25kg",
+                    CantidadEsperada = 6m,
+                    CantidadRecibida = 6m,
+                    UnidadMedida = "bolsa",
+                    Conforme = true
+                }
+            }
+        });
+        Assert.Equal(HttpStatusCode.Conflict, respBloqueada.StatusCode);
+
+        // 2c) El proveedor despacha de nuevo: se reabre la orden al capataz
+        await RedespachoPruebas.RedespacharAsync(factory.Services, ordenId);
+
         // 3) Re-entrega final completando las 6 bolsas restantes -> Completa y sale de pendientes
         var respFinal = await client.PostAsJsonAsync("/api/recepciones", new CrearRecepcionRequest
         {

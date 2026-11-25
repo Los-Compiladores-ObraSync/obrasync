@@ -873,8 +873,9 @@
                     "type": "integer",
                     "format": "int32",
                     "minimum": 1,
+                    "maximum": 15,
                     "example": 5,
-                    "description": "Plazo estimado de entrega expresado en días corridos (entero positivo, mínimo 1)."
+                    "description": "Plazo estimado de entrega en días corridos desde que se cotiza (entero entre 1 y 15)."
                   },
                   "items": {
                     "type": "array",
@@ -2025,8 +2026,9 @@
             "type": "integer",
             "format": "int32",
             "minimum": 1,
+            "maximum": 15,
             "example": 5,
-            "description": "Plazo estimado de entrega expresado en días corridos (entero positivo, mínimo 1)."
+            "description": "Plazo estimado de entrega en días corridos desde que se cotiza (entero entre 1 y 15)."
           },
           "items": {
             "type": "array",
@@ -2097,8 +2099,9 @@
             "type": "integer",
             "format": "int32",
             "minimum": 1,
+            "maximum": 15,
             "example": 5,
-            "description": "Plazo estimado de entrega expresado en días corridos (entero positivo, mínimo 1)."
+            "description": "Plazo estimado de entrega en días corridos desde que se cotiza (entero entre 1 y 15)."
           },
           "fechaCreacion": {
             "type": "string",
@@ -2329,8 +2332,9 @@
             "type": "integer",
             "format": "int32",
             "minimum": 1,
+            "maximum": 15,
             "example": 5,
-            "description": "Plazo estimado de entrega expresado en días corridos (entero positivo, mínimo 1)."
+            "description": "Plazo estimado de entrega en días corridos desde que se cotiza (entero entre 1 y 15)."
           },
           "fechaCreacion": {
             "type": "string",

@@ -18,7 +18,11 @@ async function abrirYElegir(user: ReturnType<typeof userEvent.setup>, nombre: st
 }
 
 describe('EnlacesParaProveedores', () => {
-  beforeEach(() => reiniciarLicitacionesMock())
+  beforeEach(() => {
+    reiniciarLicitacionesMock()
+    // jsdom no abre ventanas: se simula que el navegador sí deja abrir WhatsApp.
+    vi.spyOn(window, 'open').mockReturnValue({} as Window)
+  })
 
   it('empieza cerrado y no pide los proveedores hasta que se abre', async () => {
     const user = userEvent.setup()
@@ -62,6 +66,57 @@ describe('EnlacesParaProveedores', () => {
     expect(campo).toHaveValue(urlPublicaMagicLink('token-simulado-1'))
     expect(screen.getByText(/Sirve una sola vez y vence/)).toBeInTheDocument()
     expect(screen.getByText(/dura 1 hora/)).toBeInTheDocument()
+  })
+
+  it('al generar el enlace abre WhatsApp con el mensaje listo y deja el botón por si no se abre', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.get('*/api/usuarios/proveedores', () =>
+        HttpResponse.json([{ id: 'p-wsp', nombreCompleto: 'Carlos Ruiz', telefono: '+54 9 11 5555-1234' }]),
+      ),
+    )
+    render(<EnlacesParaProveedores licitacionId={LICITACION_ID} />)
+
+    await abrirYElegir(user, 'Carlos Ruiz')
+    await user.click(screen.getByRole('button', { name: 'Generar enlace' }))
+    await screen.findByLabelText('Enlace para Carlos Ruiz')
+
+    // Directo al chat del proveedor (solo dígitos, con código de país) y con el enlace dentro del mensaje.
+    const esperado = window.open as unknown as ReturnType<typeof vi.fn>
+    expect(esperado).toHaveBeenCalledTimes(1)
+    const url = String(esperado.mock.calls[0][0])
+    expect(url.startsWith('https://wa.me/5491155551234?text=')).toBe(true)
+    expect(decodeURIComponent(url)).toContain(urlPublicaMagicLink('token-simulado-1'))
+    expect(screen.getByRole('link', { name: 'Enviar por WhatsApp' })).toHaveAttribute('href', url)
+    expect(screen.queryByText(/WhatsApp te va a pedir que elijas el contacto/)).not.toBeInTheDocument()
+  })
+
+  it('si el proveedor no tiene teléfono con código de país, WhatsApp deja elegir el contacto', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.get('*/api/usuarios/proveedores', () =>
+        HttpResponse.json([{ id: 'p-sin', nombreCompleto: 'Carlos Ruiz', telefono: '11 5555-1234' }]),
+      ),
+    )
+    render(<EnlacesParaProveedores licitacionId={LICITACION_ID} />)
+
+    await abrirYElegir(user, 'Carlos Ruiz')
+    await user.click(screen.getByRole('button', { name: 'Generar enlace' }))
+    await screen.findByLabelText('Enlace para Carlos Ruiz')
+
+    expect(screen.getByRole('link', { name: 'Enviar por WhatsApp' }).getAttribute('href')).toMatch(/^https:\/\/wa\.me\/\?text=/)
+    expect(screen.getByText(/WhatsApp te va a pedir que elijas el contacto/)).toBeInTheDocument()
+  })
+
+  it('si el navegador bloquea la ventana, avisa que se use el botón', async () => {
+    vi.spyOn(window, 'open').mockReturnValue(null)
+    const user = userEvent.setup()
+    render(<EnlacesParaProveedores licitacionId={LICITACION_ID} />)
+
+    await abrirYElegir(user, 'Carlos Ruiz')
+    await user.click(screen.getByRole('button', { name: 'Generar enlace' }))
+
+    expect(await screen.findByText(/Tocá "Enviar por WhatsApp"/)).toBeInTheDocument()
   })
 
   it('manda al backend el proveedor elegido', async () => {

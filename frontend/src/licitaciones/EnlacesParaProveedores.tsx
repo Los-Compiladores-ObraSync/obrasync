@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { ApiError } from '../api/ApiError'
+import { digitosParaWhatsApp, urlWhatsApp } from '../auth/telefono'
 import { generarMagicLink } from './licitacionesService'
 import { textoVencimiento, textoVigencia } from './magicLinkTextos'
 import { urlPublicaMagicLink } from './magicLinkRutas'
@@ -15,6 +16,12 @@ interface EnlaceListo {
   url: string
   venceA: string
   vigencia: string
+}
+
+/** El mensaje que le llega al proveedor por WhatsApp, con el enlace listo para tocar. */
+function mensajeWhatsApp(enlace: EnlaceListo): string {
+  return `Hola ${enlace.proveedor.nombreCompleto}, te invitamos a cotizar un pedido en ObraSync. ` +
+    `Entrá desde este enlace (sirve una sola vez y vence ${textoVencimiento(enlace.venceA)}): ${enlace.url}`
 }
 
 function mensajeError(err: unknown): string {
@@ -78,12 +85,17 @@ export function EnlacesParaProveedores({ licitacionId }: Props) {
     setEnlace(null)
     try {
       const respuesta = await generarMagicLink(licitacionId, proveedor)
-      setEnlace({
+      const listo: EnlaceListo = {
         proveedor,
         url: urlPublicaMagicLink(respuesta.token),
         venceA: respuesta.fechaDeVencimiento,
         vigencia: textoVigencia(respuesta.horasVigencia),
-      })
+      }
+      setEnlace(listo)
+      // Se dispara solo la app de WhatsApp con el mensaje y el enlace escritos: falta tocar "Enviar".
+      // Si el navegador bloquea la ventana, el botón verde de abajo hace lo mismo.
+      const abierta = window.open(urlWhatsApp(proveedor.telefono, mensajeWhatsApp(listo)), '_blank', 'noopener')
+      if (abierta === null) setAviso('Tocá "Enviar por WhatsApp" para abrirlo con el mensaje listo.')
     } catch (err) {
       setError(mensajeError(err))
     } finally {
@@ -177,7 +189,21 @@ export function EnlacesParaProveedores({ licitacionId }: Props) {
                 <button type="button" className={styles.botonPrincipal} onClick={() => void copiar()}>
                   Copiar enlace
                 </button>
+                <a
+                  className={styles.botonWhatsApp}
+                  href={urlWhatsApp(enlace.proveedor.telefono, mensajeWhatsApp(enlace))}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Enviar por WhatsApp
+                </a>
               </div>
+              {digitosParaWhatsApp(enlace.proveedor.telefono) === null && (
+                <p className={styles.ayuda}>
+                  {enlace.proveedor.nombreCompleto} no tiene un teléfono con código de país cargado: WhatsApp te va a
+                  pedir que elijas el contacto.
+                </p>
+              )}
               <p className={styles.ayuda}>
                 Sirve una sola vez y vence {textoVencimiento(enlace.venceA)} (dura {enlace.vigencia}). Mandáselo solo a{' '}
                 {enlace.proveedor.nombreCompleto}. Si generás otro enlace para el mismo proveedor, el anterior sigue

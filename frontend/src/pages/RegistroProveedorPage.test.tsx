@@ -50,6 +50,31 @@ describe('RegistroProveedorPage', () => {
     expect(llamada).toBe(false)
   })
 
+  it('el teléfono es opcional, se valida y se manda al registrar', async () => {
+    const user = userEvent.setup()
+    let cuerpo: Record<string, unknown> | undefined
+    server.use(
+      http.post('*/api/usuarios', async ({ request }) => {
+        cuerpo = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json({ id: 'u1', nombreCompleto: 'Ana López', email: 'ana@empresa.com', token: 't', roles: ['Proveedor'] }, { status: 201 })
+      }),
+    )
+    render(<ConRouterYSesion><HarnessConEstado /></ConRouterYSesion>)
+    await user.type(screen.getByLabelText('Nombre completo'), 'Ana López')
+    await user.type(screen.getByLabelText('Email'), 'ana@empresa.com')
+    await user.type(screen.getByLabelText('Contraseña'), 'clave1234')
+    await user.type(screen.getByLabelText('Teléfono (opcional)'), 'llamame')
+    await user.click(screen.getByRole('button', { name: 'Crear cuenta' }))
+    expect(screen.getByText(/Escribí solo números, con el código de país/)).toBeInTheDocument()
+    expect(cuerpo).toBeUndefined()
+
+    await user.clear(screen.getByLabelText('Teléfono (opcional)'))
+    await user.type(screen.getByLabelText('Teléfono (opcional)'), '+54 9 11 5555 1234')
+    await user.click(screen.getByRole('button', { name: 'Crear cuenta' }))
+    expect(await screen.findByTestId('usuario-logueado')).toBeInTheDocument()
+    expect(cuerpo).toMatchObject({ telefono: '+54 9 11 5555 1234', rol: 'Proveedor' })
+  })
+
   it('no ofrece selector de rol', () => {
     render(<ConRouterYSesion><RegistroProveedorPage /></ConRouterYSesion>)
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()

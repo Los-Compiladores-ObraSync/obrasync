@@ -119,3 +119,25 @@ describe('mapearEstadoRequisicion', () => {
     expect(mapearEstadoRequisicion('Desconocido')).toBe('Desconocido')
   })
 })
+
+describe('validarRequisicion: coma y bolsas enteras', () => {
+  const base = { obraId: 'o1', etapa: 'Estructura' }
+  const errorDe = (cantidad: string, unidadMedida?: string) =>
+    validarRequisicion({ ...base, items: [{ articuloId: 'a1', cantidad, unidadMedida }] }).items?.[0]?.cantidad
+
+  it('rechaza la coma en cualquier unidad', () => {
+    expect(errorDe('1,4', 'KG')).toBe('Usá punto en lugar de coma para los decimales.')
+    expect(errorDe('1,4', 'BOLSA')).toBe('Usá punto en lugar de coma para los decimales.')
+  })
+
+  it('las bolsas van enteras: no se puede pedir 1.4 bolsas', () => {
+    expect(errorDe('1.4', 'BOLSA')).toBe('Las bolsas se cuentan enteras: escribí un número sin decimales.')
+    expect(errorDe('2', 'BOLSA')).toBeUndefined()
+  })
+
+  it('las demás unidades admiten decimales con punto', () => {
+    expect(errorDe('1.4', 'KG')).toBeUndefined()
+    expect(errorDe('2.5', 'M3')).toBeUndefined()
+    expect(errorDe('1.4')).toBeUndefined()
+  })
+})

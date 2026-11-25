@@ -18,6 +18,8 @@ El borrador no se guarda en ninguna base.
 - Roles con acceso: Capataz (arma borradores de requisición), Comprador (consulta requisiciones, solo lectura) y Admin (ambos). El resto (Proveedor) recibe 403 y no se llama al modelo.
 - Herramientas (todas de lectura, vía Gateway, con el JWT del usuario):
   - `buscar_insumos`: busca en el catálogo real.
+  - `listar_mis_obras`: lista las obras que el usuario puede ver (un Capataz, solo las asignadas) con sus etapas, para cuando
+    no se acuerda del nombre. Solo la ven Capataz y Admin. Devuelve hasta 20 obras y avisa con `hayMas` si hay más. No devuelve ids.
   - `armar_borrador_requisicion`: recibe obra, etapa y materiales por NOMBRE; el servicio resuelve la obra
     (`GET /api/obras`, que ya filtra por rol) y los insumos (`GET /api/catalogo/insumos`), así el modelo nunca
     inventa ids. Si falta o es ambiguo un dato, devuelve un error con opciones (`obra_requerida`, `obra_ambigua`,

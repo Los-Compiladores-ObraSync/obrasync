@@ -193,6 +193,7 @@ public class OrdenCompra
         FechaEstimadaLlegada = fechaEstimadaUtc;
         Observacion = observacionNormalizada;
         TieneRecepcionParcialPendiente = false;
+        ResolverProblema(instante, despachadaPor);
         return true;
     }
 

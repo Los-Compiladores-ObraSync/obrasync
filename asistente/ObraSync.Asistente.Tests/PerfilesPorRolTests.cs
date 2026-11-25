@@ -38,9 +38,9 @@ public class PerfilesPorRolTests
         new HerramientasLicitaciones(licitaciones ?? new ConsultorLicitacionesFalso(), new ObrasFalsas()));
 
     [Theory]
-    [InlineData("Capataz", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion" })]
+    [InlineData("Capataz", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_mis_obras", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion" })]
     [InlineData("Comprador", new[] { "listar_requisiciones", "ver_requisicion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion", "preparar_publicacion_licitacion", "consultar_presupuesto_obra", "listar_licitaciones", "ver_licitacion", "listar_cotizaciones", "preparar_adjudicacion" })]
-    [InlineData("Admin", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion", "preparar_publicacion_licitacion", "consultar_presupuesto_obra", "listar_licitaciones", "ver_licitacion", "listar_cotizaciones", "preparar_adjudicacion" })]
+    [InlineData("Admin", new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_mis_obras", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion", "preparar_aprobacion_requisicion", "preparar_rechazo_requisicion", "preparar_publicacion_licitacion", "consultar_presupuesto_obra", "listar_licitaciones", "ver_licitacion", "listar_cotizaciones", "preparar_adjudicacion" })]
     public async Task Cada_rol_ve_solo_las_herramientas_de_su_perfil(string rol, string[] esperadas)
     {
         var modelo = new ModeloQueAnotaHerramientas(Respuestas.Final("Hola"));
@@ -81,7 +81,7 @@ public class PerfilesPorRolTests
         await agente.ResponderAsync("hola");
 
         Assert.Equal(
-            new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion" }.OrderBy(x => x),
+            new[] { "buscar_insumos", "armar_borrador_requisicion", "listar_mis_obras", "listar_requisiciones", "ver_requisicion", "listar_ordenes_pendientes", "preparar_recepcion" }.OrderBy(x => x),
             modelo.NombresOfrecidos().OrderBy(x => x));
     }
 

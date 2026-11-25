@@ -40,6 +40,42 @@ describe('MisOrdenesProveedorPage: entrega parcial (#249)', () => {
     expect(screen.queryByRole('button', { name: /^Marcar como despachada/ })).not.toBeInTheDocument()
   })
 
+  it('una entrega con problema vuelve al proveedor y ofrece volver a despachar', async () => {
+    const conProblema = {
+      ...parcial,
+      tieneRecepcionParcialPendiente: false,
+      tieneProblemaAbierto: true,
+      motivoProblemaAbierto: 'Llegó incompleta',
+    }
+    let llamadas = 0
+    server.use(
+      http.get(RUTA_LISTA, () => HttpResponse.json([conProblema])),
+      http.post(RUTA_DESPACHAR, ({ params }) => {
+        llamadas++
+        return HttpResponse.json({
+          ...conProblema,
+          id: params.id,
+          numeroDespacho: 2,
+          puedeRedespachar: false,
+          tieneProblemaAbierto: false,
+        })
+      }),
+    )
+    const user = userEvent.setup()
+    renderPagina()
+
+    expect(await screen.findByText('Volvió con problema', { selector: 'span' })).toBeInTheDocument()
+    expect(screen.getByText(/volvió a vos.*no puede recibir nada/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Despachar lo que falta/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^Volver a despachar/ }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar despacho' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('volviste a despachar la orden DDDDDDDD')
+    expect(llamadas).toBe(1)
+    expect(screen.queryByRole('button', { name: /^Volver a despachar/ })).not.toBeInTheDocument()
+  })
+
   it('re-despacha el remanente y avisa que Compras y el Capataz ya lo ven', async () => {
     let llamadas = 0
     server.use(

@@ -56,6 +56,8 @@ public sealed class Agente
         "Si te piden otra cosa, decí amablemente que no podés ayudar con eso. " +
         "Para consultar insumos usá la herramienta buscar_insumos. No inventes datos: " +
         "si la herramienta no devuelve nada o da error, decilo. " +
+        "Si la persona pregunta qué obras tiene o qué obras hay, o no se acuerda del nombre de una obra, usá listar_mis_obras y mostrale cada obra con sus etapas, tal cual las devolvió la herramienta. " +
+        "Si hayMas es true, decile que hay más obras de las que mostraste. Solo ves las obras que ese usuario puede ver. " +
         "Si la persona quiere pedir materiales, usá armar_borrador_requisicion con la obra, la etapa y los materiales con sus cantidades. " +
         "Esa herramienta ya busca los insumos y la obra por su cuenta: NO uses buscar_insumos antes, y llamala una sola vez con TODOS los materiales juntos. " +
         "Si falta algún dato (obra, etapa, cantidad) o la herramienta devuelve opciones, preguntale a la persona UNA cosa concreta, sin inventar. " +
@@ -281,7 +283,7 @@ public sealed class Agente
         if (_generadas is not null && _generadas.EsGenerada(nombre))
             return _generadas.EjecutarAsync(perfil.Rol, nombre, argumentos, ct);
 
-        var esDeCatalogo = nombre is HerramientasCatalogo.BuscarInsumos or HerramientasCatalogo.ArmarBorrador;
+        var esDeCatalogo = nombre is HerramientasCatalogo.BuscarInsumos or HerramientasCatalogo.ArmarBorrador or HerramientasCatalogo.ListarObras;
         var esDeCompras = HerramientasCompras.Nombres.Contains(nombre);
         var esDeRecepcion = HerramientasRecepcion.Nombres.Contains(nombre);
         var esDeLicitaciones = HerramientasLicitaciones.Nombres.Contains(nombre);

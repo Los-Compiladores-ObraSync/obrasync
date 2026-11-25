@@ -161,6 +161,25 @@ public class CrearRecepcionCommandHandler
             throw new RecepcionConflictoException("La orden de compra todavía no fue despachada");
         }
 
+        // Si la última entrega se marcó con un problema, la orden volvió al proveedor: el capataz no puede
+        // registrar nada más hasta que el proveedor despache de nuevo.
+        var ultimaRecepcion = await _context.Recepciones
+            .AsNoTracking()
+            .Where(r => r.OrdenCompraId == command.OrdenCompraId)
+            .OrderByDescending(r => r.CreatedAt)
+            .ThenByDescending(r => r.FechaRecepcion)
+            .ThenByDescending(r => r.Id)
+            .Select(r => new { r.Estado, r.CreatedAt })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (ultimaRecepcion is not null
+            && ultimaRecepcion.Estado == EstadoRecepcion.Rechazada
+            && ordenCompra.EsperaNuevoDespachoTras(ultimaRecepcion.CreatedAt))
+        {
+            throw new RecepcionConflictoException(
+                "La entrega se marcó con un problema y volvió al proveedor: hasta que la despache de nuevo no se puede registrar otra recepción.");
+        }
+
         bool yaRecibida = await _context.Recepciones
             .AnyAsync(
                 r => r.OrdenCompraId == command.OrdenCompraId &&
@@ -275,6 +294,12 @@ public class CrearRecepcionCommandHandler
                 if (detalleRequest.CantidadRecibida < 0)
                 {
                     throw new ArgumentException("La cantidad recibida no puede ser negativa.");
+                }
+
+                if (string.Equals(articuloComprado.UnidadMedida, "BOLSA", StringComparison.OrdinalIgnoreCase)
+                    && detalleRequest.CantidadRecibida != decimal.Truncate(detalleRequest.CantidadRecibida))
+                {
+                    throw new ArgumentException("Las bolsas se reciben en cantidades enteras: no se pueden recibir fracciones de bolsa.");
                 }
 
                 if (detalleRequest.CantidadRecibida > cantidadPendiente)

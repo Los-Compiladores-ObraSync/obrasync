@@ -20,6 +20,7 @@ import {
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { obtenerObras } from '../requisiciones/requisicionesService'
 import { cantidadConUnidad } from '../requisiciones/unidades'
+import { aceptaTextoNumerico, bloquearTeclasDecimales, errorDeFormatoNumerico, esUnidadEntera } from '../formularios/numeros'
 import styles from './RecepcionPage.module.css'
 
 function mensajeDeErrorApi(err: unknown): string {
@@ -232,7 +233,9 @@ export function RecepcionPage() {
     elegida.items.forEach((item) => {
       const texto = cantidades[item.articuloId] ?? ''
       const valor = Number(texto)
-      if (texto.trim() === '' || !Number.isFinite(valor)) nuevosErrores[item.articuloId] = 'Ingresá una cantidad válida.'
+      const errorFormato = errorDeFormatoNumerico(texto, esUnidadEntera(item.unidadMedida))
+      if (errorFormato) nuevosErrores[item.articuloId] = errorFormato
+      else if (texto.trim() === '' || !Number.isFinite(valor)) nuevosErrores[item.articuloId] = 'Ingresá una cantidad válida.'
       else if (valor < 0) nuevosErrores[item.articuloId] = 'La cantidad no puede ser negativa.'
       else if (valor > saldoPendiente(item)) nuevosErrores[item.articuloId] = `No puede superar el saldo de ${saldoPendiente(item)}.`
       else if (conProblema[item.articuloId] && (notasProblema[item.articuloId] ?? '').trim() === '') nuevosErrores[item.articuloId] = 'Contanos qué pasó con este material (por ejemplo: 3 bolsas rotas).'
@@ -424,6 +427,12 @@ export function RecepcionPage() {
           />
         </section>
 
+        {elegida.esperaNuevoDespacho ? (
+          <p className={styles.avisoProblema} role="status">
+            Marcaste un problema con esta entrega y volvió al Proveedor. Hasta que la despache de nuevo no podés registrar nada; cuando lo haga, te va a aparecer acá otra vez.
+          </p>
+        ) : (
+        <>
         {elegida.tieneProblemaAbierto && (
           <p className={styles.avisoProblema} role="status">
             Esta orden tiene un problema de entrega abierto. Se cierra cuando registres una recepción válida.
@@ -453,7 +462,7 @@ export function RecepcionPage() {
             <div className={styles.grupo} key={item.articuloId}>
               <label htmlFor={`cantidad-${item.articuloId}`} className={styles.label}>{item.descripcionArticulo} · {item.unidadMedida} — recibido en esta entrega</label>
               <p className={styles.ayuda}>Pedido: {item.cantidadEsperada} · Ya recibidas: {item.cantidadRecibida} · Saldo: {saldoPendiente(item)}</p>
-              <input id={`cantidad-${item.articuloId}`} className={`${styles.input}${erroresCantidad[item.articuloId] ? ` ${styles.inputInvalido}` : ''}`} type="number" min="0" max={saldoPendiente(item)} step="any" inputMode="decimal" value={cantidades[item.articuloId] ?? ''} onChange={(e) => { setCantidades((prev) => ({ ...prev, [item.articuloId]: e.target.value })); setErroresCantidad((prev) => ({ ...prev, [item.articuloId]: undefined, general: undefined })) }} aria-invalid={!!erroresCantidad[item.articuloId]} aria-describedby={erroresCantidad[item.articuloId] ? `cantidad-error-${item.articuloId}` : undefined} />
+              <input id={`cantidad-${item.articuloId}`} className={`${styles.input}${erroresCantidad[item.articuloId] ? ` ${styles.inputInvalido}` : ''}`} type="number" min="0" max={saldoPendiente(item)} step={esUnidadEntera(item.unidadMedida) ? '1' : 'any'} inputMode={esUnidadEntera(item.unidadMedida) ? 'numeric' : 'decimal'} onKeyDown={(e) => bloquearTeclasDecimales(e, esUnidadEntera(item.unidadMedida))} value={cantidades[item.articuloId] ?? ''} onChange={(e) => { if (!aceptaTextoNumerico(e.target.value, esUnidadEntera(item.unidadMedida))) return; setCantidades((prev) => ({ ...prev, [item.articuloId]: e.target.value })); setErroresCantidad((prev) => ({ ...prev, [item.articuloId]: undefined, general: undefined })) }} aria-invalid={!!erroresCantidad[item.articuloId]} aria-describedby={erroresCantidad[item.articuloId] ? `cantidad-error-${item.articuloId}` : undefined} />
               <label className={styles.checkProblema}>
                 <input
                   type="checkbox"
@@ -603,6 +612,8 @@ export function RecepcionPage() {
             {enviando ? 'Guardando…' : 'Confirmar recepción'}
           </button>
         </form>
+        </>
+        )}
       </section>
     )
   }
@@ -649,7 +660,11 @@ export function RecepcionPage() {
                   {orden.etapa && <span className={styles.ordenItem}>Etapa: {orden.etapa}</span>}
                   {orden.fechaEstimadaLlegada && <span className={styles.ordenItem}>Llega el {fechaLarga(orden.fechaEstimadaLlegada)}</span>}
                   {orden.observacionDespacho && <span className={styles.ordenItem}>Observación del Proveedor: {orden.observacionDespacho}</span>}
-                  {orden.tieneProblemaAbierto && <span className={styles.ordenProblema}>Problema de entrega abierto</span>}
+                  {orden.esperaNuevoDespacho ? (
+                    <span className={styles.ordenProblema}>Con problema: esperando que el Proveedor despache de nuevo</span>
+                  ) : (
+                    orden.tieneProblemaAbierto && <span className={styles.ordenProblema}>Problema de entrega abierto</span>
+                  )}
                   {orden.estadoEntrega === ESTADO_ENTREGA_PARCIAL ? (
                     <span className={styles.ordenItem}>{ESTADO_ENTREGA_PARCIAL}: el Proveedor tiene que despachar el resto</span>
                   ) : (

@@ -15,6 +15,7 @@
 .verClave { box-shadow: none; position: absolute; top: 0; right: 0; width: var(--alto-toque); height: 100%; padding: 0; display: flex; align-items: center; justify-content: center; background: transparent; color: var(--texto-suave); border-radius: 8px; }
 .verClave:hover, .verClave:active { color: var(--azul); transform: none; filter: none; }
 .errorCampo { font-size: 1rem; color: #dc2626; margin: 0; }
+.ayuda { font-size: .9375rem; color: var(--texto-suave); margin: 0; }
 .errorApi { display: flex; align-items: flex-start; gap: .5rem; padding: .75rem 1rem; border-radius: 8px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; font-size: 1rem; line-height: 1.4; margin: 0; }
 .boton { width: 100%; min-height: 44px; font-size: 1rem; font-weight: 600; }
 .boton:disabled { opacity: .55; cursor: not-allowed; }

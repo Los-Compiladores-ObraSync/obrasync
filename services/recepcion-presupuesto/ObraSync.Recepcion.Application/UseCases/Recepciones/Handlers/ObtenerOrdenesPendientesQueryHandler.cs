@@ -84,14 +84,14 @@ public class ObtenerOrdenesPendientesQueryHandler
             })
             .ToListAsync(cancellationToken);
 
-        var ordenConProblemaAbierto = ultimosEstados
+        var ultimaPorOrden = ultimosEstados
             .GroupBy(r => r.OrdenCompraId)
             .ToDictionary(
                 g => g.Key,
                 g => g.OrderByDescending(x => x.CreatedAt)
                       .ThenByDescending(x => x.FechaRecepcion)
                       .ThenByDescending(x => x.Id)
-                      .First().Estado == EstadoRecepcion.Rechazada);
+                      .First());
 
         var ordenesConEntregaParcial = ultimosEstados
             .Where(r => r.Estado == EstadoRecepcion.Parcial)
@@ -107,7 +107,10 @@ public class ObtenerOrdenesPendientesQueryHandler
                     .ToDictionary(g => g.Key, g => g.Sum(d => d.CantidadRecibida));
 
                 var saldosPendientes = o.CalcularSaldosPendientes(recibidosDeEstaOrden);
-                bool tieneProblemaAbierto = ordenConProblemaAbierto.GetValueOrDefault(o.Id, false);
+                // El problema sigue "abierto" hasta que el proveedor vuelve a despachar (ese redespacho reabre la entrega al capataz).
+                bool tieneProblemaAbierto = ultimaPorOrden.TryGetValue(o.Id, out var ultima)
+                    && ultima.Estado == EstadoRecepcion.Rechazada
+                    && o.EsperaNuevoDespachoTras(ultima.CreatedAt);
                 bool tieneEntregaParcial = ordenesConEntregaParcial.Contains(o.Id);
 
                 return new OrdenPendienteDto
@@ -120,6 +123,7 @@ public class ObtenerOrdenesPendientesQueryHandler
                     FechaEstimadaLlegada = FechaUtc.Normalizar(o.FechaEstimadaLlegada),
                     ObservacionDespacho = o.ObservacionDespacho,
                     TieneProblemaAbierto = tieneProblemaAbierto,
+                    EsperaNuevoDespacho = tieneProblemaAbierto,
                     EstadoEntrega = EstadosEntregaOrden.Calcular(
                         estaCompleta: false,
                         tieneProblemaAbierto: tieneProblemaAbierto,

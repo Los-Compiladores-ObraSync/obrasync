@@ -126,7 +126,7 @@ services:
       RabbitMQ__Host: rabbitmq
       RabbitMQ__Username: ${RABBITMQ_USER:?Falta RABBITMQ_USER en el archivo .env}
       RabbitMQ__Password: ${RABBITMQ_PASS:?Falta RABBITMQ_PASS en el archivo .env}
-      Presupuesto__MontoSemillaPorEtapa: ${PRESUPUESTO_SEMILLA_POR_ETAPA:-0}
+      Presupuesto__MontoSemillaPorEtapa: ${PRESUPUESTO_SEMILLA_POR_ETAPA:-5000000}
     depends_on:
       sqlserver:
         condition: service_healthy

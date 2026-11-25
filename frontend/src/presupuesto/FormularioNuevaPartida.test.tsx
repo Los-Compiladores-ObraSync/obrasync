@@ -51,10 +51,10 @@ describe('FormularioNuevaPartida', () => {
             etapa: 'Terminaciones',
             codigoPartida: 'TER-001',
             descripcion: 'Pintura y revestimientos',
-            montoAsignado: 1500000.5,
+            montoAsignado: 1500000,
             montoComprometido: 0,
             montoEjecutado: 0,
-            montoDisponible: 1500000.5,
+            montoDisponible: 1500000,
             moneda: 'ARS',
             createdAt: '2026-11-20T12:00:00Z',
           },
@@ -68,7 +68,7 @@ describe('FormularioNuevaPartida', () => {
       codigo: 'TER-001',
       descripcion: 'Pintura y revestimientos',
       etapa: 'Terminaciones',
-      monto: '1.500.000,50',
+      monto: '1.500.000',
     })
     await user.click(screen.getByRole('button', { name: 'Guardar partida' }))
 
@@ -79,7 +79,7 @@ describe('FormularioNuevaPartida', () => {
       etapa: 'Terminaciones',
       codigoPartida: 'TER-001',
       descripcion: 'Pintura y revestimientos',
-      montoAsignado: 1500000.5,
+      montoAsignado: 1500000,
       moneda: 'ARS',
     })
     // el formulario queda limpio para cargar otra
@@ -104,6 +104,15 @@ describe('FormularioNuevaPartida', () => {
     expect(cuerpoRecibido).toMatchObject({ etapa: null, montoAsignado: 1000 })
   })
 
+  it('no deja escribir una coma en el monto', async () => {
+    const user = userEvent.setup()
+    render(<FormularioNuevaPartida obraId={OBRA_ID} onCreada={vi.fn()} />)
+
+    await user.type(screen.getByLabelText(/Monto asignado/), '1500,50')
+
+    expect(screen.getByLabelText(/Monto asignado/)).toHaveValue('150050')
+  })
+
   it('no envía nada y muestra los errores si faltan datos o el monto es inválido', async () => {
     const user = userEvent.setup()
     const onCreada = vi.fn()
@@ -121,7 +130,7 @@ describe('FormularioNuevaPartida', () => {
 
     expect(await screen.findByText('El código es obligatorio.')).toBeInTheDocument()
     expect(screen.getByText('La descripción es obligatoria.')).toBeInTheDocument()
-    expect(screen.getByText(/Ingresá un monto válido/)).toBeInTheDocument()
+    expect(screen.getByText(/Ingresá un monto en pesos/)).toBeInTheDocument()
     expect(llamadas).toBe(0)
     expect(onCreada).not.toHaveBeenCalled()
   })

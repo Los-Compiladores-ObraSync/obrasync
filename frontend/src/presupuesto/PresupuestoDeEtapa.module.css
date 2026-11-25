@@ -1,0 +1,7 @@
+.bloque { border: 2px solid #1f3864; border-radius: 10px; padding: .75rem 1rem; margin: .5rem 0; background: #f5f8ff; display: grid; gap: .35rem; }
+.titulo { margin: 0; font-weight: 700; color: #1f3864; }
+.disponible { margin: 0; font-size: 1.25rem; }
+.barra { height: 12px; border-radius: 6px; background: #dbe4f5; overflow: hidden; }
+.relleno { height: 100%; background: #1f3864; }
+.detalle, .estimado, .cargando, .sinPartida { margin: 0; color: var(--texto-suave); }
+.alerta { margin: 0; color: #991b1b; font-weight: 700; }

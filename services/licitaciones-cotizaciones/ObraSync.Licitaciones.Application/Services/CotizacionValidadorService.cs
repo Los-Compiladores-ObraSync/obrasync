@@ -18,6 +18,9 @@ public class CotizacionValidadorService : ICotizacionValidadorService
     private readonly ILicitacionRepository _licitacionRepository;
     private readonly ICotizacionRepository _cotizacionRepository;
 
+    /// <summary>Tope del plazo de entrega ofrecido, en días corridos desde que se cotiza.</summary>
+    public const int PlazoEntregaMaximoDias = 15;
+
     public CotizacionValidadorService(
         ILicitacionRepository licitacionRepository,
         ICotizacionRepository cotizacionRepository)
@@ -25,6 +28,11 @@ public class CotizacionValidadorService : ICotizacionValidadorService
         _licitacionRepository = licitacionRepository ?? throw new ArgumentNullException(nameof(licitacionRepository));
         _cotizacionRepository = cotizacionRepository ?? throw new ArgumentNullException(nameof(cotizacionRepository));
     }
+
+    private static bool SeCuentaEnBolsas(string? unidadPedida, string? presentacionOfrecida) =>
+        string.Equals(unidadPedida?.Trim(), "BOLSA", StringComparison.OrdinalIgnoreCase)
+        || (presentacionOfrecida != null
+            && System.Text.RegularExpressions.Regex.IsMatch(presentacionOfrecida, @"^\s*bolsas?\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
 
     public async Task<(Licitacion Licitacion, Cotizacion Cotizacion, CotizacionResponseDto ResponseDto)> ValidarYConstruirAsync(
         Guid licitacionId,
@@ -54,6 +62,11 @@ public class CotizacionValidadorService : ICotizacionValidadorService
         if (plazoEntregaDias <= 0)
         {
             throw new ArgumentException("El plazo de entrega debe ser un número entero positivo expresado en días corridos (mayor a 0).");
+        }
+
+        if (plazoEntregaDias > PlazoEntregaMaximoDias)
+        {
+            throw new ArgumentException($"El plazo de entrega no puede superar los {PlazoEntregaMaximoDias} días, contados desde que se cotiza.");
         }
 
         if (items == null || items.Count == 0)
@@ -136,6 +149,14 @@ public class CotizacionValidadorService : ICotizacionValidadorService
             var presentacionLimpia = string.IsNullOrWhiteSpace(item.PresentacionOfrecida)
                 ? null
                 : item.PresentacionOfrecida.Trim();
+
+            // Las bolsas se cuentan enteras: no existe "1.4 bolsas" (ni en el pliego ni en lo que ofrece el proveedor).
+            if (item.CantidadOfrecida.HasValue
+                && item.CantidadOfrecida.Value != decimal.Truncate(item.CantidadOfrecida.Value)
+                && SeCuentaEnBolsas(pliegoItem.UnidadMedida, presentacionLimpia))
+            {
+                throw new ArgumentException("La cantidad ofrecida de bolsas debe ser un número entero (no se pueden ofrecer fracciones de bolsa).");
+            }
 
             var coberturaParcial = EvaluarCoberturaParcial(
                 pliegoItem,

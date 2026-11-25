@@ -37,7 +37,7 @@ function responderPliego() {
 }
 
 async function completarYEnviar(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(await screen.findByLabelText(/precio unitario/i), '1500,50')
+  await user.type(await screen.findByLabelText(/precio unitario/i), '1500.50')
   await user.type(screen.getByLabelText(/costo de flete/i), '200')
   await user.type(screen.getByLabelText(/plazo de entrega/i), '5')
   await user.click(screen.getByRole('button', { name: /enviar cotización/i }))
@@ -154,7 +154,7 @@ describe('CotizarConEnlacePage', () => {
     renderPagina()
     await completarYEnviar(user)
     expect(await screen.findByText(/no pudimos enviar tu cotización/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/precio unitario/i)).toHaveValue('1500,50')
+    expect(screen.getByLabelText(/precio unitario/i)).toHaveValue('1500.50')
     expect(screen.getByRole('button', { name: /enviar cotización/i })).toBeEnabled()
   })
 })

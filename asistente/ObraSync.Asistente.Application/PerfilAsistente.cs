@@ -55,6 +55,8 @@ public sealed record PerfilAsistente(string Rol, string Instrucciones, IReadOnly
     private static readonly string[] HerramientasCapataz =
     {
         HerramientasCatalogo.BuscarInsumos, HerramientasCatalogo.ArmarBorrador,
+        // Para que, si no se acuerda del nombre de una obra, el Capataz pueda preguntar cuáles tiene. Solo lectura.
+        HerramientasCatalogo.ListarObras,
         HerramientasCompras.ListarRequisiciones, HerramientasCompras.VerRequisicion,
         // Recibir mercadería por chat (#147): solo el Capataz (y el Admin, que ve las de todos los roles).
         HerramientasRecepcion.ListarOrdenes, HerramientasRecepcion.PrepararRecepcion
