@@ -1,3 +1,4 @@
+using MediatR;
 using ObraSync.Licitaciones.Application.DTOs;
 
 namespace ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Queries;
@@ -9,4 +10,4 @@ public record GetOrdenesCompraQuery(
     string? Estado = null,
     string? RolUsuario = null,
     Guid? UsuarioId = null,
-    ParametrosPagina? Paginacion = null);
+    ParametrosPagina? Paginacion = null) : IRequest<PaginaDe<OrdenCompraResponseDto>>;

@@ -1,3 +1,4 @@
+using MediatR;
 using ObraSync.Licitaciones.Application.DTOs;
 
 namespace ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Commands;
@@ -9,4 +10,4 @@ public record ReemplazarCotizacionCommand(
     bool EsAdmin,
     decimal Flete,
     int PlazoEntregaDias,
-    IReadOnlyList<CrearCotizacionItemDto> Items);
+    IReadOnlyList<CrearCotizacionItemDto> Items) : IRequest<CotizacionResponseDto>;

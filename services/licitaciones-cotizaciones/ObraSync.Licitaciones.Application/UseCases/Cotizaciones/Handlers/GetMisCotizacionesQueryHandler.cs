@@ -1,3 +1,4 @@
+using MediatR;
 using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Queries;
@@ -6,6 +7,7 @@ using ObraSync.Licitaciones.Domain.Entities;
 namespace ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Handlers;
 
 public class GetMisCotizacionesQueryHandler
+    : IRequestHandler<GetMisCotizacionesQuery, PaginaDe<MiCotizacionResponseDto>>
 {
     private readonly ICotizacionRepository _cotizacionRepository;
     private readonly ILicitacionRepository _licitacionRepository;

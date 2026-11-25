@@ -1,3 +1,4 @@
+using MediatR;
 using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.Services;
@@ -6,6 +7,7 @@ using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Commands;
 namespace ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Handlers;
 
 public class CrearCotizacionCommandHandler
+    : IRequestHandler<CrearCotizacionCommand, CotizacionResponseDto>
 {
     private readonly ICotizacionRepository _cotizacionRepository;
     private readonly ICotizacionValidadorService _validadorService;

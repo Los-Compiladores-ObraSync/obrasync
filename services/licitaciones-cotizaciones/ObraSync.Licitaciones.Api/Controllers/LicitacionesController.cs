@@ -1,40 +1,28 @@
-using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using ObraSync.Licitaciones.Api.Middlewares;
 using ObraSync.Licitaciones.Application.DTOs;
-using ObraSync.Licitaciones.Application.Exceptions;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Commands;
 using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Commands;
-using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Queries;
 
 namespace ObraSync.Licitaciones.Api.Controllers;
 
-[ApiController]
 [Route("api/licitaciones")]
 [Authorize]
-public class LicitacionesController : ControllerBase
+public class LicitacionesController : ApiControllerBase
 {
     private readonly ILicitacionService _service;
-    private readonly GetLicitacionesQueryHandler _getLicitacionesHandler;
-    private readonly GetLicitacionByIdQueryHandler _getByIdHandler;
-    private readonly GetSeguimientoRequisicionQueryHandler _seguimientoHandler;
     private readonly IMediator _mediator;
 
     public LicitacionesController(
         ILicitacionService service,
-        GetLicitacionesQueryHandler getLicitacionesHandler,
-        GetLicitacionByIdQueryHandler getByIdHandler,
-        GetSeguimientoRequisicionQueryHandler seguimientoHandler,
         IMediator mediator)
     {
         _service = service;
-        _getLicitacionesHandler = getLicitacionesHandler;
-        _getByIdHandler = getByIdHandler;
-        _seguimientoHandler = seguimientoHandler;
         _mediator = mediator;
     }
 
@@ -56,38 +44,24 @@ public class LicitacionesController : ControllerBase
         [FromQuery] int tamano = 50,
         CancellationToken cancellationToken = default)
     {
-        var p = new ParametrosPagina(pagina, tamano);
-        var error = p.Validar();
-        if (error is not null)
+        if (!TryCrearPaginacion(pagina, tamano, out var paginacion, out var errorResult))
         {
-            return Problem(
-                detail: error,
-                statusCode: StatusCodes.Status400BadRequest,
-                title: "Paginación inválida");
+            return errorResult!;
         }
 
-        var rolUsuario = User.IsInRole("Proveedor")
-            ? "Proveedor"
-            : User.FindFirstValue("role") ?? User.FindFirstValue(ClaimTypes.Role);
+        var rolUsuario = ObtenerRolConsulta();
 
         // El 'sub' del token es el Id del proveedor: con él se marca qué pliegos ya cotizó.
         Guid? proveedorId = null;
-        if (User.IsInRole("Proveedor"))
+        if (User.IsInRole("Proveedor") && TryObtenerUsuarioId(out var idToken))
         {
-            var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (Guid.TryParse(sub, out var idToken) && idToken != Guid.Empty)
-            {
-                proveedorId = idToken;
-            }
+            proveedorId = idToken;
         }
 
-        var query = new GetLicitacionesQuery(obraId, estado, rolUsuario, proveedorId, p);
-        var resultado = await _getLicitacionesHandler.Handle(query, cancellationToken);
+        var query = new GetLicitacionesQuery(obraId, estado, rolUsuario, proveedorId, paginacion);
+        var resultado = await _mediator.Send(query, cancellationToken);
 
-        Response.Headers["X-Total-Count"] = resultado.Total.ToString();
-        Response.Headers["X-Page"] = p.Pagina.ToString();
-        Response.Headers["X-Page-Size"] = p.Tamano.ToString();
-
+        EscribirHeadersPaginacion(resultado.Total, paginacion);
         return Ok(resultado.Items);
     }
 
@@ -105,7 +79,7 @@ public class LicitacionesController : ControllerBase
         Guid requisicionId,
         CancellationToken cancellationToken = default)
     {
-        var dto = await _seguimientoHandler.Handle(new GetSeguimientoRequisicionQuery(requisicionId), cancellationToken);
+        var dto = await _mediator.Send(new GetSeguimientoRequisicionQuery(requisicionId), cancellationToken);
         return Ok(dto);
     }
 
@@ -115,6 +89,7 @@ public class LicitacionesController : ControllerBase
     /// </summary>
     [HttpGet("{id:guid}")]
     [Authorize(Roles = "Comprador,Proveedor,Admin")]
+    [MapExceptionProblem(typeof(KeyNotFoundException), StatusCodes.Status404NotFound, "Licitación no encontrada")]
     [ProducesResponseType(typeof(LicitacionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
@@ -123,23 +98,9 @@ public class LicitacionesController : ControllerBase
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var rolUsuario = User.IsInRole("Proveedor")
-                ? "Proveedor"
-                : User.FindFirstValue("role") ?? User.FindFirstValue(ClaimTypes.Role);
-
-            var query = new GetLicitacionByIdQuery(id, rolUsuario);
-            var licitacion = await _getByIdHandler.Handle(query, cancellationToken);
-            return Ok(licitacion);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status404NotFound,
-                title: "Licitación no encontrada");
-        }
+        var query = new GetLicitacionByIdQuery(id, ObtenerRolConsulta());
+        var licitacion = await _mediator.Send(query, cancellationToken);
+        return Ok(licitacion);
     }
 
     /// <summary>
@@ -157,35 +118,11 @@ public class LicitacionesController : ControllerBase
         [FromBody] CrearLicitacionRequestDto request,
         CancellationToken ct = default)
     {
-        try
-        {
-            var licitacion = await _service.CrearAsync(request, ct);
-            return CreatedAtAction(
-                nameof(ObtenerPorId),
-                new { id = licitacion.LicitacionId },
-                licitacion);
-        }
-        catch (ValidacionException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest,
-                title: "Datos inválidos");
-        }
-        catch (NoEncontradoException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status404NotFound,
-                title: "No encontrado");
-        }
-        catch (ConflictoException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status409Conflict,
-                title: "Conflicto");
-        }
+        var licitacion = await _service.CrearAsync(request, ct);
+        return CreatedAtAction(
+            nameof(ObtenerPorId),
+            new { id = licitacion.LicitacionId },
+            licitacion);
     }
 
     /// <summary>
@@ -194,6 +131,7 @@ public class LicitacionesController : ControllerBase
     /// </summary>
     [HttpPost("{licitacionId}/adjudicaciones")]
     [Authorize(Roles = "Comprador,Admin")]
+    [MapExceptionProblem(typeof(InvalidOperationException), StatusCodes.Status409Conflict, "Conflicto en la adjudicación")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -205,40 +143,9 @@ public class LicitacionesController : ControllerBase
         [FromBody] AdjudicarCotizacionRequestDto request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var correlationHeader = HttpContext?.Request.Headers["X-Correlation-ID"].FirstOrDefault()
-                ?? HttpContext?.Items["CorrelationId"]?.ToString();
-
-            var correlationId = Guid.TryParse(correlationHeader, out var parsedCorrelationId) && parsedCorrelationId != Guid.Empty
-                ? parsedCorrelationId
-                : Guid.NewGuid();
-
-            var command = new AdjudicarCotizacionCommand(licitacionId, request.CotizacionId, correlationId);
-            var resultado = await _mediator.Send(command, cancellationToken);
-            return Ok(resultado);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status404NotFound,
-                title: "Recurso no encontrado");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status409Conflict,
-                title: "Conflicto en la adjudicación");
-        }
-        catch (ArgumentException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest,
-                title: "Solicitud inválida");
-        }
+        var command = new AdjudicarCotizacionCommand(licitacionId, request.CotizacionId, ObtenerCorrelationId());
+        var resultado = await _mediator.Send(command, cancellationToken);
+        return Ok(resultado);
     }
 
     /// <summary>
@@ -247,6 +154,7 @@ public class LicitacionesController : ControllerBase
     /// </summary>
     [HttpPost("{id:guid}/extensiones")]
     [Authorize(Roles = "Comprador,Admin")]
+    [MapExceptionProblem(typeof(InvalidOperationException), StatusCodes.Status409Conflict, "Conflicto al extender la licitación")]
     [ProducesResponseType(typeof(LicitacionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -266,24 +174,10 @@ public class LicitacionesController : ControllerBase
                 title: "Solicitud inválida");
         }
 
-        try
-        {
-            var resultado = await _mediator.Send(
-                new ExtenderLicitacionCommand(id, request.FechaLimiteCotizacion), cancellationToken);
-            return Ok(resultado);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return Problem(detail: ex.Message, statusCode: StatusCodes.Status404NotFound, title: "Recurso no encontrado");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Problem(detail: ex.Message, statusCode: StatusCodes.Status409Conflict, title: "Conflicto al extender la licitación");
-        }
-        catch (ArgumentException ex)
-        {
-            return Problem(detail: ex.Message, statusCode: StatusCodes.Status400BadRequest, title: "Solicitud inválida");
-        }
+        var resultado = await _mediator.Send(
+            new ExtenderLicitacionCommand(id, request.FechaLimiteCotizacion),
+            cancellationToken);
+        return Ok(resultado);
     }
 
     /// <summary>
@@ -292,6 +186,7 @@ public class LicitacionesController : ControllerBase
     /// </summary>
     [HttpPost("{id:guid}/cierres")]
     [Authorize(Roles = "Comprador,Admin")]
+    [MapExceptionProblem(typeof(InvalidOperationException), StatusCodes.Status409Conflict, "Conflicto al cerrar la licitación")]
     [ProducesResponseType(typeof(LicitacionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -303,33 +198,9 @@ public class LicitacionesController : ControllerBase
         [FromBody] CerrarLicitacionRequestDto? request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var command = new CerrarLicitacionCommand(id, request?.Motivo);
-            var resultado = await _mediator.Send(command, cancellationToken);
-            return Ok(resultado);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status404NotFound,
-                title: "Recurso no encontrado");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status409Conflict,
-                title: "Conflicto al cerrar la licitación");
-        }
-        catch (ArgumentException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest,
-                title: "Solicitud inválida");
-        }
+        var command = new CerrarLicitacionCommand(id, request?.Motivo);
+        var resultado = await _mediator.Send(command, cancellationToken);
+        return Ok(resultado);
     }
 }
 

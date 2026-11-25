@@ -1,3 +1,4 @@
+using MediatR;
 using ObraSync.Licitaciones.Application.DTOs;
 
 namespace ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Commands;
@@ -8,4 +9,4 @@ public record CrearCotizacionCommand(
     decimal Flete,
     int PlazoEntregaDias,
     IReadOnlyList<CrearCotizacionItemDto> Items,
-    string? ProveedorNombre = null);
+    string? ProveedorNombre = null) : IRequest<CotizacionResponseDto>;

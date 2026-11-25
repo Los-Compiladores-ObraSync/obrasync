@@ -1,3 +1,4 @@
+using MediatR;
 using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Queries;
@@ -9,6 +10,7 @@ namespace ObraSync.Licitaciones.Application.UseCases.Licitaciones.Handlers;
 /// Si todavía no hay licitación NO es un error (Compras puede no haberla publicado aún): se devuelve vacío.
 /// </summary>
 public class GetSeguimientoRequisicionQueryHandler
+    : IRequestHandler<GetSeguimientoRequisicionQuery, SeguimientoRequisicionDto>
 {
     private readonly ILicitacionRepository _licitaciones;
     private readonly ICotizacionRepository _cotizaciones;

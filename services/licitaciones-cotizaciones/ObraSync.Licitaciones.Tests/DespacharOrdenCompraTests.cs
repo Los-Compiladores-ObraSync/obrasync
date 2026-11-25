@@ -22,6 +22,7 @@ using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Commands;
 using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Handlers;
 using ObraSync.Licitaciones.Domain.Entities;
 using ObraSync.Licitaciones.Infrastructure;
+using ObraSync.Licitaciones.Infrastructure.Messaging;
 using Xunit;
 
 namespace ObraSync.Licitaciones.Tests;
@@ -215,7 +216,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         var estadoPresupuestario = Substitute.For<ObraSync.Licitaciones.Application.Interfaces.IEstadoPresupuestarioOrden>();
         estadoPresupuestario.EstaBloqueadaAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<bool?>(false));
-        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, publishEndpoint, unitOfWork, estadoPresupuestario);
+        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, new MassTransitLicitacionEventPublisher(publishEndpoint), unitOfWork, estadoPresupuestario);
         var antesUtc = DateTime.UtcNow.AddSeconds(-2);
 
         var resultado = await handler.Handle(
@@ -287,7 +288,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         var estadoPresupuestario = Substitute.For<ObraSync.Licitaciones.Application.Interfaces.IEstadoPresupuestarioOrden>();
         estadoPresupuestario.EstaBloqueadaAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<bool?>(false));
-        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, publishEndpoint, unitOfWork, estadoPresupuestario);
+        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, new MassTransitLicitacionEventPublisher(publishEndpoint), unitOfWork, estadoPresupuestario);
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
             handler.Handle(new DespacharOrdenCompraCommand(ordenId, otroProveedor, Guid.NewGuid()), CancellationToken.None));
@@ -313,7 +314,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         var estadoPresupuestario = Substitute.For<ObraSync.Licitaciones.Application.Interfaces.IEstadoPresupuestarioOrden>();
         estadoPresupuestario.EstaBloqueadaAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<bool?>(false));
-        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, publishEndpoint, unitOfWork, estadoPresupuestario);
+        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, new MassTransitLicitacionEventPublisher(publishEndpoint), unitOfWork, estadoPresupuestario);
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             handler.Handle(new DespacharOrdenCompraCommand(idInexistente, Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None));
@@ -358,7 +359,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         var estadoPresupuestario = Substitute.For<ObraSync.Licitaciones.Application.Interfaces.IEstadoPresupuestarioOrden>();
         estadoPresupuestario.EstaBloqueadaAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<bool?>(false));
-        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, publishEndpoint, unitOfWork, estadoPresupuestario);
+        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, new MassTransitLicitacionEventPublisher(publishEndpoint), unitOfWork, estadoPresupuestario);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             handler.Handle(
@@ -411,7 +412,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         var estadoPresupuestario = Substitute.For<ObraSync.Licitaciones.Application.Interfaces.IEstadoPresupuestarioOrden>();
         estadoPresupuestario.EstaBloqueadaAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<bool?>(false));
-        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, publishEndpoint, unitOfWork, estadoPresupuestario);
+        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, new MassTransitLicitacionEventPublisher(publishEndpoint), unitOfWork, estadoPresupuestario);
 
         await Assert.ThrowsAsync<DbUpdateException>(() =>
             handler.Handle(new DespacharOrdenCompraCommand(ordenId, proveedorId, Guid.NewGuid()), CancellationToken.None));
@@ -456,7 +457,7 @@ public class DespacharOrdenCompraTests : IClassFixture<WebApplicationFactory<Pro
         var estadoPresupuestario = Substitute.For<ObraSync.Licitaciones.Application.Interfaces.IEstadoPresupuestarioOrden>();
         estadoPresupuestario.EstaBloqueadaAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<bool?>(false));
-        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, publishEndpoint, unitOfWork, estadoPresupuestario);
+        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, new MassTransitLicitacionEventPublisher(publishEndpoint), unitOfWork, estadoPresupuestario);
 
         await Assert.ThrowsAsync<DbUpdateException>(() =>
             handler.Handle(new DespacharOrdenCompraCommand(ordenId, proveedorId, Guid.NewGuid()), CancellationToken.None));

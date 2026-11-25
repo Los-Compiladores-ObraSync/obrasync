@@ -2,15 +2,15 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using ObraSync.Licitaciones.Api.Middlewares;
 using ObraSync.Licitaciones.Application.MagicLinks.Commands.CotizarConMagicLink;
 using ObraSync.Licitaciones.Application.MagicLinks.Commands.GenerarMagicLink;
 using ObraSync.Licitaciones.Application.MagicLinks.Queries.ObtenerPliegoPorMagicLink;
 
 namespace ObraSync.Licitaciones.Api.Controllers;
 
-[ApiController]
 [Route("api/licitaciones")]
-public class MagicLinksController : ControllerBase
+public class MagicLinksController : ApiControllerBase
 {
     private readonly IMediator _mediator;
 
@@ -21,6 +21,9 @@ public class MagicLinksController : ControllerBase
 
     [HttpPost("{licitacionId:guid}/magic-links")]
     [Authorize(Roles = "Comprador,Admin")] // Restringido según requerimiento #86 / #198
+    [MapExceptionProblem(typeof(KeyNotFoundException), StatusCodes.Status404NotFound, "Licitación no encontrada")]
+    [MapExceptionProblem(typeof(InvalidOperationException), StatusCodes.Status409Conflict, "Licitación no disponible para generar enlace")]
+    [MapExceptionProblem(typeof(ArgumentException), StatusCodes.Status400BadRequest, "Datos de enlace inválidos")]
     [ProducesResponseType(typeof(GenerarMagicLinkResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -40,33 +43,9 @@ public class MagicLinksController : ControllerBase
                 title: "Datos de enlace inválidos");
         }
 
-        try
-        {
-            var command = new GenerarMagicLinkCommand(licitacionId, dto.ProveedorId, dto.ProveedorNombre);
-            var resultado = await _mediator.Send(command, cancellationToken);
-            return Ok(resultado);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status404NotFound,
-                title: "Licitación no encontrada");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status409Conflict,
-                title: "Licitación no disponible para generar enlace");
-        }
-        catch (ArgumentException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest,
-                title: "Datos de enlace inválidos");
-        }
+        var command = new GenerarMagicLinkCommand(licitacionId, dto.ProveedorId, dto.ProveedorNombre);
+        var resultado = await _mediator.Send(command, cancellationToken);
+        return Ok(resultado);
     }
 
     /// <summary>
@@ -74,38 +53,17 @@ public class MagicLinksController : ControllerBase
     /// </summary>
     [HttpGet("magic-links/{hash}")]
     [AllowAnonymous]
+    [MapExceptionProblem(typeof(KeyNotFoundException), StatusCodes.Status404NotFound, "Enlace o licitación no encontrada")]
+    [MapExceptionProblem(typeof(InvalidOperationException), StatusCodes.Status409Conflict, "Enlace en conflicto")]
+    [MapExceptionProblem(typeof(ArgumentException), StatusCodes.Status400BadRequest, "Enlace no disponible")]
     [ProducesResponseType(typeof(PliegoMagicLinkResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ObtenerPliegoConMagicLink(string hash, CancellationToken cancellationToken)
     {
-        try
-        {
-            var pliego = await _mediator.Send(new ObtenerPliegoPorMagicLinkQuery(hash), cancellationToken);
-            return Ok(pliego);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status404NotFound,
-                title: "Enlace o licitación no encontrada");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status409Conflict,
-                title: "Enlace en conflicto");
-        }
-        catch (ArgumentException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest,
-                title: "Enlace no disponible");
-        }
+        var pliego = await _mediator.Send(new ObtenerPliegoPorMagicLinkQuery(hash), cancellationToken);
+        return Ok(pliego);
     }
 
     /// <summary>
@@ -114,6 +72,9 @@ public class MagicLinksController : ControllerBase
     /// </summary>
     [HttpPost("magic-links/{hash}/cotizaciones")]
     [AllowAnonymous] // Permite acceso al proveedor sin token JWT (#87 / #186)
+    [MapExceptionProblem(typeof(KeyNotFoundException), StatusCodes.Status404NotFound, "Enlace o licitación no encontrada")]
+    [MapExceptionProblem(typeof(InvalidOperationException), StatusCodes.Status409Conflict, "Enlace o cotización en conflicto")]
+    [MapExceptionProblem(typeof(ArgumentException), StatusCodes.Status400BadRequest, "Datos de cotización inválidos")]
     [ProducesResponseType(typeof(ObraSync.Licitaciones.Application.DTOs.CotizacionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
@@ -131,38 +92,14 @@ public class MagicLinksController : ControllerBase
                 title: "Datos de cotización inválidos");
         }
 
-        try
-        {
-            var command = new CotizarConMagicLinkCommand(
-                hash,
-                dto.Items ?? new List<CotizacionItemDto>(),
-                dto.Flete,
-                dto.PlazoEntregaDias);
+        var command = new CotizarConMagicLinkCommand(
+            hash,
+            dto.Items ?? new List<CotizacionItemDto>(),
+            dto.Flete,
+            dto.PlazoEntregaDias);
 
-            var creada = await _mediator.Send(command, cancellationToken);
-            return Ok(creada);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status404NotFound,
-                title: "Enlace o licitación no encontrada");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status409Conflict,
-                title: "Enlace o cotización en conflicto");
-        }
-        catch (ArgumentException ex)
-        {
-            return Problem(
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest,
-                title: "Datos de cotización inválidos");
-        }
+        var creada = await _mediator.Send(command, cancellationToken);
+        return Ok(creada);
     }
 }
 

@@ -2,7 +2,6 @@ using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Mappings;
 using ObraSync.Licitaciones.Domain.Entities;
-using MassTransit;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -16,7 +15,7 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
     private readonly ILicitacionRepository _licitacionRepository;
     private readonly ICotizacionRepository _cotizacionRepository;
     private readonly IOrdenCompraRepository _ordenCompraRepository;
-    private readonly IPublishEndpoint _publishEndpoint;
+    private readonly ILicitacionEventPublisher _eventPublisher;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<AdjudicarCotizacionCommandHandler> _logger;
     private readonly TimeProvider _timeProvider;
@@ -25,7 +24,7 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
         ILicitacionRepository licitacionRepository,
         ICotizacionRepository cotizacionRepository,
         IOrdenCompraRepository ordenCompraRepository,
-        IPublishEndpoint publishEndpoint,
+        ILicitacionEventPublisher eventPublisher,
         IUnitOfWork unitOfWork,
         ILogger<AdjudicarCotizacionCommandHandler>? logger = null,
         TimeProvider? timeProvider = null)
@@ -33,7 +32,7 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
         _licitacionRepository = licitacionRepository;
         _cotizacionRepository = cotizacionRepository;
         _ordenCompraRepository = ordenCompraRepository;
-        _publishEndpoint = publishEndpoint;
+        _eventPublisher = eventPublisher ?? throw new ArgumentNullException(nameof(eventPublisher));
         _unitOfWork = unitOfWork;
         _logger = logger ?? NullLogger<AdjudicarCotizacionCommandHandler>.Instance;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -128,7 +127,7 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
         await _ordenCompraRepository.AddAsync(ordenCompra, cancellationToken);
         await _licitacionRepository.UpdateAsync(licitacion, cancellationToken);
 
-        // 5. Publicar el evento de integración con MassTransit propagando el CorrelationId del pedido original (#104)
+        // 5. Publicar el evento de integración desacoplado propagando el CorrelationId del pedido original (#104)
         var evento = new OrdenCompraEmitidaEvent(
             EventId: Guid.NewGuid(),
             OccurredAt: DateTime.UtcNow,
@@ -149,7 +148,7 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
             )).ToList()
         );
 
-        await _publishEndpoint.Publish<OrdenCompraEmitidaEvent>(evento, cancellationToken);
+        await _eventPublisher.PublishAsync(evento, cancellationToken);
 
         // El evento se publica ANTES de guardar a propósito (#135): con el outbox, este único
         // SaveChanges guarda en la misma transacción la adjudicación, la OC y el evento.

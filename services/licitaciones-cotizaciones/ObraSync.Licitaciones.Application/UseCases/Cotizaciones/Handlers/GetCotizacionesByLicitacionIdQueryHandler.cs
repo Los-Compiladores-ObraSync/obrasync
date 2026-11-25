@@ -1,3 +1,4 @@
+using MediatR;
 using Microsoft.Extensions.Configuration;
 using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Interfaces;
@@ -9,6 +10,7 @@ using ObraSync.Licitaciones.Domain.Scoring;
 namespace ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Handlers;
 
 public class GetCotizacionesByLicitacionIdQueryHandler
+    : IRequestHandler<GetCotizacionesByLicitacionIdQuery, PaginaDe<CotizacionResponseDto>>
 {
     private readonly ILicitacionRepository _licitacionRepository;
     private readonly ICotizacionRepository _cotizacionRepository;
