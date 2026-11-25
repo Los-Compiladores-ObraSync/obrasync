@@ -202,6 +202,41 @@ public class RedespachoRemanenteOrdenCompraTests : IClassFixture<WebApplicationF
         Assert.Equal(expectedCorrelationId, doc.RootElement.GetProperty("correlationId").GetString());
     }
 
+    [Theory]
+    [InlineData(1, false, true)]
+    [InlineData(-1, false, false)]
+    [InlineData(1, true, false)]
+    public void RedespachoPorProblema_ExigeProblemaAbiertoPosteriorAlDespacho(
+        int minutosDesdeDespacho, bool resuelto, bool permitido)
+    {
+        var proveedor = Guid.NewGuid();
+        var primerDespacho = new DateTime(2026, 11, 24, 10, 0, 0, DateTimeKind.Utc);
+        var orden = new OrdenCompra { Estado = "Emitida" };
+        orden.Despachar(proveedor, primerDespacho);
+        orden.AbrirProblema("No llegó nada", primerDespacho.AddMinutes(minutosDesdeDespacho));
+
+        if (resuelto)
+        {
+            orden.ResolverProblema(primerDespacho.AddMinutes(2), Guid.NewGuid());
+        }
+
+        Assert.Equal(permitido, orden.PuedeRedespachar);
+        var segundoDespacho = primerDespacho.AddMinutes(3);
+        if (permitido)
+        {
+            orden.Despachar(proveedor, segundoDespacho);
+            Assert.Equal(2, orden.NumeroDespacho);
+            Assert.Equal(segundoDespacho, orden.FechaDespacho);
+            Assert.False(orden.PuedeRedespachar);
+        }
+        else
+        {
+            Assert.Throws<InvalidOperationException>(() => orden.Despachar(proveedor, segundoDespacho));
+            Assert.Equal(1, orden.NumeroDespacho);
+            Assert.Equal(primerDespacho, orden.FechaDespacho);
+        }
+    }
+
     [Fact]
     public async Task RedespachoExitosoTrasRecepcionParcial_IncrementaNumeroDespacho_PublicaEventoYNotificaChatYCampanita()
     {

@@ -138,7 +138,7 @@ export function MisOrdenesProveedorPage() {
       setOrdenes((actuales) => actuales.map((o) => (o.id === orden.id ? { ...o, ...actualizada } : o)))
       setMensajeExito(
         eraRedespacho
-          ? `Avisaste que despachaste lo que faltaba de la orden ${codigoDeOrden(orden.id)}. Compras ya lo ve y el Capataz podrá recibir el resto.`
+          ? `Registraste un nuevo envío para la orden ${codigoDeOrden(orden.id)}.`
           : `Avisaste que despachaste la orden ${codigoDeOrden(orden.id)}. Compras ya lo ve y el Capataz podrá recibirla.`,
       )
       setAbiertaId(null)
@@ -163,6 +163,7 @@ export function MisOrdenesProveedorPage() {
     const abierta = abiertaId === o.id
     const hayQueDespachar = puedeDespachar(o)
     const esRedespacho = o.fueDespachada && o.puedeRedespachar === true
+    const problema = chat.problemaDe(o)
     return (
       <li
         key={o.id}
@@ -171,19 +172,19 @@ export function MisOrdenesProveedorPage() {
         <div className={styles.encabezado}>
           <h3>Orden {codigo}</h3>
           <span className={`${styles.resultado} ${hayQueDespachar ? styles.enviada : styles.gano}`}>
-            {esRedespacho ? 'Entrega parcial' : o.fueDespachada ? 'Despachada' : 'Emitida'}
+            {esRedespacho ? (problema.abierto ? 'Pendiente de nuevo despacho' : 'Entrega parcial') : o.fueDespachada ? 'Despachada' : 'Emitida'}
           </span>
         </div>
 
-        {esRedespacho && (
+        {esRedespacho && !problema.abierto && (
           <p className={styles.parcial} role="status">
-            Entrega parcial: el Capataz recibió una parte del pedido. Falta despachar el resto.
+            Si vas a hacer otro envío, registralo en esta orden.
           </p>
         )}
 
-        {chat.problemaDe(o).abierto && (
+        {problema.abierto && (
           <p className={styles.problema} role="status">
-            Entrega con problema{chat.problemaDe(o).motivo ? `: ${chat.problemaDe(o).motivo}` : ''}
+            Entrega con problema{problema.motivo ? `: ${problema.motivo}` : ''}
           </p>
         )}
 
