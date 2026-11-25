@@ -25,6 +25,9 @@
   border-radius: 16px;
   background: #ffffff;
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .encabezado {
@@ -44,6 +47,8 @@
   margin: 0;
   font-size: 1.0625rem;
   color: var(--texto-suave);
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .subtitulo {

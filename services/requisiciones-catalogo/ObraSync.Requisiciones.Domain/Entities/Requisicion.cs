@@ -179,8 +179,7 @@ namespace ObraSync.Requisiciones.Domain.Entities
             var normalizadas = string.IsNullOrWhiteSpace(observaciones) ? null : observaciones.Trim();
             if (normalizadas != null && normalizadas.Length > LongitudMaximaObservaciones)
                 throw new ArgumentException(
-                    $"Las observaciones no pueden superar los {LongitudMaximaObservaciones} caracteres.",
-                    nameof(observaciones));
+                    $"Las observaciones no pueden superar los {LongitudMaximaObservaciones} caracteres.");
 
             return normalizadas;
         }
