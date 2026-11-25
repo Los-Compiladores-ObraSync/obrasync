@@ -41,7 +41,10 @@ export function CambiarContrasenaPage() {
   const [actual, setActual] = useState('')
   const [nueva, setNueva] = useState('')
   const [repetir, setRepetir] = useState('')
-  const [verPassword, setVerPassword] = useState(false)
+  // Cada campo tiene su propio ojo: se puede mirar una contraseña sin mostrar las otras.
+  const [verActual, setVerActual] = useState(false)
+  const [verNueva, setVerNueva] = useState(false)
+  const [verRepetir, setVerRepetir] = useState(false)
   const [campoError, setCampoError] = useState<ErroresCampo>({})
   const [errorApi, setErrorApi] = useState<string | null>(null)
   const [exito, setExito] = useState(false)
@@ -77,7 +80,9 @@ export function CambiarContrasenaPage() {
       setActual('')
       setNueva('')
       setRepetir('')
-      setVerPassword(false)
+      setVerActual(false)
+      setVerNueva(false)
+      setVerRepetir(false)
       setExito(true)
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -97,7 +102,6 @@ export function CambiarContrasenaPage() {
     }
   }
 
-  const tipoCampo = verPassword ? 'text' : 'password'
   const idErrorApi = 'cambiar-error-api'
 
   return (
@@ -131,7 +135,7 @@ export function CambiarContrasenaPage() {
           <div className={styles.campoClave}>
             <input
               id="cambiar-actual"
-              type={tipoCampo}
+              type={verActual ? 'text' : 'password'}
               autoComplete="current-password"
               className={`${styles.input} ${styles.inputClave}${campoError.actual ? ` ${styles.inputInvalido}` : ''}`}
               value={actual}
@@ -139,16 +143,15 @@ export function CambiarContrasenaPage() {
               aria-describedby={campoError.actual ? 'cambiar-actual-error' : undefined}
               aria-invalid={!!campoError.actual}
             />
-            {/* type="button": si no, dentro del <form> actuaría como "enviar".
-                Un solo botón muestra u oculta las tres contraseñas. */}
+            {/* type="button": si no, dentro del <form> actuaría como "enviar". */}
             <button
               type="button"
               className={styles.verClave}
-              onClick={() => setVerPassword((visible) => !visible)}
-              aria-label="Mostrar contraseñas"
-              aria-pressed={verPassword}
+              onClick={() => setVerActual((visible) => !visible)}
+              aria-label="Mostrar contraseña actual"
+              aria-pressed={verActual}
             >
-              <IconoOjo tachado={verPassword} />
+              <IconoOjo tachado={verActual} />
             </button>
           </div>
           {campoError.actual && (
@@ -162,16 +165,27 @@ export function CambiarContrasenaPage() {
           <label htmlFor="cambiar-nueva" className={styles.label}>
             Nueva contraseña
           </label>
-          <input
-            id="cambiar-nueva"
-            type={tipoCampo}
-            autoComplete="new-password"
-            className={`${styles.input}${campoError.nueva ? ` ${styles.inputInvalido}` : ''}`}
-            value={nueva}
-            onChange={(e) => setNueva(e.target.value)}
-            aria-describedby={campoError.nueva ? 'cambiar-nueva-error' : undefined}
-            aria-invalid={!!campoError.nueva}
-          />
+          <div className={styles.campoClave}>
+            <input
+              id="cambiar-nueva"
+              type={verNueva ? 'text' : 'password'}
+              autoComplete="new-password"
+              className={`${styles.input} ${styles.inputClave}${campoError.nueva ? ` ${styles.inputInvalido}` : ''}`}
+              value={nueva}
+              onChange={(e) => setNueva(e.target.value)}
+              aria-describedby={campoError.nueva ? 'cambiar-nueva-error' : undefined}
+              aria-invalid={!!campoError.nueva}
+            />
+            <button
+              type="button"
+              className={styles.verClave}
+              onClick={() => setVerNueva((visible) => !visible)}
+              aria-label="Mostrar nueva contraseña"
+              aria-pressed={verNueva}
+            >
+              <IconoOjo tachado={verNueva} />
+            </button>
+          </div>
           {campoError.nueva && (
             <p id="cambiar-nueva-error" className={styles.errorCampo} role="alert">
               {campoError.nueva}
@@ -183,16 +197,27 @@ export function CambiarContrasenaPage() {
           <label htmlFor="cambiar-repetir" className={styles.label}>
             Repetí la nueva contraseña
           </label>
-          <input
-            id="cambiar-repetir"
-            type={tipoCampo}
-            autoComplete="new-password"
-            className={`${styles.input}${campoError.repetir ? ` ${styles.inputInvalido}` : ''}`}
-            value={repetir}
-            onChange={(e) => setRepetir(e.target.value)}
-            aria-describedby={campoError.repetir ? 'cambiar-repetir-error' : undefined}
-            aria-invalid={!!campoError.repetir}
-          />
+          <div className={styles.campoClave}>
+            <input
+              id="cambiar-repetir"
+              type={verRepetir ? 'text' : 'password'}
+              autoComplete="new-password"
+              className={`${styles.input} ${styles.inputClave}${campoError.repetir ? ` ${styles.inputInvalido}` : ''}`}
+              value={repetir}
+              onChange={(e) => setRepetir(e.target.value)}
+              aria-describedby={campoError.repetir ? 'cambiar-repetir-error' : undefined}
+              aria-invalid={!!campoError.repetir}
+            />
+            <button
+              type="button"
+              className={styles.verClave}
+              onClick={() => setVerRepetir((visible) => !visible)}
+              aria-label="Mostrar la repetición de la nueva contraseña"
+              aria-pressed={verRepetir}
+            >
+              <IconoOjo tachado={verRepetir} />
+            </button>
+          </div>
           {campoError.repetir && (
             <p id="cambiar-repetir-error" className={styles.errorCampo} role="alert">
               {campoError.repetir}
