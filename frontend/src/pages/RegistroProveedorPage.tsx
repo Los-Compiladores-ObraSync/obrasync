@@ -4,6 +4,7 @@ import { ApiError } from '../api/ApiError'
 import { registrarProveedor } from '../auth/registroService'
 import { IconoOjo } from '../auth/IconoOjo'
 import { useAuth } from '../auth/useAuth'
+import { AYUDA_TELEFONO } from '../auth/telefono'
 import { validarRegistro, type ErroresRegistro } from '../auth/validacionRegistro'
 import styles from './RegistroProveedorPage.module.css'
 
@@ -11,6 +12,7 @@ export function RegistroProveedorPage() {
   const auth = useAuth()
   const [nombreCompleto, setNombreCompleto] = useState('')
   const [email, setEmail] = useState('')
+  const [telefono, setTelefono] = useState('')
   const [password, setPassword] = useState('')
   const [verPassword, setVerPassword] = useState(false)
   const [campoError, setCampoError] = useState<ErroresRegistro>({})
@@ -19,7 +21,7 @@ export function RegistroProveedorPage() {
 
   async function handleSubmit(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
-    const errores = validarRegistro(nombreCompleto, email, password)
+    const errores = validarRegistro(nombreCompleto, email, password, telefono)
     if (Object.keys(errores).length) {
       setCampoError(errores)
       return
@@ -28,7 +30,7 @@ export function RegistroProveedorPage() {
     setApiError(null)
     setEnviando(true)
     try {
-      const { usuario, token } = await registrarProveedor({ nombreCompleto, email, password })
+      const { usuario, token } = await registrarProveedor({ nombreCompleto, email, password, telefono })
       auth.login(usuario, token)
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
@@ -67,6 +69,14 @@ export function RegistroProveedorPage() {
           <label htmlFor="registro-email" className={styles.label}>Email</label>
           <input id="registro-email" type="email" autoComplete="email" className={`${styles.input}${campoError.email ? ` ${styles.inputInvalido}` : ''}`} value={email} onChange={(e) => setEmail(e.target.value)} aria-describedby={campoError.email ? 'registro-email-error' : undefined} aria-invalid={!!campoError.email} />
           {campoError.email && <p id="registro-email-error" className={styles.errorCampo} role="alert">{campoError.email}</p>}
+        </div>
+
+        <div className={styles.grupo}>
+          <label htmlFor="registro-telefono" className={styles.label}>Teléfono (opcional)</label>
+          <input id="registro-telefono" type="tel" autoComplete="tel" inputMode="tel" placeholder="+54 9 11 5555 1234" className={`${styles.input}${campoError.telefono ? ` ${styles.inputInvalido}` : ''}`} value={telefono} onChange={(e) => setTelefono(e.target.value)} aria-describedby={campoError.telefono ? 'registro-telefono-error' : 'registro-telefono-ayuda'} aria-invalid={!!campoError.telefono} />
+          {campoError.telefono
+            ? <p id="registro-telefono-error" className={styles.errorCampo} role="alert">{campoError.telefono}</p>
+            : <p id="registro-telefono-ayuda" className={styles.ayuda}>Así Compras te manda por WhatsApp los pedidos para cotizar. {AYUDA_TELEFONO}</p>}
         </div>
 
         <div className={styles.grupo}>

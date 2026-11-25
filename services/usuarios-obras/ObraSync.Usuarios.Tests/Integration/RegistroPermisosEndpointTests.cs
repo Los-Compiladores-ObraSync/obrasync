@@ -103,6 +103,22 @@ public class RegistroPermisosEndpointTests : IClassFixture<WebApplicationFactory
         Assert.Contains(UserRoles.Proveedor, dto.Roles);
     }
 
+    [Fact]
+    public async Task Registro_Proveedor_ConTelefonoOpcional_LoAceptaYRechazaUnoInvalido()
+    {
+        using var client = _factory.CreateClient();
+
+        var conTelefono = await client.PostAsJsonAsync(
+            "/api/usuarios/registro",
+            new RegisterRequestDto("Proveedor Con Telefono", $"tel-{Guid.NewGuid():N}@obrasync.com", "Password123!", UserRoles.Proveedor, "+54 9 11 5555-1234"));
+        Assert.Equal(HttpStatusCode.Created, conTelefono.StatusCode);
+
+        var invalido = await client.PostAsJsonAsync(
+            "/api/usuarios/registro",
+            new RegisterRequestDto("Proveedor Telefono Malo", $"mal-{Guid.NewGuid():N}@obrasync.com", "Password123!", UserRoles.Proveedor, "llamame"));
+        Assert.Equal(HttpStatusCode.BadRequest, invalido.StatusCode);
+    }
+
     [Theory]
     [InlineData(UserRoles.Capataz)]
     [InlineData(UserRoles.Comprador)]

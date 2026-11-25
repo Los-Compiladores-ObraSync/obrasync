@@ -78,7 +78,7 @@ public class UsuarioQueryRepository : IUsuarioQueryRepository
             .ThenBy(u => u.Id)
             .Skip(paginacion.Saltear)
             .Take(paginacion.Tamano)
-            .Select(u => new UsuarioResumenDto(u.Id, u.NombreCompleto));
+            .Select(u => new UsuarioResumenDto(u.Id, u.NombreCompleto, u.PhoneNumber));
     }
 
     private static void ValidarArgumentos(string rol, ParametrosPagina paginacion)
