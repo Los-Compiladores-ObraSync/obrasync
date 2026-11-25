@@ -73,6 +73,12 @@ const CAPACIDADES_OBRA = [
     disponible: true, // #147
   },
   {
+    titulo: 'Ver tus obras',
+    descripcion: 'Te cuento qué obras tenés asignadas y en qué etapas está cada una.',
+    mensaje: 'Lista mis obras',
+    disponible: true, // herramienta listar_mis_obras del asistente
+  },
+  {
     titulo: 'Registrar lo que llegó',
     descripcion: 'Te armo la recepción de la mercadería para que la confirmes.',
     mensaje: 'Quiero registrar lo que llegó',

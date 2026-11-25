@@ -68,8 +68,9 @@ describe('AsistenteChatPage', () => {
     const lista = screen.getByRole('list', { name: 'Lo que puedo hacer' })
     expect(lista).toHaveTextContent('Pedir materiales')
     expect(lista).toHaveTextContent('Ver tus requisiciones')
+    expect(lista).toHaveTextContent('Ver tus obras')
     expect(lista).toHaveTextContent('Registrar lo que llegó')
-    // Las tres funciones andan: ninguna lleva la etiqueta "Próximamente".
+    // Las cuatro funciones andan: ninguna lleva la etiqueta "Próximamente".
     expect(screen.queryByText('Próximamente')).not.toBeInTheDocument()
 
     await escribirYEnviar(user, 'necesito 20 bolsas de cemento')
@@ -83,6 +84,7 @@ describe('AsistenteChatPage', () => {
     renderPagina()
 
     expect(screen.getByRole('button', { name: /Ver tus requisiciones/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Ver tus obras/ })).toBeEnabled()
     expect(screen.getByRole('button', { name: /Registrar lo que llegó/ })).toBeEnabled()
 
     await user.click(screen.getByRole('button', { name: /Pedir materiales/ }))
@@ -100,6 +102,18 @@ describe('AsistenteChatPage', () => {
 
     expect(await screen.findByText('Quiero ver mis requisiciones')).toBeInTheDocument()
     expect(await screen.findByText(/La más nueva es la REQ-2026-0011/)).toBeInTheDocument()
+    // Es solo una consulta: no arma ninguna tarjeta para confirmar.
+    expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument()
+  })
+
+  it('tocar "Ver tus obras" manda "Lista mis obras" y el asistente cuenta las obras con sus etapas', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+
+    await user.click(screen.getByRole('button', { name: /Ver tus obras/ }))
+
+    expect(await screen.findByText('Lista mis obras')).toBeInTheDocument()
+    expect(await screen.findByText(/Torre Alvear \(etapas: Fundaciones, Estructura/)).toBeInTheDocument()
     // Es solo una consulta: no arma ninguna tarjeta para confirmar.
     expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument()
   })

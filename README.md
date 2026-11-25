@@ -73,19 +73,39 @@ Al pedir "Olvidé mi contraseña", el servicio de Usuarios manda un mail con el 
 
 Los puertos están cerrados a `127.0.0.1`, así que el celular no ve tu computadora. Para probar la PWA en el celular (instalarla, avisos, cámara para las fotos del remito) hace falta una dirección **HTTPS**. El `docker compose` trae un túnel opcional de Cloudflare ("quick tunnel": sin cuenta ni configuración).
 
-1. Levantá todo con el perfil `movil`:
+### Paso a paso
 
-   ```
-   docker compose --profile movil up --build
-   ```
+1. En la computadora, levantá todo con el perfil `movil` (necesita internet):
 
-2. Pedí la dirección del túnel:
-
-   ```
-   docker compose logs tunel
+   ```powershell
+   docker compose --profile movil up -d --build
    ```
 
-   Buscá una línea con `https://<palabras>.trycloudflare.com` y abrila en el celular. El frontend ya manda `/api` al Gateway por la misma dirección, así que no hace falta otro túnel.
+2. Pedí la dirección del túnel (espera a que esté lista y la muestra):
+
+   ```powershell
+   .\scripts\direccion-tunel.ps1
+   ```
+
+   Sin el script: `docker compose logs tunel` y buscá una línea con `https://<palabras>.trycloudflare.com`.
+
+3. Abrí esa dirección en el navegador del celular (Chrome en Android, Safari en iPhone). El celular puede estar con datos móviles o con otro Wi-Fi: no hace falta que esté en tu red. El frontend ya manda `/api` al Gateway por la misma dirección, así que no hace falta otro túnel.
+
+4. Iniciá sesión con un usuario del sistema (Capataz, Comprador o Proveedor): cada rol entra a su portal.
+
+5. (Opcional) Instalá la app para usarla como una aplicación:
+   - **Android (Chrome):** menú ⋮ → "Instalar aplicación" o "Agregar a la pantalla principal".
+   - **iPhone (Safari):** botón Compartir → "Agregar a pantalla de inicio".
+
+6. Cuando el navegador pida permiso para la **cámara** (fotos del remito y de los problemas de entrega), tocá "Permitir". Solo funciona por HTTPS, por eso se usa el túnel.
+
+7. Al terminar, apagá el túnel:
+
+   ```powershell
+   docker compose --profile movil down
+   ```
+
+### Cosas a tener en cuenta
 
 - **La dirección cambia cada vez** que arranca el túnel.
 - **Cualquiera que tenga la dirección puede abrir el login de tu app.** Usalo solo para probar y apagalo después: `docker compose --profile movil down` (o `docker compose stop tunel`).

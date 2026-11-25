@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { MAX_FOTOS_EVIDENCIA } from './imagenEvidencia'
 import { MOTIVOS_PROBLEMA } from './recepcionesTipos'
 import {
+  armarDetalleProblema,
   esMotivoProblema,
   hayErroresProblema,
   LARGO_MAXIMO_DETALLE_PROBLEMA,
@@ -56,5 +57,27 @@ describe('esMotivoProblema', () => {
     expect(esMotivoProblema('Otro motivo')).toBe(false)
     expect(esMotivoProblema('')).toBe(false)
     expect(esMotivoProblema('llegó dañada')).toBe(false)
+  })
+})
+
+describe('"Llegó incompleta": alcance y materiales', () => {
+  const base = { motivo: 'Llegó incompleta' as const, detalle: '', cantidadFotos: 0 }
+
+  it('pide elegir todo o algo específico, y materiales si es algo', () => {
+    expect(validarEntregaConProblema(base).alcance).toMatch(/todo o solo algo/)
+    expect(validarEntregaConProblema({ ...base, alcanceIncompleta: 'algo', materialesIncompletos: [] }).alcance).toMatch(/Marcá/)
+    expect(validarEntregaConProblema({ ...base, alcanceIncompleta: 'todo' }).alcance).toBeUndefined()
+    expect(validarEntregaConProblema({ ...base, alcanceIncompleta: 'algo', materialesIncompletos: ['Cemento'] }).alcance).toBeUndefined()
+  })
+
+  it('con otro motivo no pide nada de eso', () => {
+    expect(validarEntregaConProblema({ ...base, motivo: 'Llegó dañada' }).alcance).toBeUndefined()
+  })
+
+  it('arma el detalle con los materiales y avisa si junto con el texto se pasa de 500', () => {
+    const datos = { ...base, detalle: 'faltó', alcanceIncompleta: 'algo' as const, materialesIncompletos: ['Cemento', 'Hierro'] }
+    expect(armarDetalleProblema(datos)).toBe('Llegó incompleto: Cemento, Hierro. faltó')
+    const largo = { ...datos, detalle: 'a'.repeat(495) }
+    expect(validarEntregaConProblema(largo).detalle).toMatch(/acortá/)
   })
 })

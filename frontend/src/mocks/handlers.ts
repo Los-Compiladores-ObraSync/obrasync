@@ -1062,6 +1062,15 @@ export const handlers: RequestHandler[] = [
 
     const texto = mensaje.toLowerCase()
 
+    // Perfil Capataz: lista de sus obras con las etapas (herramienta listar_mis_obras), solo lectura.
+    if (/mis obras/.test(texto)) {
+      const respuesta = obrasMock.length === 0
+        ? 'Todavía no tenés obras asignadas.'
+        : `Tenés ${obrasMock.length} obra(s) asignada(s): ` +
+          obrasMock.map((o) => `${o.nombre} (etapas: ${o.etapas.map((e) => e.nombreEtapa).join(', ')})`).join('; ') + '.'
+      return HttpResponse.json({ respuesta, borrador: null, tokensUsados: 0 }, { status: 200 })
+    }
+
     // Perfil Capataz (#147): consulta de sus requisiciones, solo lectura (no arma ninguna tarjeta).
     if (/mis requisiciones/.test(texto)) {
       const masNueva = requisicionesMock[0]
