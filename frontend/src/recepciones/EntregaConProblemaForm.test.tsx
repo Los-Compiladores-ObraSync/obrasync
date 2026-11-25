@@ -23,10 +23,18 @@ const REGISTRADA = { id: 'p1', estado: 4, motivoProblema: 'Llegó dañada' as co
 
 const foto = (nombre = 'foto.jpg') => new File(['x'], nombre, { type: 'image/jpeg' })
 
-function renderFormulario() {
+const ORDEN_CON_ITEMS: OrdenPendiente = {
+  ...ORDEN,
+  items: [
+    { articuloId: 'a1', descripcionArticulo: 'Cemento', cantidadEsperada: 20, cantidadRecibida: 0, unidadMedida: 'bolsa' },
+    { articuloId: 'a2', descripcionArticulo: 'Hierro del 8', cantidadEsperada: 10, cantidadRecibida: 0, unidadMedida: 'barra' },
+  ],
+}
+
+function renderFormulario(orden: OrdenPendiente = ORDEN) {
   const onRegistrada = vi.fn()
   const onCancelar = vi.fn()
-  render(<EntregaConProblemaForm orden={ORDEN} onRegistrada={onRegistrada} onCancelar={onCancelar} />)
+  render(<EntregaConProblemaForm orden={orden} onRegistrada={onRegistrada} onCancelar={onCancelar} />)
   return { onRegistrada, onCancelar }
 }
 
@@ -252,5 +260,60 @@ describe('EntregaConProblemaForm', () => {
 
     expect(onCancelar).toHaveBeenCalledTimes(1)
     expect(registrarEntregaConProblema).not.toHaveBeenCalled()
+  })
+
+  describe('"Llegó incompleta"', () => {
+    it('solo con ese motivo pregunta si todo o algo específico', async () => {
+      const user = userEvent.setup()
+      renderFormulario(ORDEN_CON_ITEMS)
+      expect(screen.queryByText('¿Todo llegó incompleto o algo específico?')).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('radio', { name: 'Llegó dañada' }))
+      expect(screen.queryByText('¿Todo llegó incompleto o algo específico?')).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('radio', { name: 'Llegó incompleta' }))
+      expect(screen.getByText('¿Todo llegó incompleto o algo específico?')).toBeInTheDocument()
+    })
+
+    it('exige elegir y, si es algo específico, marcar al menos un material', async () => {
+      const user = userEvent.setup()
+      renderFormulario(ORDEN_CON_ITEMS)
+      await user.click(screen.getByRole('radio', { name: 'Llegó incompleta' }))
+
+      await user.click(screen.getByRole('button', { name: 'Registrar el problema' }))
+      expect(await screen.findByText('Contanos si llegó incompleto todo o solo algo.')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('radio', { name: 'Algo específico' }))
+      await user.click(screen.getByRole('button', { name: 'Registrar el problema' }))
+      expect(await screen.findByText('Marcá qué materiales llegaron incompletos.')).toBeInTheDocument()
+      expect(registrarEntregaConProblema).not.toHaveBeenCalled()
+    })
+
+    it('manda qué materiales llegaron incompletos al principio del detalle', async () => {
+      const user = userEvent.setup()
+      renderFormulario(ORDEN_CON_ITEMS)
+      await user.click(screen.getByRole('radio', { name: 'Llegó incompleta' }))
+      await user.click(screen.getByRole('radio', { name: 'Algo específico' }))
+      await user.click(screen.getByRole('checkbox', { name: 'Hierro del 8' }))
+      await user.type(screen.getByLabelText(/Detalle/), 'faltaron 3 barras')
+      await user.click(screen.getByRole('button', { name: 'Registrar el problema' }))
+
+      await waitFor(() => expect(registrarEntregaConProblema).toHaveBeenCalled())
+      expect(vi.mocked(registrarEntregaConProblema).mock.calls[0][0]).toMatchObject({
+        motivo: 'Llegó incompleta',
+        detalle: 'Llegó incompleto: Hierro del 8. faltaron 3 barras',
+      })
+    })
+
+    it('si todo llegó incompleto lo aclara en el detalle', async () => {
+      const user = userEvent.setup()
+      renderFormulario(ORDEN_CON_ITEMS)
+      await user.click(screen.getByRole('radio', { name: 'Llegó incompleta' }))
+      await user.click(screen.getByRole('radio', { name: 'Todo llegó incompleto' }))
+      await user.click(screen.getByRole('button', { name: 'Registrar el problema' }))
+
+      await waitFor(() => expect(registrarEntregaConProblema).toHaveBeenCalled())
+      expect(vi.mocked(registrarEntregaConProblema).mock.calls[0][0].detalle).toBe('Llegó incompleto todo el pedido.')
+    })
   })
 })

@@ -5,7 +5,10 @@ import { ErrorDeImagen } from './imagenRemito'
 import { registrarEntregaConProblema } from './recepcionesService'
 import { MOTIVOS_PROBLEMA, type MotivoProblema, type OrdenPendiente, type RecepcionRegistrada } from './recepcionesTipos'
 import {
+  armarDetalleProblema,
   esMotivoProblema,
+  MOTIVO_INCOMPLETA,
+  type AlcanceIncompleta,
   hayErroresProblema,
   LARGO_MAXIMO_DETALLE_PROBLEMA,
   validarEntregaConProblema,
@@ -46,6 +49,8 @@ function mensajeDeErrorApi(err: unknown): string {
 export function EntregaConProblemaForm({ orden, onRegistrada, onCancelar }: EntregaConProblemaFormProps) {
   const [motivo, setMotivo] = useState<MotivoProblema | ''>('')
   const [detalle, setDetalle] = useState('')
+  const [alcance, setAlcance] = useState<AlcanceIncompleta>('')
+  const [marcados, setMarcados] = useState<string[]>([])
   const [fotos, setFotos] = useState<FotoElegida[]>([])
   const [preparando, setPreparando] = useState(false)
   const [errorFoto, setErrorFoto] = useState<string | null>(null)
@@ -106,11 +111,30 @@ export function EntregaConProblemaForm({ orden, onRegistrada, onCancelar }: Entr
     setErrorFoto(null)
   }
 
+  /** Descripciones de los materiales marcados, en el orden de la orden. */
+  function materialesMarcados(): string[] {
+    return orden.items.filter((i) => marcados.includes(i.articuloId)).map((i) => i.descripcionArticulo)
+  }
+
+  function alternarMaterial(articuloId: string) {
+    setMarcados((previos) =>
+      previos.includes(articuloId) ? previos.filter((id) => id !== articuloId) : [...previos, articuloId],
+    )
+    setErrores((previos) => ({ ...previos, alcance: undefined, detalle: undefined }))
+  }
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (enviandoRef.current || preparando) return
 
-    const nuevosErrores = validarEntregaConProblema({ motivo, detalle, cantidadFotos: fotos.length })
+    const datos = {
+      motivo,
+      detalle,
+      cantidadFotos: fotos.length,
+      alcanceIncompleta: alcance,
+      materialesIncompletos: materialesMarcados(),
+    }
+    const nuevosErrores = validarEntregaConProblema(datos)
     setErrores(nuevosErrores)
     if (hayErroresProblema(nuevosErrores) || motivo === '') return
 
@@ -119,7 +143,7 @@ export function EntregaConProblemaForm({ orden, onRegistrada, onCancelar }: Entr
     setEnviando(true)
     try {
       const registrada = await registrarEntregaConProblema(
-        { obraId: orden.obraId, ordenCompraId: orden.ordenCompraId, motivo, detalle: detalle.trim() || null },
+        { obraId: orden.obraId, ordenCompraId: orden.ordenCompraId, motivo, detalle: armarDetalleProblema(datos) || null },
         fotos.map((foto) => foto.imagen),
       )
       onRegistrada(registrada)
@@ -155,7 +179,7 @@ export function EntregaConProblemaForm({ orden, onRegistrada, onCancelar }: Entr
               checked={motivo === opcion}
               onChange={(e) => {
                 if (esMotivoProblema(e.target.value)) setMotivo(e.target.value)
-                setErrores((previos) => ({ ...previos, motivo: undefined }))
+                setErrores((previos) => ({ ...previos, motivo: undefined, alcance: undefined }))
               }}
             />
             <span>{opcion}</span>
@@ -167,6 +191,57 @@ export function EntregaConProblemaForm({ orden, onRegistrada, onCancelar }: Entr
           </p>
         )}
       </fieldset>
+
+      {motivo === MOTIVO_INCOMPLETA && (
+        <fieldset className={styles.motivos} aria-describedby={errores.alcance ? 'problema-alcance-error' : undefined}>
+          <legend className={styles.label}>¿Todo llegó incompleto o algo específico?</legend>
+          <label className={`${styles.motivo}${alcance === 'todo' ? ` ${styles.motivoElegido}` : ''}`}>
+            <input
+              type="radio"
+              name="alcance-incompleta"
+              checked={alcance === 'todo'}
+              onChange={() => {
+                setAlcance('todo')
+                setErrores((previos) => ({ ...previos, alcance: undefined, detalle: undefined }))
+              }}
+            />
+            <span>Todo llegó incompleto</span>
+          </label>
+          <label className={`${styles.motivo}${alcance === 'algo' ? ` ${styles.motivoElegido}` : ''}`}>
+            <input
+              type="radio"
+              name="alcance-incompleta"
+              checked={alcance === 'algo'}
+              onChange={() => {
+                setAlcance('algo')
+                setErrores((previos) => ({ ...previos, alcance: undefined, detalle: undefined }))
+              }}
+            />
+            <span>Algo específico</span>
+          </label>
+          {alcance === 'algo' && (
+            <ul className={styles.materiales} aria-label="Materiales que llegaron incompletos">
+              {orden.items.map((item) => (
+                <li key={item.articuloId}>
+                  <label className={`${styles.motivo}${marcados.includes(item.articuloId) ? ` ${styles.motivoElegido}` : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={marcados.includes(item.articuloId)}
+                      onChange={() => alternarMaterial(item.articuloId)}
+                    />
+                    <span>{item.descripcionArticulo}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+          {errores.alcance && (
+            <p id="problema-alcance-error" className={styles.errorCampo} role="alert">
+              {errores.alcance}
+            </p>
+          )}
+        </fieldset>
+      )}
 
       <div className={styles.grupo}>
         <label htmlFor="problema-detalle" className={styles.label}>
