@@ -1,16 +1,36 @@
 .panel {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
+    /* Celular (mobile-first): el panel ocupa el ancho de la pantalla, con un margen a cada lado.
+       Si estuviera pegado a la campana, que no queda en el borde derecho, se saldría de la pantalla por la izquierda.
+       Es 'fixed' para medirse contra la pantalla y no contra la campana. */
+    position: fixed;
+    top: 5.25rem; /* justo debajo del encabezado */
+    right: 0.75rem;
+    left: 0.75rem;
     z-index: 10;
     box-sizing: border-box;
-    width: min(20rem, calc(100vw - 2rem));
+    max-height: calc(100vh - 6.5rem);
+    max-height: calc(100dvh - 6.5rem);
     padding: 1rem;
+    overflow-y: auto; /* con muchos avisos, el panel se desplaza adentro y no se corta */
+    overscroll-behavior: contain;
     color: var(--texto);
     background: var(--fondo);
     border: 2px solid var(--borde);
     border-radius: 8px;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
+}
+
+/* Pantallas más anchas: vuelve a colgar de la campana, con ancho fijo. */
+@media (min-width: 42rem) {
+    .panel {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        left: auto;
+        width: 22rem;
+        max-height: min(32rem, calc(100vh - 8rem));
+        max-height: min(32rem, calc(100dvh - 8rem));
+    }
 }
 
 .texto {
