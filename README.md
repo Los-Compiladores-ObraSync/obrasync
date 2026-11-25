@@ -12,7 +12,7 @@ Requisitos: Docker Desktop abierto y funcionando.
    copy .env.example .env
    ```
 
-   Abrirlo y completar `SQL_SA_PASSWORD`, `JWT_SECRET`, `RABBITMQ_USER` y `RABBITMQ_PASS`. El `JWT_SECRET` tiene que ser **el mismo para todo el equipo** (pedirlo por el grupo del equipo). Por seguridad (#169), ya no se usan credenciales por defecto (`guest/guest`) y los servicios exigen credenciales explícitas al usar RabbitMQ. El archivo `.env` no se sube al repositorio.
+   Abrirlo y completar `SQL_SA_PASSWORD`, `JWT_SECRET`, `RABBITMQ_USER` y `RABBITMQ_PASS`. Las demás variables (presupuesto semilla, dirección del frontend para los mails, claves de IA y de push) vienen comentadas en `.env.example`. El `JWT_SECRET` tiene que ser **el mismo para todo el equipo** (pedirlo por el grupo del equipo). Por seguridad (#169), ya no se usan credenciales por defecto (`guest/guest`) y los servicios exigen credenciales explícitas al usar RabbitMQ. El archivo `.env` no se sube al repositorio.
 
 2. **Levantar:**
 
@@ -20,7 +20,7 @@ Requisitos: Docker Desktop abierto y funcionando.
    docker compose up --build
    ```
 
-   La primera vez tarda varios minutos (descarga imágenes y compila los 4 servicios, el Gateway y el frontend). SQL Server y RabbitMQ tienen que estar "healthy" antes de que arranquen los servicios.
+   La primera vez tarda varios minutos (descarga imágenes y compila los 4 servicios, el Asistente de IA, el Gateway y el frontend). SQL Server y RabbitMQ tienen que estar "healthy" antes de que arranquen los servicios. También levanta Mailpit, el correo de prueba (ver más abajo).
 
 3. **Bajar todo:**
 
@@ -44,6 +44,8 @@ Por seguridad, todos los puertos expuestos al host están explícitamente restri
 | Requisiciones y Catálogo | 127.0.0.1:5002 |
 | Licitaciones y Cotizaciones | 127.0.0.1:5003 |
 | Recepción y Presupuesto | 127.0.0.1:5004 |
+| Asistente de IA (y servidor MCP) | 127.0.0.1:5005 |
+| Mailpit (bandeja del correo de prueba) | 127.0.0.1:8025 |
 | SQL Server | 127.0.0.1:1433 |
 | RabbitMQ (servicios AMQP) | 127.0.0.1:5672 |
 | RabbitMQ (panel web, credenciales `RABBITMQ_USER` / `RABBITMQ_PASS`) | 127.0.0.1:15672 |
@@ -54,6 +56,43 @@ Dentro de Docker cada servicio escucha en el 8080 (corriendo bajo usuario no-roo
 
 **Eventos que fallan (#179):** si un consumidor de eventos (Licitaciones: `RequisicionAprobadaEvent`; Recepción: `OrdenCompraEmitidaEvent`) tiene un error pasajero, MassTransit reintenta hasta 5 veces con espera creciente (de 1 a 30 segundos). Si se agotan los reintentos, el mensaje queda en la cola `<nombre>_error`: se ve en el panel de RabbitMQ (`http://localhost:15672`, pestaña Queues, cola terminada en `_error`, botón Get messages). Los eventos inválidos no se reintentan: se descartan.
 
+## Correo de prueba: recuperar contraseña (Mailpit)
+
+Al pedir "Olvidé mi contraseña", el servicio de Usuarios manda un mail con el enlace para elegir una contraseña nueva. En desarrollo ese mail lo recibe **Mailpit**, un servidor de correo de prueba que corre en el `docker compose` y **no manda nada a internet**.
+
+1. En el login, tocá "Olvidé mi contraseña" y poné el correo de un usuario que exista (por ejemplo `capataz@obrasync.com`).
+2. Abrí la bandeja: `http://localhost:8025`. Ahí está el mail con el enlace; tocalo y elegí la contraseña nueva.
+
+- La pantalla responde siempre lo mismo, exista o no el correo (para no revelar qué cuentas existen). Si el correo no existe, no llega nada a Mailpit.
+- El enlace **también sale por el log** de Usuarios (línea `[PASSWORD-RESET]`): `docker compose logs usuarios-obras-api`. Es el respaldo si el mail falla.
+- Si falta `Correo__Host` (por ejemplo al correr Usuarios sin Docker), no se manda ningún mail y queda solo el log.
+- El enlace del mail apunta a `FRONTEND_BASE_URL` (por defecto `http://localhost:5173`).
+- Mailpit es solo para desarrollo y demo: para mandar mails de verdad hay que elegir un servidor SMTP real, y eso es una decisión del equipo.
+
+## Probar desde el celular (túnel HTTPS)
+
+Los puertos están cerrados a `127.0.0.1`, así que el celular no ve tu computadora. Para probar la PWA en el celular (instalarla, avisos, cámara para las fotos del remito) hace falta una dirección **HTTPS**. El `docker compose` trae un túnel opcional de Cloudflare ("quick tunnel": sin cuenta ni configuración).
+
+1. Levantá todo con el perfil `movil`:
+
+   ```
+   docker compose --profile movil up --build
+   ```
+
+2. Pedí la dirección del túnel:
+
+   ```
+   docker compose logs tunel
+   ```
+
+   Buscá una línea con `https://<palabras>.trycloudflare.com` y abrila en el celular. El frontend ya manda `/api` al Gateway por la misma dirección, así que no hace falta otro túnel.
+
+- **La dirección cambia cada vez** que arranca el túnel.
+- **Cualquiera que tenga la dirección puede abrir el login de tu app.** Usalo solo para probar y apagalo después: `docker compose --profile movil down` (o `docker compose stop tunel`).
+- Para que el enlace del mail de recuperación abra en el celular, poné en `.env` `FRONTEND_BASE_URL=https://<la-direccion>.trycloudflare.com` y reiniciá Usuarios (`docker compose up -d usuarios-obras-api`).
+- Los Magic Links usan la dirección desde la que abrís la app: si los generás desde el celular o desde la dirección del túnel, el proveedor los abre bien afuera de tu red. Si los generás desde `localhost`, solo funcionan en tu computadora.
+- El túnel necesita internet y no tiene garantía de disponibilidad: es una ayuda para probar, no para producción. Es una herramienta nueva que todavía no se acordó con el equipo.
+
 ## Probar que está andando
 
 - Frontend: `http://localhost:5173` debe mostrar el login.
@@ -61,6 +100,7 @@ Dentro de Docker cada servicio escucha en el 8080 (corriendo bajo usuario no-roo
 - Salud de los servicios: `http://localhost:5002/health` (Requisiciones), `http://localhost:5003/health` (Licitaciones) y `http://localhost:5004/health` (Recepción).
 - Swagger (se activa en `Development`): `http://localhost:5001/swagger` (Usuarios), `http://localhost:5002/swagger` (Requisiciones) y `http://localhost:5004/swagger` (Recepción).
 - RabbitMQ: `http://localhost:15672`.
+- Correo de prueba (Mailpit): `http://localhost:8025`.
 
 ## Frontend
 
@@ -89,13 +129,16 @@ Es el recorrido que se muestra en la demo y el que automatiza `scripts/flujo-e2e
 | Paso | Quién | Qué hace |
 | --- | --- | --- |
 | 1 | Capataz | Crea una requisición para una obra y una etapa. |
-| 2 | Comprador | Aprueba la requisición. Se publica `RequisicionAprobadaEvent`. |
+| 2 | Comprador | Aprueba la requisición. Al aprobar ve el presupuesto de la etapa (disponible y si el pedido entra). Se publica `RequisicionAprobadaEvent`. |
 | 3 | (automático) | Licitaciones recibe el evento y **solo guarda** la requisición. **No crea la licitación.** |
-| 4 | Comprador | **Publica la licitación a mano** (`POST /api/licitaciones`) con una fecha límite a futuro. |
-| 5 | Proveedor | Ve la licitación y envía su cotización. |
-| 6 | Comprador | Compara las ofertas y **adjudica** una. Se emite la Orden de Compra y `OrdenCompraEmitidaEvent`. |
+| 4 | Comprador | **Publica la licitación a mano** (`POST /api/licitaciones`) con una fecha límite a futuro. Ahí mismo puede armar el **Magic Link** de cada proveedor y mandárselo por WhatsApp. |
+| 5 | Proveedor | Ve la licitación (o abre su Magic Link) y envía su cotización. |
+| 6 | Comprador | Compara las ofertas y **adjudica** una. Se emite la Orden de Compra y `OrdenCompraEmitidaEvent`. **El flujo del Comprador termina acá**: sigue la orden, pero recibir no es tarea suya. |
 | 7 | (automático) | Recepción recibe la orden y la deja pendiente de recibir. |
-| 8 | Capataz | Ve las órdenes pendientes y registra la recepción. |
+| 8 | Proveedor | Avisa que despachó la orden. |
+| 9 | Capataz | Ve las órdenes pendientes y registra la recepción (completa, parcial o con problema). |
+
+Si el Capataz marca un **problema** en la entrega, la orden vuelve al Proveedor: el Capataz no puede recibir de nuevo hasta que el Proveedor la despache otra vez ("Volver a despachar").
 
 Cosas que conviene saber:
 
@@ -103,6 +146,10 @@ Cosas que conviene saber:
 - **El Proveedor solo ve una licitación si está Abierta y con la fecha límite a futuro.** Si no ve nada, casi siempre es porque el Comprador todavía no la publicó (paso 4).
 - **El seed solo crea los usuarios que no existen.** Si venís de una versión vieja y el login da "credenciales inválidas", corré `docker compose down -v` para recrear la base de Usuarios y volvé a levantar.
 - **Los servicios rechazan (409) requisiciones idénticas recientes.** Por eso el script cambia la cantidad en cada corrida.
+- **Reglas de carga:** no se aceptan comas en los números (los decimales van con punto), las bolsas se piden en cantidades enteras y el plazo de entrega de una cotización es de **15 días como máximo**.
+- **Presupuesto semilla:** al crear una obra se crea el presupuesto de cada etapa con el monto de `PRESUPUESTO_SEMILLA_POR_ETAPA` (las obras que ya existían lo reciben al reiniciar Usuarios). Con `0` no se crea nada. El monto de ejemplo lo tiene que confirmar el equipo.
+- **Teléfono del proveedor:** es opcional en el registro, con código de país (por ejemplo `+54 9 11 5555 1234`). Si lo tiene, el botón de WhatsApp abre directo su chat. WhatsApp no se manda solo: la persona toca "Enviar".
+- **El Comprador no recibe mercadería.** Ve el estado de la entrega, pero registrar la recepción es tarea del Capataz.
 
 Para correr el recorrido completo contra Docker:
 
@@ -113,9 +160,17 @@ Para correr el recorrido completo contra Docker:
 ## Estructura del repositorio
 
 - `services/` un microservicio por carpeta, cada uno con su Dockerfile
+- `asistente/` Asistente de IA y servidor MCP (ver `asistente/README.md`)
 - `gateway/` API Gateway con YARP
 - `frontend/` PWA en React
 - `contracts/` contratos OpenAPI y esquemas de eventos
+- `scripts/` recorridos de prueba de punta a punta y verificaciones (PowerShell)
+
+## Correr las pruebas
+
+- Backend (en la carpeta de cada servicio, por ejemplo `services/usuarios-obras`): `dotnet test`
+- Asistente: `dotnet test` dentro de `asistente/`
+- Frontend: `cd frontend` y `npm test` (las pruebas usan respuestas simuladas, no hace falta el backend)
 
 ## Gestión e higiene de secretos (#165)
 
