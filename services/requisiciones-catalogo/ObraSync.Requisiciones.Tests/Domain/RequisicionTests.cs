@@ -333,5 +333,42 @@ namespace ObraSync.Requisiciones.Tests.Domain
             Assert.Throws<UnauthorizedAccessException>(() =>
                 requisicion.AsegurarPuedeSerModificadaPor(otroId, esAdmin: false, "cancelarla"));
         }
+
+        [Fact]
+        public void NormalizarObservaciones_ConHasta1000CaracteresRecortaYConMasDe1000LanzaArgumentException()
+        {
+            var alLimite = new string('A', Requisicion.LongitudMaximaObservaciones);
+            var requisicion = new Requisicion(
+                Guid.NewGuid(),
+                "REQ-2026-0011",
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                new[] { new RequisicionItem(Guid.NewGuid(), Guid.Empty, Guid.NewGuid(), "Cemento", 10m, UnidadesMedida.Bolsa) },
+                observaciones: $"  {alLimite}  ");
+
+            Assert.Equal(alLimite, requisicion.Observaciones);
+
+            var excedida = new string('B', Requisicion.LongitudMaximaObservaciones + 1);
+            var exCreacion = Assert.Throws<ArgumentException>(() =>
+                new Requisicion(
+                    Guid.NewGuid(),
+                    "REQ-2026-0012",
+                    Guid.NewGuid(),
+                    Guid.NewGuid(),
+                    new[] { new RequisicionItem(Guid.NewGuid(), Guid.Empty, Guid.NewGuid(), "Cemento", 10m, UnidadesMedida.Bolsa) },
+                    observaciones: excedida));
+            Assert.Contains(Requisicion.LongitudMaximaObservaciones.ToString(), exCreacion.Message);
+
+            requisicion.Reenviar(
+                new[] { new RequisicionItem(Guid.NewGuid(), requisicion.Id, Guid.NewGuid(), "Cal", 5m, UnidadesMedida.Bolsa) },
+                observaciones: alLimite);
+            Assert.Equal(alLimite, requisicion.Observaciones);
+
+            var exReenvio = Assert.Throws<ArgumentException>(() =>
+                requisicion.Reenviar(
+                    new[] { new RequisicionItem(Guid.NewGuid(), requisicion.Id, Guid.NewGuid(), "Cal", 5m, UnidadesMedida.Bolsa) },
+                    observaciones: excedida));
+            Assert.Contains(Requisicion.LongitudMaximaObservaciones.ToString(), exReenvio.Message);
+        }
     }
 }

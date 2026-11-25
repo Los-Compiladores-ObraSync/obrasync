@@ -534,5 +534,78 @@ namespace ObraSync.Requisiciones.Tests.Integration
             Assert.Equal(comprador2Id, dtoFinal.HistorialRechazos[1].RechazadorId);
             Assert.Equal("Motivo 2: cambiar etapa a Terminaciones", dtoFinal.HistorialRechazos[1].Motivo);
         }
+
+        [Fact]
+        public async Task CrearYReenviar_ObservacionesHasta1000CaracteresAcepta_YCon1001Devuelve400ProblemDetails()
+        {
+            using var factory = CreateIsolatedFactory();
+            var capatazId = Guid.NewGuid();
+            var compradorId = Guid.NewGuid();
+            var correlationId = Guid.NewGuid().ToString();
+
+            var clientCapataz = factory.CreateClient();
+            clientCapataz.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Capataz", capatazId));
+            clientCapataz.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
+
+            var clientComprador = factory.CreateClient();
+            clientComprador.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Comprador", compradorId));
+
+            var observacionesAlLimite = new string('x', 1000);
+            var observacionesExcedidas = new string('y', 1001);
+
+            var respInvalidaPost = await clientCapataz.PostAsJsonAsync("/api/requisiciones", new CrearRequisicionRequestDto
+            {
+                ObraId = Guid.NewGuid(),
+                Etapa = "Estructura",
+                Observaciones = observacionesExcedidas,
+                Items = new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = CementoSeedId, Cantidad = 10m }
+                }
+            });
+
+            await AssertProblemDetailsAsync(respInvalidaPost, HttpStatusCode.BadRequest, correlationId);
+            var bodyPostInvalido = await respInvalidaPost.Content.ReadAsStringAsync();
+            Assert.Contains("1000", bodyPostInvalido);
+
+            var respValidaPost = await clientCapataz.PostAsJsonAsync("/api/requisiciones", new CrearRequisicionRequestDto
+            {
+                ObraId = Guid.NewGuid(),
+                Etapa = "Estructura",
+                Observaciones = observacionesAlLimite,
+                Items = new List<CrearRequisicionItemDto>
+                {
+                    new() { ArticuloId = CementoSeedId, Cantidad = 10m }
+                }
+            });
+
+            Assert.Equal(HttpStatusCode.Created, respValidaPost.StatusCode);
+            var creada = await respValidaPost.Content.ReadFromJsonAsync<RequisicionResponseDto>();
+            Assert.NotNull(creada);
+            Assert.Equal(observacionesAlLimite, creada.Observaciones);
+
+            var rechazarResp = await clientComprador.PostAsJsonAsync(
+                $"/api/requisiciones/{creada.RequisicionId}/rechazos",
+                new RechazarRequisicionRequestDto { Motivo = "Ajustar observaciones" });
+            Assert.Equal(HttpStatusCode.OK, rechazarResp.StatusCode);
+
+            var respInvalidaPut = await clientCapataz.PutAsJsonAsync(
+                $"/api/requisiciones/{creada.RequisicionId}",
+                new EditarRequisicionRequestDto
+                {
+                    Etapa = "Estructura",
+                    Observaciones = observacionesExcedidas,
+                    Items = new List<CrearRequisicionItemDto>
+                    {
+                        new() { ArticuloId = CementoSeedId, Cantidad = 10m }
+                    }
+                });
+
+            await AssertProblemDetailsAsync(respInvalidaPut, HttpStatusCode.BadRequest, correlationId);
+            var bodyPutInvalido = await respInvalidaPut.Content.ReadAsStringAsync();
+            Assert.Contains("1000", bodyPutInvalido);
+        }
     }
 }

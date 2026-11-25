@@ -347,6 +347,68 @@ describe('NuevaRequisicionPage', () => {
     )
   })
 
+  it('muestra un mensaje claro del servidor ante una respuesta HTTP 500', async () => {
+    iniciarSesionCapataz()
+    server.use(
+      http.post('*/api/requisiciones', () =>
+        HttpResponse.json(
+          { status: 500, detail: 'Error interno al guardar la requisición.' },
+          { status: 500 },
+        ),
+      ),
+    )
+
+    const user = userEvent.setup()
+    renderPagina()
+
+    await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' })
+
+    await user.selectOptions(screen.getByLabelText('Obra'), OBRA_ID)
+    await user.selectOptions(screen.getByLabelText('Etapa de la obra'), 'Estructura')
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
+    await user.type(screen.getByLabelText('Cantidad'), '80')
+    await user.click(screen.getByRole('button', { name: 'Enviar requisición' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Error interno al guardar la requisición.')
+    expect(alert).not.toHaveTextContent('No se pudo conectar con el servidor')
+  })
+
+  it('limita observaciones a 1000 caracteres con contador y bloquea el envío si se excede', async () => {
+    iniciarSesionCapataz()
+    let llamadasApi = 0
+    server.use(
+      http.post('*/api/requisiciones', () => {
+        llamadasApi += 1
+        return HttpResponse.json({}, { status: 201 })
+      }),
+    )
+
+    const user = userEvent.setup()
+    renderPagina()
+
+    await screen.findByRole('heading', { level: 1, name: 'Nueva requisición' })
+
+    const campoObs = screen.getByLabelText('Observaciones (opcional)')
+    expect(campoObs).toHaveAttribute('maxLength', '1000')
+    expect(screen.getByText('0/1000 caracteres')).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('Obra'), OBRA_ID)
+    await user.selectOptions(screen.getByLabelText('Etapa de la obra'), 'Estructura')
+    await elegirInsumo(user, 1, 'cemento', /MAT-CEM-001/)
+    await user.type(screen.getByLabelText('Cantidad'), '80')
+
+    fireEvent.change(campoObs, { target: { value: 'a'.repeat(1001) } })
+    expect(screen.getByText('1001/1000 caracteres')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Enviar requisición' }))
+
+    expect(
+      await screen.findByText('Las observaciones no pueden superar los 1000 caracteres.'),
+    ).toBeInTheDocument()
+    expect(llamadasApi).toBe(0)
+  })
+
   it('muestra mensaje de error y botón Reintentar si falla la carga inicial de obras', async () => {
     iniciarSesionCapataz()
     // Simula fallo en la carga de obras
