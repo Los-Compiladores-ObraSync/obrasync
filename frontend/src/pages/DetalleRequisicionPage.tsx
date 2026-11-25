@@ -3,6 +3,7 @@ import { useAvisos } from '../notificaciones/useAvisos'
 import { Link, useLocation, useParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
 import { useAuth } from '../auth/useAuth'
+import { EnlacesParaProveedores } from '../licitaciones/EnlacesParaProveedores'
 import { publicarLicitacion } from '../licitaciones/licitacionesService'
 import { fechaLocalEnDias, finDelDiaEnUtc } from '../licitaciones/plazoCotizacion'
 import { fechaLarga } from '../requisiciones/formatoFecha'
@@ -37,7 +38,7 @@ const ROLES_QUE_CARGAN = ['Capataz', 'Admin']
 const DIAS_PLAZO_POR_DEFECTO = 7
 
 type ResultadoPublicacion =
-  | { tipo: 'ok'; fechaLimite: string }
+  | { tipo: 'ok'; fechaLimite: string; licitacionId: string }
   | { tipo: 'error'; mensaje: string }
 
 function mensajeDeError(err: unknown): string {
@@ -162,7 +163,7 @@ export function DetalleRequisicionPage({ volverA, rutaBaseSeguimiento }: Detalle
         requisicionId: requisicion.requisicionId,
         fechaLimiteCotizacion: finDelDiaEnUtc(fechaLimite),
       })
-      setResultado({ tipo: 'ok', fechaLimite: licitacion.fechaLimiteCotizacion })
+      setResultado({ tipo: 'ok', fechaLimite: licitacion.fechaLimiteCotizacion, licitacionId: licitacion.licitacionId })
       refrescarAvisos()
     } catch (err) {
       setResultado({ tipo: 'error', mensaje: mensajeDeError(err) })
@@ -294,10 +295,16 @@ export function DetalleRequisicionPage({ volverA, rutaBaseSeguimiento }: Detalle
             <section className={styles.publicar} aria-label="Publicar licitación">
               <h2 className={styles.subtitulo}>Publicar licitación</h2>
               {resultado?.tipo === 'ok' ? (
-                <p className={styles.exito} role="status">
-                  Licitación publicada. Los proveedores pueden cotizar hasta el{' '}
-                  {fechaLarga(resultado.fechaLimite)}.
-                </p>
+                <>
+                  <p className={styles.exito} role="status">
+                    Licitación publicada. Los proveedores pueden cotizar hasta el{' '}
+                    {fechaLarga(resultado.fechaLimite)}.
+                  </p>
+                  {/* Recién publicada: es el momento de invitar a los proveedores. Solo el Comprador arma enlaces (#252). */}
+                  {usuario?.rol === 'Comprador' && (
+                    <EnlacesParaProveedores key={resultado.licitacionId} licitacionId={resultado.licitacionId} />
+                  )}
+                </>
               ) : (
                 <>
                   <label className={styles.etiqueta} htmlFor="fecha-limite">

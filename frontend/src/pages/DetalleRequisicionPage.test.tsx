@@ -234,6 +234,23 @@ describe('DetalleRequisicionPage', () => {
       expect(screen.queryByRole('button', { name: 'Publicar licitación' })).not.toBeInTheDocument()
     })
 
+    it('al publicar, el Comprador puede armar enlaces para los proveedores sin salir de la pantalla', async () => {
+      const user = userEvent.setup()
+      renderPagina(comprador, ID_APROBADA)
+
+      await user.click(await screen.findByRole('button', { name: 'Publicar licitación' }))
+
+      expect(await screen.findByRole('heading', { name: 'Enlaces para proveedores' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Generar enlace para un proveedor' })).toBeInTheDocument()
+    })
+
+    it('antes de publicar no hay enlaces: el enlace depende de una licitación abierta', async () => {
+      renderPagina(comprador, ID_APROBADA)
+
+      await screen.findByRole('button', { name: 'Publicar licitación' })
+      expect(screen.queryByRole('heading', { name: 'Enlaces para proveedores' })).not.toBeInTheDocument()
+    })
+
     it('manda la requisición y una fecha límite futura en UTC', async () => {
       let cuerpo: { requisicionId?: string; fechaLimiteCotizacion?: string } = {}
       server.use(
