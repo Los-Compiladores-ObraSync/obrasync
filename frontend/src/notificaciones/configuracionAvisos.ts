@@ -2,7 +2,7 @@
  *  Lo usan todos los proveedores de avisos. Está en un solo lugar para cambiarlo fácil. */
 export const INTERVALO_REFRESCO_MS = 30_000
 
-/** Roles que pueden aprobar requisiciones (POST /aprobar), y por eso son los
+/** Roles que pueden aprobar requisiciones (POST /aprobaciones), y por eso son los
  *  únicos que ven el número en la campana. */
 export const ROLES_QUE_VEN_PENDIENTES: readonly string[] = ['Comprador', 'Admin']
 

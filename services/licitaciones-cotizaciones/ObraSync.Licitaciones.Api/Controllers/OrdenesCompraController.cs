@@ -120,10 +120,11 @@ public class OrdenesCompraController : ControllerBase
     }
 
     /// <summary>
-    /// Marcar una orden de compra como despachada y publicar OrdenCompraDespachadaEvent
+    /// Registrar el despacho de una orden de compra y publicar OrdenCompraDespachadaEvent
     /// (Rol: Proveedor dueño de la orden). Soporta el re-despacho del remanente tras una recepción parcial (#248).
+    /// POST /api/ordenes-compra/{id}/despachos
     /// </summary>
-    [HttpPost("{id:guid}/despachar")]
+    [HttpPost("{id:guid}/despachos")]
     [Authorize(Roles = "Proveedor")]
     [ProducesResponseType(typeof(OrdenCompraResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -425,10 +426,11 @@ public class OrdenesCompraController : ControllerBase
     }
 
     /// <summary>
-    /// Marcar el chat de una orden de compra como leído para el usuario autenticado
+    /// Registrar la lectura del chat de una orden de compra para el usuario autenticado
     /// (Roles: Comprador, Admin, Proveedor dueño de la orden). Operación idempotente.
+    /// POST /api/ordenes-compra/{id}/chat/lecturas
     /// </summary>
-    [HttpPost("{id:guid}/chat/marcar-leido")]
+    [HttpPost("{id:guid}/chat/lecturas")]
     [Authorize(Roles = "Comprador,Admin,Proveedor")]
     [ProducesResponseType(typeof(LecturaChatResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -469,10 +471,11 @@ public class OrdenesCompraController : ControllerBase
     }
 
     /// <summary>
-    /// Marcar manualmente como resuelto el problema abierto de una orden de compra
+    /// Registrar manualmente la resolución del problema abierto de una orden de compra
     /// (Roles: Comprador, Admin). Operación idempotente.
+    /// POST /api/ordenes-compra/{id}/problema/resoluciones
     /// </summary>
-    [HttpPost("{id:guid}/problema/resolver")]
+    [HttpPost("{id:guid}/problema/resoluciones")]
     [Authorize(Roles = "Comprador,Admin")]
     [ProducesResponseType(typeof(ProblemaOrdenEstadoDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]

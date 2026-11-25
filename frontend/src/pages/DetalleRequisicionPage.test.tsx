@@ -181,7 +181,7 @@ describe('DetalleRequisicionPage', () => {
   it('si Compras ya la aprobó, cancelar muestra un aviso claro (409)', async () => {
     const user = userEvent.setup()
     server.use(
-      http.post('*/api/requisiciones/:id/cancelar', () =>
+      http.post('*/api/requisiciones/:id/cancelaciones', () =>
         HttpResponse.json({ title: 'Conflicto', status: 409 }, { status: 409 }),
       ),
     )

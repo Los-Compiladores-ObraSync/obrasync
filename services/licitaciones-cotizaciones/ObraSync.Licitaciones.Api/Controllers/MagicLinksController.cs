@@ -108,7 +108,11 @@ public class MagicLinksController : ControllerBase
         }
     }
 
-    [HttpPost("magic-links/{hash}/cotizar")]
+    /// <summary>
+    /// Registrar una cotización mediante un Magic Link válido (acceso público sin JWT, #87 / #186).
+    /// POST /api/licitaciones/magic-links/{hash}/cotizaciones
+    /// </summary>
+    [HttpPost("magic-links/{hash}/cotizaciones")]
     [AllowAnonymous] // Permite acceso al proveedor sin token JWT (#87 / #186)
     [ProducesResponseType(typeof(ObraSync.Licitaciones.Application.DTOs.CotizacionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]

@@ -43,7 +43,7 @@ export function crearPartida(datos: CrearPartidaRequest): Promise<PartidaPresupu
 /**
  * Autoriza y libera una orden de compra bloqueada por desvío presupuestario (#96, #97).
  * Exclusivo para el rol Admin.
- * Fuente: POST /api/recepciones/ordenes/{id}/liberar
+ * Fuente: POST /api/recepciones/ordenes/{id}/liberaciones
  *
  * Errores: 400 si los datos son inválidos (ej. motivo > 500 caracteres);
  * 401 si no está autenticado;
@@ -55,7 +55,7 @@ export function liberarOrdenCompra(
   ordenCompraId: string,
   datos?: LiberarOrdenCompraRequest,
 ): Promise<OrdenCompraLiberada> {
-  return apiFetch<OrdenCompraLiberada>(`/api/recepciones/ordenes/${ordenCompraId}/liberar`, {
+  return apiFetch<OrdenCompraLiberada>(`/api/recepciones/ordenes/${ordenCompraId}/liberaciones`, {
     method: 'POST',
     body: JSON.stringify(datos ?? {}),
   })

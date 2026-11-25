@@ -66,7 +66,7 @@ public static class MagicLinkGatewayRequest
     public static bool EsCotizacion(HttpRequest request)
     {
         const string prefijo = "/api/licitaciones/magic-links/";
-        const string sufijo = "/cotizar";
+        const string sufijo = "/cotizaciones";
         var path = request.Path.Value;
         return HttpMethods.IsPost(request.Method)
             && path is not null

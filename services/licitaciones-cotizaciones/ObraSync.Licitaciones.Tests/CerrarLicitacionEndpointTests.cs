@@ -145,7 +145,7 @@ public class CerrarLicitacionEndpointTests : IClassFixture<WebApplicationFactory
         client.DefaultRequestHeaders.Add("X-Correlation-ID", cid);
 
         var resp = await client.PostAsJsonAsync(
-            $"/api/licitaciones/{Guid.NewGuid()}/cerrar",
+            $"/api/licitaciones/{Guid.NewGuid()}/cierres",
             new { motivo = "Obra cancelada" });
 
         await AssertProblemDetailsWithCorrelationIdAsync(resp, HttpStatusCode.Unauthorized, cid);
@@ -166,7 +166,7 @@ public class CerrarLicitacionEndpointTests : IClassFixture<WebApplicationFactory
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt(rol));
 
         var resp = await client.PostAsJsonAsync(
-            $"/api/licitaciones/{licitacion.LicitacionId}/cerrar",
+            $"/api/licitaciones/{licitacion.LicitacionId}/cierres",
             new { motivo = "Intento no autorizado" });
 
         await AssertProblemDetailsWithCorrelationIdAsync(resp, HttpStatusCode.Forbidden, cid);
@@ -191,7 +191,7 @@ public class CerrarLicitacionEndpointTests : IClassFixture<WebApplicationFactory
 
         var antesUtc = DateTime.UtcNow.AddSeconds(-2);
         var resp = await client.PostAsJsonAsync(
-            $"/api/licitaciones/{licitacion.LicitacionId}/cerrar",
+            $"/api/licitaciones/{licitacion.LicitacionId}/cierres",
             new { motivo = "  Sin ofertas válidas en el plazo esperado  " });
 
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
@@ -232,7 +232,7 @@ public class CerrarLicitacionEndpointTests : IClassFixture<WebApplicationFactory
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
 
         var resp = await client.PostAsJsonAsync(
-            $"/api/licitaciones/{Guid.NewGuid()}/cerrar",
+            $"/api/licitaciones/{Guid.NewGuid()}/cierres",
             new { motivo = "No existe" });
 
         await AssertProblemDetailsWithCorrelationIdAsync(resp, HttpStatusCode.NotFound, cid);
@@ -251,7 +251,7 @@ public class CerrarLicitacionEndpointTests : IClassFixture<WebApplicationFactory
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
 
         var resp = await client.PostAsJsonAsync(
-            $"/api/licitaciones/{licitacion.LicitacionId}/cerrar",
+            $"/api/licitaciones/{licitacion.LicitacionId}/cierres",
             new { motivo = "Intento sobre adjudicada" });
 
         await AssertProblemDetailsWithCorrelationIdAsync(resp, HttpStatusCode.Conflict, cid);
@@ -282,7 +282,7 @@ public class CerrarLicitacionEndpointTests : IClassFixture<WebApplicationFactory
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Admin"));
 
         var resp = await client.PostAsJsonAsync(
-            $"/api/licitaciones/{licitacion.LicitacionId}/cerrar",
+            $"/api/licitaciones/{licitacion.LicitacionId}/cierres",
             new { motivo = "Segundo cierre" });
 
         await AssertProblemDetailsWithCorrelationIdAsync(resp, HttpStatusCode.Conflict, cid);
@@ -311,7 +311,7 @@ public class CerrarLicitacionEndpointTests : IClassFixture<WebApplicationFactory
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
 
         var resp = await client.PostAsJsonAsync(
-            $"/api/licitaciones/{licitacion.LicitacionId}/cerrar",
+            $"/api/licitaciones/{licitacion.LicitacionId}/cierres",
             new { motivo = motivoInvalido });
 
         await AssertProblemDetailsWithCorrelationIdAsync(resp, HttpStatusCode.BadRequest, cid);
@@ -336,7 +336,7 @@ public class CerrarLicitacionEndpointTests : IClassFixture<WebApplicationFactory
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
 
         var resp = await client.PostAsJsonAsync(
-            $"/api/licitaciones/{licitacion.LicitacionId}/cerrar",
+            $"/api/licitaciones/{licitacion.LicitacionId}/cierres",
             new { motivo = new string('x', 501) });
 
         await AssertProblemDetailsWithCorrelationIdAsync(resp, HttpStatusCode.BadRequest, cid);
@@ -381,7 +381,7 @@ public class CerrarLicitacionEndpointTests : IClassFixture<WebApplicationFactory
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
 
         var cerrarResp = await clientComprador.PostAsJsonAsync(
-            $"/api/licitaciones/{licitacion.LicitacionId}/cerrar",
+            $"/api/licitaciones/{licitacion.LicitacionId}/cierres",
             new { motivo = "La obra suspendió la compra de este ítem" });
         Assert.Equal(HttpStatusCode.OK, cerrarResp.StatusCode);
 
@@ -466,7 +466,7 @@ public class CerrarLicitacionEndpointTests : IClassFixture<WebApplicationFactory
 
         // Cerrar la primera licitación
         var cerrarResp = await clientComprador.PostAsJsonAsync(
-            $"/api/licitaciones/{licitacionCerrable.LicitacionId}/cerrar",
+            $"/api/licitaciones/{licitacionCerrable.LicitacionId}/cierres",
             new { motivo = "Cancelada por cambio de proyecto" });
         Assert.Equal(HttpStatusCode.OK, cerrarResp.StatusCode);
 
@@ -490,7 +490,7 @@ public class CerrarLicitacionEndpointTests : IClassFixture<WebApplicationFactory
         clientAnonimo.DefaultRequestHeaders.Add("X-Correlation-ID", cid);
 
         var cotizarCerradaResp = await clientAnonimo.PostAsJsonAsync(
-            $"/api/licitaciones/magic-links/{tokenLicitacionCerrable}/cotizar",
+            $"/api/licitaciones/magic-links/{tokenLicitacionCerrable}/cotizaciones",
             new
             {
                 flete = 100m,
@@ -504,7 +504,7 @@ public class CerrarLicitacionEndpointTests : IClassFixture<WebApplicationFactory
 
         // El Magic Link de la otra licitación abierta sigue funcionando normalmente
         var cotizarOtraResp = await clientAnonimo.PostAsJsonAsync(
-            $"/api/licitaciones/magic-links/{tokenOtraLicitacion}/cotizar",
+            $"/api/licitaciones/magic-links/{tokenOtraLicitacion}/cotizaciones",
             new
             {
                 flete = 100m,

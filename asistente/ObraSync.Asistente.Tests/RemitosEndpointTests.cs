@@ -8,10 +8,10 @@ using ObraSync.Asistente.Application;
 
 namespace ObraSync.Asistente.Tests;
 
-/// <summary>Endpoint POST /api/asistente/remito/leer completo (JWT, roles, validación y errores) con el modelo SIMULADO (#209).</summary>
+/// <summary>Endpoint POST /api/asistente/remitos/lecturas completo (JWT, roles, validación y errores) con el modelo SIMULADO (#209).</summary>
 public class RemitosEndpointTests : IClassFixture<WebApplicationFactory<Program>>
 {
-    private const string Ruta = "/api/asistente/remito/leer";
+    private const string Ruta = "/api/asistente/remitos/lecturas";
     private readonly WebApplicationFactory<Program> _fabrica;
 
     public RemitosEndpointTests(WebApplicationFactory<Program> fabrica)

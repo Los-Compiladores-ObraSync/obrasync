@@ -7,7 +7,7 @@ using ObraSync.Asistente.Application;
 namespace ObraSync.Asistente.Api.Controllers;
 
 [ApiController]
-[Route("api/asistente/remito")]
+[Route("api/asistente/remitos")]
 // Solo quien recibe mercadería: Capataz y Admin. El resto recibe 403 y NO se llama al modelo.
 [Authorize(Roles = "Capataz,Admin")]
 public sealed class RemitosController : ControllerBase
@@ -24,10 +24,11 @@ public sealed class RemitosController : ControllerBase
     }
 
     /// <summary>
-    /// Lee el número y la fecha de la foto de un remito (multipart/form-data, campo "imagen"). No guarda la imagen
-    /// ni escribe datos: devuelve una sugerencia para completar el formulario de Recepción.
+    /// Registra una lectura del número y la fecha a partir de la foto de un remito (multipart/form-data, campo "imagen").
+    /// No guarda la imagen ni escribe datos: devuelve una sugerencia para completar el formulario de Recepción.
+    /// POST /api/asistente/remitos/lecturas
     /// </summary>
-    [HttpPost("leer")]
+    [HttpPost("lecturas")]
     [Consumes("multipart/form-data")]
     [EnableRateLimiting("remito-por-usuario")]
     // Un poco más que el máximo de la imagen: el multipart agrega sus encabezados.

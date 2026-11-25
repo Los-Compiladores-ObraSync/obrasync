@@ -2,7 +2,7 @@ namespace ObraSync.Asistente.Application;
 
 // Forma EXACTA de BorradorAprobacionDto en contracts/openapi/asistente-openapi.json.
 // Igual que el borrador de requisición: NO aprueba ni rechaza nada. Solo viaja en la respuesta y el frontend llama a
-// POST /api/requisiciones/{id}/aprobar (o /rechazar, con el motivo; o POST /api/licitaciones para publicar), con el JWT
+// POST /api/requisiciones/{id}/aprobaciones (o /rechazos, con el motivo; o POST /api/licitaciones para publicar), con el JWT
 // del usuario, recién cuando la persona toca Confirmar. El campo Accion dice cuál escritura representa
 // (#141 aprobar, #149 rechazar y publicar licitación).
 

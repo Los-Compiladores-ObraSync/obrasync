@@ -8,9 +8,9 @@ namespace ObraSync.Asistente.Application;
 ///  - listar_requisiciones: las requisiciones más nuevas, con su estado, y cuántas hay en total.
 ///  - ver_requisicion: el detalle de una (materiales, observaciones, motivo de rechazo).
 ///  - preparar_aprobacion_requisicion: ARMA un borrador para aprobar una requisición Pendiente. No aprueba nada:
-///    el frontend llama a POST /api/requisiciones/{id}/aprobar, con el JWT del Comprador, cuando él toca Confirmar.
+///    el frontend llama a POST /api/requisiciones/{id}/aprobaciones, con el JWT del Comprador, cuando él toca Confirmar.
 ///  - preparar_rechazo_requisicion (#149): igual, pero para rechazar, con el motivo que dijo el Comprador. No rechaza nada:
-///    el frontend llama a POST /api/requisiciones/{id}/rechazar con ese motivo recién cuando él toca Confirmar.
+///    el frontend llama a POST /api/requisiciones/{id}/rechazos con ese motivo recién cuando él toca Confirmar.
 ///  - preparar_publicacion_licitacion (#149): igual, para publicar la licitación de una requisición Aprobada, con los días
 ///    que tienen los proveedores para cotizar. No publica nada: el frontend llama a POST /api/licitaciones al confirmar.
 /// Igual que HerramientasCatalogo, validan los argumentos ANTES de llamar a la API y devuelven errores estables.

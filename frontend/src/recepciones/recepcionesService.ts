@@ -44,7 +44,7 @@ export function obtenerHistorialRecepciones(ordenCompraId: string): Promise<Rece
 
 /**
  * Lee el número y la fecha de la foto de un remito (#209).
- * Fuente: POST /api/asistente/remito/leer (multipart, campo "imagen"; Capataz y Admin).
+ * Fuente: POST /api/asistente/remitos/lecturas (multipart, campo "imagen"; Capataz y Admin).
  * Devuelve una SUGERENCIA: no guarda nada, y cada campo es null si no se pudo leer.
  *
  * Errores: 400 si la imagen no sirve; 429 si hay demasiadas fotos o el asistente está ocupado;
@@ -53,7 +53,7 @@ export function obtenerHistorialRecepciones(ordenCompraId: string): Promise<Rece
 export function leerRemitoDeFoto(imagen: Blob): Promise<LecturaRemito> {
   const formulario = new FormData()
   formulario.append('imagen', imagen, 'remito.jpg')
-  return apiFetch<LecturaRemito>('/api/asistente/remito/leer', {
+  return apiFetch<LecturaRemito>('/api/asistente/remitos/lecturas', {
     method: 'POST',
     body: formulario,
     // El modelo tarda más que un pedido normal (el servidor le da hasta 30 s).

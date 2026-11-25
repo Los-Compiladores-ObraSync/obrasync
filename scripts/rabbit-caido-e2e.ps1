@@ -3,7 +3,7 @@
 $gw = 'http://localhost:5000'
 
 function Login($email) {
-  $r = Invoke-RestMethod -Method Post -Uri "$gw/api/usuarios/login" -ContentType 'application/json' `
+  $r = Invoke-RestMethod -Method Post -Uri "$gw/api/usuarios/tokens" -ContentType 'application/json' `
        -Body (@{ email = $email; password = 'Password123!' } | ConvertTo-Json)
   @{ Id = $r.id; Headers = @{ Authorization = "Bearer $($r.token)" } }
 }
@@ -31,7 +31,7 @@ Write-Host "1. Requisicion creada: $($req.numeroRequisicion) ($($req.estado))"
 
 $sw = [Diagnostics.Stopwatch]::StartNew()
 try {
-  $null = Api Post "/api/requisiciones/$($req.requisicionId)/aprobar" $comprador
+  $null = Api Post "/api/requisiciones/$($req.requisicionId)/aprobaciones" $comprador
   Write-Host "2. Aprobar respondio OK en $($sw.Elapsed.TotalSeconds.ToString('0.0')) s"
 } catch {
   Write-Host "2. Aprobar FALLO en $($sw.Elapsed.TotalSeconds.ToString('0.0')) s -> HTTP $([int]$_.Exception.Response.StatusCode)" -ForegroundColor Yellow

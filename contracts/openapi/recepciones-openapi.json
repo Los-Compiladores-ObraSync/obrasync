@@ -741,7 +741,7 @@
         }
       }
     },
-    "/api/recepciones/ordenes/{id}/liberar": {
+    "/api/recepciones/ordenes/{id}/liberaciones": {
       "post": {
         "tags": [
           "Recepciones"
@@ -825,7 +825,7 @@
         }
       }
     },
-    "/api/recepciones/ordenes/{id}/liquidar": {
+    "/api/recepciones/ordenes/{id}/liquidaciones": {
       "post": {
         "tags": [
           "Recepciones"

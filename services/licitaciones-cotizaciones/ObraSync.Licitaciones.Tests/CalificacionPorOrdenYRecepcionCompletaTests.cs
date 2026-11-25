@@ -233,7 +233,7 @@ public class CalificacionPorOrdenYRecepcionCompletaTests : IClassFixture<WebAppl
         // Adjudicar
         var antesDeAdjudicar = DateTime.UtcNow.AddSeconds(-2);
         var adjResp = await client.PostAsJsonAsync(
-            $"/api/licitaciones/{licitacionId}/adjudicar",
+            $"/api/licitaciones/{licitacionId}/adjudicaciones",
             new { cotizacionId = cotizacionGanadoraId });
         Assert.Equal(HttpStatusCode.OK, adjResp.StatusCode);
 

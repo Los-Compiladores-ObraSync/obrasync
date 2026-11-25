@@ -101,7 +101,7 @@
         }
       }
     },
-    "/api/asistente/remito/leer": {
+    "/api/asistente/remitos/lecturas": {
       "post": {
         "tags": [
           "Asistente"
@@ -333,7 +333,7 @@
                 "$ref": "#/components/schemas/BorradorAprobacionDto"
               }
             ],
-            "description": "Presente solo cuando el Comprador pidió aprobar o rechazar una requisición Pendiente, o publicar la licitación de una Aprobada. Su existencia NO significa que se haya hecho nada: según la accion, el frontend llama a POST /api/requisiciones/{id}/aprobar, a POST /api/requisiciones/{id}/rechazar (con el motivo) o a POST /api/licitaciones cuando el usuario toca Confirmar."
+            "description": "Presente solo cuando el Comprador pidió aprobar o rechazar una requisición Pendiente, o publicar la licitación de una Aprobada. Su existencia NO significa que se haya hecho nada: según la accion, el frontend llama a POST /api/requisiciones/{id}/aprobaciones, a POST /api/requisiciones/{id}/rechazos (con el motivo) o a POST /api/licitaciones cuando el usuario toca Confirmar."
           },
           "recepcion": {
             "nullable": true,
@@ -351,7 +351,7 @@
                 "$ref": "#/components/schemas/BorradorAdjudicacionDto"
               }
             ],
-            "description": "Presente solo cuando el Comprador pidió adjudicar una oferta de una licitación Abierta (#149). Su existencia NO significa que se haya adjudicado ni emitido ninguna Orden de Compra: el frontend llama a POST /api/licitaciones/{licitacionId}/adjudicar cuando el usuario toca Confirmar. Es una acción irreversible."
+            "description": "Presente solo cuando el Comprador pidió adjudicar una oferta de una licitación Abierta (#149). Su existencia NO significa que se haya adjudicado ni emitido ninguna Orden de Compra: el frontend llama a POST /api/licitaciones/{licitacionId}/adjudicaciones cuando el usuario toca Confirmar. Es una acción irreversible."
           }
         }
       },
@@ -670,7 +670,7 @@
           "resumen"
         ],
         "additionalProperties": false,
-        "description": "Borrador de aprobar (#141) o rechazar (#149) UNA requisición que está Pendiente, o de publicar (#149) la licitación de una requisición Aprobada. Con accion aprobarRequisicion, el frontend llama a POST /api/requisiciones/{requisicionId}/aprobar (sin cuerpo, con el JWT del usuario) cuando el usuario toca Confirmar. Con accion rechazarRequisicion, llama a POST /api/requisiciones/{requisicionId}/rechazar con { motivo }. Con accion publicarLicitacion, llama a POST /api/licitaciones con { requisicionId, fechaLimiteCotizacion }: la fecha la calcula el frontend a partir de diasParaCotizar, en la hora local de la persona (el plazo vence a las 23:59 de ese día) y la manda en UTC. El borrador NO se guarda en ninguna base.",
+        "description": "Borrador de aprobar (#141) o rechazar (#149) UNA requisición que está Pendiente, o de publicar (#149) la licitación de una requisición Aprobada. Con accion aprobarRequisicion, el frontend llama a POST /api/requisiciones/{requisicionId}/aprobaciones (sin cuerpo, con el JWT del usuario) cuando el usuario toca Confirmar. Con accion rechazarRequisicion, llama a POST /api/requisiciones/{requisicionId}/rechazos con { motivo }. Con accion publicarLicitacion, llama a POST /api/licitaciones con { requisicionId, fechaLimiteCotizacion }: la fecha la calcula el frontend a partir de diasParaCotizar, en la hora local de la persona (el plazo vence a las 23:59 de ese día) y la manda en UTC. El borrador NO se guarda en ninguna base.",
         "properties": {
           "accion": {
             "type": "string",
@@ -766,7 +766,7 @@
           "resumen"
         ],
         "additionalProperties": false,
-        "description": "Borrador de adjudicar (#149) UNA oferta de UNA licitación Abierta. El frontend llama a POST /api/licitaciones/{licitacionId}/adjudicar con { cotizacionId } y el JWT del usuario cuando el usuario toca Confirmar. ADJUDICAR ES IRREVERSIBLE: emite la Orden de Compra y el evento OrdenCompraEmitidaEvent, por eso la tarjeta se muestra reforzada. La oferta la elige la persona, nunca el modelo. Adjudicar dos veces responde 409. El borrador NO se guarda en ninguna base.",
+        "description": "Borrador de adjudicar (#149) UNA oferta de UNA licitación Abierta. El frontend llama a POST /api/licitaciones/{licitacionId}/adjudicaciones con { cotizacionId } y el JWT del usuario cuando el usuario toca Confirmar. ADJUDICAR ES IRREVERSIBLE: emite la Orden de Compra y el evento OrdenCompraEmitidaEvent, por eso la tarjeta se muestra reforzada. La oferta la elige la persona, nunca el modelo. Adjudicar dos veces responde 409. El borrador NO se guarda en ninguna base.",
         "properties": {
           "accion": {
             "type": "string",
@@ -786,7 +786,7 @@
           "cotizacionId": {
             "type": "string",
             "format": "uuid",
-            "description": "La oferta elegida; es el cotizacionId que va en el cuerpo de POST /api/licitaciones/{licitacionId}/adjudicar."
+            "description": "La oferta elegida; es el cotizacionId que va en el cuerpo de POST /api/licitaciones/{licitacionId}/adjudicaciones."
           },
           "resumen": {
             "$ref": "#/components/schemas/ResumenAdjudicacionDto"

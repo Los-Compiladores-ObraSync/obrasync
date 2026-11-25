@@ -97,7 +97,7 @@ public class GenerarMagicLinkCommandHandler : IRequestHandler<GenerarMagicLinkCo
         return new GenerarMagicLinkResponseDto(
             Token: rawToken,
             Hash: rawToken,
-            Url: $"/api/licitaciones/magic-links/{rawToken}/cotizar",
+            Url: $"/api/licitaciones/magic-links/{rawToken}/cotizaciones",
             FechaDeVencimiento: fechaDeVencimientoUtc,
             ExpiresIn: expiresInTexto,
             HorasVigencia: horasVigencia);

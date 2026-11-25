@@ -190,7 +190,7 @@ public class MagicLinkCotizarEndpointTests : IClassFixture<WebApplicationFactory
         // 2. El proveedor cotiza sin token JWT usando el Magic Link (enviando LicitacionItemId y ArticuloId)
         var clientAnonimo = factory.CreateClient();
         var cotizarResp = await clientAnonimo.PostAsJsonAsync(
-            $"/api/licitaciones/magic-links/{rawToken}/cotizar",
+            $"/api/licitaciones/magic-links/{rawToken}/cotizaciones",
             new
             {
                 flete = 250m,
@@ -266,11 +266,11 @@ public class MagicLinkCotizarEndpointTests : IClassFixture<WebApplicationFactory
         };
 
         // 1. Primer uso: 200 OK
-        var resp1 = await client.PostAsJsonAsync($"/api/licitaciones/magic-links/{rawToken}/cotizar", payload);
+        var resp1 = await client.PostAsJsonAsync($"/api/licitaciones/magic-links/{rawToken}/cotizaciones", payload);
         Assert.Equal(HttpStatusCode.OK, resp1.StatusCode);
 
         // 2. Segundo uso con el mismo enlace: 409 Conflict con ProblemDetails y correlationId
-        var resp2 = await client.PostAsJsonAsync($"/api/licitaciones/magic-links/{rawToken}/cotizar", payload);
+        var resp2 = await client.PostAsJsonAsync($"/api/licitaciones/magic-links/{rawToken}/cotizaciones", payload);
         await AssertProblemDetailsAsync(resp2, HttpStatusCode.Conflict, correlationId);
 
         // Solo existe 1 cotización en la base de datos
@@ -314,11 +314,11 @@ public class MagicLinkCotizarEndpointTests : IClassFixture<WebApplicationFactory
         };
 
         // 1. Enlace vencido -> 400 Bad Request ProblemDetails
-        var respVencido = await client.PostAsJsonAsync($"/api/licitaciones/magic-links/{tokenVencido}/cotizar", payload);
+        var respVencido = await client.PostAsJsonAsync($"/api/licitaciones/magic-links/{tokenVencido}/cotizaciones", payload);
         await AssertProblemDetailsAsync(respVencido, HttpStatusCode.BadRequest, correlationId);
 
         // 2. Enlace inexistente -> 404 Not Found ProblemDetails
-        var respInexistente = await client.PostAsJsonAsync("/api/licitaciones/magic-links/token-que-no-existe/cotizar", payload);
+        var respInexistente = await client.PostAsJsonAsync("/api/licitaciones/magic-links/token-que-no-existe/cotizaciones", payload);
         await AssertProblemDetailsAsync(respInexistente, HttpStatusCode.NotFound, correlationId);
 
         using var scope = factory.Services.CreateScope();
@@ -371,7 +371,7 @@ public class MagicLinkCotizarEndpointTests : IClassFixture<WebApplicationFactory
         client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
 
         // a) Lista de ítems vacía -> 400 Bad Request
-        var respVacios = await client.PostAsJsonAsync($"/api/licitaciones/magic-links/{rawToken}/cotizar", new
+        var respVacios = await client.PostAsJsonAsync($"/api/licitaciones/magic-links/{rawToken}/cotizaciones", new
         {
             flete = 100m,
             plazoEntregaDias = 3,
@@ -380,7 +380,7 @@ public class MagicLinkCotizarEndpointTests : IClassFixture<WebApplicationFactory
         await AssertProblemDetailsAsync(respVacios, HttpStatusCode.BadRequest, correlationId);
 
         // b) PrecioUnitario <= 0 -> 400 Bad Request
-        var respPrecioCero = await client.PostAsJsonAsync($"/api/licitaciones/magic-links/{rawToken}/cotizar", new
+        var respPrecioCero = await client.PostAsJsonAsync($"/api/licitaciones/magic-links/{rawToken}/cotizaciones", new
         {
             flete = 100m,
             plazoEntregaDias = 3,
@@ -393,7 +393,7 @@ public class MagicLinkCotizarEndpointTests : IClassFixture<WebApplicationFactory
         await AssertProblemDetailsAsync(respPrecioCero, HttpStatusCode.BadRequest, correlationId);
 
         // c) Falta un ítem del pliego -> 400 Bad Request
-        var respIncompleto = await client.PostAsJsonAsync($"/api/licitaciones/magic-links/{rawToken}/cotizar", new
+        var respIncompleto = await client.PostAsJsonAsync($"/api/licitaciones/magic-links/{rawToken}/cotizaciones", new
         {
             flete = 100m,
             plazoEntregaDias = 3,
@@ -405,7 +405,7 @@ public class MagicLinkCotizarEndpointTests : IClassFixture<WebApplicationFactory
         await AssertProblemDetailsAsync(respIncompleto, HttpStatusCode.BadRequest, correlationId);
 
         // Verificamos que el Magic Link NO fue quemado y que el proveedor puede corregir su carga y enviarla con éxito
-        var respValida = await client.PostAsJsonAsync($"/api/licitaciones/magic-links/{rawToken}/cotizar", new
+        var respValida = await client.PostAsJsonAsync($"/api/licitaciones/magic-links/{rawToken}/cotizaciones", new
         {
             flete = 100m,
             plazoEntregaDias = 3,
@@ -455,8 +455,8 @@ public class MagicLinkCotizarEndpointTests : IClassFixture<WebApplicationFactory
         };
 
         var respuestas = await Task.WhenAll(
-            client1.PostAsJsonAsync($"/api/licitaciones/magic-links/{rawToken}/cotizar", payload),
-            client2.PostAsJsonAsync($"/api/licitaciones/magic-links/{rawToken}/cotizar", payload));
+            client1.PostAsJsonAsync($"/api/licitaciones/magic-links/{rawToken}/cotizaciones", payload),
+            client2.PostAsJsonAsync($"/api/licitaciones/magic-links/{rawToken}/cotizaciones", payload));
 
         var exitosas = respuestas.Where(r => r.StatusCode == HttpStatusCode.OK).ToList();
         var rechazadas = respuestas.Where(r => r.StatusCode == HttpStatusCode.Conflict).ToList();
@@ -516,7 +516,7 @@ public class MagicLinkCotizarEndpointTests : IClassFixture<WebApplicationFactory
         var token = genDoc.RootElement.GetProperty("hash").GetString();
 
         var resp = await factory.CreateClient().PostAsJsonAsync(
-            $"/api/licitaciones/magic-links/{token}/cotizar",
+            $"/api/licitaciones/magic-links/{token}/cotizaciones",
             new { flete = 10m, plazoEntregaDias = 2, items = new[] { new { licitacionItemId = itemId, precioUnitario = 5m } } });
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
 
@@ -539,7 +539,7 @@ public class MagicLinkCotizarEndpointTests : IClassFixture<WebApplicationFactory
         var token = genDoc.RootElement.GetProperty("hash").GetString();
 
         var resp = await factory.CreateClient().PostAsJsonAsync(
-            $"/api/licitaciones/magic-links/{token}/cotizar",
+            $"/api/licitaciones/magic-links/{token}/cotizaciones",
             new { flete = 10m, plazoEntregaDias = 2, items = new[] { new { licitacionItemId = itemId, precioUnitario = 5m } } });
         var creada = await resp.Content.ReadFromJsonAsync<CotizacionResponseDto>();
 

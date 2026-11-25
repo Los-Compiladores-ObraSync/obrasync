@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $gw = 'http://localhost:5000'
 
 function Login($email) {
-  $r = Invoke-RestMethod -Method Post -Uri "$gw/api/usuarios/login" -ContentType 'application/json' `
+  $r = Invoke-RestMethod -Method Post -Uri "$gw/api/usuarios/tokens" -ContentType 'application/json' `
        -Body (@{ email = $email; password = 'Password123!' } | ConvertTo-Json)
   @{ Id = $r.id; Headers = @{ Authorization = "Bearer $($r.token)" } }
 }
@@ -47,7 +47,7 @@ $req = Api Post '/api/requisiciones' $capataz @{
 }
 Write-Host "3. Requisicion creada: $($req.numeroRequisicion) ($($req.estado))"
 
-$null = Api Post "/api/requisiciones/$($req.requisicionId)/aprobar" $comprador
+$null = Api Post "/api/requisiciones/$($req.requisicionId)/aprobaciones" $comprador
 Write-Host "4. Requisicion aprobada"
 Start-Sleep -Seconds 3
 
@@ -68,7 +68,7 @@ $cot = Api Post '/api/cotizaciones' $proveedor @{
 }
 Write-Host "6. Cotizacion enviada"
 
-$null = Api Post "/api/licitaciones/$($lic.licitacionId)/adjudicar" $comprador @{ cotizacionId = $cot.cotizacionId }
+$null = Api Post "/api/licitaciones/$($lic.licitacionId)/adjudicaciones" $comprador @{ cotizacionId = $cot.cotizacionId }
 Write-Host "7. Adjudicada -> OC emitida"
 Start-Sleep -Seconds 3
 

@@ -227,7 +227,7 @@ public class MagicLinkGenerarEndpointTests : IClassFixture<WebApplicationFactory
         Assert.DoesNotContain("/", dto.Token);
         Assert.DoesNotContain("=", dto.Token);
         Assert.Equal(dto.Token, dto.Hash);
-        Assert.Equal($"/api/licitaciones/magic-links/{dto.Token}/cotizar", dto.Url);
+        Assert.Equal($"/api/licitaciones/magic-links/{dto.Token}/cotizaciones", dto.Url);
         Assert.Equal("6 hours", dto.ExpiresIn);
         Assert.Equal(6.0, dto.HorasVigencia);
 

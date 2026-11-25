@@ -333,7 +333,7 @@ describe('NuevaObraPage - crear capataz (#111)', () => {
   it('manda el rol Capataz fijo y no la contraseña en otro lado', async () => {
     let cuerpo: Record<string, string> | undefined
     server.use(
-      http.post('http://localhost:5000/api/usuarios/registro', async ({ request }) => {
+      http.post('http://localhost:5000/api/usuarios', async ({ request }) => {
         cuerpo = (await request.json()) as Record<string, string>
         return HttpResponse.json(
           { id: 'x1', nombreCompleto: 'Ana López', email: 'a@b.com', token: 't', roles: ['Capataz'] },
@@ -406,7 +406,7 @@ describe('NuevaObraPage - crear capataz (#111)', () => {
   it('protege contra el doble clic: un solo pedido', async () => {
     let pedidos = 0
     server.use(
-      http.post('http://localhost:5000/api/usuarios/registro', async () => {
+      http.post('http://localhost:5000/api/usuarios', async () => {
         pedidos++
         await delay(50)
         return HttpResponse.json(

@@ -21,7 +21,7 @@ export interface LoginCredenciales {
 // ── Función de login ──────────────────────────────────────────────────────────
 
 /**
- * Llama a POST /api/usuarios/login y devuelve el usuario y el token.
+ * Llama a POST /api/usuarios/tokens y devuelve el usuario y el token.
  *
  * Lanza ApiError si:
  *   - status 401 → credenciales inválidas (el componente lo atrapa y muestra el mensaje).
@@ -34,7 +34,7 @@ export interface LoginCredenciales {
 export async function loginApi(
   credenciales: LoginCredenciales,
 ): Promise<{ usuario: SesionUsuario; token: string }> {
-  const data = await apiFetch<AuthResponseDto>('/api/usuarios/login', {
+  const data = await apiFetch<AuthResponseDto>('/api/usuarios/tokens', {
     method: 'POST',
     body: JSON.stringify(credenciales),
   })

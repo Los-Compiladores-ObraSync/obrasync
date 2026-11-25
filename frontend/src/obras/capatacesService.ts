@@ -17,7 +17,7 @@ export function obtenerCapataces(): Promise<Capataz[]> {
   )
 }
 
-/** Cuerpo de POST /api/usuarios/registro (RegisterRequestDto del contrato). */
+/** Cuerpo de POST /api/usuarios (RegisterRequestDto del contrato). */
 export interface CrearCapatazDto {
   nombreCompleto: string
   email: string
@@ -25,7 +25,7 @@ export interface CrearCapatazDto {
   password: string
 }
 
-/** Respuesta de POST /api/usuarios/registro (AuthResponseDto). Solo usamos el id y el nombre. */
+/** Respuesta de POST /api/usuarios (AuthResponseDto). Solo usamos el id y el nombre. */
 export interface UsuarioCreado {
   id: string
   nombreCompleto: string
@@ -35,10 +35,10 @@ export interface UsuarioCreado {
  * Crea un usuario con rol Capataz (el rol va fijo). Con token de Comprador o Admin el backend lo
  * permite (#117). OJO: la respuesta trae un token del usuario nuevo; acá NO se usa, para no
  * reemplazar la sesión de quien lo creó.
- * Fuente: POST /api/usuarios/registro (contracts/openapi/usuarios-obras-openapi.json)
+ * Fuente: POST /api/usuarios (contracts/openapi/usuarios-obras-openapi.json)
  */
 export function crearCapataz(dto: CrearCapatazDto): Promise<UsuarioCreado> {
-  return apiFetch<UsuarioCreado>('/api/usuarios/registro', {
+  return apiFetch<UsuarioCreado>('/api/usuarios', {
     method: 'POST',
     body: JSON.stringify({ ...dto, rol: 'Capataz' }),
   })
