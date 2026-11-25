@@ -267,6 +267,10 @@ export function PresupuestoPage() {
                   <strong>Etapa:</strong> {orden.etapa ?? 'General de la obra'}
                 </p>
 
+                <p className={styles.motivoBloqueo}>
+                  <strong>Motivo:</strong> {orden.motivo}
+                </p>
+
                 <div className={styles.grillaBloqueada}>
                   <div className={styles.montoFila}>
                     <span className={styles.montoLabel}>Monto de la orden:</span>

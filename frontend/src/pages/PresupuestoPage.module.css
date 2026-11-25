@@ -401,3 +401,9 @@
   font-size: 1.0625rem;
   color: var(--texto-suave);
 }
+
+.motivoBloqueo {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--texto-suave);
+}

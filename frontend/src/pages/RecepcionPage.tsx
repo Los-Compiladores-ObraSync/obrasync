@@ -308,7 +308,7 @@ export function RecepcionPage() {
             </p>
           )}
           <div className={styles.accionesExito}>
-            <Link to="/obra/recepcion/historial" className={styles.enlaceBoton}>
+            <Link to="historial" className={styles.enlaceBoton}>
               Ver historial de recepciones
             </Link>
             <button type="button" className={styles.boton} onClick={recibirOtra}>
@@ -377,7 +377,7 @@ export function RecepcionPage() {
             ))}
           </ul>
           <div className={styles.accionesExito}>
-            <Link to="/obra/recepcion/historial" className={styles.enlaceBoton}>
+            <Link to="historial" className={styles.enlaceBoton}>
               Ver historial de recepciones
             </Link>
             <button type="button" className={styles.boton} onClick={recibirOtra}>
@@ -658,7 +658,7 @@ export function RecepcionPage() {
         ← Volver al inicio
       </Link>
       <h1>Recibir mercadería</h1>
-      <Link to="/obra/recepcion/historial" className={styles.enlaceBoton}>
+      <Link to="historial" className={styles.enlaceBoton}>
         Ver historial de recepciones
       </Link>
       <p className="intro">

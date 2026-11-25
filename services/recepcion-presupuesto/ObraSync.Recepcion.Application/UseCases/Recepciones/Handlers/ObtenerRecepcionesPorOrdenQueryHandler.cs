@@ -121,9 +121,6 @@ public class ObtenerRecepcionesPorOrdenQueryHandler
             ObservacionDespacho = orden.ObservacionDespacho,
             EstaCompleta = estaCompleta,
             TieneProblemaAbierto = tieneProblemaAbierto,
-            EsperaNuevoDespacho = !estaCompleta && orden.FechaDespacho is { } fechaDespacho &&
-                recepciones.Any(r => (r.Estado == EstadoRecepcion.Parcial || r.Estado == EstadoRecepcion.Rechazada) &&
-                                   r.CreatedAt >= fechaDespacho),
             BloqueadaPorPresupuesto = orden.EstaBloqueada,
             EstadoEntrega = EstadosEntregaOrden.Calcular(
                 estaCompleta: estaCompleta,

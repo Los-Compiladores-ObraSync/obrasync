@@ -23,7 +23,6 @@ public class RecepcionesDeOrdenDto
     public string? ObservacionDespacho { get; set; }
     public bool EstaCompleta { get; set; }
     public bool TieneProblemaAbierto { get; set; }
-    public bool EsperaNuevoDespacho { get; set; }
     public bool BloqueadaPorPresupuesto { get; set; }
     public string EstadoEntrega { get; set; } = EstadosEntregaOrden.Pendiente;
     public List<ItemOrdenPendienteDto> Items { get; set; } = new();

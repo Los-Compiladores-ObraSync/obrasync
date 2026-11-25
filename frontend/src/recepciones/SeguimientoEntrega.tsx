@@ -118,7 +118,6 @@ function Detalle({ datos, orden }: { datos: RecepcionesDeOrden; orden?: OrdenEnS
   const hayMovimientos = Boolean(datos.fechaDespacho) || datos.recepciones.length > 0
   return (
     <>
-      {datos.esperaNuevoDespacho && <p className={styles.aviso} role="status">Esperando nuevo despacho.</p>}
       {datos.tieneProblemaAbierto && (
         <p className={styles.aviso} role="status">
           Hay un problema de entrega abierto en esta orden.

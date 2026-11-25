@@ -286,6 +286,12 @@
   color: var(--azul);
 }
 
+.aclaracion {
+  margin: 0.25rem 0 0;
+  font-size: 0.9375rem;
+  color: var(--texto-suave);
+}
+
 /* Motivos de rechazo frecuentes */
 .motivos {
   display: flex;

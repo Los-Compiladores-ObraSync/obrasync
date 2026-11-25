@@ -2374,6 +2374,21 @@
           "fueDespachada"
         ],
         "properties": {
+          "items": {
+            "type": "array",
+            "description": "Materiales adjudicados en la orden.",
+            "items": {
+              "type": "object",
+              "required": ["articuloId", "descripcion", "cantidad", "unidadMedida"],
+              "properties": {
+                "articuloId": { "type": "string", "format": "uuid" },
+                "descripcion": { "type": "string" },
+                "cantidad": { "type": "number" },
+                "unidadMedida": { "type": "string" },
+                "presentacionAdjudicada": { "type": "string", "nullable": true }
+              }
+            }
+          },
           "id": {
             "type": "string",
             "format": "uuid",

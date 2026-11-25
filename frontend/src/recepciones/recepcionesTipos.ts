@@ -137,7 +137,6 @@ export interface RecepcionesDeOrden {
   observacionDespacho?: string | null
   /** true si ya hay una recepción Completa. */
   estaCompleta?: boolean
-  esperaNuevoDespacho?: boolean
   tieneProblemaAbierto?: boolean
   /** Estado consolidado de la entrega (#236). */
   estadoEntrega?: EstadoEntrega

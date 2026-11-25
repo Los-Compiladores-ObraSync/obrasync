@@ -1499,6 +1499,11 @@
           "items"
         ],
         "properties": {
+          "repeticionIntencional": {
+            "type": "boolean",
+            "default": false,
+            "description": "Indica que se eligió reutilizar una requisición anterior para crear otra."
+          },
           "obraId": {
             "type": "string",
             "format": "uuid",

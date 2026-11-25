@@ -28,9 +28,7 @@ public class ObtenerOrdenesPendientesQueryHandler
                         o.FechaDespacho != null &&
                         !_context.Recepciones.Any(
                             r => r.OrdenCompraId == o.Id &&
-                                 (r.Estado == EstadoRecepcion.Completa ||
-                                  ((r.Estado == EstadoRecepcion.Parcial || r.Estado == EstadoRecepcion.Rechazada) &&
-                                   r.CreatedAt >= o.FechaDespacho.Value))));
+                                 r.Estado == EstadoRecepcion.Completa));
 
         if (query.ObraId.HasValue)
         {

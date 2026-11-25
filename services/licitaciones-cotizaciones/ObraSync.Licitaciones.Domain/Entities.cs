@@ -128,10 +128,7 @@ public class OrdenCompra
 
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public bool PuedeRedespachar =>
-        FueDespachada && !RecibidaCompleta &&
-        (TieneRecepcionParcialPendiente ||
-         (TieneProblemaAbierto && FechaProblemaAbierto.HasValue &&
-          (!FechaDespacho.HasValue || FechaProblemaAbierto.Value >= FechaDespacho.Value)));
+        FueDespachada && !RecibidaCompleta && TieneRecepcionParcialPendiente;
 
     public bool Despachar(
         Guid despachadaPor,
@@ -150,7 +147,7 @@ public class OrdenCompra
                 "La orden de compra ya fue recibida completa y no admite nuevos despachos.");
         }
 
-        if (FueDespachada && !PuedeRedespachar)
+        if (FueDespachada && !TieneRecepcionParcialPendiente)
         {
             throw new InvalidOperationException(
                 "La orden de compra ya fue despachada y se encuentra en tránsito esperando recepción.");
@@ -182,7 +179,7 @@ public class OrdenCompra
             }
         }
 
-        var esRedespacho = PuedeRedespachar;
+        var esRedespacho = FueDespachada && TieneRecepcionParcialPendiente;
 
         Estado = "Despachada";
         NumeroDespacho = esRedespacho

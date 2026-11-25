@@ -130,7 +130,7 @@ describe('ComprasPage', () => {
       'Recepción 1 orden pendiente de recibir',
     ])
     expect(etapas.map((link) => link.getAttribute('href'))).toEqual([
-      '/compras/requisiciones', '/compras/licitaciones', '/compras/ordenes', '/compras/ordenes',
+      '/compras/requisiciones', '/compras/licitaciones', '/compras/ordenes', '/compras/recepcion',
     ])
     // Las cuatro etapas tienen trabajo pendiente: todas se destacan en el flujo.
     const pasos = within(screen.getByRole('region', { name: 'Progreso del flujo de compras' })).getAllByRole('listitem')

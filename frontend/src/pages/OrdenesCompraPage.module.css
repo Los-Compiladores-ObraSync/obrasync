@@ -184,3 +184,7 @@
   font-size: 1.0625rem;
   font-weight: 700;
 }
+
+@media (max-width: 380px) {
+  .fechas { grid-template-columns: minmax(0, 1fr); }
+}

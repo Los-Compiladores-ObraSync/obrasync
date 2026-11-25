@@ -377,6 +377,9 @@ export function AprobarRequisicionesPage() {
                       ' (sin contar los materiales sin precio de referencia)'}
                   </p>
                 )}
+                <p className={styles.aclaracion}>
+                  Son precios de referencia del catálogo; el precio real sale de las cotizaciones.
+                </p>
               </details>
 
               {rechazandoId === req.requisicionId ? (

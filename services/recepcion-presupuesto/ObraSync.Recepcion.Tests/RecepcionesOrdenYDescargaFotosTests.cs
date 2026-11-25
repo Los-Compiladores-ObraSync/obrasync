@@ -335,8 +335,6 @@ public class RecepcionesOrdenYDescargaFotosTests
         factory.Validador.EstaAsignadaACapatazAsync(oc.ObraId, Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(true);
 
-        await RedespachoDePrueba.RegistrarAsync(factory.Services, oc.Id);
-
         using (var formOk = new MultipartFormDataContent())
         {
             formOk.Add(new StringContent(oc.ObraId.ToString()), "obraId");
