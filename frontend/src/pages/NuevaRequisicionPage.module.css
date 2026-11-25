@@ -82,6 +82,13 @@
   color: #dc2626;
 }
 
+.contadorCaracteres {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--texto-suave);
+  text-align: right;
+}
+
 .itemsFieldset {
   display: flex;
   flex-direction: column;
