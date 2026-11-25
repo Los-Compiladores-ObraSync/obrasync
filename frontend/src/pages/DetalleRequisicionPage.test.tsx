@@ -241,7 +241,7 @@ describe('DetalleRequisicionPage', () => {
       await user.click(await screen.findByRole('button', { name: 'Publicar licitación' }))
 
       expect(await screen.findByRole('heading', { name: 'Enlaces para proveedores' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Generar enlace para un proveedor' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Generar enlaces para proveedores' })).toBeInTheDocument()
     })
 
     it('antes de publicar no hay enlaces: el enlace depende de una licitación abierta', async () => {
