@@ -26,6 +26,20 @@ describe('validarUbicacion', () => {
     expect(await validarUbicacion('Dirección B 2')).toBe('no-disponible')
   })
 
+  it('limita la búsqueda a Argentina', async () => {
+    let parametros: URLSearchParams | undefined
+    server.use(
+      http.get(URL_NOMINATIM, ({ request }) => {
+        parametros = new URL(request.url).searchParams
+        return HttpResponse.json([{ place_id: 1 }])
+      }),
+    )
+
+    await validarUbicacion('Av. Corrientes 1234')
+
+    expect(parametros?.get('countrycodes')).toBe('ar')
+  })
+
   it('pide una sola vez la misma dirección (sin importar mayúsculas ni espacios) y la cachea', async () => {
     let consultas = 0
     server.use(

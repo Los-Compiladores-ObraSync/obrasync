@@ -332,7 +332,7 @@ export function NuevaObraPage({ obra }: Props = {}) {
           )}
           {estadoUbicacion === 'no-encontrada' && (
             <div className={styles.aviso} role="status">
-              <p>No encontramos esa dirección en el mapa. Revisá que esté bien escrita.</p>
+              <p>No encontramos esa dirección en Argentina. Revisá que esté bien escrita.</p>
               <label className={styles.confirmacion}>
                 <input
                   type="checkbox"
