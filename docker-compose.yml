@@ -65,11 +65,18 @@ services:
       Vapid__PublicKey: ${VAPID_PUBLIC_KEY:-}
       Vapid__PrivateKey: ${VAPID_PRIVATE_KEY:-}
       Vapid__Subject: ${VAPID_SUBJECT:-mailto:soporte@obrasync.local}
+      # Recuperar contraseña: el mail sale por SMTP hacia Mailpit (se lee en http://localhost:8025).
+      # Frontend__BaseUrl es la dirección que lleva el enlace del mail: con el túnel del celular, ver el README.
+      Correo__Host: mailpit
+      Correo__Port: "1025"
+      Frontend__BaseUrl: ${FRONTEND_BASE_URL:-http://localhost:5173}
     depends_on:
       sqlserver:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      mailpit:
+        condition: service_started
 
   requisiciones-catalogo-api:
     build:
@@ -198,6 +205,24 @@ services:
       - "127.0.0.1:5173:8080"
     depends_on:
       - gateway
+
+  # Correo de prueba (solo desarrollo): recibe los mails que manda Usuarios (recuperar contraseña) y los muestra
+  # en una bandeja web, sin mandar nada a internet. Bandeja: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "127.0.0.1:8025:8025"
+
+  # Túnel HTTPS para abrir la app desde el celular. Es OPCIONAL: solo arranca con el perfil "movil"
+  # (docker compose --profile movil up). Usa un "quick tunnel" de Cloudflare: sin cuenta, la dirección
+  # https://<algo>.trycloudflare.com cambia en cada arranque y se ve con: docker compose logs tunel
+  # El frontend ya manda /api al Gateway por la misma dirección, así que alcanza con un solo túnel.
+  tunel:
+    image: cloudflare/cloudflared
+    profiles: ["movil"]
+    command: tunnel --no-autoupdate --url http://frontend:8080
+    depends_on:
+      - frontend
 
 volumes:
   sql_data:

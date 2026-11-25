@@ -69,6 +69,11 @@ builder.Services
     .AddOptions<FrontendSettings>()
     .BindConfiguration(FrontendSettings.SectionName);
 
+// 3b2. Servidor de correo (SMTP) para el enlace de recuperación de contraseña. Vacío = no se manda correo (solo log).
+builder.Services
+    .AddOptions<CorreoSettings>()
+    .BindConfiguration(CorreoSettings.SectionName);
+
 // 3c. Configuración VAPID para Web Push (opcional al arrancar; viene solo de variables de entorno, #227)
 builder.Services
     .AddOptions<VapidSettings>()
@@ -77,6 +82,7 @@ builder.Services
 // 4. Inyección de dependencias de servicios
 builder.Services.AddScoped<IJwtProvider, JwtProvider>();
 builder.Services.AddScoped<IUsuarioQueryRepository, UsuarioQueryRepository>();
+builder.Services.AddScoped<ICorreoSaliente, SmtpCorreoSaliente>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IObraService, ObraService>();
 builder.Services.AddScoped<ISuscripcionPushRepository, SuscripcionPushRepository>();
