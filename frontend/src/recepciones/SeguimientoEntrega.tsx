@@ -106,7 +106,9 @@ function Detalle({ datos }: { datos: RecepcionesDeOrden }) {
     <>
       {datos.tieneProblemaAbierto && (
         <p className={styles.aviso} role="status">
-          Hay un problema de entrega abierto en esta orden.
+          {datos.esperaNuevoDespacho
+            ? 'La entrega tuvo un problema y volvió al Proveedor. Hasta que la despache de nuevo, no se puede recibir.'
+            : 'Hay un problema de entrega abierto en esta orden.'}
         </p>
       )}
       {datos.estadoEntrega === ESTADO_ENTREGA_PARCIAL && !datos.estaCompleta && (

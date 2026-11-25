@@ -125,6 +125,7 @@ export function MisOrdenesProveedorPage() {
     }
     // Si la orden ya había salido y quedó incompleta, esto es un re-despacho del resto (#249).
     const eraRedespacho = orden.fueDespachada && orden.puedeRedespachar === true
+    const eraProblema = eraRedespacho && orden.tieneProblemaAbierto === true
 
     enVueloRef.current = true
     setEnviando(true)
@@ -137,7 +138,9 @@ export function MisOrdenesProveedorPage() {
       })
       setOrdenes((actuales) => actuales.map((o) => (o.id === orden.id ? { ...o, ...actualizada } : o)))
       setMensajeExito(
-        eraRedespacho
+        eraProblema
+          ? `Avisaste que volviste a despachar la orden ${codigoDeOrden(orden.id)}. Compras ya lo ve y el Capataz podrá recibirla de nuevo.`
+          : eraRedespacho
           ? `Registraste un nuevo envío para la orden ${codigoDeOrden(orden.id)}.`
           : `Avisaste que despachaste la orden ${codigoDeOrden(orden.id)}. Compras ya lo ve y el Capataz podrá recibirla.`,
       )
@@ -164,6 +167,9 @@ export function MisOrdenesProveedorPage() {
     const hayQueDespachar = puedeDespachar(o)
     const esRedespacho = o.fueDespachada && o.puedeRedespachar === true
     const problema = chat.problemaDe(o)
+    // El Capataz marcó un problema: la entrega volvió al Proveedor y él es el único que puede reabrirla.
+    const volvioPorProblema = esRedespacho && o.tieneProblemaAbierto === true
+    const textoBoton = volvioPorProblema ? 'Volver a despachar' : esRedespacho ? 'Despachar lo que falta' : 'Marcar como despachada'
     return (
       <li
         key={o.id}
@@ -172,11 +178,17 @@ export function MisOrdenesProveedorPage() {
         <div className={styles.encabezado}>
           <h3>Orden {codigo}</h3>
           <span className={`${styles.resultado} ${hayQueDespachar ? styles.enviada : styles.gano}`}>
-            {esRedespacho ? (problema.abierto ? 'Pendiente de nuevo despacho' : 'Entrega parcial') : o.fueDespachada ? 'Despachada' : 'Emitida'}
+            {volvioPorProblema ? 'Volvió con problema' : esRedespacho ? 'Entrega parcial' : o.fueDespachada ? 'Despachada' : 'Emitida'}
           </span>
         </div>
 
-        {esRedespacho && !problema.abierto && (
+        {volvioPorProblema && (
+          <p className={styles.parcial} role="status">
+            El Capataz marcó un problema con la entrega y volvió a vos. Hasta que no la despaches de nuevo, no puede recibir nada.
+          </p>
+        )}
+
+        {esRedespacho && !volvioPorProblema && (
           <p className={styles.parcial} role="status">
             Si vas a hacer otro envío, registralo en esta orden.
           </p>
@@ -237,10 +249,10 @@ export function MisOrdenesProveedorPage() {
             <button
               type="button"
               className={`${styles.accion} ${styles.accionPrincipal}`}
-              aria-label={`${esRedespacho ? 'Despachar lo que falta' : 'Marcar como despachada'}: orden ${codigo}`}
+              aria-label={`${textoBoton}: orden ${codigo}`}
               onClick={() => abrirFormulario(o.id)}
             >
-              {esRedespacho ? 'Despachar lo que falta' : 'Marcar como despachada'}
+              {textoBoton}
             </button>
           </div>
         )}

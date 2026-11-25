@@ -427,6 +427,12 @@ export function RecepcionPage() {
           />
         </section>
 
+        {elegida.esperaNuevoDespacho ? (
+          <p className={styles.avisoProblema} role="status">
+            Marcaste un problema con esta entrega y volvió al Proveedor. Hasta que la despache de nuevo no podés registrar nada; cuando lo haga, te va a aparecer acá otra vez.
+          </p>
+        ) : (
+        <>
         {elegida.tieneProblemaAbierto && (
           <p className={styles.avisoProblema} role="status">
             Esta orden tiene un problema de entrega abierto. Se cierra cuando registres una recepción válida.
@@ -606,6 +612,8 @@ export function RecepcionPage() {
             {enviando ? 'Guardando…' : 'Confirmar recepción'}
           </button>
         </form>
+        </>
+        )}
       </section>
     )
   }
@@ -652,7 +660,11 @@ export function RecepcionPage() {
                   {orden.etapa && <span className={styles.ordenItem}>Etapa: {orden.etapa}</span>}
                   {orden.fechaEstimadaLlegada && <span className={styles.ordenItem}>Llega el {fechaLarga(orden.fechaEstimadaLlegada)}</span>}
                   {orden.observacionDespacho && <span className={styles.ordenItem}>Observación del Proveedor: {orden.observacionDespacho}</span>}
-                  {orden.tieneProblemaAbierto && <span className={styles.ordenProblema}>Problema de entrega abierto</span>}
+                  {orden.esperaNuevoDespacho ? (
+                    <span className={styles.ordenProblema}>Con problema: esperando que el Proveedor despache de nuevo</span>
+                  ) : (
+                    orden.tieneProblemaAbierto && <span className={styles.ordenProblema}>Problema de entrega abierto</span>
+                  )}
                   {orden.estadoEntrega === ESTADO_ENTREGA_PARCIAL ? (
                     <span className={styles.ordenItem}>{ESTADO_ENTREGA_PARCIAL}: el Proveedor tiene que despachar el resto</span>
                   ) : (

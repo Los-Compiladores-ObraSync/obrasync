@@ -45,6 +45,25 @@ describe('RecepcionPage', () => {
     expect(screen.getByRole('link', { name: '← Volver al inicio' })).toHaveAttribute('href', '/')
   })
 
+  it('una orden con problema que volvió al proveedor no deja recibir hasta que despache de nuevo', async () => {
+    const user = userEvent.setup()
+    const base = await obtenerOrdenesPendientes()
+    server.use(
+      http.get(RUTA_ORDENES, () =>
+        HttpResponse.json(base.map((o) => ({ ...o, tieneProblemaAbierto: true, esperaNuevoDespacho: true, estadoEntrega: 'Con problema' }))),
+      ),
+    )
+    renderPagina()
+
+    expect(await screen.findAllByText(/esperando que el Proveedor despache de nuevo/)).toHaveLength(2)
+    await elegirPrimeraOrden(user)
+
+    expect(screen.getByText(/volvió al Proveedor. Hasta que la despache de nuevo no podés registrar nada/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Confirmar recepción' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Hubo un problema con la entrega' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Número de remito')).not.toBeInTheDocument()
+  })
+
   it('al elegir una orden muestra lo que tiene que haber llegado y el formulario del remito', async () => {
     const user = userEvent.setup()
     renderPagina()

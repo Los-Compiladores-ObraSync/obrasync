@@ -14,6 +14,8 @@ public class OrdenPendienteDto
     public DateTime? FechaEstimadaLlegada { get; set; }
     public string? ObservacionDespacho { get; set; }
     public bool TieneProblemaAbierto { get; set; }
+    /// <summary>La entrega volvió al proveedor: el capataz no puede recibir hasta que despache de nuevo.</summary>
+    public bool EsperaNuevoDespacho { get; set; }
     public string EstadoEntrega { get; set; } = EstadosEntregaOrden.Pendiente;
     public List<ItemOrdenPendienteDto> Items { get; set; } = new();
 }

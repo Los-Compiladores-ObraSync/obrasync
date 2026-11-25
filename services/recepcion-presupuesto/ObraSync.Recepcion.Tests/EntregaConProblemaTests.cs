@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using ObraSync.Recepcion.Application.DTOs;
+using ObraSync.Recepcion.Application.Exceptions;
 using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Application.UseCases.Recepciones.Commands;
 using ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
@@ -278,7 +279,7 @@ public class EntregaConProblemaTests : IClassFixture<RecepcionApiFactory>
     // ── Remanente, presupuesto y entregas posteriores ────────────────────────
 
     [Fact]
-    public async Task Rechazada_NoCambiaRemanenteNiPresupuesto_YPermiteEntregasPosteriores()
+    public async Task Rechazada_NoCambiaRemanenteNiPresupuesto_YPermiteEntregasPosterioresSoloTrasRedespacho()
     {
         await using var db = CreateInMemoryContext($"Prob_Remanente_{Guid.NewGuid()}");
         var obraId = Guid.NewGuid();
@@ -346,11 +347,36 @@ public class EntregaConProblemaTests : IClassFixture<RecepcionApiFactory>
         var pendientesTrasProblema = await pendientesHandler.Handle(new ObtenerOrdenesPendientesQuery(obraId));
         var ordenPendiente = Assert.Single(pendientesTrasProblema.Items);
         Assert.True(ordenPendiente.TieneProblemaAbierto);
+        Assert.True(ordenPendiente.EsperaNuevoDespacho);
         var itemPendiente = Assert.Single(ordenPendiente.Items);
         Assert.Equal(100m, itemPendiente.CantidadEsperada);
         Assert.Equal(40m, itemPendiente.CantidadRecibida);
         Assert.Equal(60m, itemPendiente.CantidadPendiente);
         Assert.Equal(4_000m, (await db.PartidasPresupuestarias.AsNoTracking().SingleAsync(p => p.Id == partida.Id)).MontoEjecutado);
+
+        // 2b. Con el problema abierto el capataz NO puede recibir: la entrega volvió al proveedor
+        var comandoFinal = new CrearRecepcionCommand(
+            obraId, ocId, Guid.NewGuid(), "REM-FINAL-2", DateTime.UtcNow, "Llegó el remanente completo",
+            new[]
+            {
+                new CrearDetalleRecepcionRequest
+                {
+                    ArticuloId = articuloId,
+                    DescripcionArticulo = "Cemento 25kg",
+                    CantidadEsperada = 60m,
+                    CantidadRecibida = 60m,
+                    UnidadMedida = "BOLSA",
+                    Conforme = true
+                }
+            });
+        await Assert.ThrowsAsync<RecepcionConflictoException>(() => crearHandler.Handle(comandoFinal));
+
+        // 2c. El proveedor despacha de nuevo: se reabre la orden
+        await RedespachoPruebas.RedespacharAsync(db, ocId);
+        var pendientesTrasRedespacho = await pendientesHandler.Handle(new ObtenerOrdenesPendientesQuery(obraId));
+        var ordenReabierta = Assert.Single(pendientesTrasRedespacho.Items);
+        Assert.False(ordenReabierta.EsperaNuevoDespacho);
+        Assert.False(ordenReabierta.TieneProblemaAbierto);
 
         // 3. Entrega final por las 60 bolsas restantes: completa la orden y cierra problema abierto
         var completa = await crearHandler.Handle(new CrearRecepcionCommand(
@@ -641,22 +667,28 @@ public class EntregaConProblemaTests : IClassFixture<RecepcionApiFactory>
     }
 
     [Fact]
-    public async Task PostProblemas_DosProblemasSeguidosSinRemito_AmbosDevuelven201SinColisionDeIndice()
+    public async Task PostProblemas_SegundoProblemaSinRedespacho_Devuelve409_YTrasRedespachoVuelveA201SinColisionDeIndice()
     {
         var (oc, obraId, _, _, _) = await SembrarOrdenConPartidaEnFactoryAsync();
         using var client = CrearCliente("Capataz");
 
-        for (int i = 0; i < 2; i++)
+        async Task<HttpStatusCode> ReportarProblemaAsync(int intento)
         {
             using var form = new MultipartFormDataContent();
             form.Add(new StringContent(obraId.ToString()), "obraId");
             form.Add(new StringContent(oc.Id.ToString()), "ordenCompraId");
             form.Add(new StringContent(MotivosProblemaRecepcion.NoLlegoNada), "motivo");
-            form.Add(new StringContent($"Intento fallido #{i + 1}"), "detalle");
-
-            var resp = await client.PostAsync("/api/recepciones/problemas", form);
-            Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
+            form.Add(new StringContent($"Intento fallido #{intento}"), "detalle");
+            return (await client.PostAsync("/api/recepciones/problemas", form)).StatusCode;
         }
+
+        Assert.Equal(HttpStatusCode.Created, await ReportarProblemaAsync(1));
+
+        // La entrega volvió al proveedor: el capataz no puede interactuar hasta que despache de nuevo.
+        Assert.Equal(HttpStatusCode.Conflict, await ReportarProblemaAsync(2));
+
+        await RedespachoPruebas.RedespacharAsync(_factory.Services, oc.Id);
+        Assert.Equal(HttpStatusCode.Created, await ReportarProblemaAsync(3));
     }
 
     [Fact]
@@ -714,6 +746,9 @@ public class EntregaConProblemaTests : IClassFixture<RecepcionApiFactory>
             Array.Empty<CrearDetalleRecepcionRequest>(),
             Estado: EstadoRecepcion.Rechazada,
             MotivoProblema: MotivosProblemaRecepcion.NoLlegoNada));
+
+        // 2b. El proveedor despacha de nuevo (sin eso el capataz no puede seguir recibiendo)
+        await RedespachoPruebas.RedespacharAsync(db, oc.Id);
 
         // 3. Remanente completo (60/60) -> OrdenCompleta = true
         await handler.Handle(new CrearRecepcionCommand(

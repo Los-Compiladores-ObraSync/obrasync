@@ -261,6 +261,7 @@ function crearOrdenesPendientesMock() {
       fechaEstimadaLlegada: '2026-11-23T12:00:00Z' as string | null,
       observacionDespacho: 'Llega en camión chico, antes de las 10.' as string | null,
       tieneProblemaAbierto: false as boolean,
+      esperaNuevoDespacho: false as boolean,
       items: [
         { articuloId: MOCK_CATALOGO[0].articuloId, descripcionArticulo: MOCK_CATALOGO[0].descripcion, cantidadEsperada: 80, cantidadRecibida: 0, cantidadPendiente: 80, unidadMedida: MOCK_CATALOGO[0].unidadMedida },
         { articuloId: MOCK_CATALOGO[1].articuloId, descripcionArticulo: MOCK_CATALOGO[1].descripcion, cantidadEsperada: 12, cantidadRecibida: 0, cantidadPendiente: 12, unidadMedida: MOCK_CATALOGO[1].unidadMedida },
@@ -274,6 +275,7 @@ function crearOrdenesPendientesMock() {
       fechaEstimadaLlegada: null as string | null,
       observacionDespacho: null as string | null,
       tieneProblemaAbierto: false as boolean,
+      esperaNuevoDespacho: false as boolean,
       items: [
         { articuloId: MOCK_CATALOGO[2].articuloId, descripcionArticulo: MOCK_CATALOGO[2].descripcion, cantidadEsperada: 40, cantidadRecibida: 0, cantidadPendiente: 40, unidadMedida: MOCK_CATALOGO[2].unidadMedida },
       ],
@@ -1596,6 +1598,7 @@ export const handlers: RequestHandler[] = [
     recepcionesMock[orden.ordenCompraId] = [...(recepcionesMock[orden.ordenCompraId] ?? []), creada]
     // Una recepción válida posterior supera el problema abierto (#217).
     orden.tieneProblemaAbierto = false
+    orden.esperaNuevoDespacho = false
     orden.items = orden.items.map((item) => {
       const cantidadRecibida = cantidadesPorArticulo.get(item.articuloId) ?? 0
       return { ...item, cantidadRecibida: item.cantidadRecibida + cantidadRecibida, cantidadPendiente: item.cantidadPendiente - cantidadRecibida }
@@ -1693,6 +1696,8 @@ export const handlers: RequestHandler[] = [
     }
     recepcionesMock[orden.ordenCompraId] = [...(recepcionesMock[orden.ordenCompraId] ?? []), creada]
     orden.tieneProblemaAbierto = true
+    // La entrega vuelve al Proveedor: el Capataz no puede recibir hasta que despache de nuevo.
+    orden.esperaNuevoDespacho = true
     return HttpResponse.json(creada, { status: 201 })
   }),
 

@@ -1515,7 +1515,11 @@
           },
           "tieneProblemaAbierto": {
             "type": "boolean",
-            "description": "Indica si el último evento registrado sobre la orden fue una entrega con problema (Rechazada) aún no superada por una recepción válida posterior."
+            "description": "Indica si el último evento registrado sobre la orden fue una entrega con problema (Rechazada) que el proveedor todavía no volvió a despachar."
+          },
+          "esperaNuevoDespacho": {
+            "type": "boolean",
+            "description": "La entrega se marcó con un problema y volvió al proveedor: el capataz no puede registrar recepciones hasta que el proveedor despache de nuevo (si lo intenta, 409)."
           },
           "estadoEntrega": {
             "type": "string",
@@ -1631,7 +1635,11 @@
           },
           "tieneProblemaAbierto": {
             "type": "boolean",
-            "description": "Indica si la última entrega registrada sobre esta orden fue un problema (Rechazada) sin una recepción válida posterior."
+            "description": "Indica si la última entrega registrada sobre esta orden fue un problema (Rechazada) que el proveedor todavía no volvió a despachar."
+          },
+          "esperaNuevoDespacho": {
+            "type": "boolean",
+            "description": "La entrega se marcó con un problema y volvió al proveedor: el capataz no puede registrar recepciones hasta que el proveedor despache de nuevo (si lo intenta, 409)."
           },
           "estadoEntrega": {
             "type": "string",
