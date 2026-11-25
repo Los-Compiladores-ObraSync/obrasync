@@ -19,24 +19,11 @@ public sealed record ItemPedidoMcp(string Insumo, double Cantidad);
 [McpServerToolType]
 public sealed class HerramientasMcp
 {
-    private readonly HerramientasCatalogo _herramientas;
-    private readonly HerramientasPresupuestos _presupuestos;
+    private readonly IHerramientasCatalogo _herramientas;
 
-    public HerramientasMcp(HerramientasCatalogo herramientas, HerramientasPresupuestos presupuestos)
+    public HerramientasMcp(IHerramientasCatalogo herramientas)
     {
         _herramientas = herramientas;
-        _presupuestos = presupuestos;
-    }
-
-    [McpServerTool(Name = HerramientasPresupuestos.ConsultarPartidas, ReadOnly = true)]
-    [Description("Consulta partidas presupuestarias y órdenes de compra bloqueadas de una obra. Consulta hasta 10 páginas de 50 órdenes bloqueadas. Si alcanza ese límite y quedan órdenes pendientes, la respuesta indica que está incompleta. El filtro opcional de etapa se aplica a partidas y órdenes; estas últimas se filtran tras recuperar las páginas. Informa totales y paginación. Los importes de las órdenes son los datos oficiales de Recepción y no se recalculan. Solo lectura. Disponible para Comprador y Admin.")]
-    public async Task<string> ConsultarPartidasPresupuestarias(
-        [Description("Identificador GUID de la obra.")] string obraId,
-        [Description("Nombre de etapa opcional para filtrar, por ejemplo: Estructura.")] string etapa = "",
-        CancellationToken cancellationToken = default)
-    {
-        var resultado = await _presupuestos.ConsultarAsync(obraId, etapa, cancellationToken);
-        return resultado.Datos.ToJsonString();
     }
 
     [McpServerTool(Name = HerramientasCatalogo.BuscarInsumos, ReadOnly = true)]

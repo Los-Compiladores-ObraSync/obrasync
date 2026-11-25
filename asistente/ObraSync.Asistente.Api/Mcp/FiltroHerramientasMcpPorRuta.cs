@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using ObraSync.Asistente.Application;
@@ -6,47 +7,47 @@ using ObraSync.Asistente.Application;
 namespace ObraSync.Asistente.Api.Mcp;
 
 /// <summary>
-/// Aísla el endpoint de presupuestos en el servidor MCP compartido: filtra tanto el listado
-/// como la ejecución para que ese path solo exponga consultar_partidas_presupuestarias.
+/// Aísla cada endpoint en el servidor MCP compartido aplicando la lista blanca de <see cref="PoliticaRutaMcp"/>:
+/// filtra tanto el listado como la ejecución sin condicionales acoplados a rutas ni herramientas fijas (OCP).
 /// </summary>
 public static class FiltroHerramientasMcpPorRuta
 {
     public const string RutaOriginal = "/api/mcp";
     public const string RutaPresupuestos = "/api/mcp/presupuestos";
 
+    public static IReadOnlyList<PoliticaRutaMcp> PoliticasPorDefecto { get; } =
+    [
+        new PoliticaRutaMcp(
+            RutaOriginal,
+            "Capataz,Admin",
+            [HerramientasCatalogo.BuscarInsumos, HerramientasCatalogo.ArmarBorrador],
+            coincidenciaExacta: true),
+        new PoliticaRutaMcp(
+            RutaPresupuestos,
+            "Comprador,Admin",
+            [HerramientasPresupuestos.ConsultarPartidas])
+    ];
+
     public static void Configurar(IMcpRequestFilterBuilder filtros)
     {
         filtros.AddListToolsFilter(siguiente => async (contexto, cancellationToken) =>
         {
-            var ruta = ClasificarRuta(contexto.Services);
-            if (ruta == RutaMcp.Desconocida)
+            var politica = ResolverPolitica(contexto.Services);
+            if (politica is null)
                 return new ListToolsResult { Tools = [] };
 
             var resultado = await siguiente(contexto, cancellationToken);
-            if (ruta == RutaMcp.Presupuestos)
-            {
-                resultado.Tools = resultado.Tools
-                    .Where(herramienta => herramienta.Name == HerramientasPresupuestos.ConsultarPartidas)
-                    .ToList();
-            }
-            else
-            {
-                resultado.Tools = resultado.Tools
-                    .Where(herramienta => herramienta.Name != HerramientasPresupuestos.ConsultarPartidas)
-                    .ToList();
-            }
+            resultado.Tools = resultado.Tools
+                .Where(herramienta => politica.PermiteHerramienta(herramienta.Name))
+                .ToList();
 
             return resultado;
         });
 
         filtros.AddCallToolFilter(siguiente => async (contexto, cancellationToken) =>
         {
-            var ruta = ClasificarRuta(contexto.Services);
-            if (ruta == RutaMcp.Desconocida ||
-                (ruta == RutaMcp.Presupuestos &&
-                 contexto.Params.Name != HerramientasPresupuestos.ConsultarPartidas) ||
-                (ruta == RutaMcp.Original &&
-                 contexto.Params.Name == HerramientasPresupuestos.ConsultarPartidas))
+            var politica = ResolverPolitica(contexto.Services);
+            if (politica is null || !politica.PermiteHerramienta(contexto.Params?.Name))
             {
                 return new CallToolResult
                 {
@@ -59,20 +60,16 @@ public static class FiltroHerramientasMcpPorRuta
         });
     }
 
-    private static RutaMcp ClasificarRuta(IServiceProvider? servicios)
+    public static PoliticaRutaMcp? ResolverPolitica(PathString path, IEnumerable<PoliticaRutaMcp> politicas) =>
+        politicas.FirstOrDefault(p => p.CoincideRuta(path));
+
+    private static PoliticaRutaMcp? ResolverPolitica(IServiceProvider? servicios)
     {
-        if (servicios?.GetService(typeof(IHttpContextAccessor)) is not IHttpContextAccessor accessor ||
-            accessor.HttpContext is not { } httpContext)
-            return RutaMcp.Desconocida;
+        if (servicios?.GetService<IHttpContextAccessor>() is not { HttpContext: { } httpContext })
+            return null;
 
-        var path = httpContext.Request.Path;
-        if (path.Equals(RutaOriginal, StringComparison.OrdinalIgnoreCase))
-            return RutaMcp.Original;
-        if (path.StartsWithSegments(RutaPresupuestos, StringComparison.OrdinalIgnoreCase))
-            return RutaMcp.Presupuestos;
-
-        return RutaMcp.Desconocida;
+        var registradas = servicios.GetServices<PoliticaRutaMcp>().ToList();
+        var politicas = registradas.Count > 0 ? registradas : PoliticasPorDefecto;
+        return ResolverPolitica(httpContext.Request.Path, politicas);
     }
-
-    private enum RutaMcp { Desconocida, Original, Presupuestos }
 }

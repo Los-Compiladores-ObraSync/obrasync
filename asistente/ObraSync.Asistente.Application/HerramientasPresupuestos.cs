@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 namespace ObraSync.Asistente.Application;
 
 /// <summary>Consulta de solo lectura de partidas y órdenes bloqueadas de una obra.</summary>
-public sealed class HerramientasPresupuestos
+public sealed class HerramientasPresupuestos : IConsultaPresupuestoObra
 {
     public const string ConsultarPartidas = "consultar_partidas_presupuestarias";
     public const int MaxPaginasOrdenesBloqueadas = 10;
