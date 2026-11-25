@@ -98,36 +98,36 @@ export function editarYReenviarRequisicion(
 
 /**
  * Cancela una requisición que todavía está Pendiente (antes de que Compras la apruebe).
- * Fuente: POST /api/requisiciones/{id}/cancelar (Capataz dueño, Admin)
+ * Fuente: POST /api/requisiciones/{id}/cancelaciones (Capataz dueño, Admin)
  */
 export function cancelarRequisicion(id: string): Promise<RequisicionResponseDto> {
   return apiFetch<RequisicionResponseDto>(
-    `/api/requisiciones/${encodeURIComponent(id)}/cancelar`,
+    `/api/requisiciones/${encodeURIComponent(id)}/cancelaciones`,
     { method: 'POST' },
   )
 }
 
 /**
  * Aprueba una requisición pendiente. Publica RequisicionAprobadaEvent en el backend.
- * Fuente: POST /api/requisiciones/{id}/aprobar (Comprador, Admin)
+ * Fuente: POST /api/requisiciones/{id}/aprobaciones (Comprador, Admin)
  */
 export function aprobarRequisicion(id: string): Promise<RequisicionResponseDto> {
   return apiFetch<RequisicionResponseDto>(
-    `/api/requisiciones/${encodeURIComponent(id)}/aprobar`,
+    `/api/requisiciones/${encodeURIComponent(id)}/aprobaciones`,
     { method: 'POST' },
   )
 }
 
 /**
  * Rechaza una requisición pendiente.
- * Fuente: POST /api/requisiciones/{id}/rechazar (Comprador, Admin)
+ * Fuente: POST /api/requisiciones/{id}/rechazos (Comprador, Admin)
  */
 export function rechazarRequisicion(
   id: string,
   motivo: string,
 ): Promise<RequisicionResponseDto> {
   return apiFetch<RequisicionResponseDto>(
-    `/api/requisiciones/${encodeURIComponent(id)}/rechazar`,
+    `/api/requisiciones/${encodeURIComponent(id)}/rechazos`,
     {
       method: 'POST',
       body: JSON.stringify({ motivo }),

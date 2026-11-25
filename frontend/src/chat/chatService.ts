@@ -35,18 +35,18 @@ export function enviarMensaje(ordenCompraId: string, texto: string): Promise<Men
 
 /**
  * Marca la conversación como leída para el usuario. Es idempotente.
- * Fuente: POST /api/ordenes-compra/{id}/chat/marcar-leido → 200 LecturaChatResponseDto.
+ * Fuente: POST /api/ordenes-compra/{id}/chat/lecturas → 200 LecturaChatResponseDto.
  */
 export function marcarLeido(ordenCompraId: string): Promise<LecturaChatResponseDto> {
-  return apiFetch<LecturaChatResponseDto>(`${base(ordenCompraId)}/chat/marcar-leido`, { method: 'POST' })
+  return apiFetch<LecturaChatResponseDto>(`${base(ordenCompraId)}/chat/lecturas`, { method: 'POST' })
 }
 
 /**
  * Marca el problema abierto de la orden como resuelto. Solo Comprador y Admin (Proveedor y Capataz reciben 403).
- * Fuente: POST /api/ordenes-compra/{id}/problema/resolver → 200 ProblemaOrdenEstadoDto. Es idempotente.
+ * Fuente: POST /api/ordenes-compra/{id}/problema/resoluciones → 200 ProblemaOrdenEstadoDto. Es idempotente.
  */
 export function resolverProblema(ordenCompraId: string): Promise<ProblemaOrdenEstadoDto> {
-  return apiFetch<ProblemaOrdenEstadoDto>(`${base(ordenCompraId)}/problema/resolver`, { method: 'POST' })
+  return apiFetch<ProblemaOrdenEstadoDto>(`${base(ordenCompraId)}/problema/resoluciones`, { method: 'POST' })
 }
 
 /**

@@ -109,14 +109,14 @@ export function guardarCalificacionProveedor(
 
 /**
  * Adjudica una licitación a una cotización específica y emite la Orden de Compra.
- * Fuente: POST /api/licitaciones/{licitacionId}/adjudicar (Comprador, Admin)
+ * Fuente: POST /api/licitaciones/{licitacionId}/adjudicaciones (Comprador, Admin)
  */
 export function adjudicarLicitacion(
   licitacionId: string,
   cotizacionId: string,
 ): Promise<OrdenCompraAdjudicadaDto> {
   return apiFetch<OrdenCompraAdjudicadaDto>(
-    `/api/licitaciones/${encodeURIComponent(licitacionId)}/adjudicar`,
+    `/api/licitaciones/${encodeURIComponent(licitacionId)}/adjudicaciones`,
     {
       method: 'POST',
       body: JSON.stringify({ cotizacionId }),
@@ -173,13 +173,13 @@ export interface DatosDespacho {
 
 /**
  * El Proveedor marca su orden de compra como despachada y se avisa a Recepción (OrdenCompraDespachadaEvent).
- * Fuente: POST /api/ordenes-compra/{id}/despachar (solo el Proveedor dueño de la orden; Compras no puede).
+ * Fuente: POST /api/ordenes-compra/{id}/despachos (solo el Proveedor dueño de la orden; Compras no puede).
  * Es idempotente: si ya estaba despachada responde 200 con los datos originales.
  * Errores: 400 fecha pasada u observación larga, 403 no es su orden, 404 la orden no existe.
  */
 export function despacharOrdenCompra(id: string, datos: DatosDespacho = {}): Promise<OrdenCompraListadoDto> {
   const hayDatos = Boolean(datos.fechaEstimadaLlegada || datos.observacion)
-  return apiFetch<OrdenCompraListadoDto>(`/api/ordenes-compra/${encodeURIComponent(id)}/despachar`, {
+  return apiFetch<OrdenCompraListadoDto>(`/api/ordenes-compra/${encodeURIComponent(id)}/despachos`, {
     method: 'POST',
     ...(hayDatos ? { body: JSON.stringify(datos) } : {}),
   })
@@ -187,10 +187,10 @@ export function despacharOrdenCompra(id: string, datos: DatosDespacho = {}): Pro
 
 /**
  * Extiende el plazo de cotización de una licitación abierta.
- * Fuente: POST /api/licitaciones/{id}/extender (Comprador, Admin). 400 si la fecha no es posterior, 409 si ya no está abierta.
+ * Fuente: POST /api/licitaciones/{id}/extensiones (Comprador, Admin). 400 si la fecha no es posterior, 409 si ya no está abierta.
  */
 export function extenderLicitacion(id: string, fechaLimiteCotizacion: string): Promise<LicitacionResponseDto> {
-  return apiFetch<LicitacionResponseDto>(`/api/licitaciones/${encodeURIComponent(id)}/extender`, {
+  return apiFetch<LicitacionResponseDto>(`/api/licitaciones/${encodeURIComponent(id)}/extensiones`, {
     method: 'POST',
     body: JSON.stringify({ fechaLimiteCotizacion }),
   })
@@ -198,10 +198,10 @@ export function extenderLicitacion(id: string, fechaLimiteCotizacion: string): P
 
 /**
  * Cierra una licitación abierta sin adjudicar (cierra también sus Magic Links pendientes).
- * Fuente: POST /api/licitaciones/{id}/cerrar (Comprador, Admin). El motivo es obligatorio (hasta 500 caracteres).
+ * Fuente: POST /api/licitaciones/{id}/cierres (Comprador, Admin). El motivo es obligatorio (hasta 500 caracteres).
  */
 export function cerrarLicitacion(id: string, motivo: string): Promise<LicitacionResponseDto> {
-  return apiFetch<LicitacionResponseDto>(`/api/licitaciones/${encodeURIComponent(id)}/cerrar`, {
+  return apiFetch<LicitacionResponseDto>(`/api/licitaciones/${encodeURIComponent(id)}/cierres`, {
     method: 'POST',
     body: JSON.stringify({ motivo }),
   })

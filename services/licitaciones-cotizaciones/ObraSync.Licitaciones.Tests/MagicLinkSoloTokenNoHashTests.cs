@@ -208,7 +208,7 @@ public class MagicLinkSoloTokenNoHashTests : IClassFixture<WebApplicationFactory
         };
 
         var respPostHash = await clientAnon.PostAsJsonAsync(
-            $"/api/licitaciones/magic-links/{hashGuardado}/cotizar",
+            $"/api/licitaciones/magic-links/{hashGuardado}/cotizaciones",
             payloadCotizacion);
         await AssertNotFoundProblemDetailsAsync(respPostHash, cidPostHash, HttpStatusCode.NotFound);
 
@@ -225,7 +225,7 @@ public class MagicLinkSoloTokenNoHashTests : IClassFixture<WebApplicationFactory
         Assert.Equal(HttpStatusCode.OK, respGetToken.StatusCode);
 
         var respPostToken = await clientAnon.PostAsJsonAsync(
-            $"/api/licitaciones/magic-links/{tokenPlano}/cotizar",
+            $"/api/licitaciones/magic-links/{tokenPlano}/cotizaciones",
             payloadCotizacion);
         Assert.Equal(HttpStatusCode.OK, respPostToken.StatusCode);
 
@@ -248,7 +248,7 @@ public class MagicLinkSoloTokenNoHashTests : IClassFixture<WebApplicationFactory
         clientAnon.DefaultRequestHeaders.Add("X-Correlation-ID", cidSegundoUso);
 
         var respSegundoUso = await clientAnon.PostAsJsonAsync(
-            $"/api/licitaciones/magic-links/{tokenPlano}/cotizar",
+            $"/api/licitaciones/magic-links/{tokenPlano}/cotizaciones",
             payloadCotizacion);
         await AssertNotFoundProblemDetailsAsync(respSegundoUso, cidSegundoUso, HttpStatusCode.Conflict);
 
@@ -296,8 +296,8 @@ public class MagicLinkSoloTokenNoHashTests : IClassFixture<WebApplicationFactory
         var c1 = factory.CreateClient();
         var c2 = factory.CreateClient();
         var responses = await Task.WhenAll(
-            c1.PostAsJsonAsync($"/api/licitaciones/magic-links/{tokenPlano}/cotizar", payload),
-            c2.PostAsJsonAsync($"/api/licitaciones/magic-links/{tokenPlano}/cotizar", payload));
+            c1.PostAsJsonAsync($"/api/licitaciones/magic-links/{tokenPlano}/cotizaciones", payload),
+            c2.PostAsJsonAsync($"/api/licitaciones/magic-links/{tokenPlano}/cotizaciones", payload));
 
         Assert.Single(responses, r => r.StatusCode == HttpStatusCode.OK);
         Assert.Single(responses, r => r.StatusCode == HttpStatusCode.Conflict);

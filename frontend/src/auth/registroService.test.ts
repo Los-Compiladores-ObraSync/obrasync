@@ -7,7 +7,7 @@ describe('registrarProveedor', () => {
   it('envía el rol Proveedor y devuelve usuario y token', async () => {
     let cuerpo: Record<string, string> | undefined
     server.use(
-      http.post('*/api/usuarios/registro', async ({ request }) => {
+      http.post('*/api/usuarios', async ({ request }) => {
         cuerpo = (await request.json()) as Record<string, string>
         return HttpResponse.json(
           {

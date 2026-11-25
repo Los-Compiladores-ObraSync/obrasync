@@ -53,7 +53,7 @@ public class CambiarPasswordEndpointTests : IClassFixture<WebApplicationFactory<
     {
         using var client = _factory.CreateClient();
         var loginResp = await client.PostAsJsonAsync(
-            "/api/usuarios/login",
+            "/api/usuarios/tokens",
             new LoginRequestDto(email, password));
 
         Assert.Equal(HttpStatusCode.OK, loginResp.StatusCode);
@@ -96,7 +96,7 @@ public class CambiarPasswordEndpointTests : IClassFixture<WebApplicationFactory<
         client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
 
         var response = await client.PostAsJsonAsync(
-            "/api/usuarios/cambiar-password",
+            "/api/usuarios/password/cambios",
             new CambiarPasswordRequestDto(SeedPassword, "NuevaClave456!", "NuevaClave456!"));
 
         await AssertProblemDetailsConCorrelationIdAsync(response, HttpStatusCode.Unauthorized, correlationId);
@@ -111,7 +111,7 @@ public class CambiarPasswordEndpointTests : IClassFixture<WebApplicationFactory<
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "token.jwt.invalido");
 
         var response = await client.PostAsJsonAsync(
-            "/api/usuarios/cambiar-password",
+            "/api/usuarios/password/cambios",
             new CambiarPasswordRequestDto(SeedPassword, "NuevaClave456!", "NuevaClave456!"));
 
         await AssertProblemDetailsConCorrelationIdAsync(response, HttpStatusCode.Unauthorized, correlationId);
@@ -128,7 +128,7 @@ public class CambiarPasswordEndpointTests : IClassFixture<WebApplicationFactory<
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await client.PostAsJsonAsync(
-            "/api/usuarios/cambiar-password",
+            "/api/usuarios/password/cambios",
             new CambiarPasswordRequestDto("ClaveActualErronea!", "NuevaClave456!", "NuevaClave456!"));
 
         var detail = await AssertProblemDetailsConCorrelationIdAsync(response, HttpStatusCode.BadRequest, correlationId);
@@ -146,7 +146,7 @@ public class CambiarPasswordEndpointTests : IClassFixture<WebApplicationFactory<
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await client.PostAsJsonAsync(
-            "/api/usuarios/cambiar-password",
+            "/api/usuarios/password/cambios",
             new CambiarPasswordRequestDto(SeedPassword, SeedPassword, SeedPassword));
 
         var detail = await AssertProblemDetailsConCorrelationIdAsync(response, HttpStatusCode.BadRequest, correlationId);
@@ -164,7 +164,7 @@ public class CambiarPasswordEndpointTests : IClassFixture<WebApplicationFactory<
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await client.PostAsJsonAsync(
-            "/api/usuarios/cambiar-password",
+            "/api/usuarios/password/cambios",
             new CambiarPasswordRequestDto(SeedPassword, "NuevaClave456!", "ConfirmacionDistinta!"));
 
         var detail = await AssertProblemDetailsConCorrelationIdAsync(response, HttpStatusCode.BadRequest, correlationId);
@@ -182,7 +182,7 @@ public class CambiarPasswordEndpointTests : IClassFixture<WebApplicationFactory<
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await client.PostAsJsonAsync(
-            "/api/usuarios/cambiar-password",
+            "/api/usuarios/password/cambios",
             new CambiarPasswordRequestDto(SeedPassword, "12345", "12345"));
 
         var detail = await AssertProblemDetailsConCorrelationIdAsync(response, HttpStatusCode.BadRequest, correlationId);
@@ -205,7 +205,7 @@ public class CambiarPasswordEndpointTests : IClassFixture<WebApplicationFactory<
 
         // 2. Cambiar contraseña con sesión iniciada -> 200 OK
         var cambiarResp = await client.PostAsJsonAsync(
-            "/api/usuarios/cambiar-password",
+            "/api/usuarios/password/cambios",
             new CambiarPasswordRequestDto(SeedPassword, nuevaPassword, nuevaPassword));
 
         Assert.Equal(HttpStatusCode.OK, cambiarResp.StatusCode);
@@ -215,13 +215,13 @@ public class CambiarPasswordEndpointTests : IClassFixture<WebApplicationFactory<
 
         // 3. Verificar que la contraseña vieja ya NO permite iniciar sesión -> 401 Unauthorized
         var loginViejoResp = await client.PostAsJsonAsync(
-            "/api/usuarios/login",
+            "/api/usuarios/tokens",
             new LoginRequestDto(email, SeedPassword));
         Assert.Equal(HttpStatusCode.Unauthorized, loginViejoResp.StatusCode);
 
         // 4. Verificar que la nueva contraseña SÍ permite iniciar sesión -> 200 OK
         var loginNuevoResp = await client.PostAsJsonAsync(
-            "/api/usuarios/login",
+            "/api/usuarios/tokens",
             new LoginRequestDto(email, nuevaPassword));
         Assert.Equal(HttpStatusCode.OK, loginNuevoResp.StatusCode);
     }

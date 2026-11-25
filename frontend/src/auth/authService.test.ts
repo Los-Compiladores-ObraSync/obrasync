@@ -41,7 +41,7 @@ describe('authService.loginApi', () => {
   })
 
   it('falla con error cuando se produce una falla de red', async () => {
-    server.use(http.post('*/api/usuarios/login', () => HttpResponse.error()))
+    server.use(http.post('*/api/usuarios/tokens', () => HttpResponse.error()))
 
     await expect(
       loginApi({

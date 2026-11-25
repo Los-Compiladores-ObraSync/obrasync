@@ -75,7 +75,7 @@ public class LiberarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactory
         var client = _factory.CreateClient();
 
         var response = await client.PostAsJsonAsync(
-            $"/api/recepciones/ordenes/{ocId}/liberar",
+            $"/api/recepciones/ordenes/{ocId}/liberaciones",
             new LiberarOrdenCompraRequest { Motivo = "Intento sin token" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -94,7 +94,7 @@ public class LiberarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactory
             RecepcionApiFactory.CreateToken(role: rol));
 
         var response = await client.PostAsJsonAsync(
-            $"/api/recepciones/ordenes/{ocId}/liberar",
+            $"/api/recepciones/ordenes/{ocId}/liberaciones",
             new LiberarOrdenCompraRequest { Motivo = "Intento con rol no Admin" });
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -125,7 +125,7 @@ public class LiberarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactory
 
         // 2. Admin libera la orden bloqueada
         var response = await client.PostAsJsonAsync(
-            $"/api/recepciones/ordenes/{ocId}/liberar",
+            $"/api/recepciones/ordenes/{ocId}/liberaciones",
             new LiberarOrdenCompraRequest { Motivo = "Autorizado por Dirección de Obra" });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -175,7 +175,7 @@ public class LiberarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactory
         client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
 
         var response = await client.PostAsync(
-            $"/api/recepciones/ordenes/{Guid.NewGuid()}/liberar",
+            $"/api/recepciones/ordenes/{Guid.NewGuid()}/liberaciones",
             content: null);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -196,7 +196,7 @@ public class LiberarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactory
         client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
 
         var response = await client.PostAsJsonAsync(
-            $"/api/recepciones/ordenes/{ocId}/liberar",
+            $"/api/recepciones/ordenes/{ocId}/liberaciones",
             new LiberarOrdenCompraRequest { Motivo = "Ya estaba activa" });
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);

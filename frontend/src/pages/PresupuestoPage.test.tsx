@@ -331,7 +331,7 @@ describe('PresupuestoPage', () => {
 
     it('muestra error 403: "Solo un Administrador puede autorizar"', async () => {
       server.use(
-        http.post('*/api/recepciones/ordenes/:id/liberar', () =>
+        http.post('*/api/recepciones/ordenes/:id/liberaciones', () =>
           HttpResponse.json({ title: 'Acceso denegado', status: 403 }, { status: 403 }),
         ),
       )
@@ -351,7 +351,7 @@ describe('PresupuestoPage', () => {
 
     it('muestra error 404: "La orden ya no existe"', async () => {
       server.use(
-        http.post('*/api/recepciones/ordenes/:id/liberar', () =>
+        http.post('*/api/recepciones/ordenes/:id/liberaciones', () =>
           HttpResponse.json({ title: 'No encontrado', status: 404 }, { status: 404 }),
         ),
       )
@@ -370,7 +370,7 @@ describe('PresupuestoPage', () => {
     it('muestra error 409 y reconcilia la lista compartida con el backend', async () => {
       let conflicto = false
       server.use(
-        http.post('*/api/recepciones/ordenes/:id/liberar', () => {
+        http.post('*/api/recepciones/ordenes/:id/liberaciones', () => {
           conflicto = true
           return HttpResponse.json({ title: 'Conflicto', status: 409 }, { status: 409 })
         }),
@@ -422,7 +422,7 @@ describe('PresupuestoPage', () => {
 
     it('muestra mensaje adecuado cuando hay falla de red', async () => {
       server.use(
-        http.post('*/api/recepciones/ordenes/:id/liberar', () => HttpResponse.error()),
+        http.post('*/api/recepciones/ordenes/:id/liberaciones', () => HttpResponse.error()),
       )
 
       const user = userEvent.setup()
@@ -441,7 +441,7 @@ describe('PresupuestoPage', () => {
     it('el doble clic manda UN solo pedido (protección contra doble submit)', async () => {
       let llamadas = 0
       server.use(
-        http.post('*/api/recepciones/ordenes/:id/liberar', async () => {
+        http.post('*/api/recepciones/ordenes/:id/liberaciones', async () => {
           llamadas += 1
           await delay(100)
           return HttpResponse.json({
@@ -474,7 +474,7 @@ describe('PresupuestoPage', () => {
 
     it('muestra el detail del servidor cuando ocurre un error 400', async () => {
       server.use(
-        http.post('*/api/recepciones/ordenes/:id/liberar', () =>
+        http.post('*/api/recepciones/ordenes/:id/liberaciones', () =>
           HttpResponse.json(
             {
               type: 'https://tools.ietf.org/html/rfc7231#section-6.5.1',
@@ -503,7 +503,7 @@ describe('PresupuestoPage', () => {
     it('envía el motivo como null si el campo está vacío o solo contiene espacios', async () => {
       let cuerpoEnviado: { motivo?: string | null } | null = null
       server.use(
-        http.post('*/api/recepciones/ordenes/:id/liberar', async ({ request }) => {
+        http.post('*/api/recepciones/ordenes/:id/liberaciones', async ({ request }) => {
           cuerpoEnviado = (await request.json()) as { motivo?: string | null }
           return HttpResponse.json({
             ordenCompraId: ORDEN_BLOQUEADA_1_ID,
@@ -537,7 +537,7 @@ describe('PresupuestoPage', () => {
     it('envía el texto del motivo trimeado si se ingresan espacios al inicio y final', async () => {
       let cuerpoEnviado: { motivo?: string | null } | null = null
       server.use(
-        http.post('*/api/recepciones/ordenes/:id/liberar', async ({ request }) => {
+        http.post('*/api/recepciones/ordenes/:id/liberaciones', async ({ request }) => {
           cuerpoEnviado = (await request.json()) as { motivo?: string | null }
           return HttpResponse.json({
             ordenCompraId: ORDEN_BLOQUEADA_1_ID,
@@ -680,7 +680,7 @@ describe('PresupuestoPage', () => {
             { headers: { 'X-Total-Count': url.searchParams.has('pagina') ? '1' : '0' } },
           )
         }),
-        http.post('*/api/recepciones/ordenes/:id/liberar', () =>
+        http.post('*/api/recepciones/ordenes/:id/liberaciones', () =>
           HttpResponse.json(
             { title: 'Error de liberación', status, detail: status === 400 ? mensaje : undefined },
             { status },

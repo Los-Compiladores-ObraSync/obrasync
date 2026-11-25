@@ -16,10 +16,10 @@ public class AuthRateLimitTests : IClassFixture<GatewayFactory>
     }
 
     [Theory]
-    [InlineData("/api/usuarios/login")]
-    [InlineData("/api/usuarios/registro")]
-    [InlineData("/api/usuarios/password/recuperar")]
-    [InlineData("/api/usuarios/password/restablecer")]
+    [InlineData("/api/usuarios/tokens")]
+    [InlineData("/api/usuarios")]
+    [InlineData("/api/usuarios/password/recuperaciones")]
+    [InlineData("/api/usuarios/password/restablecimientos")]
     public async Task Pasado_el_limite_devuelve_429_con_ProblemDetails(string ruta)
     {
         using var client = _factory.CreateClient();
@@ -41,9 +41,9 @@ public class AuthRateLimitTests : IClassFixture<GatewayFactory>
     {
         using var client = _factory.CreateClient();
         for (var i = 0; i < 11; i++)
-            using (await client.SendAsync(Pedido(HttpMethod.Post, "/api/usuarios/login", "ip-saturada"))) { }
+            using (await client.SendAsync(Pedido(HttpMethod.Post, "/api/usuarios/tokens", "ip-saturada"))) { }
 
-        using var otra = await client.SendAsync(Pedido(HttpMethod.Post, "/api/usuarios/login", "ip-distinta"));
+        using var otra = await client.SendAsync(Pedido(HttpMethod.Post, "/api/usuarios/tokens", "ip-distinta"));
         Assert.NotEqual(HttpStatusCode.TooManyRequests, otra.StatusCode);
     }
 

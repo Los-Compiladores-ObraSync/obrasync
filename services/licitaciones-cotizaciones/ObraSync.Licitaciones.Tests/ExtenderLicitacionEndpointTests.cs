@@ -137,7 +137,7 @@ public class ExtenderLicitacionEndpointTests : IClassFixture<WebApplicationFacto
     }
 
     private static async Task<HttpResponseMessage> Extender(HttpClient client, Guid id, DateTime nueva) =>
-        await client.PostAsJsonAsync($"/api/licitaciones/{id}/extender", new { fechaLimiteCotizacion = nueva });
+        await client.PostAsJsonAsync($"/api/licitaciones/{id}/extensiones", new { fechaLimiteCotizacion = nueva });
 
     private static HttpClient ClienteDe(WebApplicationFactory<Program> factory, string rol)
     {

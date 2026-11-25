@@ -145,7 +145,7 @@ public class MagicLinkPliegoEndpointTests : IClassFixture<WebApplicationFactory<
         Assert.Null((await db.MagicLinks.SingleAsync()).FechaDeUso);
 
         var cotizar = await client.PostAsJsonAsync(
-            $"/api/licitaciones/magic-links/{token}/cotizar",
+            $"/api/licitaciones/magic-links/{token}/cotizaciones",
             new { flete = 100m, plazoEntregaDias = 3, items = new[] { new { articuloId, precioUnitario = 50m } } });
         Assert.Equal(HttpStatusCode.OK, cotizar.StatusCode);
 

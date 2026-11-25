@@ -31,7 +31,7 @@ public class TestController : ControllerBase
         _dbContext = dbContext;
     }
 
-    [HttpPost("publish-orden-compra")]
+    [HttpPost("ordenes-compra-emitidas")]
     public async Task<IActionResult> PublishOrdenCompra([FromBody] PublishOrdenCompraRequest request, CancellationToken cancellationToken)
     {
         if (_environment != null && !_environment.IsDevelopment() && !_environment.IsEnvironment("Testing"))
@@ -109,7 +109,7 @@ public class TestController : ControllerBase
         }
     }
 
-    [HttpPost("publish-orden-despachada")]
+    [HttpPost("ordenes-compra-despachadas")]
     public async Task<IActionResult> PublishOrdenDespachada(
         [FromBody] PublishOrdenDespachadaRequest request,
         CancellationToken cancellationToken)

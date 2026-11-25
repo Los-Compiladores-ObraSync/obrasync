@@ -85,7 +85,7 @@ describe('CotizarConEnlacePage', () => {
     responderPliego()
     let enviado = false
     server.use(
-      http.post(`${URL_PLIEGO}/cotizar`, () => {
+      http.post(`${URL_PLIEGO}/cotizaciones`, () => {
         enviado = true
         return HttpResponse.json({})
       }),
@@ -101,7 +101,7 @@ describe('CotizarConEnlacePage', () => {
     responderPliego()
     let cuerpo: unknown
     server.use(
-      http.post(`${URL_PLIEGO}/cotizar`, async ({ request }) => {
+      http.post(`${URL_PLIEGO}/cotizaciones`, async ({ request }) => {
         cuerpo = await request.json()
         return HttpResponse.json({ cotizacionId: 'c1', items: [{ articuloId: 'art-1', precioUnitario: 1500.5 }] }, { status: 201 })
       }),
@@ -120,7 +120,7 @@ describe('CotizarConEnlacePage', () => {
   it('avisa si la oferta no cubre todo lo pedido', async () => {
     responderPliego()
     server.use(
-      http.post(`${URL_PLIEGO}/cotizar`, () =>
+      http.post(`${URL_PLIEGO}/cotizaciones`, () =>
         HttpResponse.json(
           { cotizacionId: 'c1', coberturaParcial: true, items: [{ articuloId: 'art-1', precioUnitario: 1, coberturaParcial: true }] },
           { status: 201 },
@@ -136,7 +136,7 @@ describe('CotizarConEnlacePage', () => {
   it('si el enlace ya se usó al enviar, bloquea el formulario', async () => {
     responderPliego()
     server.use(
-      http.post(`${URL_PLIEGO}/cotizar`, () => HttpResponse.json({ title: 'Conflicto' }, { status: 409 })),
+      http.post(`${URL_PLIEGO}/cotizaciones`, () => HttpResponse.json({ title: 'Conflicto' }, { status: 409 })),
     )
     const user = userEvent.setup()
     renderPagina()
@@ -148,7 +148,7 @@ describe('CotizarConEnlacePage', () => {
   it('si falla el envío por la red, deja reintentar con los datos cargados', async () => {
     responderPliego()
     server.use(
-      http.post(`${URL_PLIEGO}/cotizar`, () => HttpResponse.json({ title: 'Error' }, { status: 500 })),
+      http.post(`${URL_PLIEGO}/cotizaciones`, () => HttpResponse.json({ title: 'Error' }, { status: 500 })),
     )
     const user = userEvent.setup()
     renderPagina()

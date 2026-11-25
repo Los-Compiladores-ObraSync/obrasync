@@ -22,7 +22,7 @@ namespace ObraSync.Licitaciones.Tests;
 
 /// <summary>
 /// Tarjeta #251: Validar que plazoEntregaDias sea un entero positivo en días corridos (>= 1)
-/// en POST /api/cotizaciones, PUT /api/cotizaciones/{id} y POST /api/licitaciones/magic-links/{hash}/cotizar.
+/// en POST /api/cotizaciones, PUT /api/cotizaciones/{id} y POST /api/licitaciones/magic-links/{hash}/cotizaciones.
 /// </summary>
 public class PlazoEntregaValidacionTests : IClassFixture<WebApplicationFactory<Program>>
 {
@@ -267,7 +267,7 @@ public class PlazoEntregaValidacionTests : IClassFixture<WebApplicationFactory<P
         client.DefaultRequestHeaders.Add("X-Correlation-ID", cid);
 
         var respInvalido = await client.PostAsJsonAsync(
-            $"/api/licitaciones/magic-links/{rawToken}/cotizar",
+            $"/api/licitaciones/magic-links/{rawToken}/cotizaciones",
             new
             {
                 flete = 100m,
@@ -282,7 +282,7 @@ public class PlazoEntregaValidacionTests : IClassFixture<WebApplicationFactory<P
 
         // El enlace no se quemó tras el 400: reintentar con el mínimo válido (1 día) funciona (200 OK)
         var respValido = await client.PostAsJsonAsync(
-            $"/api/licitaciones/magic-links/{rawToken}/cotizar",
+            $"/api/licitaciones/magic-links/{rawToken}/cotizaciones",
             new
             {
                 flete = 100m,

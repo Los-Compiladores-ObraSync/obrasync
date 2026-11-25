@@ -9,7 +9,7 @@ import { MisOrdenesProveedorPage } from './MisOrdenesProveedorPage'
 
 // Entrega parcial y re-despacho del remanente (#249). Los campos vienen del contrato de Licitaciones (#248).
 const RUTA_LISTA = '*/api/ordenes-compra'
-const RUTA_DESPACHAR = '*/api/ordenes-compra/:id/despachar'
+const RUTA_DESPACHAR = '*/api/ordenes-compra/:id/despachos'
 
 const parcial = {
   id: 'dddddddd-0000-0000-0000-00000000000a',

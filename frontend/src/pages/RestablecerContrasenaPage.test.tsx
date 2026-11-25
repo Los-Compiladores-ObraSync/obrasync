@@ -59,7 +59,7 @@ describe('RestablecerContrasenaPage', () => {
   it('no llama a la API y pide las contraseñas si están vacías', async () => {
     let llamadas = 0
     server.use(
-      http.post('*/api/usuarios/password/restablecer', () => {
+      http.post('*/api/usuarios/password/restablecimientos', () => {
         llamadas++
         return HttpResponse.json({})
       }),
@@ -77,7 +77,7 @@ describe('RestablecerContrasenaPage', () => {
   it('no llama a la API si la contraseña tiene menos de 8 caracteres', async () => {
     let llamadas = 0
     server.use(
-      http.post('*/api/usuarios/password/restablecer', () => {
+      http.post('*/api/usuarios/password/restablecimientos', () => {
         llamadas++
         return HttpResponse.json({})
       }),
@@ -96,7 +96,7 @@ describe('RestablecerContrasenaPage', () => {
   it('no llama a la API si las contraseñas no coinciden', async () => {
     let llamadas = 0
     server.use(
-      http.post('*/api/usuarios/password/restablecer', () => {
+      http.post('*/api/usuarios/password/restablecimientos', () => {
         llamadas++
         return HttpResponse.json({})
       }),
@@ -113,7 +113,7 @@ describe('RestablecerContrasenaPage', () => {
   it('envía email, token y la nueva contraseña, y vuelve al login con el aviso de éxito', async () => {
     let cuerpo: unknown
     server.use(
-      http.post('*/api/usuarios/password/restablecer', async ({ request }) => {
+      http.post('*/api/usuarios/password/restablecimientos', async ({ request }) => {
         cuerpo = await request.json()
         return HttpResponse.json({ mensaje: 'Contraseña restablecida.' })
       }),
@@ -136,7 +136,7 @@ describe('RestablecerContrasenaPage', () => {
 
   it('muestra el detalle del servidor ante un 400 y ofrece pedir un enlace nuevo', async () => {
     server.use(
-      http.post('*/api/usuarios/password/restablecer', () =>
+      http.post('*/api/usuarios/password/restablecimientos', () =>
         HttpResponse.json(
           { title: 'Token inválido', status: 400, detail: 'El enlace venció. Pedí uno nuevo.' },
           { status: 400 },
@@ -159,7 +159,7 @@ describe('RestablecerContrasenaPage', () => {
 
   it('usa un mensaje general si el 400 no trae detalle', async () => {
     server.use(
-      http.post('*/api/usuarios/password/restablecer', () =>
+      http.post('*/api/usuarios/password/restablecimientos', () =>
         HttpResponse.json({ status: 400 }, { status: 400 }),
       ),
     )
@@ -175,7 +175,7 @@ describe('RestablecerContrasenaPage', () => {
   })
 
   it('avisa que no pudo conectar si falla la red, sin ofrecer un enlace nuevo', async () => {
-    server.use(http.post('*/api/usuarios/password/restablecer', () => HttpResponse.error()))
+    server.use(http.post('*/api/usuarios/password/restablecimientos', () => HttpResponse.error()))
     const user = userEvent.setup()
     renderPagina()
 
@@ -190,7 +190,7 @@ describe('RestablecerContrasenaPage', () => {
 
   it('bloquea el botón mientras guarda', async () => {
     server.use(
-      http.post('*/api/usuarios/password/restablecer', async () => {
+      http.post('*/api/usuarios/password/restablecimientos', async () => {
         await delay(100)
         return HttpResponse.json({})
       }),
@@ -225,7 +225,7 @@ describe('RestablecerContrasenaPage', () => {
   it('un doble envío seguido restablece la contraseña una sola vez', async () => {
     let llamadas = 0
     server.use(
-      http.post('*/api/usuarios/password/restablecer', async () => {
+      http.post('*/api/usuarios/password/restablecimientos', async () => {
         llamadas++
         await delay(50)
         return HttpResponse.json({ mensaje: 'ok' })

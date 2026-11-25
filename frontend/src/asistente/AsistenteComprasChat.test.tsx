@@ -9,10 +9,10 @@ import { fechaLocalEnDias, finDelDiaEnUtc } from '../licitaciones/plazoCotizacio
 import { fechaLarga } from '../requisiciones/formatoFecha'
 
 // Asistente en el portal de Compras (#141): consulta requisiciones y arma la APROBACIÓN para confirmar.
-// Regla de oro: el asistente nunca aprueba; solo el botón Aprobar llama a POST /api/requisiciones/{id}/aprobar.
+// Regla de oro: el asistente nunca aprueba; solo el botón Aprobar llama a POST /api/requisiciones/{id}/aprobaciones.
 
 const RUTA_CHAT = '*/api/asistente/chat'
-const RUTA_APROBAR = '*/api/requisiciones/:id/aprobar'
+const RUTA_APROBAR = '*/api/requisiciones/:id/aprobaciones'
 const ID_REQUISICION = 'd1d2d3d4-0000-0000-0000-000000000042'
 
 const BORRADOR_APROBACION = {
@@ -46,7 +46,7 @@ async function pedirAprobacion(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: 'Enviar' }))
 }
 
-/** Cuenta los POST /aprobar. Responde 200 salvo que se le pida otro estado. */
+/** Cuenta los POST /aprobaciones. Responde 200 salvo que se le pida otro estado. */
 function espiarAprobacion(estado = 200) {
   const visto = { llamadas: 0, id: null as string | null }
   server.use(
@@ -102,7 +102,7 @@ describe('AsistenteChatPage en el portal de Compras', () => {
     expect(visto.llamadas).toBe(0)
   })
 
-  it('al tocar Aprobar llama a POST /aprobar una sola vez con el id del borrador y lo confirma', async () => {
+  it('al tocar Aprobar llama a POST /aprobaciones una sola vez con el id del borrador y lo confirma', async () => {
     const user = userEvent.setup()
     const visto = espiarAprobacion()
     renderCompras()
@@ -221,9 +221,9 @@ describe('AsistenteChatPage en el portal de Compras', () => {
 })
 
 // Rechazar una requisición (#149): mismo patrón que aprobar, pero la tarjeta muestra el motivo y al confirmar
-// se llama a POST /api/requisiciones/{id}/rechazar con { motivo }. El asistente nunca rechaza por su cuenta.
+// se llama a POST /api/requisiciones/{id}/rechazos con { motivo }. El asistente nunca rechaza por su cuenta.
 
-const RUTA_RECHAZAR = '*/api/requisiciones/:id/rechazar'
+const RUTA_RECHAZAR = '*/api/requisiciones/:id/rechazos'
 const MOTIVO = 'Faltan las cantidades de arena'
 
 const BORRADOR_RECHAZO = {
@@ -244,7 +244,7 @@ async function pedirRechazo(user: ReturnType<typeof userEvent.setup>, borrador: 
   await user.click(screen.getByRole('button', { name: 'Enviar' }))
 }
 
-/** Cuenta los POST /rechazar y guarda el cuerpo que llegó. Responde 200 salvo que se le pida otro estado. */
+/** Cuenta los POST /rechazos y guarda el cuerpo que llegó. Responde 200 salvo que se le pida otro estado. */
 function espiarRechazo(estado = 200, detalle = 'Solo se pueden rechazar requisiciones pendientes.') {
   const visto = { llamadas: 0, id: null as string | null, cuerpo: null as unknown }
   server.use(
@@ -288,7 +288,7 @@ describe('Rechazar una requisición desde el chat de Compras (#149)', () => {
     expect(visto.llamadas).toBe(0)
   })
 
-  it('al tocar Rechazar llama a POST /rechazar una vez, con el id y el motivo del borrador', async () => {
+  it('al tocar Rechazar llama a POST /rechazos una vez, con el id y el motivo del borrador', async () => {
     const user = userEvent.setup()
     const visto = espiarRechazo()
     const aprobar = espiarAprobacion()
@@ -586,9 +586,9 @@ describe('Publicar una licitación desde el chat de Compras (#149)', () => {
 
 // ---------- Adjudicar una oferta desde el chat de Compras (#149) ----------
 // Adjudicar es IRREVERSIBLE: emite la Orden de Compra. El asistente solo arma la tarjeta reforzada; únicamente el botón
-// Adjudicar llama a POST /api/licitaciones/{id}/adjudicar con { cotizacionId }.
+// Adjudicar llama a POST /api/licitaciones/{id}/adjudicaciones con { cotizacionId }.
 
-const RUTA_ADJUDICAR = '*/api/licitaciones/:id/adjudicar'
+const RUTA_ADJUDICAR = '*/api/licitaciones/:id/adjudicaciones'
 const ID_LICITACION = 'e1e2e3e4-0000-0000-0000-000000000009'
 const ID_COTIZACION = 'f1f2f3f4-0000-0000-0000-00000000000a'
 
@@ -640,7 +640,7 @@ async function pedirAdjudicacion(
   await user.click(screen.getByRole('button', { name: 'Enviar' }))
 }
 
-/** Cuenta los POST /adjudicar y guarda el id de la licitación y el cuerpo. Responde 200 salvo que se le pida otro estado. */
+/** Cuenta los POST /adjudicaciones y guarda el id de la licitación y el cuerpo. Responde 200 salvo que se le pida otro estado. */
 function espiarAdjudicacion(estado = 200, detalle = 'La licitación ya se encuentra adjudicada o cerrada.') {
   const visto = { llamadas: 0, licitacionId: null as string | null, cuerpo: null as null | { cotizacionId: string } }
   server.use(
@@ -697,7 +697,7 @@ describe('Adjudicar una oferta desde el chat de Compras (#149)', () => {
     expect(visto.llamadas).toBe(0)
   })
 
-  it('al tocar Adjudicar llama una sola vez a POST /adjudicar con el cotizacionId del borrador y lo confirma', async () => {
+  it('al tocar Adjudicar llama una sola vez a POST /adjudicaciones con el cotizacionId del borrador y lo confirma', async () => {
     const user = userEvent.setup()
     const visto = espiarAdjudicacion()
     const aprobar = espiarAprobacion()

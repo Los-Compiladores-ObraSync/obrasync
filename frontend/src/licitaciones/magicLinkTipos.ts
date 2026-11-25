@@ -16,7 +16,7 @@ export interface PliegoMagicLinkDto {
   items: PliegoItemDto[]
 }
 
-/** Un ítem de la cotización hecha con un Magic Link. Es el mismo formato de siempre (contrato: items de POST .../cotizar). */
+/** Un ítem de la cotización hecha con un Magic Link. Es el mismo formato de siempre (contrato: items de POST .../cotizaciones). */
 export interface CotizarConMagicLinkItemDto {
   articuloId: string
   precioUnitario: number
@@ -26,7 +26,7 @@ export interface CotizarConMagicLinkItemDto {
   cantidadOfrecida?: number | null
 }
 
-/** Cuerpo de POST /api/licitaciones/magic-links/{token}/cotizar. No lleva proveedor: lo identifica el enlace. */
+/** Cuerpo de POST /api/licitaciones/magic-links/{token}/cotizaciones. No lleva proveedor: lo identifica el enlace. */
 export interface CotizarConMagicLinkRequestDto {
   flete: number
   plazoEntregaDias: number

@@ -87,7 +87,7 @@ const PLANTILLAS_MOCK = [
   ),
 ]
 
-/** Solo para tests: quita los usuarios que se crearon por POST /api/usuarios/registro. */
+/** Solo para tests: quita los usuarios que se crearon por POST /api/usuarios. */
 export function reiniciarUsuariosMock() {
   USUARIOS_MOCK.length = CANTIDAD_USUARIOS_INICIAL
 }
@@ -589,10 +589,10 @@ function responderPaginado<T>(request: Request, lista: T[]) {
 }
 
 export const handlers: RequestHandler[] = [
-  // Contrato: POST /api/usuarios/login → 200 AuthResponseDto | 401 ProblemDetails
-  // Se usa '*/api/usuarios/login' para interceptar la ruta tanto relativa (en browser con proxy)
+  // Contrato: POST /api/usuarios/tokens → 200 AuthResponseDto | 401 ProblemDetails
+  // Se usa '*/api/usuarios/tokens' para interceptar la ruta tanto relativa (en browser con proxy)
   // como con origen explícito http://localhost:5000 (en Vitest).
-  http.post('*/api/usuarios/login', async ({ request }) => {
+  http.post('*/api/usuarios/tokens', async ({ request }) => {
     const body = (await request.json()) as { email?: string; password?: string }
 
     const usuario = USUARIOS_MOCK.find((u) => u.email === body.email)
@@ -624,10 +624,10 @@ export const handlers: RequestHandler[] = [
     )
   }),
 
-  // Contrato: POST /api/usuarios/password/recuperar → 200 { mensaje } | 400 ProblemDetails.
+  // Contrato: POST /api/usuarios/password/recuperaciones → 200 { mensaje } | 400 ProblemDetails.
   // Como el backend real, responde siempre lo mismo exista o no la cuenta; solo falla (400)
   // si el email viene vacío. Es público: no necesita sesión.
-  http.post('*/api/usuarios/password/recuperar', async ({ request }) => {
+  http.post('*/api/usuarios/password/recuperaciones', async ({ request }) => {
     const body = (await request.json()) as { email?: string }
 
     if (!body.email) {
@@ -642,10 +642,10 @@ export const handlers: RequestHandler[] = [
     )
   }),
 
-  // Contrato: POST /api/usuarios/password/restablecer → 200 { mensaje } | 400 ProblemDetails.
+  // Contrato: POST /api/usuarios/password/restablecimientos → 200 { mensaje } | 400 ProblemDetails.
   // Es público: no necesita sesión. Para ver el error del enlace vencido, abrir
   // /restablecer-contrasena?email=capataz%40obrasync.com&token=token-vencido
-  http.post('*/api/usuarios/password/restablecer', async ({ request }) => {
+  http.post('*/api/usuarios/password/restablecimientos', async ({ request }) => {
     const body = (await request.json()) as {
       email?: string
       token?: string
@@ -673,10 +673,10 @@ export const handlers: RequestHandler[] = [
     return HttpResponse.json({ mensaje: 'Contraseña restablecida exitosamente.' }, { status: 200 })
   }),
 
-  // Contrato: POST /api/usuarios/cambiar-password → 200 { mensaje } | 400 | 401 ProblemDetails.
+  // Contrato: POST /api/usuarios/password/cambios → 200 { mensaje } | 400 | 401 ProblemDetails.
   // Requiere sesión (JWT). La contraseña actual de todos los usuarios simulados es MOCK_PASSWORD.
   // Para ver el 401 (sesión vencida) se puede mandar la contraseña actual "token-vencido".
-  http.post('*/api/usuarios/cambiar-password', async ({ request }) => {
+  http.post('*/api/usuarios/password/cambios', async ({ request }) => {
     if (!request.headers.get('Authorization')) {
       return HttpResponse.json(
         { title: 'No autenticado', status: 401, detail: 'Se requiere un token JWT valido para acceder a este recurso.' },
@@ -854,9 +854,9 @@ export const handlers: RequestHandler[] = [
     )
   }),
 
-  // Contrato: POST /api/usuarios/registro → 201 AuthResponseDto | 400 | 403 | 409 (email repetido).
+  // Contrato: POST /api/usuarios → 201 AuthResponseDto | 400 | 403 | 409 (email repetido).
   // Agrega el usuario a la lista del mock, así el capataz nuevo aparece en GET /capataces.
-  http.post('*/api/usuarios/registro', async ({ request }) => {
+  http.post('*/api/usuarios', async ({ request }) => {
     const body = (await request.json()) as {
       nombreCompleto?: string
       email?: string
@@ -1127,7 +1127,7 @@ export const handlers: RequestHandler[] = [
     }
 
     // Perfil Comprador (#141): consulta y aprobación. Aprobar solo ARMA el borrador; la aprobación real
-    // la hace el frontend con POST /api/requisiciones/{id}/aprobar cuando el Comprador toca Confirmar.
+    // la hace el frontend con POST /api/requisiciones/{id}/aprobaciones cuando el Comprador toca Confirmar.
     if (/aprob|pendiente/.test(texto)) {
       const pendientes = requisicionesMock.filter((r) => r.estado === 'Pendiente')
       const primera = pendientes[0]
@@ -1292,8 +1292,8 @@ export const handlers: RequestHandler[] = [
     return HttpResponse.json({ requisicionId, licitacionId: null, estadoLicitacion: null, fechaLimiteCotizacion: null, cantidadCotizaciones: 0, ordenesCompra: [] })
   }),
 
-  // Contrato: POST /api/requisiciones/{id}/cancelar → 200 | 403 | 404 | 409 ProblemDetails
-  http.post('*/api/requisiciones/:id/cancelar', ({ params }) => {
+  // Contrato: POST /api/requisiciones/{id}/cancelaciones → 200 | 403 | 404 | 409 ProblemDetails
+  http.post('*/api/requisiciones/:id/cancelaciones', ({ params }) => {
     const req = requisicionesMock.find((r) => r.requisicionId === params.id)
     if (!req) return HttpResponse.json({ title: 'No encontrada', status: 404 }, { status: 404 })
     if (req.solicitanteId !== 'a1b2c3d4-0000-0000-0000-000000000001') {
@@ -1309,8 +1309,8 @@ export const handlers: RequestHandler[] = [
     return HttpResponse.json(req, { status: 200 })
   }),
 
-  // Contrato: POST /api/requisiciones/{id}/aprobar → 200 | 404 | 409 ProblemDetails
-  http.post('*/api/requisiciones/:id/aprobar', ({ params }) => {
+  // Contrato: POST /api/requisiciones/{id}/aprobaciones → 200 | 404 | 409 ProblemDetails
+  http.post('*/api/requisiciones/:id/aprobaciones', ({ params }) => {
     const req = requisicionesMock.find((r) => r.requisicionId === params.id)
     if (!req) {
       return HttpResponse.json(
@@ -1330,8 +1330,8 @@ export const handlers: RequestHandler[] = [
     return HttpResponse.json(req, { status: 200 })
   }),
 
-  // Contrato: POST /api/requisiciones/{id}/rechazar → 200 | 400 | 404 | 409 ProblemDetails
-  http.post('*/api/requisiciones/:id/rechazar', async ({ params, request }) => {
+  // Contrato: POST /api/requisiciones/{id}/rechazos → 200 | 400 | 404 | 409 ProblemDetails
+  http.post('*/api/requisiciones/:id/rechazos', async ({ params, request }) => {
     const req = requisicionesMock.find((r) => r.requisicionId === params.id)
     if (!req) {
       return HttpResponse.json(
@@ -1418,8 +1418,8 @@ export const handlers: RequestHandler[] = [
     return HttpResponse.json(nuevo, { status: 201 })
   }),
 
-  // Contrato (#218): POST /api/ordenes-compra/{id}/chat/marcar-leido → 200 LecturaChatResponseDto (idempotente)
-  http.post('*/api/ordenes-compra/:id/chat/marcar-leido', ({ params, request }) => {
+  // Contrato (#218): POST /api/ordenes-compra/{id}/chat/lecturas → 200 LecturaChatResponseDto (idempotente)
+  http.post('*/api/ordenes-compra/:id/chat/lecturas', ({ params, request }) => {
     const rol = rolDelJwt(request) ?? 'Comprador'
     const usuario = USUARIOS_MOCK.find((u) => u.rol === rol) ?? USUARIOS_MOCK[1]
     return HttpResponse.json(
@@ -1428,8 +1428,8 @@ export const handlers: RequestHandler[] = [
     )
   }),
 
-  // Contrato (#218): POST /api/ordenes-compra/{id}/problema/resolver (solo Comprador/Admin) → 200 ProblemaOrdenEstadoDto | 403 | 404
-  http.post('*/api/ordenes-compra/:id/problema/resolver', ({ params, request }) => {
+  // Contrato (#218): POST /api/ordenes-compra/{id}/problema/resoluciones (solo Comprador/Admin) → 200 ProblemaOrdenEstadoDto | 403 | 404
+  http.post('*/api/ordenes-compra/:id/problema/resoluciones', ({ params, request }) => {
     const rol = rolDelJwt(request)
     if (rol !== 'Comprador' && rol !== 'Admin') {
       return HttpResponse.json(
@@ -1451,9 +1451,9 @@ export const handlers: RequestHandler[] = [
   // Contrato: GET /api/ordenes-compra → 200 OrdenCompraListadoDto[] (con X-Total-Count)
   http.get('*/api/ordenes-compra', ({ request }) => responderPaginado(request, ordenesCompraMock)),
 
-  // Contrato: POST /api/ordenes-compra/{id}/despachar (solo el Proveedor dueño, #216)
+  // Contrato: POST /api/ordenes-compra/{id}/despachos (solo el Proveedor dueño, #216)
   //   → 200 OrdenCompraListadoDto | 400 | 403 | 404 ProblemDetails. Idempotente: si ya estaba despachada, responde 200.
-  http.post('*/api/ordenes-compra/:id/despachar', async ({ params, request }) => {
+  http.post('*/api/ordenes-compra/:id/despachos', async ({ params, request }) => {
     const id = params.id as string
     const orden = ordenesCompraMock.find((o) => o.id === id)
     if (!orden) {
@@ -1514,10 +1514,10 @@ export const handlers: RequestHandler[] = [
     return responderPaginado(request, lista)
   }),
 
-  // Contrato: POST /api/asistente/remito/leer (multipart, campo "imagen") → 200 LecturaRemitoDto | 400 | 429 | 503
+  // Contrato: POST /api/asistente/remitos/lecturas (multipart, campo "imagen") → 200 LecturaRemitoDto | 400 | 429 | 503
   // Lectura SIMULADA: no hay modelo de IA. Devuelve siempre el mismo remito de ayer; los casos de "no se pudo leer",
   // 429 y 503 se configuran en los tests con server.use().
-  http.post('*/api/asistente/remito/leer', async ({ request }) => {
+  http.post('*/api/asistente/remitos/lecturas', async ({ request }) => {
     if (!(request.headers.get('content-type') ?? '').startsWith('multipart/form-data')) {
       return HttpResponse.json(
         { title: 'Pedido inválido', status: 400, detail: 'Falta la imagen del remito (campo \'imagen\').' },
@@ -2028,7 +2028,7 @@ export const handlers: RequestHandler[] = [
     })
   }),
 
-  // Contrato: POST /api/licitaciones/{licitacionId}/adjudicar con body {"cotizacionId": "<guid>"}
+  // Contrato: POST /api/licitaciones/{licitacionId}/adjudicaciones con body {"cotizacionId": "<guid>"}
   // → 200 OrdenCompraResponseDto | 400 | 404 | 409 ProblemDetails
   // Contrato: GET /api/cotizaciones/mias → 200 MiCotizacionDto[] (solo las del proveedor de la sesión)
   // Contrato: GET /api/cotizaciones/proveedores/mi-reputacion → 200 ReputacionProveedorResponseDto (#222).
@@ -2118,8 +2118,8 @@ export const handlers: RequestHandler[] = [
     )
   }),
 
-  // Contrato: POST /api/licitaciones/{id}/extender → 200 | 400 | 404 | 409 ProblemDetails
-  http.post('*/api/licitaciones/:id/extender', async ({ params, request }) => {
+  // Contrato: POST /api/licitaciones/{id}/extensiones → 200 | 400 | 404 | 409 ProblemDetails
+  http.post('*/api/licitaciones/:id/extensiones', async ({ params, request }) => {
     const licitacion = licitacionesMock.find((l) => l.licitacionId === params.id)
     if (!licitacion) return HttpResponse.json({ title: 'No encontrada', status: 404 }, { status: 404 })
     if (licitacion.estado !== 'Abierta') {
@@ -2157,7 +2157,7 @@ export const handlers: RequestHandler[] = [
       {
         token,
         hash: token,
-        url: `/api/licitaciones/magic-links/${token}/cotizar`,
+        url: `/api/licitaciones/magic-links/${token}/cotizaciones`,
         fechaDeVencimiento: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
         expiresIn: '1 hour',
         horasVigencia: 1,
@@ -2166,8 +2166,8 @@ export const handlers: RequestHandler[] = [
     )
   }),
 
-  // Contrato: POST /api/licitaciones/{id}/cerrar → 200 | 400 | 404 | 409 ProblemDetails
-  http.post('*/api/licitaciones/:id/cerrar', async ({ params, request }) => {
+  // Contrato: POST /api/licitaciones/{id}/cierres → 200 | 400 | 404 | 409 ProblemDetails
+  http.post('*/api/licitaciones/:id/cierres', async ({ params, request }) => {
     const licitacion = licitacionesMock.find((l) => l.licitacionId === params.id)
     if (!licitacion) return HttpResponse.json({ title: 'No encontrada', status: 404 }, { status: 404 })
     if (licitacion.estado !== 'Abierta') {
@@ -2181,7 +2181,7 @@ export const handlers: RequestHandler[] = [
     return HttpResponse.json(licitacion, { status: 200 })
   }),
 
-  http.post('*/api/licitaciones/:licitacionId/adjudicar', async ({ params, request }) => {
+  http.post('*/api/licitaciones/:licitacionId/adjudicaciones', async ({ params, request }) => {
     const licitacionId = params.licitacionId as string
     const lic = licitacionesMock.find((l) => l.licitacionId === licitacionId)
     if (!lic) {
@@ -2360,8 +2360,8 @@ export const handlers: RequestHandler[] = [
     return responderPaginado(request, filtradas)
   }),
 
-  // Contrato: POST /api/recepciones/ordenes/{id}/liberar → 200 | 400 | 401 | 403 | 404 | 409
-  http.post('*/api/recepciones/ordenes/:id/liberar', async ({ params, request }) => {
+  // Contrato: POST /api/recepciones/ordenes/{id}/liberaciones → 200 | 400 | 401 | 403 | 404 | 409
+  http.post('*/api/recepciones/ordenes/:id/liberaciones', async ({ params, request }) => {
     if (!request.headers.get('Authorization')) {
       return HttpResponse.json(
         {

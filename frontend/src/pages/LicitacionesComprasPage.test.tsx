@@ -278,7 +278,7 @@ describe('LicitacionesComprasPage', () => {
     let peticionEnviada = false
 
     server.use(
-      http.post('*/api/licitaciones/:licitacionId/adjudicar', () => {
+      http.post('*/api/licitaciones/:licitacionId/adjudicaciones', () => {
         peticionEnviada = true
         return HttpResponse.json({}, { status: 200 })
       }),
@@ -317,7 +317,7 @@ describe('LicitacionesComprasPage', () => {
     let cuerpoEnviado: unknown = null
 
     server.use(
-      http.post('*/api/licitaciones/:licitacionId/adjudicar', async ({ request }) => {
+      http.post('*/api/licitaciones/:licitacionId/adjudicaciones', async ({ request }) => {
         cuerpoEnviado = await request.json()
         return HttpResponse.json(
           {
@@ -364,7 +364,7 @@ describe('LicitacionesComprasPage', () => {
 
   it('conserva el éxito pero ofrece la lista cuando la respuesta no trae un identificador de orden válido', async () => {
     const user = userEvent.setup()
-    server.use(http.post('*/api/licitaciones/:licitacionId/adjudicar', () => HttpResponse.json({
+    server.use(http.post('*/api/licitaciones/:licitacionId/adjudicaciones', () => HttpResponse.json({
       id: ' ', licitacionId: LIC_ABIERTA_ID, cotizacionId: 'c1111111-0000-0000-0000-000000000001', estado: 'Emitida', fechaEmision: new Date().toISOString(),
     })))
     renderPagina(`/compras/licitaciones?licitacionId=${LIC_ABIERTA_ID}`)
@@ -380,7 +380,7 @@ describe('LicitacionesComprasPage', () => {
     const user = userEvent.setup()
 
     server.use(
-      http.post('*/api/licitaciones/:licitacionId/adjudicar', () => {
+      http.post('*/api/licitaciones/:licitacionId/adjudicaciones', () => {
         return HttpResponse.json(
           {
             type: 'https://tools.ietf.org/html/rfc7231#section-6.5.8',
@@ -410,7 +410,7 @@ describe('LicitacionesComprasPage', () => {
     let llamadas = 0
 
     server.use(
-      http.post('*/api/licitaciones/:licitacionId/adjudicar', async () => {
+      http.post('*/api/licitaciones/:licitacionId/adjudicaciones', async () => {
         llamadas++
         await delay(100)
         return HttpResponse.json(

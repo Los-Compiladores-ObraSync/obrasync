@@ -8,7 +8,7 @@ export const RUTA_PUBLICA_MAGIC_LINK = '/cotizar'
 /**
  * Enlace completo que Compras le pasa al proveedor: la dirección de la app + la ruta pública + el token.
  * Ojo: NO usamos el campo "url" de la respuesta del backend, porque es la ruta de la API
- * (/api/licitaciones/magic-links/{token}/cotizar) y no una pantalla que el proveedor pueda abrir.
+ * (/api/licitaciones/magic-links/{token}/cotizaciones) y no una pantalla que el proveedor pueda abrir.
  */
 export function urlPublicaMagicLink(token: string, origen: string = window.location.origin): string {
   return `${origen}${RUTA_PUBLICA_MAGIC_LINK}/${encodeURIComponent(token)}`

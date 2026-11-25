@@ -502,7 +502,7 @@ public class PresentacionAlternativaCotizacionTests : IClassFixture<WebApplicati
 
         var clientAnonimo = factory.CreateClient();
         var response = await clientAnonimo.PostAsJsonAsync(
-            $"/api/licitaciones/magic-links/{rawToken}/cotizar",
+            $"/api/licitaciones/magic-links/{rawToken}/cotizaciones",
             new
             {
                 flete = 500m,

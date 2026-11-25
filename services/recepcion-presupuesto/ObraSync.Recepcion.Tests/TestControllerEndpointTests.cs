@@ -45,7 +45,7 @@ public class TestControllerEndpointTests : IClassFixture<RecepcionApiFactory>
             "Bearer", RecepcionApiFactory.CreateToken(role: "Admin"));
 
         var request = CrearSolicitudValida();
-        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-compra", request);
+        var response = await client.PostAsJsonAsync("/api/Test/ordenes-compra-emitidas", request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
@@ -56,7 +56,7 @@ public class TestControllerEndpointTests : IClassFixture<RecepcionApiFactory>
         using var client = _factory.CreateClient();
         var request = CrearSolicitudValida();
 
-        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-compra", request);
+        var response = await client.PostAsJsonAsync("/api/Test/ordenes-compra-emitidas", request);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -72,7 +72,7 @@ public class TestControllerEndpointTests : IClassFixture<RecepcionApiFactory>
             "Bearer", RecepcionApiFactory.CreateToken(role: rol));
 
         var request = CrearSolicitudValida();
-        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-compra", request);
+        var response = await client.PostAsJsonAsync("/api/Test/ordenes-compra-emitidas", request);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
@@ -87,7 +87,7 @@ public class TestControllerEndpointTests : IClassFixture<RecepcionApiFactory>
         var request = CrearSolicitudValida();
         request.Items = new List<PublishOrdenCompraItemRequest>();
 
-        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-compra", request);
+        var response = await client.PostAsJsonAsync("/api/Test/ordenes-compra-emitidas", request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -102,7 +102,7 @@ public class TestControllerEndpointTests : IClassFixture<RecepcionApiFactory>
         var request = CrearSolicitudValida();
         request.ObraId = Guid.Empty;
 
-        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-compra", request);
+        var response = await client.PostAsJsonAsync("/api/Test/ordenes-compra-emitidas", request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -121,7 +121,7 @@ public class TestControllerEndpointTests : IClassFixture<RecepcionApiFactory>
             "Bearer", RecepcionApiFactory.CreateToken(role: "Admin"));
 
         var request = CrearSolicitudValida();
-        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-compra", request);
+        var response = await client.PostAsJsonAsync("/api/Test/ordenes-compra-emitidas", request);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -135,7 +135,7 @@ public class TestControllerEndpointTests : IClassFixture<RecepcionApiFactory>
 
         var request = CrearSolicitudValida();
         request.MarcarComoDespachada = false;
-        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-compra", request);
+        var response = await client.PostAsJsonAsync("/api/Test/ordenes-compra-emitidas", request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
@@ -147,7 +147,7 @@ public class TestControllerEndpointTests : IClassFixture<RecepcionApiFactory>
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer", RecepcionApiFactory.CreateToken(role: "Admin"));
 
-        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-despachada", new PublishOrdenDespachadaRequest
+        var response = await client.PostAsJsonAsync("/api/Test/ordenes-compra-despachadas", new PublishOrdenDespachadaRequest
         {
             OrdenCompraId = Guid.NewGuid(),
             ObraId = Guid.NewGuid()
@@ -161,7 +161,7 @@ public class TestControllerEndpointTests : IClassFixture<RecepcionApiFactory>
     {
         using var client = _factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-despachada", new PublishOrdenDespachadaRequest
+        var response = await client.PostAsJsonAsync("/api/Test/ordenes-compra-despachadas", new PublishOrdenDespachadaRequest
         {
             OrdenCompraId = Guid.NewGuid(),
             ObraId = Guid.NewGuid()
@@ -180,7 +180,7 @@ public class TestControllerEndpointTests : IClassFixture<RecepcionApiFactory>
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer", RecepcionApiFactory.CreateToken(role: rol));
 
-        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-despachada", new PublishOrdenDespachadaRequest
+        var response = await client.PostAsJsonAsync("/api/Test/ordenes-compra-despachadas", new PublishOrdenDespachadaRequest
         {
             OrdenCompraId = Guid.NewGuid(),
             ObraId = Guid.NewGuid()
@@ -196,7 +196,7 @@ public class TestControllerEndpointTests : IClassFixture<RecepcionApiFactory>
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer", RecepcionApiFactory.CreateToken(role: "Admin"));
 
-        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-despachada", new PublishOrdenDespachadaRequest
+        var response = await client.PostAsJsonAsync("/api/Test/ordenes-compra-despachadas", new PublishOrdenDespachadaRequest
         {
             OrdenCompraId = Guid.Empty,
             ObraId = Guid.NewGuid()
@@ -217,7 +217,7 @@ public class TestControllerEndpointTests : IClassFixture<RecepcionApiFactory>
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer", RecepcionApiFactory.CreateToken(role: "Admin"));
 
-        var response = await client.PostAsJsonAsync("/api/Test/publish-orden-despachada", new PublishOrdenDespachadaRequest
+        var response = await client.PostAsJsonAsync("/api/Test/ordenes-compra-despachadas", new PublishOrdenDespachadaRequest
         {
             OrdenCompraId = Guid.NewGuid(),
             ObraId = Guid.NewGuid()

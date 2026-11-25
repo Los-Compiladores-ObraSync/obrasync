@@ -189,9 +189,10 @@ public class LicitacionesController : ControllerBase
     }
 
     /// <summary>
-    /// Adjudicar una cotización y emitir la Orden de Compra (Roles: Comprador, Admin).
+    /// Registrar la adjudicación de una cotización y emitir la Orden de Compra (Roles: Comprador, Admin).
+    /// POST /api/licitaciones/{licitacionId}/adjudicaciones
     /// </summary>
-    [HttpPost("{licitacionId}/adjudicar")]
+    [HttpPost("{licitacionId}/adjudicaciones")]
     [Authorize(Roles = "Comprador,Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -241,9 +242,10 @@ public class LicitacionesController : ControllerBase
     }
 
     /// <summary>
-    /// Extender el plazo de cotización de una licitación abierta (Roles: Comprador, Admin).
+    /// Registrar una extensión del plazo de cotización de una licitación abierta (Roles: Comprador, Admin).
+    /// POST /api/licitaciones/{id}/extensiones
     /// </summary>
-    [HttpPost("{id:guid}/extender")]
+    [HttpPost("{id:guid}/extensiones")]
     [Authorize(Roles = "Comprador,Admin")]
     [ProducesResponseType(typeof(LicitacionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -285,9 +287,10 @@ public class LicitacionesController : ControllerBase
     }
 
     /// <summary>
-    /// Cerrar o cancelar una licitación abierta sin adjudicar (Roles: Comprador, Admin).
+    /// Registrar el cierre o cancelación de una licitación abierta sin adjudicar (Roles: Comprador, Admin).
+    /// POST /api/licitaciones/{id}/cierres
     /// </summary>
-    [HttpPost("{id:guid}/cerrar")]
+    [HttpPost("{id:guid}/cierres")]
     [Authorize(Roles = "Comprador,Admin")]
     [ProducesResponseType(typeof(LicitacionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]

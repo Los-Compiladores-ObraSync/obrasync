@@ -87,7 +87,7 @@ describe('LoginPage', () => {
     const user = userEvent.setup()
     let llamadaApiRealizada = false
     server.use(
-      http.post('*/api/usuarios/login', () => {
+      http.post('*/api/usuarios/tokens', () => {
         llamadaApiRealizada = true
         return HttpResponse.json({})
       }),
@@ -110,7 +110,7 @@ describe('LoginPage', () => {
     const user = userEvent.setup()
     let llamadaApiRealizada = false
     server.use(
-      http.post('*/api/usuarios/login', () => {
+      http.post('*/api/usuarios/tokens', () => {
         llamadaApiRealizada = true
         return HttpResponse.json({})
       }),
@@ -134,7 +134,7 @@ describe('LoginPage', () => {
     const user = userEvent.setup()
 
     server.use(
-      http.post('*/api/usuarios/login', async () => {
+      http.post('*/api/usuarios/tokens', async () => {
         await delay(100)
         return HttpResponse.json({
           id: 'u-1',
@@ -189,7 +189,7 @@ describe('LoginPage', () => {
 
   it('muestra mensaje claro de falla de conexión ante un error de red', async () => {
     const user = userEvent.setup()
-    server.use(http.post('*/api/usuarios/login', () => HttpResponse.error()))
+    server.use(http.post('*/api/usuarios/tokens', () => HttpResponse.error()))
 
     render(
       <ConRouterYSesion>

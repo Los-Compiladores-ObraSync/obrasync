@@ -7,7 +7,7 @@ export interface MensajeResponseDto {
   mensaje?: string | null
 }
 
-/** Cuerpo de POST /api/usuarios/password/restablecer (RestablecerPasswordRequestDto del contrato). */
+/** Cuerpo de POST /api/usuarios/password/restablecimientos (RestablecerPasswordRequestDto del contrato). */
 export interface RestablecerPasswordRequest {
   email: string
   /** Token de recuperación que viene en el enlace. */
@@ -16,7 +16,7 @@ export interface RestablecerPasswordRequest {
   nuevaPassword: string
 }
 
-/** Cuerpo de POST /api/usuarios/cambiar-password (CambiarPasswordRequestDto del contrato). */
+/** Cuerpo de POST /api/usuarios/password/cambios (CambiarPasswordRequestDto del contrato). */
 export interface CambiarPasswordRequest {
   passwordActual: string
   /** Mínimo 8 caracteres, al menos un número y distinta de la actual. */
@@ -27,14 +27,14 @@ export interface CambiarPasswordRequest {
 
 /**
  * Pide el enlace para restablecer la contraseña.
- * Fuente: POST /api/usuarios/password/recuperar (público, sin JWT).
+ * Fuente: POST /api/usuarios/password/recuperaciones (público, sin JWT).
  *
  * El backend responde siempre 200 con lo mismo, exista o no la cuenta, para no revelar qué
  * emails están registrados. Por eso la pantalla muestra su propio mensaje neutro y no
  * interpreta la respuesta. Lanza ApiError con status 400 si el email viene mal formado.
  */
 export function solicitarRecuperacionPassword(email: string): Promise<MensajeResponseDto> {
-  return apiFetch<MensajeResponseDto>('/api/usuarios/password/recuperar', {
+  return apiFetch<MensajeResponseDto>('/api/usuarios/password/recuperaciones', {
     method: 'POST',
     body: JSON.stringify({ email }),
   })
@@ -42,13 +42,13 @@ export function solicitarRecuperacionPassword(email: string): Promise<MensajeRes
 
 /**
  * Aplica la nueva contraseña con el token del enlace.
- * Fuente: POST /api/usuarios/password/restablecer (público, sin JWT).
+ * Fuente: POST /api/usuarios/password/restablecimientos (público, sin JWT).
  *
  * Lanza ApiError con status 400 si el token es inválido o venció, o si la contraseña no
  * cumple los requisitos (el contrato no distingue los dos casos).
  */
 export function restablecerPassword(datos: RestablecerPasswordRequest): Promise<MensajeResponseDto> {
-  return apiFetch<MensajeResponseDto>('/api/usuarios/password/restablecer', {
+  return apiFetch<MensajeResponseDto>('/api/usuarios/password/restablecimientos', {
     method: 'POST',
     body: JSON.stringify(datos),
   })
@@ -56,14 +56,14 @@ export function restablecerPassword(datos: RestablecerPasswordRequest): Promise<
 
 /**
  * Cambia la contraseña del usuario con la sesión iniciada.
- * Fuente: POST /api/usuarios/cambiar-password (requiere JWT, cualquier rol).
+ * Fuente: POST /api/usuarios/password/cambios (requiere JWT, cualquier rol).
  *
  * Lanza ApiError con status 400 si la contraseña actual es incorrecta, si la nueva es igual a
  * la actual, si la confirmación no coincide o si no cumple la política. Con 401 (token vencido)
  * apiFetch ya cierra la sesión solo.
  */
 export function cambiarPassword(datos: CambiarPasswordRequest): Promise<MensajeResponseDto> {
-  return apiFetch<MensajeResponseDto>('/api/usuarios/cambiar-password', {
+  return apiFetch<MensajeResponseDto>('/api/usuarios/password/cambios', {
     method: 'POST',
     body: JSON.stringify(datos),
   })

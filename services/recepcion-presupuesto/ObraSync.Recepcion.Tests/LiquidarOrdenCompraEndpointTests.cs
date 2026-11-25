@@ -90,7 +90,7 @@ public class LiquidarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactor
     public async Task LiquidarOrden_SinToken_Devuelve401()
     {
         var client = _factory.CreateClient();
-        var response = await client.PostAsync($"/api/recepciones/ordenes/{Guid.NewGuid()}/liquidar", null);
+        var response = await client.PostAsync($"/api/recepciones/ordenes/{Guid.NewGuid()}/liquidaciones", null);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -103,7 +103,7 @@ public class LiquidarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactor
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", RecepcionApiFactory.CreateToken(role: rol));
 
-        var response = await client.PostAsync($"/api/recepciones/ordenes/{Guid.NewGuid()}/liquidar", null);
+        var response = await client.PostAsync($"/api/recepciones/ordenes/{Guid.NewGuid()}/liquidaciones", null);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
@@ -114,7 +114,7 @@ public class LiquidarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactor
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", RecepcionApiFactory.CreateToken(role: "Comprador"));
 
-        var response = await client.PostAsync($"/api/recepciones/ordenes/{Guid.NewGuid()}/liquidar", null);
+        var response = await client.PostAsync($"/api/recepciones/ordenes/{Guid.NewGuid()}/liquidaciones", null);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
     }
@@ -128,7 +128,7 @@ public class LiquidarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactor
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", RecepcionApiFactory.CreateToken(role: "Comprador"));
 
-        var response = await client.PostAsync($"/api/recepciones/ordenes/{ocId}/liquidar", null);
+        var response = await client.PostAsync($"/api/recepciones/ordenes/{ocId}/liquidaciones", null);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
@@ -146,7 +146,7 @@ public class LiquidarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactor
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", RecepcionApiFactory.CreateToken(role: "Admin"));
 
-        var response = await client.PostAsync($"/api/recepciones/ordenes/{ocId}/liquidar", null);
+        var response = await client.PostAsync($"/api/recepciones/ordenes/{ocId}/liquidaciones", null);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
@@ -167,7 +167,7 @@ public class LiquidarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactor
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", RecepcionApiFactory.CreateToken(role: "Admin"));
 
-        var response = await client.PostAsync($"/api/recepciones/ordenes/{ocId}/liquidar", null);
+        var response = await client.PostAsync($"/api/recepciones/ordenes/{ocId}/liquidaciones", null);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
@@ -186,7 +186,7 @@ public class LiquidarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactor
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", RecepcionApiFactory.CreateToken(role: "Comprador", userId: usuarioId));
 
-        var response = await client.PostAsync($"/api/recepciones/ordenes/{ocId}/liquidar", null);
+        var response = await client.PostAsync($"/api/recepciones/ordenes/{ocId}/liquidaciones", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var dto = await response.Content.ReadFromJsonAsync<OrdenCompraLiquidadaDto>();
@@ -206,7 +206,7 @@ public class LiquidarOrdenCompraEndpointTests : IClassFixture<RecepcionApiFactor
         }
 
         // Segundo intento: debe rechazar con 409 Conflict
-        var segundoIntento = await client.PostAsync($"/api/recepciones/ordenes/{ocId}/liquidar", null);
+        var segundoIntento = await client.PostAsync($"/api/recepciones/ordenes/{ocId}/liquidaciones", null);
         Assert.Equal(HttpStatusCode.Conflict, segundoIntento.StatusCode);
         Assert.Equal("application/problem+json", segundoIntento.Content.Headers.ContentType?.MediaType);
     }

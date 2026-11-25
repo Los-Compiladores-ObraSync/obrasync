@@ -213,7 +213,7 @@ public class ChatOrdenCompraTests : IClassFixture<WebApplicationFactory<Program>
             HttpStatusCode.Unauthorized,
             cidAnon);
         await AssertProblemDetailsWithCorrelationIdAsync(
-            await clientAnon.PostAsync($"/api/ordenes-compra/{ordenId}/chat/marcar-leido", null),
+            await clientAnon.PostAsync($"/api/ordenes-compra/{ordenId}/chat/lecturas", null),
             HttpStatusCode.Unauthorized,
             cidAnon);
         await AssertProblemDetailsWithCorrelationIdAsync(
@@ -221,7 +221,7 @@ public class ChatOrdenCompraTests : IClassFixture<WebApplicationFactory<Program>
             HttpStatusCode.Unauthorized,
             cidAnon);
         await AssertProblemDetailsWithCorrelationIdAsync(
-            await clientAnon.PostAsync($"/api/ordenes-compra/{ordenId}/problema/resolver", null),
+            await clientAnon.PostAsync($"/api/ordenes-compra/{ordenId}/problema/resoluciones", null),
             HttpStatusCode.Unauthorized,
             cidAnon);
 
@@ -240,7 +240,7 @@ public class ChatOrdenCompraTests : IClassFixture<WebApplicationFactory<Program>
             HttpStatusCode.Forbidden,
             cidCap);
         await AssertProblemDetailsWithCorrelationIdAsync(
-            await clientCapataz.PostAsync($"/api/ordenes-compra/{ordenId}/chat/marcar-leido", null),
+            await clientCapataz.PostAsync($"/api/ordenes-compra/{ordenId}/chat/lecturas", null),
             HttpStatusCode.Forbidden,
             cidCap);
         await AssertProblemDetailsWithCorrelationIdAsync(
@@ -248,7 +248,7 @@ public class ChatOrdenCompraTests : IClassFixture<WebApplicationFactory<Program>
             HttpStatusCode.Forbidden,
             cidCap);
         await AssertProblemDetailsWithCorrelationIdAsync(
-            await clientCapataz.PostAsync($"/api/ordenes-compra/{ordenId}/problema/resolver", null),
+            await clientCapataz.PostAsync($"/api/ordenes-compra/{ordenId}/problema/resoluciones", null),
             HttpStatusCode.Forbidden,
             cidCap);
 
@@ -267,11 +267,11 @@ public class ChatOrdenCompraTests : IClassFixture<WebApplicationFactory<Program>
             HttpStatusCode.Forbidden,
             cidAjeno);
         await AssertProblemDetailsWithCorrelationIdAsync(
-            await clientProvAjeno.PostAsync($"/api/ordenes-compra/{ordenId}/chat/marcar-leido", null),
+            await clientProvAjeno.PostAsync($"/api/ordenes-compra/{ordenId}/chat/lecturas", null),
             HttpStatusCode.Forbidden,
             cidAjeno);
         await AssertProblemDetailsWithCorrelationIdAsync(
-            await clientProvAjeno.PostAsync($"/api/ordenes-compra/{ordenId}/problema/resolver", null),
+            await clientProvAjeno.PostAsync($"/api/ordenes-compra/{ordenId}/problema/resoluciones", null),
             HttpStatusCode.Forbidden,
             cidAjeno);
 
@@ -282,7 +282,7 @@ public class ChatOrdenCompraTests : IClassFixture<WebApplicationFactory<Program>
         clientProvDueno.DefaultRequestHeaders.Add("X-Correlation-ID", cidDueno);
 
         await AssertProblemDetailsWithCorrelationIdAsync(
-            await clientProvDueno.PostAsync($"/api/ordenes-compra/{ordenId}/problema/resolver", null),
+            await clientProvDueno.PostAsync($"/api/ordenes-compra/{ordenId}/problema/resoluciones", null),
             HttpStatusCode.Forbidden,
             cidDueno);
 
@@ -453,11 +453,11 @@ public class ChatOrdenCompraTests : IClassFixture<WebApplicationFactory<Program>
         clientProv.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", provId));
 
-        var respDesp1 = await clientProv.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null);
+        var respDesp1 = await clientProv.PostAsync($"/api/ordenes-compra/{ordenId}/despachos", null);
         Assert.Equal(HttpStatusCode.OK, respDesp1.StatusCode);
 
         // Segundo intento sin recepción parcial intermedia -> 409 Conflict (#248) y no duplica mensaje del sistema
-        var respDesp2 = await clientProv.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null);
+        var respDesp2 = await clientProv.PostAsync($"/api/ordenes-compra/{ordenId}/despachos", null);
         Assert.Equal(HttpStatusCode.Conflict, respDesp2.StatusCode);
 
         await notifierSpy.Received(1).NotificarMensajeAsync(
@@ -583,7 +583,7 @@ public class ChatOrdenCompraTests : IClassFixture<WebApplicationFactory<Program>
         clientAdmin.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Admin", adminId));
 
-        var respResolver1 = await clientAdmin.PostAsync($"/api/ordenes-compra/{ordenId}/problema/resolver", null);
+        var respResolver1 = await clientAdmin.PostAsync($"/api/ordenes-compra/{ordenId}/problema/resoluciones", null);
         Assert.Equal(HttpStatusCode.OK, respResolver1.StatusCode);
         var dtoResolver1 = await respResolver1.Content.ReadFromJsonAsync<ProblemaOrdenEstadoDto>();
         Assert.NotNull(dtoResolver1);
@@ -591,7 +591,7 @@ public class ChatOrdenCompraTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Equal(adminId, dtoResolver1.ProblemaResueltoPor);
 
         // Idempotencia al volver a resolver
-        var respResolver2 = await clientAdmin.PostAsync($"/api/ordenes-compra/{ordenId}/problema/resolver", null);
+        var respResolver2 = await clientAdmin.PostAsync($"/api/ordenes-compra/{ordenId}/problema/resoluciones", null);
         Assert.Equal(HttpStatusCode.OK, respResolver2.StatusCode);
         var dtoResolver2 = await respResolver2.Content.ReadFromJsonAsync<ProblemaOrdenEstadoDto>();
         Assert.Equal(dtoResolver1.ProblemaResueltoEn, dtoResolver2!.ProblemaResueltoEn);
@@ -663,7 +663,7 @@ public class ChatOrdenCompraTests : IClassFixture<WebApplicationFactory<Program>
 
         // Proveedor 1 despacha orden 1 (mensaje sistema -> no leído para ambos inicialmente),
         // y Proveedor 1 envía mensaje humano (no se cuenta como no leído para Prov1, sí para Comprador).
-        Assert.Equal(HttpStatusCode.OK, (await clientProv1.PostAsync($"/api/ordenes-compra/{ordenProv1}/despachar", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await clientProv1.PostAsync($"/api/ordenes-compra/{ordenProv1}/despachos", null)).StatusCode);
         Assert.Equal(HttpStatusCode.Created, (await clientProv1.PostAsJsonAsync($"/api/ordenes-compra/{ordenProv1}/chat/mensajes", new { texto = "Mensaje de Prov1" })).StatusCode);
 
         // Comprador envía mensaje humano en orden 2 (para prov2). No cuenta como no leído para Comprador, ni debe aparecer a Prov1.
@@ -693,7 +693,7 @@ public class ChatOrdenCompraTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Equal(0, ordenesComp.Single(o => o.Id == ordenProv2).MensajesNoLeidos);
 
         // Comprador marca leído orden 1 -> notifica LecturaActualizada y baja a 0
-        var respLeido = await clientComprador.PostAsync($"/api/ordenes-compra/{ordenProv1}/chat/marcar-leido", null);
+        var respLeido = await clientComprador.PostAsync($"/api/ordenes-compra/{ordenProv1}/chat/lecturas", null);
         Assert.Equal(HttpStatusCode.OK, respLeido.StatusCode);
         var dtoLeido = await respLeido.Content.ReadFromJsonAsync<LecturaChatResponseDto>();
         Assert.NotNull(dtoLeido);

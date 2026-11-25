@@ -711,13 +711,14 @@ public class RecepcionesController : ControllerBase
     }
 
     /// <summary>
-    /// Autoriza y libera una orden de compra bloqueada por desvío presupuestario (#96, #154).
+    /// Registra la liberación de una orden de compra bloqueada por desvío presupuestario (#96, #154).
     /// Exclusivo para el rol Admin. Registra quién (sub del token) y cuándo la liberó,
     /// y suma su monto a MontoComprometido de la partida correspondiente.
+    /// POST /api/recepciones/ordenes/{id}/liberaciones
     /// </summary>
     [Authorize(Roles = "Admin")]
-    [HttpPost("ordenes/{id:guid}/liberar")]
-    [HttpPost("ordenes-compra/{id:guid}/liberar")]
+    [HttpPost("ordenes/{id:guid}/liberaciones")]
+    [HttpPost("ordenes-compra/{id:guid}/liberaciones")]
     public async Task<IActionResult> LiberarOrdenCompra(
         [FromRoute] Guid id,
         [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] LiberarOrdenCompraRequest? request = null,
@@ -748,13 +749,14 @@ public class RecepcionesController : ControllerBase
     }
 
     /// <summary>
-    /// Liquida administrativamente una orden de compra (#92).
+    /// Registra la liquidación administrativa de una orden de compra (#92).
     /// Bloquea la liquidación con 409 Conflict (ProblemDetails) mientras exista saldo pendiente de recepción (criterio CU-06).
     /// Roles permitidos: Comprador y Admin.
+    /// POST /api/recepciones/ordenes/{id}/liquidaciones
     /// </summary>
     [Authorize(Roles = "Comprador,Admin")]
-    [HttpPost("ordenes/{id:guid}/liquidar")]
-    [HttpPost("ordenes-compra/{id:guid}/liquidar")]
+    [HttpPost("ordenes/{id:guid}/liquidaciones")]
+    [HttpPost("ordenes-compra/{id:guid}/liquidaciones")]
     public async Task<IActionResult> LiquidarOrdenCompra(
         [FromRoute] Guid id,
         CancellationToken cancellationToken = default)

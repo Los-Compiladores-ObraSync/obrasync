@@ -1025,7 +1025,7 @@ public class CotizacionesEndpointTests : IClassFixture<WebApplicationFactory<Pro
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
         var adjudicarResp = await client.PostAsJsonAsync(
-            $"/api/licitaciones/{licitacion.LicitacionId}/adjudicar",
+            $"/api/licitaciones/{licitacion.LicitacionId}/adjudicaciones",
             new { cotizacionId = cotizacionA.CotizacionId });
         Assert.Equal(HttpStatusCode.OK, adjudicarResp.StatusCode);
 

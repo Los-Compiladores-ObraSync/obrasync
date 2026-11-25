@@ -358,7 +358,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
 
             // 3. Comprador aprueba la requisición (cambia a Aprobada y publica RequisicionAprobadaEvent)
             var aprobarResponse = await client.PostAsync(
-                $"/api/requisiciones/{requisicionCreada.RequisicionId}/aprobar",
+                $"/api/requisiciones/{requisicionCreada.RequisicionId}/aprobaciones",
                 content: null);
 
             Assert.Equal(HttpStatusCode.OK, aprobarResponse.StatusCode);
@@ -376,7 +376,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
 
             // 4. Si se intenta aprobar nuevamente, retorna 409 Conflict con ProblemDetails
             var segundoIntento = await client.PostAsync(
-                $"/api/requisiciones/{requisicionCreada.RequisicionId}/aprobar",
+                $"/api/requisiciones/{requisicionCreada.RequisicionId}/aprobaciones",
                 content: null);
 
             Assert.Equal(HttpStatusCode.Conflict, segundoIntento.StatusCode);
@@ -431,7 +431,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
             client.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Comprador", compradorId));
 
-            var aprobarResp = await client.PostAsync($"/api/requisiciones/{req1.RequisicionId}/aprobar", null);
+            var aprobarResp = await client.PostAsync($"/api/requisiciones/{req1.RequisicionId}/aprobaciones", null);
             Assert.Equal(HttpStatusCode.OK, aprobarResp.StatusCode);
 
             // Escenario 1: GET /api/requisiciones sin filtros devuelve todos los estados ordenados por FechaCreacion descendente y con Items
@@ -703,7 +703,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
 
             // 2. Rol Capataz intentando rechazar recibe 403 Forbidden
             var forbiddenResp = await client.PostAsJsonAsync(
-                $"/api/requisiciones/{req1.RequisicionId}/rechazar",
+                $"/api/requisiciones/{req1.RequisicionId}/rechazos",
                 new RechazarRequisicionRequestDto { Motivo = "Intento de capataz" });
             Assert.Equal(HttpStatusCode.Forbidden, forbiddenResp.StatusCode);
 
@@ -712,20 +712,20 @@ namespace ObraSync.Requisiciones.Tests.Integration
                 new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Comprador", compradorId));
 
             var badRequestResp = await client.PostAsJsonAsync(
-                $"/api/requisiciones/{req1.RequisicionId}/rechazar",
+                $"/api/requisiciones/{req1.RequisicionId}/rechazos",
                 new RechazarRequisicionRequestDto { Motivo = "   " });
             Assert.Equal(HttpStatusCode.BadRequest, badRequestResp.StatusCode);
 
             // 4. Rol Comprador intentando rechazar un ID inexistente recibe 404 Not Found
             var notFoundResp = await client.PostAsJsonAsync(
-                $"/api/requisiciones/{Guid.NewGuid()}/rechazar",
+                $"/api/requisiciones/{Guid.NewGuid()}/rechazos",
                 new RechazarRequisicionRequestDto { Motivo = "Motivo válido" });
             Assert.Equal(HttpStatusCode.NotFound, notFoundResp.StatusCode);
 
             // 5. Rol Comprador rechaza req1 exitosamente -> 200 OK, estado Rechazada y fecha UTC con 'Z'
             var motivoComprador = "Cantidad excede el presupuesto asignado a Estructura.";
             var rechazar1Resp = await client.PostAsJsonAsync(
-                $"/api/requisiciones/{req1.RequisicionId}/rechazar",
+                $"/api/requisiciones/{req1.RequisicionId}/rechazos",
                 new RechazarRequisicionRequestDto { Motivo = motivoComprador });
             Assert.Equal(HttpStatusCode.OK, rechazar1Resp.StatusCode);
 
@@ -742,7 +742,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
 
             // 6. Intentar rechazar nuevamente una requisición ya rechazada -> 409 Conflict
             var conflictRechazadaResp = await client.PostAsJsonAsync(
-                $"/api/requisiciones/{req1.RequisicionId}/rechazar",
+                $"/api/requisiciones/{req1.RequisicionId}/rechazos",
                 new RechazarRequisicionRequestDto { Motivo = "Rechazo duplicado" });
             Assert.Equal(HttpStatusCode.Conflict, conflictRechazadaResp.StatusCode);
 
@@ -752,7 +752,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
 
             var motivoAdmin = "Insumo reemplazado por mezcla adhesiva en pliego técnico.";
             var rechazar2Resp = await client.PostAsJsonAsync(
-                $"/api/requisiciones/{req2.RequisicionId}/rechazar",
+                $"/api/requisiciones/{req2.RequisicionId}/rechazos",
                 new RechazarRequisicionRequestDto { Motivo = motivoAdmin });
             Assert.Equal(HttpStatusCode.OK, rechazar2Resp.StatusCode);
 

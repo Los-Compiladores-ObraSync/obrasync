@@ -68,7 +68,7 @@ Se emite al guardar un mensaje humano vía `POST /api/ordenes-compra/{id}/chat/m
 *(En mensajes automáticos del sistema: `autorId` es `null`, `autorNombre` es `"Sistema"`, `autorRol` es `"Sistema"` y `esSistema` es `true`).*
 
 ### 2) `LecturaActualizada`
-Se emite cuando un participante habilitado marca la orden como leída mediante `POST /api/ordenes-compra/{id}/chat/marcar-leido`.
+Se emite cuando un participante habilitado marca la orden como leída mediante `POST /api/ordenes-compra/{id}/chat/lecturas`.
 
 **Payload (`LecturaChatResponseDto`):**
 ```json
@@ -80,7 +80,7 @@ Se emite cuando un participante habilitado marca la orden como leída mediante `
 ```
 
 ### 3) `ProblemaEstadoActualizado`
-Se emite cuando se abre un problema (`RecepcionConProblemaEvent`), cuando se cierra automáticamente por una recepción válida (`RecepcionConfirmadaEvent` no rechazada) o cuando `Comprador`/`Admin` lo resuelve manualmente mediante `POST /api/ordenes-compra/{id}/problema/resolver`.
+Se emite cuando se abre un problema (`RecepcionConProblemaEvent`), cuando se cierra automáticamente por una recepción válida (`RecepcionConfirmadaEvent` no rechazada) o cuando `Comprador`/`Admin` lo resuelve manualmente mediante `POST /api/ordenes-compra/{id}/problema/resoluciones`.
 
 **Payload (`ProblemaOrdenEstadoDto`):**
 ```json
