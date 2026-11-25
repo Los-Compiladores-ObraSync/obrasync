@@ -54,7 +54,7 @@ export function FormularioNuevaPartida({ obraId, onCreada }: Props) {
     if (etapa.trim().length > 200) nuevos.etapa = 'La etapa no puede superar los 200 caracteres.'
     const montoNumero = parsearMonto(monto)
     if (montoNumero === null) {
-      nuevos.monto = 'Ingresá un monto válido, mayor o igual a cero (ej: 1.500.000,50).'
+      nuevos.monto = 'Ingresá un monto en pesos, sin coma ni decimales, mayor o igual a cero (ej: 1500000 o 1.500.000).'
     }
     return { errores: nuevos, montoNumero }
   }
@@ -147,9 +147,9 @@ export function FormularioNuevaPartida({ obraId, onCreada }: Props) {
         <input
           id="partida-monto"
           type="text"
-          inputMode="decimal"
+          inputMode="numeric"
           value={monto}
-          onChange={(e) => setMonto(e.target.value)}
+          onChange={(e) => { if (e.target.value.includes(',')) return; setMonto(e.target.value) }}
           aria-invalid={errores.monto ? true : undefined}
           aria-describedby={errores.monto ? 'partida-monto-error' : undefined}
         />

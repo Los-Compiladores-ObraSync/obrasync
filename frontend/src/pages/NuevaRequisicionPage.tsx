@@ -21,6 +21,7 @@ import {
   type ErroresRequisicion,
 } from '../requisiciones/validacionRequisicion'
 import { cantidadConUnidad, etiquetaUnidad } from '../requisiciones/unidades'
+import { aceptaTextoNumerico, bloquearTeclasDecimales, esUnidadEntera } from '../formularios/numeros'
 import styles from './NuevaRequisicionPage.module.css'
 
 interface FilaItemForm {
@@ -195,6 +196,9 @@ export function NuevaRequisicionPage() {
   }
 
   function cambiarCantidad(id: number, nuevaCantidad: string) {
+    // Nunca coma; y si el insumo va en bolsas, tampoco decimales (no existe "1.4 bolsas").
+    const unidad = vistos[items.find((it) => it.id === id)?.articuloId ?? '']?.unidadMedida
+    if (!aceptaTextoNumerico(nuevaCantidad, esUnidadEntera(unidad))) return
     idempotencyKeyRef.current = generarIdempotencyKey()
     setItems((actuales) =>
       actuales.map((it) =>
@@ -242,6 +246,7 @@ export function NuevaRequisicionPage() {
       items: items.map((it) => ({
         articuloId: it.articuloId,
         cantidad: it.cantidad,
+        unidadMedida: vistos[it.articuloId]?.unidadMedida,
       })),
     })
 
@@ -283,7 +288,7 @@ export function NuevaRequisicionPage() {
   /** Suma o resta a la cantidad de una fila (para los botones − y +). Nunca baja de 0. */
   function ajustarCantidad(id: number, delta: number) {
     const fila = items.find((it) => it.id === id)
-    const actual = parseFloat((fila?.cantidad ?? '').replace(',', '.'))
+    const actual = parseFloat(fila?.cantidad ?? '')
     const base = Number.isFinite(actual) ? actual : 0
     const nuevo = Math.max(0, Math.round((base + delta) * 10000) / 10000)
     cambiarCantidad(id, String(nuevo))
@@ -528,14 +533,15 @@ export function NuevaRequisicionPage() {
                       <input
                         id={`item-cantidad-${item.id}`}
                         type="number"
-                        step="any"
+                        step={esUnidadEntera(insumoSeleccionado?.unidadMedida) ? '1' : 'any'}
                         min="0"
-                        inputMode="decimal"
+                        inputMode={esUnidadEntera(insumoSeleccionado?.unidadMedida) ? 'numeric' : 'decimal'}
                         className={`${claseInput(!!errorItem?.cantidad)} ${styles.inputCantidad}`}
                         value={item.cantidad}
                         onChange={(e) => cambiarCantidad(item.id, e.target.value)}
                         // Enter con insumo y cantidad cargados agrega la fila siguiente (#237); si falta algo, no hace nada.
                         onKeyDown={(e) => {
+                          bloquearTeclasDecimales(e, esUnidadEntera(insumoSeleccionado?.unidadMedida))
                           if (e.key !== 'Enter') return
                           e.preventDefault()
                           if (item.articuloId && Number(item.cantidad) > 0) agregarFila()

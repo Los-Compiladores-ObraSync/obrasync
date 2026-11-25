@@ -1,3 +1,4 @@
+import { aceptaTextoNumerico, esPresentacionEntera } from '../formularios/numeros'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { ApiError } from '../api/ApiError'
@@ -162,8 +163,17 @@ function FormularioCotizacion() {
     }
   }
 
+  /** ¿Lo que ofrece en este ítem se cuenta en enteros (bolsas)? Depende del material pedido y de la presentación escrita. */
+  function ofertaEntera(articuloId: string, presentacion: string) {
+    const unidad = licitacion?.items.find((it) => it.articuloId === articuloId)?.unidadMedida
+    return esPresentacionEntera(presentacion, unidad)
+  }
+
   function validarCampoOtra(articuloId: string, campo: 'presentacion' | 'cantidad', valor: string) {
-    const error = campo === 'presentacion' ? validarPresentacionOfrecida(valor) : validarCantidadOfrecida(valor)
+    const error =
+      campo === 'presentacion'
+        ? validarPresentacionOfrecida(valor)
+        : validarCantidadOfrecida(valor, ofertaEntera(articuloId, otras[articuloId]?.presentacion ?? ''))
     setErrores((prev) => ({
       ...prev,
       otrasPresentacionesPorArticulo: {
@@ -174,6 +184,8 @@ function FormularioCotizacion() {
   }
 
   function cambiarCampoOtra(articuloId: string, campo: 'presentacion' | 'cantidad', valor: string) {
+    // La cantidad nunca lleva coma, y si la presentación se cuenta en bolsas tampoco lleva decimales.
+    if (campo === 'cantidad' && !aceptaTextoNumerico(valor, ofertaEntera(articuloId, otras[articuloId]?.presentacion ?? ''))) return
     setOtras((prev) => ({
       ...prev,
       [articuloId]: {
@@ -199,6 +211,7 @@ function FormularioCotizacion() {
     const nuevosErrores = validarCotizacion(
       { flete, plazoEntregaDias, preciosPorArticulo: precios, otrasPresentacionesPorArticulo: otras },
       articulosEsperados,
+      Object.fromEntries(licitacion.items.map((it) => [it.articuloId, it.unidadMedida])),
     )
 
     const todosTocados: Record<string, boolean> = {
@@ -485,6 +498,7 @@ function FormularioCotizacion() {
                     value={precios[it.articuloId] ?? ''}
                     onChange={(e) => {
                       const val = e.target.value
+                      if (!aceptaTextoNumerico(val)) return
                       setPrecios((prev) => ({ ...prev, [it.articuloId]: val }))
                       if (tocados[it.articuloId]) {
                         const err = validarPrecioUnitario(val)
@@ -508,7 +522,7 @@ function FormularioCotizacion() {
                         },
                       }))
                     }}
-                    placeholder="0,00"
+                    placeholder="0.00"
                     disabled={enviando || esBloqueante}
                   />
                   {errorItem && (
@@ -550,6 +564,7 @@ function FormularioCotizacion() {
             value={flete}
             onChange={(e) => {
               const val = e.target.value
+              if (!aceptaTextoNumerico(val)) return
               setFlete(val)
               if (tocados.flete) {
                 setErrores((prev) => ({ ...prev, flete: validarFlete(val) }))
@@ -559,7 +574,7 @@ function FormularioCotizacion() {
               setTocados((prev) => ({ ...prev, flete: true }))
               setErrores((prev) => ({ ...prev, flete: validarFlete(flete) }))
             }}
-            placeholder="0,00"
+            placeholder="0.00"
             disabled={enviando || esBloqueante}
           />
           {tocados.flete && errores.flete && (
@@ -574,7 +589,7 @@ function FormularioCotizacion() {
             Plazo de entrega (en días)
           </label>
           <p className={styles.ayudaCampo}>
-            Elegí un plazo frecuente o escribí otro: solo el número de días corridos. Por ejemplo, 5 significa cinco días.
+            Elegí un plazo frecuente o escribí otro: solo el número de días corridos, hasta 15. Por ejemplo, 5 significa cinco días.
           </p>
           <PlazoEntregaOpciones
             valor={plazoEntregaDias}
@@ -597,6 +612,7 @@ function FormularioCotizacion() {
             value={plazoEntregaDias}
             onChange={(e) => {
               const val = e.target.value
+              if (!aceptaTextoNumerico(val)) return
               setPlazoEntregaDias(val)
               if (tocados.plazoEntregaDias) {
                 setErrores((prev) => ({

@@ -1,4 +1,4 @@
-import { parsearMonto } from '../presupuesto/montoTexto'
+import { parsearPrecioDeArchivo } from '../presupuesto/montoTexto'
 import type { CrearInsumoRequest } from './catalogoTipos'
 
 /**
@@ -188,7 +188,7 @@ export function validarCsv(textoOriginal: string): ResultadoValidacion {
     const textoPrecio = celda('precioReferencia')
     let precioReferencia: number | undefined
     if (textoPrecio !== '') {
-      const precio = parsearMonto(textoPrecio)
+      const precio = parsearPrecioDeArchivo(textoPrecio)
       if (precio === null) motivos.push('El precio no es válido (usá números, por ejemplo 8500,50).')
       else precioReferencia = precio
     }

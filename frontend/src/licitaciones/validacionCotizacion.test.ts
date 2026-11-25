@@ -11,12 +11,16 @@ import {
 } from './validacionCotizacion'
 
 describe('parsearNumeroDecimal', () => {
-  it('parsea números con punto y con coma', () => {
+  it('parsea números con punto', () => {
     expect(parsearNumeroDecimal('100.5')).toBe(100.5)
-    expect(parsearNumeroDecimal('100,5')).toBe(100.5)
     expect(parsearNumeroDecimal('  42  ')).toBe(42)
     expect(parsearNumeroDecimal('0')).toBe(0)
-    expect(parsearNumeroDecimal('0,0')).toBe(0)
+    expect(parsearNumeroDecimal('0.0')).toBe(0)
+  })
+
+  it('NO acepta la coma como separador decimal', () => {
+    expect(parsearNumeroDecimal('100,5')).toBeNull()
+    expect(parsearNumeroDecimal('0,0')).toBeNull()
   })
 
   it('devuelve null si no es un número válido o está vacío', () => {
@@ -29,10 +33,13 @@ describe('parsearNumeroDecimal', () => {
 })
 
 describe('validarPrecioUnitario', () => {
-  it('acepta precios positivos con coma o punto', () => {
+  it('acepta precios positivos con punto', () => {
     expect(validarPrecioUnitario('1500')).toBeUndefined()
     expect(validarPrecioUnitario('1500.50')).toBeUndefined()
-    expect(validarPrecioUnitario('1500,50')).toBeUndefined()
+  })
+
+  it('rechaza la coma: hay que usar punto', () => {
+    expect(validarPrecioUnitario('1500,50')).toBe('Usá punto en lugar de coma para los decimales.')
   })
 
   it('rechaza campo vacío o espacios', () => {
@@ -42,9 +49,9 @@ describe('validarPrecioUnitario', () => {
 
   it('rechaza precios menores o iguales a cero', () => {
     expect(validarPrecioUnitario('0')).toBe('El precio unitario debe ser mayor a 0.')
-    expect(validarPrecioUnitario('0,00')).toBe('El precio unitario debe ser mayor a 0.')
+    expect(validarPrecioUnitario('0.00')).toBe('El precio unitario debe ser mayor a 0.')
     expect(validarPrecioUnitario('-10')).toBe('El precio unitario debe ser mayor a 0.')
-    expect(validarPrecioUnitario('-10,50')).toBe('El precio unitario debe ser mayor a 0.')
+    expect(validarPrecioUnitario('-10.50')).toBe('El precio unitario debe ser mayor a 0.')
   })
 
   it('rechaza textos que no sean numéricos', () => {
@@ -53,12 +60,15 @@ describe('validarPrecioUnitario', () => {
 })
 
 describe('validarFlete', () => {
-  it('acepta flete cero o positivo con coma o punto', () => {
+  it('acepta flete cero o positivo con punto', () => {
     expect(validarFlete('0')).toBeUndefined()
-    expect(validarFlete('0,00')).toBeUndefined()
+    expect(validarFlete('0.00')).toBeUndefined()
     expect(validarFlete('2500')).toBeUndefined()
-    expect(validarFlete('2500,50')).toBeUndefined()
     expect(validarFlete('2500.50')).toBeUndefined()
+  })
+
+  it('rechaza la coma: hay que usar punto', () => {
+    expect(validarFlete('2500,50')).toBe('Usá punto en lugar de coma para los decimales.')
   })
 
   it('rechaza flete vacío', () => {
@@ -77,10 +87,17 @@ describe('validarFlete', () => {
 })
 
 describe('validarPlazoEntregaDias', () => {
-  it('acepta enteros positivos', () => {
+  it('acepta enteros de 1 a 15 días', () => {
     expect(validarPlazoEntregaDias('1')).toBeUndefined()
+    expect(validarPlazoEntregaDias('7')).toBeUndefined()
     expect(validarPlazoEntregaDias('15')).toBeUndefined()
-    expect(validarPlazoEntregaDias('30')).toBeUndefined()
+  })
+
+  it('rechaza más de 15 días: no tiene sentido ofrecer un año', () => {
+    const mensaje = 'El plazo de entrega no puede superar los 15 días, contados desde que cotizás.'
+    expect(validarPlazoEntregaDias('16')).toBe(mensaje)
+    expect(validarPlazoEntregaDias('30')).toBe(mensaje)
+    expect(validarPlazoEntregaDias('365')).toBe(mensaje)
   })
 
   it('rechaza plazo vacío', () => {
@@ -118,7 +135,7 @@ describe('validarCotizacion y hayErroresCotizacion', () => {
         flete: '1000',
         plazoEntregaDias: '7',
         preciosPorArticulo: {
-          [art1]: '500,25',
+          [art1]: '500.25',
           [art2]: '350',
         },
       },
@@ -179,18 +196,28 @@ describe('validarPresentacionOfrecida (#229)', () => {
 })
 
 describe('validarCantidadOfrecida (#229)', () => {
-  it('acepta cantidades con punto o con coma desde 0,01', () => {
+  it('acepta cantidades con punto desde 0.01 si no se cuentan en bolsas', () => {
     expect(validarCantidadOfrecida('2')).toBeUndefined()
-    expect(validarCantidadOfrecida('2,5')).toBeUndefined()
+    expect(validarCantidadOfrecida('2.5')).toBeUndefined()
     expect(validarCantidadOfrecida('0.01')).toBeUndefined()
+  })
+
+  it('rechaza la coma: hay que usar punto', () => {
+    expect(validarCantidadOfrecida('2,5')).toBe('Usá punto en lugar de coma para los decimales.')
+  })
+
+  it('si se cuenta en bolsas, solo acepta enteros', () => {
+    expect(validarCantidadOfrecida('2', true)).toBeUndefined()
+    expect(validarCantidadOfrecida('1.4', true)).toBe('Las bolsas se cuentan enteras: escribí un número sin decimales.')
+    expect(validarCantidadOfrecida('1,4', true)).toBe('Usá punto en lugar de coma para los decimales.')
   })
 
   it('rechaza vacío, texto, cero y negativos', () => {
     expect(validarCantidadOfrecida('')).toBe('Ingresá la cantidad que ofrecés.')
     expect(validarCantidadOfrecida('abc')).toBe('La cantidad ofrecida debe ser un número válido.')
-    expect(validarCantidadOfrecida('0')).toBe('La cantidad ofrecida debe ser al menos 0,01.')
-    expect(validarCantidadOfrecida('0,005')).toBe('La cantidad ofrecida debe ser al menos 0,01.')
-    expect(validarCantidadOfrecida('-3')).toBe('La cantidad ofrecida debe ser al menos 0,01.')
+    expect(validarCantidadOfrecida('0')).toBe('La cantidad ofrecida debe ser al menos 0.01.')
+    expect(validarCantidadOfrecida('0.005')).toBe('La cantidad ofrecida debe ser al menos 0.01.')
+    expect(validarCantidadOfrecida('-3')).toBe('La cantidad ofrecida debe ser al menos 0.01.')
   })
 })
 
@@ -220,8 +247,31 @@ describe('validarCotizacion con otra presentación (#229)', () => {
     )
     expect(hayErroresCotizacion(errores)).toBe(true)
     expect(errores.otrasPresentacionesPorArticulo?.[art1]?.presentacion).toBeDefined()
-    expect(errores.otrasPresentacionesPorArticulo?.[art1]?.cantidad).toBe('La cantidad ofrecida debe ser al menos 0,01.')
+    expect(errores.otrasPresentacionesPorArticulo?.[art1]?.cantidad).toBe('La cantidad ofrecida debe ser al menos 0.01.')
     expect(errores.otrasPresentacionesPorArticulo?.[art2]).toBeUndefined()
+  })
+
+  it('una presentación en bolsas no admite decimales, y se deduce del material pedido o del texto', () => {
+    const conBolsas = validarCotizacion(
+      { ...base, otrasPresentacionesPorArticulo: { [art1]: { presentacion: 'Bolsa de 25 kg', cantidad: '1.4' } } },
+      [art1, art2],
+      { [art1]: 'KG', [art2]: 'M3' },
+    )
+    expect(conBolsas.otrasPresentacionesPorArticulo?.[art1]?.cantidad).toBe('Las bolsas se cuentan enteras: escribí un número sin decimales.')
+
+    const materialEnBolsas = validarCotizacion(
+      { ...base, otrasPresentacionesPorArticulo: { [art1]: { presentacion: 'pack de 2', cantidad: '1.4' } } },
+      [art1, art2],
+      { [art1]: 'BOLSA', [art2]: 'M3' },
+    )
+    expect(materialEnBolsas.otrasPresentacionesPorArticulo?.[art1]?.cantidad).toBe('Las bolsas se cuentan enteras: escribí un número sin decimales.')
+
+    const sinBolsas = validarCotizacion(
+      { ...base, otrasPresentacionesPorArticulo: { [art1]: { presentacion: 'balde de 20 L', cantidad: '1.4' } } },
+      [art1, art2],
+      { [art1]: 'M3', [art2]: 'M3' },
+    )
+    expect(hayErroresCotizacion(sinBolsas)).toBe(false)
   })
 
   it('el precio sigue siendo obligatorio aunque la presentación esté bien', () => {

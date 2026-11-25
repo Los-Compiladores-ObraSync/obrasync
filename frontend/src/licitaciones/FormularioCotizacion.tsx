@@ -1,3 +1,4 @@
+import { aceptaTextoNumerico, esPresentacionEntera } from '../formularios/numeros'
 import { type FormEvent, useState } from 'react'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from '../pages/CotizarLicitacionPage.module.css'
@@ -41,6 +42,7 @@ export function FormularioCotizacion({ items, enviando, bloqueado, textoBoton, o
   const errores = validarCotizacion(
     { flete, plazoEntregaDias, preciosPorArticulo: precios, otrasPresentacionesPorArticulo: otras },
     items.map((it) => it.articuloId),
+    Object.fromEntries(items.map((it) => [it.articuloId, it.unidadMedida])),
   )
   // Un error se muestra recién cuando la persona salió del campo o intentó enviar.
   const visible = (clave: string) => intentoEnviar || Boolean(tocados[clave])
@@ -56,6 +58,11 @@ export function FormularioCotizacion({ items, enviando, bloqueado, textoBoton, o
   }
 
   function cambiarOtra(articuloId: string, campo: 'presentacion' | 'cantidad', valor: string) {
+    // La cantidad nunca lleva coma, y si la presentación se cuenta en bolsas tampoco lleva decimales.
+    if (campo === 'cantidad') {
+      const unidad = items.find((it) => it.articuloId === articuloId)?.unidadMedida
+      if (!aceptaTextoNumerico(valor, esPresentacionEntera(otras[articuloId]?.presentacion ?? '', unidad))) return
+    }
     setOtras((prev) => ({
       ...prev,
       [articuloId]: {
@@ -176,9 +183,9 @@ export function FormularioCotizacion({ items, enviando, bloqueado, textoBoton, o
                   inputMode="decimal"
                   className={claseInput(Boolean(errorPrecio))}
                   value={precios[id] ?? ''}
-                  onChange={(e) => setPrecios((prev) => ({ ...prev, [id]: e.target.value }))}
+                  onChange={(e) => aceptaTextoNumerico(e.target.value) && setPrecios((prev) => ({ ...prev, [id]: e.target.value }))}
                   onBlur={() => tocar(id)}
-                  placeholder="0,00"
+                  placeholder="0.00"
                   disabled={deshabilitado}
                 />
                 {errorPrecio && <p className={styles.errorCampo} role="alert">{errorPrecio}</p>}
@@ -202,9 +209,9 @@ export function FormularioCotizacion({ items, enviando, bloqueado, textoBoton, o
           inputMode="decimal"
           className={claseInput(visible('flete') && Boolean(errores.flete))}
           value={flete}
-          onChange={(e) => setFlete(e.target.value)}
+          onChange={(e) => aceptaTextoNumerico(e.target.value) && setFlete(e.target.value)}
           onBlur={() => tocar('flete')}
-          placeholder="0,00"
+          placeholder="0.00"
           disabled={deshabilitado}
         />
         {visible('flete') && errores.flete && <p className={styles.errorCampo} role="alert">{errores.flete}</p>}
@@ -212,7 +219,7 @@ export function FormularioCotizacion({ items, enviando, bloqueado, textoBoton, o
 
       <div className={styles.grupo}>
         <label htmlFor="plazoEntregaDias" className={styles.label}>Plazo de entrega (en días)</label>
-        <p className={styles.ayudaCampo}>Elegí un plazo frecuente o escribí otro: solo el número de días corridos. Por ejemplo, 5 significa cinco días.</p>
+        <p className={styles.ayudaCampo}>Elegí un plazo frecuente o escribí otro: solo el número de días corridos, hasta 15. Por ejemplo, 5 significa cinco días.</p>
         <PlazoEntregaOpciones valor={plazoEntregaDias} deshabilitado={deshabilitado} onElegir={(dias) => setPlazoEntregaDias(String(dias))} />
         <input
           id="plazoEntregaDias"
@@ -220,7 +227,7 @@ export function FormularioCotizacion({ items, enviando, bloqueado, textoBoton, o
           inputMode="numeric"
           className={claseInput(visible('plazoEntregaDias') && Boolean(errores.plazoEntregaDias))}
           value={plazoEntregaDias}
-          onChange={(e) => setPlazoEntregaDias(e.target.value)}
+          onChange={(e) => aceptaTextoNumerico(e.target.value) && setPlazoEntregaDias(e.target.value)}
           onBlur={() => tocar('plazoEntregaDias')}
           placeholder="Ej: 7"
           disabled={deshabilitado}

@@ -20,6 +20,7 @@ import {
 import { fechaLarga } from '../requisiciones/formatoFecha'
 import { obtenerObras } from '../requisiciones/requisicionesService'
 import { cantidadConUnidad } from '../requisiciones/unidades'
+import { aceptaTextoNumerico, bloquearTeclasDecimales, errorDeFormatoNumerico, esUnidadEntera } from '../formularios/numeros'
 import styles from './RecepcionPage.module.css'
 
 function mensajeDeErrorApi(err: unknown): string {
@@ -232,7 +233,9 @@ export function RecepcionPage() {
     elegida.items.forEach((item) => {
       const texto = cantidades[item.articuloId] ?? ''
       const valor = Number(texto)
-      if (texto.trim() === '' || !Number.isFinite(valor)) nuevosErrores[item.articuloId] = 'Ingresá una cantidad válida.'
+      const errorFormato = errorDeFormatoNumerico(texto, esUnidadEntera(item.unidadMedida))
+      if (errorFormato) nuevosErrores[item.articuloId] = errorFormato
+      else if (texto.trim() === '' || !Number.isFinite(valor)) nuevosErrores[item.articuloId] = 'Ingresá una cantidad válida.'
       else if (valor < 0) nuevosErrores[item.articuloId] = 'La cantidad no puede ser negativa.'
       else if (valor > saldoPendiente(item)) nuevosErrores[item.articuloId] = `No puede superar el saldo de ${saldoPendiente(item)}.`
       else if (conProblema[item.articuloId] && (notasProblema[item.articuloId] ?? '').trim() === '') nuevosErrores[item.articuloId] = 'Contanos qué pasó con este material (por ejemplo: 3 bolsas rotas).'
@@ -453,7 +456,7 @@ export function RecepcionPage() {
             <div className={styles.grupo} key={item.articuloId}>
               <label htmlFor={`cantidad-${item.articuloId}`} className={styles.label}>{item.descripcionArticulo} · {item.unidadMedida} — recibido en esta entrega</label>
               <p className={styles.ayuda}>Pedido: {item.cantidadEsperada} · Ya recibidas: {item.cantidadRecibida} · Saldo: {saldoPendiente(item)}</p>
-              <input id={`cantidad-${item.articuloId}`} className={`${styles.input}${erroresCantidad[item.articuloId] ? ` ${styles.inputInvalido}` : ''}`} type="number" min="0" max={saldoPendiente(item)} step="any" inputMode="decimal" value={cantidades[item.articuloId] ?? ''} onChange={(e) => { setCantidades((prev) => ({ ...prev, [item.articuloId]: e.target.value })); setErroresCantidad((prev) => ({ ...prev, [item.articuloId]: undefined, general: undefined })) }} aria-invalid={!!erroresCantidad[item.articuloId]} aria-describedby={erroresCantidad[item.articuloId] ? `cantidad-error-${item.articuloId}` : undefined} />
+              <input id={`cantidad-${item.articuloId}`} className={`${styles.input}${erroresCantidad[item.articuloId] ? ` ${styles.inputInvalido}` : ''}`} type="number" min="0" max={saldoPendiente(item)} step={esUnidadEntera(item.unidadMedida) ? '1' : 'any'} inputMode={esUnidadEntera(item.unidadMedida) ? 'numeric' : 'decimal'} onKeyDown={(e) => bloquearTeclasDecimales(e, esUnidadEntera(item.unidadMedida))} value={cantidades[item.articuloId] ?? ''} onChange={(e) => { if (!aceptaTextoNumerico(e.target.value, esUnidadEntera(item.unidadMedida))) return; setCantidades((prev) => ({ ...prev, [item.articuloId]: e.target.value })); setErroresCantidad((prev) => ({ ...prev, [item.articuloId]: undefined, general: undefined })) }} aria-invalid={!!erroresCantidad[item.articuloId]} aria-describedby={erroresCantidad[item.articuloId] ? `cantidad-error-${item.articuloId}` : undefined} />
               <label className={styles.checkProblema}>
                 <input
                   type="checkbox"

@@ -13,5 +13,5 @@ export function formatearPlazoOInmediato(dias: number | null | undefined): strin
   return dias ? formatearPlazoEntrega(dias) : 'Inmediato'
 }
 
-/** Plazos que se ofrecen para elegir con un toque al cotizar (días corridos). Para otro valor se escribe en el campo. */
-export const PLAZOS_ENTREGA_FRECUENTES = [1, 3, 5, 7, 10, 15, 30] as const
+/** Plazos que se ofrecen para elegir con un toque al cotizar (días corridos, hasta el máximo de 15). Para otro valor se escribe en el campo. */
+export const PLAZOS_ENTREGA_FRECUENTES = [1, 3, 5, 7, 10, 15] as const
