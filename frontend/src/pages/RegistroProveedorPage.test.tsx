@@ -54,7 +54,7 @@ describe('RegistroProveedorPage', () => {
     const user = userEvent.setup()
     let cuerpo: Record<string, unknown> | undefined
     server.use(
-      http.post('*/api/usuarios/registro', async ({ request }) => {
+      http.post('*/api/usuarios', async ({ request }) => {
         cuerpo = (await request.json()) as Record<string, unknown>
         return HttpResponse.json({ id: 'u1', nombreCompleto: 'Ana López', email: 'ana@empresa.com', token: 't', roles: ['Proveedor'] }, { status: 201 })
       }),
