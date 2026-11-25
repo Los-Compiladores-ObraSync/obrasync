@@ -1,13 +1,13 @@
-using Xunit;
-using Moq;
-using Microsoft.EntityFrameworkCore;
-using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Commands;
-using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Handlers;
-using ObraSync.Licitaciones.Application.Interfaces;
-using ObraSync.Licitaciones.Domain.Entities;
-using ObraSync.Licitaciones.Infrastructure.Messaging;
 using MassTransit;
 using Microsoft.Extensions.Logging;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
+using ObraSync.Licitaciones.Application.Interfaces;
+using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Commands;
+using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Handlers;
+using ObraSync.Licitaciones.Domain.Entities;
+using ObraSync.Licitaciones.Infrastructure.Messaging;
+using Xunit;
 
 namespace ObraSync.Licitaciones.Tests;
 
@@ -17,50 +17,50 @@ public class AdjudicarCotizacionConcurrenciaTests
     public async Task Handle_Debe_Lanzar_InvalidOperationException_Cuando_Ocurre_DbUpdateConcurrencyException()
     {
         // Arrange
-        var licitacionRepositoryMock = new Mock<ILicitacionRepository>();
-        var cotizacionRepositoryMock = new Mock<ICotizacionRepository>();
-        var ordenCompraRepositoryMock = new Mock<IOrdenCompraRepository>();
-        var publishEndpointMock = new Mock<IPublishEndpoint>();
-        var unitOfWorkMock = new Mock<IUnitOfWork>();
-        var loggerMock = new Mock<ILogger<AdjudicarCotizacionCommandHandler>>();
+        var licitacionRepository = Substitute.For<ILicitacionRepository>();
+        var cotizacionRepository = Substitute.For<ICotizacionRepository>();
+        var ordenCompraRepository = Substitute.For<IOrdenCompraRepository>();
+        var publishEndpoint = Substitute.For<IPublishEndpoint>();
+        var unitOfWork = Substitute.For<IUnitOfWork>();
+        var logger = Substitute.For<ILogger<AdjudicarCotizacionCommandHandler>>();
 
         var licitacionId = Guid.NewGuid();
         var cotizacionId = Guid.NewGuid();
 
-        var licitacion = new Licitacion 
-        { 
-            LicitacionId = licitacionId, 
-            Estado = EstadoLicitacion.Abierta,
-            Items = new List<LicitacionItem>() 
-        };
-
-        var cotizacion = new Cotizacion 
-        { 
-            CotizacionId = cotizacionId, 
+        var licitacion = new Licitacion
+        {
             LicitacionId = licitacionId,
-            Items = new List<CotizacionItem>() 
+            Estado = EstadoLicitacion.Abierta,
+            Items = new List<LicitacionItem>()
         };
 
-        licitacionRepositoryMock
-            .Setup(r => r.GetByIdAsync(licitacionId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(licitacion);
+        var cotizacion = new Cotizacion
+        {
+            CotizacionId = cotizacionId,
+            LicitacionId = licitacionId,
+            Items = new List<CotizacionItem>()
+        };
 
-        cotizacionRepositoryMock
-            .Setup(r => r.GetByIdAsync(cotizacionId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(cotizacion);
+        licitacionRepository
+            .GetByIdAsync(licitacionId, Arg.Any<CancellationToken>())
+            .Returns(licitacion);
+
+        cotizacionRepository
+            .GetByIdAsync(cotizacionId, Arg.Any<CancellationToken>())
+            .Returns(cotizacion);
 
         // Simulamos que al guardar los cambios salta el conflicto de concurrencia optimista
-        unitOfWorkMock
-            .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+        unitOfWork
+            .SaveChangesAsync(Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("La licitación fue modificada o adjudicada por otro usuario en simultáneo. Por favor, actualice los datos e intente nuevamente."));
 
         var handler = new AdjudicarCotizacionCommandHandler(
-            licitacionRepositoryMock.Object,
-            cotizacionRepositoryMock.Object,
-            ordenCompraRepositoryMock.Object,
-            new MassTransitLicitacionEventPublisher(publishEndpointMock.Object),
-            unitOfWorkMock.Object,
-            loggerMock.Object
+            licitacionRepository,
+            cotizacionRepository,
+            ordenCompraRepository,
+            new MassTransitLicitacionEventPublisher(publishEndpoint),
+            unitOfWork,
+            logger
         );
 
         var command = new AdjudicarCotizacionCommand(licitacionId, cotizacionId, Guid.NewGuid());

@@ -63,8 +63,6 @@ namespace ObraSync.Requisiciones.Domain.Constants
                 string.Equals(NormalizarSinTildes(m), normalizada, StringComparison.OrdinalIgnoreCase));
         }
 
-        public static bool EsCategoriaValida(string? categoria) => NormalizarCategoria(categoria) is not null;
-
         /// <summary>
         /// Valida y resuelve el texto final del motivo de rechazo.
         /// Lanza ArgumentException (traducida a 400 ProblemDetails) si el motivo o comentario es inválido.

@@ -4,24 +4,16 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using ObraSync.Contracts.Events;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace ObraSync.Recepcion.Tests.Events;
 
 public class OrdenCompraEmitidaEventTests
 {
-    private readonly ITestOutputHelper _output;
-
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
     };
-
-    public OrdenCompraEmitidaEventTests(ITestOutputHelper output)
-    {
-        _output = output;
-    }
 
     [Fact]
     public void Verificar_TiposExportados_SystemTextJson_En_MassTransit_Dll()

@@ -102,7 +102,6 @@ public class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
 
     private sealed class ConsultorPresupuestosFalso : IConsultorPresupuestos
     {
-        private static readonly Guid Obra = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
         public int Llamadas { get; private set; }
         public Guid? UltimaObraId { get; private set; }
         public string? UltimaEtapa { get; private set; }

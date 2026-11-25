@@ -33,7 +33,6 @@ namespace ObraSync.Recepcion.Tests;
 public class CorrelationIdPropagacionTests : IClassFixture<RecepcionApiFactory>
 {
     private readonly RecepcionApiFactory _factory;
-    private readonly InMemoryLoggerProvider _loggerProvider = new();
     private readonly IRecepcionEventPublisher _publisherSpy = Substitute.For<IRecepcionEventPublisher>();
 
     public CorrelationIdPropagacionTests(RecepcionApiFactory factory)

@@ -16,6 +16,4 @@ public static class MagicLinkHashHelper
         var hashBytes = SHA256.HashData(bytes);
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
-
-    public static string ComputeSha256Hash(string token) => ComputeSha256(token);
 }

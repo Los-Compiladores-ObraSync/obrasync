@@ -32,8 +32,6 @@ export function textoOrdenesBloqueadas(cantidad: number): string {
     : `${cantidad} órdenes de compra bloqueadas por presupuesto`
 }
 
-export const textoBloqueadas = textoOrdenesBloqueadas
-
 /** Título del aviso de novedades del Capataz y del Proveedor (#163). Singular cuando hay una sola. */
 export function textoNovedades(novedades: Novedad[]): string {
   const cantidad = novedades.length

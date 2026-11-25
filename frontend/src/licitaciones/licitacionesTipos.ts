@@ -99,10 +99,6 @@ export interface CriteriosScoringDto {
   calificacion: number
 }
 
-export interface AdjudicarLicitacionRequestDto {
-  cotizacionId: string
-}
-
 export interface OrdenCompraAdjudicadaDto {
   id: string
   licitacionId: string

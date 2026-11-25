@@ -1,5 +1,4 @@
-﻿using System.Text.Json.Serialization;
-using System.Text;
+﻿using System.Text;
 using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -68,7 +67,11 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<ObraCreadaConsumer>();
     if (useInMemoryTransport)
     {
-        x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        x.UsingInMemory((context, cfg) =>
+        {
+            cfg.UsarDecimalesComoNumero();
+            cfg.ConfigureEndpoints(context);
+        });
     }
     else
     {
@@ -99,18 +102,7 @@ builder.Services.AddMassTransit(x =>
                 h.Password(password);
             });
 
-            cfg.ConfigureJsonSerializerOptions(options =>
-            {
-                for (var i = options.Converters.Count - 1; i >= 0; i--)
-                {
-                    if (options.Converters[i].GetType().Name == "StringDecimalJsonConverter")
-                        options.Converters.RemoveAt(i);
-                }
-
-                // sin el convertidor, los consumidores dejarían de poder leer decimales que lleguen como texto (mensajes viejos)
-                options.NumberHandling = JsonNumberHandling.AllowReadingFromString;
-                return options;
-            });
+            cfg.UsarDecimalesComoNumero(); // decimales como número en los eventos (#128)
             cfg.UsarReintentosExponenciales(); // errores pasajeros: reintentar antes de mandar a _error (#179)
             cfg.ConfigureEndpoints(context);
         });
