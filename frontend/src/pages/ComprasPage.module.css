@@ -60,7 +60,7 @@
   font-weight: 800;
 }
 
-.enlaceEtapa:hover {
+a.enlaceEtapa:hover {
   border-color: var(--azul);
 }
 

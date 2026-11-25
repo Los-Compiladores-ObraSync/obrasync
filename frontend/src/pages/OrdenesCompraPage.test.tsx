@@ -92,7 +92,8 @@ describe('OrdenesCompraPage (#205, #223)', () => {
     expect(within(filas[2]).getByText('Despachada el 13 de noviembre de 2026 por el proveedor')).toBeInTheDocument()
     expect(within(filas[2]).getByText('Llega el 20 de noviembre de 2026')).toBeInTheDocument()
     expect(within(filas[2]).getByText('Observación: Sale en camión por la mañana')).toBeInTheDocument()
-    expect(within(filas[2]).getByRole('link', { name: 'Ir a Recepción' })).toHaveAttribute('href', '/compras/recepcion')
+    expect(within(filas[2]).getByText('Siguiente paso: el Capataz registra la recepción en obra.')).toBeInTheDocument()
+    expect(within(filas[2]).queryByRole('link', { name: 'Ir a Recepción' })).not.toBeInTheDocument()
   })
 
   it('abre y señala la orden indicada por identificador', async () => {

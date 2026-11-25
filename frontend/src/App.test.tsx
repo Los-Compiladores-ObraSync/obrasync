@@ -330,7 +330,7 @@ describe('App - acceso a los portales', () => {
     expect(screen.getByRole('link', { name: 'Asistente' })).toHaveAttribute('href', '/compras/asistente')
     const progreso = await screen.findByRole('region', { name: 'Progreso del flujo de compras' })
     expect(within(progreso).getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual([
-      '/compras/requisiciones', '/compras/licitaciones', '/compras/ordenes', '/compras/recepcion',
+      '/compras/requisiciones', '/compras/licitaciones', '/compras/ordenes',
     ])
     expect(screen.getByRole('region', { name: 'Qué hago ahora' })).toBeInTheDocument()
     const historial = await screen.findByRole('region', { name: 'Historial de actividad' })
@@ -459,11 +459,26 @@ describe('App - alta de obra', () => {
     }
   })
 
-  it('el Comprador y el Admin pueden continuar el flujo desde Recepción', async () => {
-    for (const rol of ['Comprador', 'Admin']) {
+  it('recibir mercadería es solo del Capataz: el Comprador no entra ni por Compras ni por Obra', async () => {
+    iniciarSesionComo('Comprador')
+
+    // La ruta vieja de Compras ya no existe: vuelve al inicio.
+    const compras = renderApp('/compras/recepcion')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Bienvenido, Juan Pérez' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 1, name: 'Recibir mercadería' })).not.toBeInTheDocument()
+    compras.unmount()
+
+    // La de Obra es del portal del Capataz: el Comprador ve "Sin acceso".
+    renderApp('/obra/recepcion')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Sin acceso' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 1, name: 'Recibir mercadería' })).not.toBeInTheDocument()
+  })
+
+  it('el Capataz y el Admin sí entran a Recibir mercadería', async () => {
+    for (const rol of ['Capataz', 'Admin']) {
       localStorage.clear()
       iniciarSesionComo(rol)
-      const { unmount } = renderApp('/compras/recepcion')
+      const { unmount } = renderApp('/obra/recepcion')
       expect(await screen.findByRole('heading', { level: 1, name: 'Recibir mercadería' })).toBeInTheDocument()
       unmount()
     }

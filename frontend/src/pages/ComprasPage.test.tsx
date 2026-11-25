@@ -122,16 +122,18 @@ describe('ComprasPage', () => {
     render(<PendientesContext.Provider value={{ cantidad: 3, pendientes: [], cargado: true, huboError: false, refrescar: () => {} }}><MemoryRouter><ComprasPage /></MemoryRouter></PendientesContext.Provider>)
 
     await screen.findByText('1 por licitar · 1 por adjudicar')
-    const etapas = within(screen.getByRole('region', { name: 'Progreso del flujo de compras' })).getAllByRole('link')
+    const progresoFlujo = within(screen.getByRole('region', { name: 'Progreso del flujo de compras' }))
+    // La recepción la registra el Capataz: en Compras se ve el avance, pero no es un enlace.
+    const etapas = progresoFlujo.getAllByRole('link')
     expect(etapas.map((link) => link.textContent)).toEqual([
       'Requisición 3 por aprobar',
       'Licitación 1 por licitar · 1 por adjudicar',
       'Orden de compra 2 pendientes de seguimiento',
-      'Recepción 1 orden pendiente de recibir',
     ])
     expect(etapas.map((link) => link.getAttribute('href'))).toEqual([
-      '/compras/requisiciones', '/compras/licitaciones', '/compras/ordenes', '/compras/recepcion',
+      '/compras/requisiciones', '/compras/licitaciones', '/compras/ordenes',
     ])
+    expect(progresoFlujo.getAllByRole('listitem')[3]).toHaveTextContent('Recepción 1 orden pendiente de recibir')
     // Las cuatro etapas tienen trabajo pendiente: todas se destacan en el flujo.
     const pasos = within(screen.getByRole('region', { name: 'Progreso del flujo de compras' })).getAllByRole('listitem')
     expect(pasos.map((paso) => paso.getAttribute('data-pendiente'))).toEqual(['true', 'true', 'true', 'true'])
