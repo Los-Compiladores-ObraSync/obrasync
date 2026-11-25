@@ -322,7 +322,9 @@ export function AprobarRequisicionesPage() {
                 {req.etapa ? ` · Etapa: ${req.etapa}` : ''}
               </p>
               {req.observaciones && (
-                <p className={styles.dato}>Observaciones: {req.observaciones}</p>
+                <p className={`${styles.dato} ${styles.observaciones}`}>
+                  Observaciones: {req.observaciones}
+                </p>
               )}
               <ul className={styles.items}>
                 {req.items.map((it) => (
