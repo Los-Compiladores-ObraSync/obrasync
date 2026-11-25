@@ -143,6 +143,20 @@ describe('LicitacionesComprasPage', () => {
     expect(screen.getByText('★ Oferta destacada')).toBeInTheDocument()
   })
 
+  it('"Mientras está abierta" va al final: primero se ven las ofertas y recién después las acciones', async () => {
+    const user = userEvent.setup()
+    renderPagina()
+
+    await screen.findByText('REQ-2026-0011')
+    await user.click(screen.getAllByRole('button', { name: 'Ver cotizaciones' })[0])
+
+    const ofertas = await screen.findByRole('list', { name: 'Cotizaciones recibidas para REQ-2026-0011' })
+    const acciones = await screen.findByRole('heading', { name: 'Mientras está abierta' })
+
+    // DOCUMENT_POSITION_FOLLOWING: el bloque de acciones aparece DESPUÉS de la lista de ofertas.
+    expect(ofertas.compareDocumentPosition(acciones) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('al reabrir una licitación adjudicada marca la oferta del cotizacionId guardado en la orden', async () => {
     const licitacion = {
       licitacionId: LIC_ABIERTA_ID,

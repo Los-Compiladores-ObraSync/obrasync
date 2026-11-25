@@ -461,18 +461,6 @@ export function LicitacionesComprasPage() {
             )}
           </div>
 
-          {licitacionSeleccionada.estado === 'Abierta' && (
-            <AccionesLicitacionAbierta
-              key={licitacionSeleccionada.licitacionId}
-              licitacion={licitacionSeleccionada}
-              onActualizada={(actualizada) =>
-                setLicitaciones((actuales) =>
-                  actuales.map((l) => (l.licitacionId === actualizada.licitacionId ? { ...l, ...actualizada } : l)),
-                )
-              }
-            />
-          )}
-
           {licitacionSeleccionada.estado === 'Abierta' && puedeArmarEnlaces && (
             <EnlacesParaProveedores
               key={licitacionSeleccionada.licitacionId}
@@ -790,6 +778,19 @@ export function LicitacionesComprasPage() {
                 )
               })}
             </ul>
+          )}
+
+          {/* Al final de todo: son acciones menos frecuentes (dar más tiempo, recordar, cerrar), y no deben ser lo primero que se ve. */}
+          {licitacionSeleccionada.estado === 'Abierta' && (
+            <AccionesLicitacionAbierta
+              key={licitacionSeleccionada.licitacionId}
+              licitacion={licitacionSeleccionada}
+              onActualizada={(actualizada) =>
+                setLicitaciones((actuales) =>
+                  actuales.map((l) => (l.licitacionId === actualizada.licitacionId ? { ...l, ...actualizada } : l)),
+                )
+              }
+            />
           )}
         </div>
       )}
