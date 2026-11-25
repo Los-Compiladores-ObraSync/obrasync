@@ -307,7 +307,7 @@ public class BorradorRequisicionTests
             .ToArray();
 
         // Si alguien agrega una herramienta, esta prueba obliga a revisar que NO escriba datos.
-        Assert.Equal(new[] { "buscar_insumos", "armar_borrador_requisicion" }, nombres);
+        Assert.Equal(new[] { "buscar_insumos", "listar_mis_obras", "armar_borrador_requisicion" }, nombres);
     }
 
     [Theory]

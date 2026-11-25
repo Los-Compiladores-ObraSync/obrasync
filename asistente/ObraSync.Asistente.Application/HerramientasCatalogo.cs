@@ -24,6 +24,7 @@ public sealed record ResultadoHerramienta(
 /// <summary>
 /// Herramientas del asistente. TODAS son de solo lectura:
 ///  - buscar_insumos: busca en el catálogo.
+///  - listar_mis_obras: lista las obras que el usuario puede ver, con sus etapas (para que no tenga que acordarse del nombre).
 ///  - armar_borrador_requisicion: lee obras e insumos y ARMA un borrador. No crea nada: la requisición
 ///    la crea el frontend, con el JWT del usuario, cuando la persona toca Confirmar.
 /// Valida los argumentos ANTES de llamar a la API y devuelve errores estables.
@@ -38,6 +39,9 @@ public sealed class HerramientasCatalogo
 
     public const string BuscarInsumos = "buscar_insumos";
     public const string ArmarBorrador = "armar_borrador_requisicion";
+    public const string ListarObras = "listar_mis_obras";
+    /// <summary>Tope de obras que se le devuelven al modelo: alcanza para un Capataz y cuida el cupo de tokens.</summary>
+    public const int MaxObrasListadas = 20;
 
     private readonly IBuscadorInsumos _buscador;
     private readonly IBuscadorObras _obras;
@@ -71,6 +75,18 @@ public sealed class HerramientasCatalogo
                     },
                     ["required"] = new JsonArray("texto")
                 }
+            }
+        },
+        new JsonObject
+        {
+            ["type"] = "function",
+            ["function"] = new JsonObject
+            {
+                ["name"] = ListarObras,
+                ["description"] =
+                    "Lista las obras que la persona tiene asignadas (las que puede ver), con el nombre de sus etapas. " +
+                    "Usala cuando pregunte qué obras tiene, qué obras hay o si no se acuerda del nombre de una obra. Solo lectura.",
+                ["parameters"] = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() }
             }
         },
         new JsonObject
@@ -139,8 +155,48 @@ public sealed class HerramientasCatalogo
         {
             BuscarInsumos => BuscarInsumosAsync(argumentosJson, ct),
             ArmarBorrador => ArmarBorradorAsync(argumentosJson, ct),
+            ListarObras => ListarObrasAsync(argumentosJson, ct),
             _ => Task.FromResult(ResultadoHerramienta.Error("herramienta_desconocida"))
         };
+
+    /// <summary>
+    /// Devuelve las obras que el usuario puede ver (la API ya filtra por rol: un Capataz solo ve las suyas) y sus etapas.
+    /// No recibe argumentos. Si hay más que el tope, lo avisa con hayMas para que el modelo no afirme que son todas.
+    /// </summary>
+    private async Task<ResultadoHerramienta> ListarObrasAsync(string argumentosJson, CancellationToken ct)
+    {
+        try
+        {
+            var args = JsonNode.Parse(string.IsNullOrWhiteSpace(argumentosJson) ? "{}" : argumentosJson);
+            if (args is not JsonObject)
+                return ResultadoHerramienta.Error("argumentos_invalidos");
+        }
+        catch (JsonException)
+        {
+            return ResultadoHerramienta.Error("argumentos_invalidos");
+        }
+
+        var resultado = await _obras.ListarAsync(ct);
+        if (resultado.Error is not null || resultado.Obras is null)
+            return ResultadoHerramienta.Error(resultado.Error ?? "obras_no_disponibles");
+
+        var lista = new JsonArray();
+        foreach (var obra in resultado.Obras.Take(MaxObrasListadas))
+        {
+            var etapas = new JsonArray();
+            foreach (var etapa in obra.Etapas)
+                etapas.Add(etapa);
+            lista.Add(new JsonObject { ["nombre"] = obra.Nombre, ["etapas"] = etapas });
+        }
+
+        return ResultadoHerramienta.Bien(new JsonObject
+        {
+            ["ok"] = true,
+            ["total"] = resultado.Obras.Count,
+            ["hayMas"] = resultado.Obras.Count > MaxObrasListadas,
+            ["obras"] = lista
+        });
+    }
 
     private async Task<ResultadoHerramienta> BuscarInsumosAsync(string argumentosJson, CancellationToken ct)
     {

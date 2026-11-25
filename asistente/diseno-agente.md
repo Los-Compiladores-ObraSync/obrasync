@@ -17,6 +17,7 @@ Todas son de solo lectura, consultan al API Gateway con el JWT del usuario y se 
 | Herramienta | Qué hace | Endpoint que llama |
 |---|---|---|
 | `buscar_insumos` | Busca en el catálogo por texto (máx. 5 resultados) | `GET /api/catalogo/insumos` |
+| `listar_mis_obras` | Lista las obras que el usuario puede ver, con sus etapas (el Capataz, solo las asignadas). Sin argumentos, solo lectura | `GET /api/obras` |
 | `armar_borrador_requisicion` | Recibe obra, etapa y materiales por NOMBRE; resuelve la obra y los insumos y devuelve el borrador | `GET /api/obras`, `GET /api/catalogo/insumos` |
 
 El modelo nunca ve ni inventa ids: el servicio los resuelve. Si falta o es ambiguo un dato, devuelve un error con opciones (por ejemplo `obra_ambigua` o `etapa_requerida`) y no arma nada a medias. Máximo 10 ítems por borrador.
