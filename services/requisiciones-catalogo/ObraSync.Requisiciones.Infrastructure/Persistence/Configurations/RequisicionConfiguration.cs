@@ -51,7 +51,7 @@ namespace ObraSync.Requisiciones.Infrastructure.Persistence.Configurations
                 .HasDefaultValue(EstadoRequisicion.Pendiente);
 
             builder.Property(r => r.Observaciones)
-                .HasMaxLength(500);
+                .HasMaxLength(Requisicion.LongitudMaximaObservaciones);
 
             builder.Property(r => r.MotivoRechazo)
                 .HasMaxLength(500);

@@ -9,6 +9,7 @@ namespace ObraSync.Requisiciones.Domain.Entities
     public class Requisicion
     {
         public const int LongitudMaximaIdempotencyKey = 100;
+        public const int LongitudMaximaObservaciones = 1000;
 
         public Guid Id { get; set; } = Guid.NewGuid();
         public string NumeroRequisicion { get; set; } = string.Empty;
@@ -65,7 +66,7 @@ namespace ObraSync.Requisiciones.Domain.Entities
             Etapa = string.IsNullOrWhiteSpace(etapa) ? null : etapa.Trim();
             SolicitanteId = solicitanteId;
             Estado = EstadoRequisicion.Pendiente;
-            Observaciones = string.IsNullOrWhiteSpace(observaciones) ? null : observaciones.Trim();
+            Observaciones = NormalizarObservaciones(observaciones);
             IdempotencyKey = keyNormalizada;
             FechaCreacion = fechaCreacion?.ToUniversalTime() ?? DateTime.UtcNow;
 
@@ -173,6 +174,17 @@ namespace ObraSync.Requisiciones.Domain.Entities
             Estado = EstadoRequisicion.Cancelada;
         }
 
+        public static string? NormalizarObservaciones(string? observaciones)
+        {
+            var normalizadas = string.IsNullOrWhiteSpace(observaciones) ? null : observaciones.Trim();
+            if (normalizadas != null && normalizadas.Length > LongitudMaximaObservaciones)
+                throw new ArgumentException(
+                    $"Las observaciones no pueden superar los {LongitudMaximaObservaciones} caracteres.",
+                    nameof(observaciones));
+
+            return normalizadas;
+        }
+
         public static string? NormalizarIdempotencyKey(string? idempotencyKey)
         {
             var normalizada = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey.Trim();
@@ -250,7 +262,7 @@ namespace ObraSync.Requisiciones.Domain.Entities
             }
 
             Etapa = string.IsNullOrWhiteSpace(etapa) ? null : etapa.Trim();
-            Observaciones = string.IsNullOrWhiteSpace(observaciones) ? null : observaciones.Trim();
+            Observaciones = NormalizarObservaciones(observaciones);
 
             Items.Clear();
             foreach (var item in listaItems)

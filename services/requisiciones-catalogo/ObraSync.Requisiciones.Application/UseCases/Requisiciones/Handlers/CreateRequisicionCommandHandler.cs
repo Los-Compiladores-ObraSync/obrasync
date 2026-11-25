@@ -77,6 +77,7 @@ public class CreateRequisicionCommandHandler : ICommandHandler<CreateRequisicion
             throw new ArgumentException("El identificador del solicitante es obligatorio.", nameof(command));
 
         CatalogoItemsResolver.ExtraerArticuloIdsValidos(command.Items);
+        Requisicion.NormalizarObservaciones(command.Observaciones);
         return Requisicion.NormalizarIdempotencyKey(command.IdempotencyKey);
     }
 

@@ -33,7 +33,7 @@ public sealed class HerramientasCatalogo : GrupoHerramientasDePerfil, IHerramien
 {
     public const int MaxTextoBusqueda = 60;
     public const int MaxTextoObraEtapa = 100;
-    public const int MaxObservaciones = 500;
+    public const int MaxObservaciones = 1000;
     public const int MaxItemsBorrador = 10;
     public const int MaxOpciones = 5;
 
