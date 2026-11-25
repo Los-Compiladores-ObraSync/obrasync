@@ -238,7 +238,7 @@ public class MagicLinkGenerarEndpointTests : IClassFixture<WebApplicationFactory
             var db = scope.ServiceProvider.GetRequiredService<LicitacionesDbContext>();
             var linkEnBase = await db.MagicLinks.SingleAsync();
 
-            var sha256Esperado = MagicLinkHashHelper.ComputeSha256Hash(dto.Token);
+            var sha256Esperado = MagicLinkHashHelper.ComputeSha256(dto.Token);
             Assert.NotEqual(dto.Token, linkEnBase.TokenHash);
             Assert.NotEqual(dto.Token, linkEnBase.Hash);
             Assert.Equal(64, linkEnBase.TokenHash.Length);

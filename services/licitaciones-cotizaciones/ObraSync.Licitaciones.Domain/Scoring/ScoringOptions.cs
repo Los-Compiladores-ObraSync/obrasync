@@ -8,8 +8,6 @@ public enum ModoNormalizacionScoring
 
 public sealed class ScoringOptions
 {
-    public const string SectionName = "Scoring";
-
     public decimal PesoPrecio { get; set; } = 0.50m;
     public decimal PesoPlazo { get; set; } = 0.20m;
     public decimal PesoFlete { get; set; } = 0.20m;
@@ -30,15 +28,5 @@ public sealed class ScoringOptions
 
         if (PesoPrecio + PesoPlazo + PesoFlete + PesoCalificacion <= 0)
             throw new InvalidOperationException("La suma de los pesos de Scoring ('Scoring:PesoPrecio + PesoPlazo + PesoFlete + PesoCalificacion') debe ser estrictamente mayor a cero.");
-    }
-
-    public PonderacionScoring ToPonderacion()
-    {
-        Validar();
-        return new PonderacionScoring(
-            precio: PesoPrecio,
-            flete: PesoFlete,
-            plazo: PesoPlazo,
-            calificacion: PesoCalificacion);
     }
 }
