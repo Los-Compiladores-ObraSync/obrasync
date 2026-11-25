@@ -53,9 +53,9 @@ public class AdjudicarCotizacionCommandHandler : IRequestHandler<AdjudicarCotiza
         var licitacion = await _licitacionRepository.GetByIdAsync(request.LicitacionId, cancellationToken)
             ?? throw new KeyNotFoundException($"No se encontró la licitación con ID {request.LicitacionId}.");
 
-        if (licitacion.Estado != EstadoLicitacion.Abierta)
+        if (licitacion.Estado is not (EstadoLicitacion.Abierta or EstadoLicitacion.Cerrada))
         {
-            throw new InvalidOperationException("La licitación ya se encuentra adjudicada o cerrada.");
+            throw new InvalidOperationException("La licitación ya se encuentra adjudicada.");
         }
 
         // 2. Obtener y validar Cotización
