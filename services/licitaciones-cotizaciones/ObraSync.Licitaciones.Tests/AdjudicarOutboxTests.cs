@@ -5,6 +5,7 @@ using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Commands;
 using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Handlers;
 using ObraSync.Licitaciones.Domain.Entities;
+using ObraSync.Licitaciones.Infrastructure.Messaging;
 using Xunit;
 
 namespace ObraSync.Licitaciones.Tests;
@@ -54,7 +55,7 @@ public class AdjudicarOutboxTests
         _cotizaciones.GetByIdAsync(cotizacionId, Arg.Any<CancellationToken>()).Returns(cotizacion);
 
         var handler = new AdjudicarCotizacionCommandHandler(
-            _licitaciones, _cotizaciones, _ordenes, _publish, _unitOfWork, timeProvider: timeProvider);
+            _licitaciones, _cotizaciones, _ordenes, new MassTransitLicitacionEventPublisher(_publish), _unitOfWork, timeProvider: timeProvider);
 
         return (handler, new AdjudicarCotizacionCommand(licitacionId, cotizacionId), licitacion);
     }

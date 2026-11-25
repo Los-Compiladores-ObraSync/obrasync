@@ -29,7 +29,7 @@ public sealed record ResultadoHerramienta(
 ///    la crea el frontend, con el JWT del usuario, cuando la persona toca Confirmar.
 /// Valida los argumentos ANTES de llamar a la API y devuelve errores estables.
 /// </summary>
-public sealed class HerramientasCatalogo
+public sealed class HerramientasCatalogo : GrupoHerramientasDePerfil, IHerramientasCatalogo
 {
     public const int MaxTextoBusqueda = 60;
     public const int MaxTextoObraEtapa = 100;
@@ -43,6 +43,9 @@ public sealed class HerramientasCatalogo
     /// <summary>Tope de obras que se le devuelven al modelo: alcanza para un Capataz y cuida el cupo de tokens.</summary>
     public const int MaxObrasListadas = 20;
 
+    public static readonly IReadOnlyList<string> Nombres =
+        new[] { BuscarInsumos, ListarObras, ArmarBorrador };
+
     private readonly IBuscadorInsumos _buscador;
     private readonly IBuscadorObras _obras;
 
@@ -51,6 +54,9 @@ public sealed class HerramientasCatalogo
         _buscador = buscador;
         _obras = obras;
     }
+
+    protected override IReadOnlyList<string> HerramientasDelGrupo => Nombres;
+    protected override JsonArray ObtenerDefiniciones() => Definiciones();
 
     /// <summary>Descripción de las herramientas que se le muestran al modelo.</summary>
     public static JsonArray Definiciones() => new()
@@ -150,7 +156,7 @@ public sealed class HerramientasCatalogo
     };
 
     /// <summary>Ejecuta una herramienta pedida por el modelo.</summary>
-    public Task<ResultadoHerramienta> EjecutarAsync(string nombre, string argumentosJson, CancellationToken ct) =>
+    public override Task<ResultadoHerramienta> EjecutarAsync(string nombre, string argumentosJson, CancellationToken ct) =>
         nombre switch
         {
             BuscarInsumos => BuscarInsumosAsync(argumentosJson, ct),
@@ -279,25 +285,25 @@ public sealed class HerramientasCatalogo
         var obras = resObras.Obras!;
 
         if (string.IsNullOrWhiteSpace(textoObra))
-            return ResultadoHerramienta.ErrorConDetalle("obra_requerida", "obras", Nombres(obras.Select(o => o.Nombre)));
+            return ResultadoHerramienta.ErrorConDetalle("obra_requerida", "obras", OpcionesJson(obras.Select(o => o.Nombre)));
 
         var obrasCoinciden = Coincidencias(obras, o => o.Nombre, textoObra);
         if (obrasCoinciden.Count == 0)
-            return ResultadoHerramienta.ErrorConDetalle("obra_no_encontrada", "obras", Nombres(obras.Select(o => o.Nombre)));
+            return ResultadoHerramienta.ErrorConDetalle("obra_no_encontrada", "obras", OpcionesJson(obras.Select(o => o.Nombre)));
         if (obrasCoinciden.Count > 1)
-            return ResultadoHerramienta.ErrorConDetalle("obra_ambigua", "obras", Nombres(obrasCoinciden.Select(o => o.Nombre)));
+            return ResultadoHerramienta.ErrorConDetalle("obra_ambigua", "obras", OpcionesJson(obrasCoinciden.Select(o => o.Nombre)));
         var obra = obrasCoinciden[0];
 
         string? etapa = null;
         if (obra.Etapas.Count > 0)
         {
             if (string.IsNullOrWhiteSpace(textoEtapa))
-                return ResultadoHerramienta.ErrorConDetalle("etapa_requerida", "etapas", Nombres(obra.Etapas));
+                return ResultadoHerramienta.ErrorConDetalle("etapa_requerida", "etapas", OpcionesJson(obra.Etapas));
             var etapasCoinciden = Coincidencias(obra.Etapas, e => e, textoEtapa);
             if (etapasCoinciden.Count == 0)
-                return ResultadoHerramienta.ErrorConDetalle("etapa_no_encontrada", "etapas", Nombres(obra.Etapas));
+                return ResultadoHerramienta.ErrorConDetalle("etapa_no_encontrada", "etapas", OpcionesJson(obra.Etapas));
             if (etapasCoinciden.Count > 1)
-                return ResultadoHerramienta.ErrorConDetalle("etapa_ambigua", "etapas", Nombres(etapasCoinciden));
+                return ResultadoHerramienta.ErrorConDetalle("etapa_ambigua", "etapas", OpcionesJson(etapasCoinciden));
             etapa = etapasCoinciden[0];
         }
 
@@ -416,7 +422,7 @@ public sealed class HerramientasCatalogo
         return lista.Where(x => nombre(x).Contains(texto.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
     }
 
-    private static JsonArray Nombres(IEnumerable<string> nombres)
+    private static JsonArray OpcionesJson(IEnumerable<string> nombres)
     {
         var arr = new JsonArray();
         foreach (var n in nombres.Take(MaxOpciones))

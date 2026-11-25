@@ -21,6 +21,7 @@ using ObraSync.Licitaciones.Application.UseCases.Chat.Commands;
 using ObraSync.Licitaciones.Application.UseCases.Chat.Handlers;
 using ObraSync.Licitaciones.Domain.Entities;
 using ObraSync.Licitaciones.Infrastructure;
+using ObraSync.Licitaciones.Infrastructure.Messaging;
 using Xunit;
 
 namespace ObraSync.Licitaciones.Tests;
@@ -447,7 +448,7 @@ public class RestriccionAdminCalificarCotizarYChatTests : IClassFixture<WebAppli
                 Estado = "Emitida"
             });
 
-        var handler = new EnviarMensajeChatOrdenCommandHandler(ordenRepo, chatRepo, publish, unitOfWork);
+        var handler = new EnviarMensajeChatOrdenCommandHandler(ordenRepo, chatRepo, new MassTransitLicitacionEventPublisher(publish), unitOfWork);
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
             handler.Handle(

@@ -17,7 +17,7 @@ namespace ObraSync.Asistente.Application;
 /// El texto que viene de la base (observaciones, descripciones) se pasa como dato: las instrucciones del agente
 /// le dicen al modelo que ignore cualquier orden que aparezca ahí.
 /// </summary>
-public sealed class HerramientasCompras
+public sealed class HerramientasCompras : GrupoHerramientasDePerfil
 {
     public const string ListarRequisiciones = "listar_requisiciones";
     public const string VerRequisicion = "ver_requisicion";
@@ -51,17 +51,20 @@ public sealed class HerramientasCompras
     private readonly IBuscadorObras _obras;
 
     // Opcional: sin ella la herramienta de presupuesto responde "herramienta_no_disponible" (no se rompe nada más).
-    private readonly HerramientasPresupuestos? _presupuestos;
+    private readonly IConsultaPresupuestoObra? _presupuestos;
 
     public HerramientasCompras(
         IConsultorRequisiciones requisiciones,
         IBuscadorObras obras,
-        HerramientasPresupuestos? presupuestos = null)
+        IConsultaPresupuestoObra? presupuestos = null)
     {
         _requisiciones = requisiciones;
         _obras = obras;
         _presupuestos = presupuestos;
     }
+
+    protected override IReadOnlyList<string> HerramientasDelGrupo => Nombres;
+    protected override JsonArray ObtenerDefiniciones() => Definiciones();
 
     /// <summary>Descripción de las herramientas que se le muestran al modelo.</summary>
     public static JsonArray Definiciones() => new()
@@ -235,7 +238,7 @@ public sealed class HerramientasCompras
     };
 
     /// <summary>Ejecuta una herramienta pedida por el modelo.</summary>
-    public Task<ResultadoHerramienta> EjecutarAsync(string nombre, string argumentosJson, CancellationToken ct) =>
+    public override Task<ResultadoHerramienta> EjecutarAsync(string nombre, string argumentosJson, CancellationToken ct) =>
         nombre switch
         {
             ListarRequisiciones => ListarAsync(argumentosJson, ct),

@@ -175,4 +175,48 @@ public class ExceptionMiddlewareTests
         Assert.DoesNotContain("SuperSecret", cuerpoGen);
         Assert.Contains("Ocurrió un error inesperado en el servidor.", cuerpoGen);
     }
+
+    [Fact]
+    public async Task ArticuloCatalogoNoEncontradoException_Devuelve404ConTituloTipado()
+    {
+        var articuloId = Guid.NewGuid();
+        var (status, _, cuerpo) = await EjecutarAsync(new ArticuloCatalogoNoEncontradoException(articuloId));
+
+        Assert.Equal(StatusCodes.Status404NotFound, status);
+        using var json = JsonDocument.Parse(cuerpo);
+        Assert.Equal("Artículo de catálogo inexistente", json.RootElement.GetProperty("title").GetString());
+        Assert.Contains(articuloId.ToString(), json.RootElement.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task ExceptionMiddleware_PermiteExtenderConMapperPersonalizadoSinModificarMiddleware()
+    {
+        var contexto = new DefaultHttpContext();
+        contexto.Response.Body = new MemoryStream();
+        contexto.Request.Path = "/api/requisiciones";
+
+        var mappers = new IExceptionProblemMapper[]
+        {
+            new DelegateExceptionProblemMapper<TimeoutException>(ex => new Microsoft.AspNetCore.Mvc.ProblemDetails
+            {
+                Status = StatusCodes.Status504GatewayTimeout,
+                Title = "Tiempo de espera agotado",
+                Detail = ex.Message,
+                Type = "https://tools.ietf.org/html/rfc9110#section-15.6.5"
+            })
+        };
+
+        var middleware = new ExceptionMiddleware(
+            _ => throw new TimeoutException("Servicio externo lento."),
+            NullLogger<ExceptionMiddleware>.Instance,
+            mappers);
+
+        await middleware.InvokeAsync(contexto);
+
+        Assert.Equal(StatusCodes.Status504GatewayTimeout, contexto.Response.StatusCode);
+        contexto.Response.Body.Position = 0;
+        var cuerpo = await new StreamReader(contexto.Response.Body).ReadToEndAsync();
+        using var json = JsonDocument.Parse(cuerpo);
+        Assert.Equal("Tiempo de espera agotado", json.RootElement.GetProperty("title").GetString());
+    }
 }

@@ -17,7 +17,7 @@ namespace ObraSync.Asistente.Application;
 /// El texto que viene de la base (nombre del proveedor, descripciones) se pasa como dato, recortado y sin caracteres
 /// de control: las instrucciones del agente le dicen al modelo que ignore cualquier orden que aparezca ahí.
 /// </summary>
-public sealed class HerramientasLicitaciones
+public sealed class HerramientasLicitaciones : GrupoHerramientasDePerfil
 {
     public const string ListarLicitaciones = "listar_licitaciones";
     public const string VerLicitacion = "ver_licitacion";
@@ -49,6 +49,9 @@ public sealed class HerramientasLicitaciones
         _licitaciones = licitaciones;
         _obras = obras;
     }
+
+    protected override IReadOnlyList<string> HerramientasDelGrupo => Nombres;
+    protected override JsonArray ObtenerDefiniciones() => Definiciones();
 
     /// <summary>Descripción de las herramientas que se le muestran al modelo.</summary>
     public static JsonArray Definiciones() => new()
@@ -163,7 +166,7 @@ public sealed class HerramientasLicitaciones
     };
 
     /// <summary>Ejecuta una herramienta pedida por el modelo.</summary>
-    public Task<ResultadoHerramienta> EjecutarAsync(string nombre, string argumentosJson, CancellationToken ct) =>
+    public override Task<ResultadoHerramienta> EjecutarAsync(string nombre, string argumentosJson, CancellationToken ct) =>
         nombre switch
         {
             ListarLicitaciones => ListarAsync(argumentosJson, ct),

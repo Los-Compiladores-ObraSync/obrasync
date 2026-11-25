@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using ObraSync.Recepcion.Api.Controllers;
 using ObraSync.Recepcion.Application.Interfaces;
+using ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
 using ObraSync.Recepcion.Infrastructure.Persistence;
 using RecepcionEntity = ObraSync.Recepcion.Domain.Entities.Recepcion;
 
@@ -21,9 +22,11 @@ public class ObtenerRecepcionesFiltrosTests
     }
 
     private static RecepcionesController CrearController(RecepcionDbContext db) =>
-        new(db,
-            NullLogger<RecepcionesController>.Instance,
-            Substitute.For<IRecepcionEventPublisher>());
+        new(
+            new CrearRecepcionCommandHandler(db, Substitute.For<IRecepcionEventPublisher>(), NullLogger<CrearRecepcionCommandHandler>.Instance),
+            new ObtenerRecepcionesQueryHandler(db),
+            new ObtenerRecepcionPorIdQueryHandler(db),
+            new ObtenerRecepcionesPorOrdenQueryHandler(db));
 
     private static RecepcionEntity CrearRecepcion(Guid id, Guid obraId, Guid ordenCompraId, string remito) =>
         new()

@@ -1,4 +1,3 @@
-using MassTransit;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -14,7 +13,7 @@ namespace ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Handlers;
 public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrdenCompraCommand, OrdenCompraResponseDto>
 {
     private readonly IOrdenCompraRepository _ordenCompraRepository;
-    private readonly IPublishEndpoint _publishEndpoint;
+    private readonly ILicitacionEventPublisher _eventPublisher;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IEstadoPresupuestarioOrden _estadoPresupuestarioOrden;
     private readonly ILicitacionRepository? _licitacionRepository;
@@ -24,7 +23,7 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
 
     public DespacharOrdenCompraCommandHandler(
         IOrdenCompraRepository ordenCompraRepository,
-        IPublishEndpoint publishEndpoint,
+        ILicitacionEventPublisher eventPublisher,
         IUnitOfWork unitOfWork,
         IEstadoPresupuestarioOrden estadoPresupuestarioOrden,
         ILicitacionRepository? licitacionRepository = null,
@@ -33,7 +32,7 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
         IChatOrdenNotifier? chatOrdenNotifier = null)
     {
         _ordenCompraRepository = ordenCompraRepository ?? throw new ArgumentNullException(nameof(ordenCompraRepository));
-        _publishEndpoint = publishEndpoint ?? throw new ArgumentNullException(nameof(publishEndpoint));
+        _eventPublisher = eventPublisher ?? throw new ArgumentNullException(nameof(eventPublisher));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _estadoPresupuestarioOrden = estadoPresupuestarioOrden
             ?? throw new ArgumentNullException(nameof(estadoPresupuestarioOrden));
@@ -123,7 +122,7 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
             EsRedespacho: esRedespacho,
             NumeroDespacho: ordenCompra.NumeroDespacho);
 
-        await _publishEndpoint.Publish<OrdenCompraDespachadaEvent>(evento, cancellationToken);
+        await _eventPublisher.PublishAsync(evento, cancellationToken);
 
         var textoAviso = esRedespacho
             ? (string.IsNullOrWhiteSpace(ordenCompra.Observacion)
@@ -163,7 +162,7 @@ public class DespacharOrdenCompraCommandHandler : IRequestHandler<DespacharOrden
                     Roles: new[] { "Comprador", "Admin", "Capataz" }),
                 Fragmento: fragmento);
 
-            await _publishEndpoint.Publish<MensajeChatEnviadoEvent>(eventoCampanita, cancellationToken);
+            await _eventPublisher.PublishAsync(eventoCampanita, cancellationToken);
         }
 
         // El evento se publica antes de guardar a propósito (#135 / #203): con el outbox transaccional,

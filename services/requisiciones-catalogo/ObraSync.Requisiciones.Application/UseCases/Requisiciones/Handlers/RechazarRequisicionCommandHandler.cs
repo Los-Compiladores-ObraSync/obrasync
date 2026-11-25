@@ -10,7 +10,7 @@ using ObraSync.Requisiciones.Domain.Constants;
 
 namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers
 {
-    public class RechazarRequisicionCommandHandler
+    public class RechazarRequisicionCommandHandler : ICommandHandler<RechazarRequisicionCommand, RequisicionResponseDto>
     {
         private readonly IRequisicionRepository _repository;
 

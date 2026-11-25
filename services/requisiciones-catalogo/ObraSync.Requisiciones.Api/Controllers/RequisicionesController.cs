@@ -6,9 +6,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ObraSync.Requisiciones.Application.DTOs;
+using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Application.Mappings;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Commands;
-using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers;
 using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Queries;
 using ObraSync.Requisiciones.Domain.Constants;
 
@@ -20,22 +20,22 @@ namespace ObraSync.Requisiciones.Api.Controllers;
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
 public class RequisicionesController : ApiControllerBase
 {
-    private readonly CreateRequisicionCommandHandler _createHandler;
-    private readonly GetRequisicionesQueryHandler _getRequisicionesHandler;
-    private readonly GetRequisicionByIdQueryHandler _getByIdHandler;
-    private readonly AprobarRequisicionCommandHandler _aprobarHandler;
-    private readonly RechazarRequisicionCommandHandler _rechazarHandler;
-    private readonly ReenviarRequisicionCommandHandler _reenviarHandler;
-    private readonly CancelarRequisicionCommandHandler _cancelarHandler;
+    private readonly ICommandHandler<CreateRequisicionCommand, RequisicionResponseDto> _createHandler;
+    private readonly IQueryHandler<GetRequisicionesQuery, PaginaDe<RequisicionResponseDto>> _getRequisicionesHandler;
+    private readonly IQueryHandler<GetRequisicionByIdQuery, RequisicionResponseDto> _getByIdHandler;
+    private readonly ICommandHandler<AprobarRequisicionCommand, RequisicionResponseDto> _aprobarHandler;
+    private readonly ICommandHandler<RechazarRequisicionCommand, RequisicionResponseDto> _rechazarHandler;
+    private readonly ICommandHandler<ReenviarRequisicionCommand, RequisicionResponseDto> _reenviarHandler;
+    private readonly ICommandHandler<CancelarRequisicionCommand, RequisicionResponseDto> _cancelarHandler;
 
     public RequisicionesController(
-        CreateRequisicionCommandHandler createHandler,
-        GetRequisicionesQueryHandler getRequisicionesHandler,
-        GetRequisicionByIdQueryHandler getByIdHandler,
-        AprobarRequisicionCommandHandler aprobarHandler,
-        RechazarRequisicionCommandHandler rechazarHandler,
-        ReenviarRequisicionCommandHandler reenviarHandler,
-        CancelarRequisicionCommandHandler cancelarHandler)
+        ICommandHandler<CreateRequisicionCommand, RequisicionResponseDto> createHandler,
+        IQueryHandler<GetRequisicionesQuery, PaginaDe<RequisicionResponseDto>> getRequisicionesHandler,
+        IQueryHandler<GetRequisicionByIdQuery, RequisicionResponseDto> getByIdHandler,
+        ICommandHandler<AprobarRequisicionCommand, RequisicionResponseDto> aprobarHandler,
+        ICommandHandler<RechazarRequisicionCommand, RequisicionResponseDto> rechazarHandler,
+        ICommandHandler<ReenviarRequisicionCommand, RequisicionResponseDto> reenviarHandler,
+        ICommandHandler<CancelarRequisicionCommand, RequisicionResponseDto> cancelarHandler)
     {
         _createHandler = createHandler;
         _getRequisicionesHandler = getRequisicionesHandler;

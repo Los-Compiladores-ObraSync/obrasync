@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ObraSync.Requisiciones.Application.DTOs;
+using ObraSync.Requisiciones.Application.Exceptions;
 using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Domain.Entities;
 
@@ -38,7 +39,7 @@ internal static class CatalogoItemsResolver
         {
             if (!insumosPorId.TryGetValue(item.ArticuloId, out var insumo))
             {
-                throw new KeyNotFoundException($"No se encontró el artículo con Id '{item.ArticuloId}' en el catálogo.");
+                throw new ArticuloCatalogoNoEncontradoException(item.ArticuloId);
             }
 
             if (string.Equals(insumo.UnidadMedida, "BOLSA", StringComparison.OrdinalIgnoreCase)

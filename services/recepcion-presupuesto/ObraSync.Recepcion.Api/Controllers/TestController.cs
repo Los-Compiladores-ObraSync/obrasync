@@ -17,18 +17,18 @@ public class TestController : ControllerBase
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<TestController> _logger;
     private readonly IHostEnvironment? _environment;
-    private readonly IRecepcionDbContext? _dbContext;
+    private readonly IUnitOfWork? _unitOfWork;
 
     public TestController(
         IPublishEndpoint publishEndpoint,
         ILogger<TestController> logger,
         IHostEnvironment? environment = null,
-        IRecepcionDbContext? dbContext = null)
+        IUnitOfWork? unitOfWork = null)
     {
         _publishEndpoint = publishEndpoint;
         _logger = logger;
         _environment = environment;
-        _dbContext = dbContext;
+        _unitOfWork = unitOfWork;
     }
 
     [HttpPost("ordenes-compra-emitidas")]
@@ -92,9 +92,9 @@ public class TestController : ControllerBase
                 await _publishEndpoint.Publish(despachadaEvent, cancellationToken);
             }
 
-            if (_dbContext != null)
+            if (_unitOfWork != null)
             {
-                await _dbContext.SaveChangesAsync(cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
             }
 
             _logger.LogInformation(
@@ -141,9 +141,9 @@ public class TestController : ControllerBase
         try
         {
             await _publishEndpoint.Publish(@event, cancellationToken);
-            if (_dbContext != null)
+            if (_unitOfWork != null)
             {
-                await _dbContext.SaveChangesAsync(cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
             }
 
             _logger.LogInformation(

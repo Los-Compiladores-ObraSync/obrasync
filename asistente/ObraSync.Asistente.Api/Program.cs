@@ -47,14 +47,25 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Application: el agente y su herramienta (uno por pedido, porque dependen del JWT del usuario que escribe).
+// Application: el agente y sus grupos de herramientas (uno por pedido, porque dependen del JWT del usuario que escribe).
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IContextoDePeticion, ContextoDePeticionHttp>();
+
 builder.Services.AddScoped<HerramientasCatalogo>();
+builder.Services.AddScoped<IHerramientasCatalogo>(sp => sp.GetRequiredService<HerramientasCatalogo>());
+builder.Services.AddScoped<IGrupoHerramientas>(sp => sp.GetRequiredService<HerramientasCatalogo>());
+
 builder.Services.AddScoped<HerramientasPresupuestos>();
+builder.Services.AddScoped<IConsultaPresupuestoObra>(sp => sp.GetRequiredService<HerramientasPresupuestos>());
+
 builder.Services.AddScoped<HerramientasCompras>();
+builder.Services.AddScoped<IGrupoHerramientas>(sp => sp.GetRequiredService<HerramientasCompras>());
+
 builder.Services.AddScoped<HerramientasRecepcion>();
+builder.Services.AddScoped<IGrupoHerramientas>(sp => sp.GetRequiredService<HerramientasRecepcion>());
+
 builder.Services.AddScoped<HerramientasLicitaciones>();
+builder.Services.AddScoped<IGrupoHerramientas>(sp => sp.GetRequiredService<HerramientasLicitaciones>());
 
 // Herramientas de solo lectura generadas desde contracts/openapi (#151). APAGADO por defecto: ofrecerlas suma
 // definiciones a cada pedido y gasta el cupo compartido de tokens. Se prende con HerramientasGeneradas__Habilitadas=true.
@@ -64,7 +75,13 @@ var catalogoGenerado = generadasHabilitadas
     ? CatalogoHerramientasGeneradas.CargarDeCarpeta(builder.Configuration["HerramientasGeneradas:Carpeta"] ?? "contratos")
     : Array.Empty<HerramientaGenerada>();
 builder.Services.AddScoped(sp => new HerramientasGeneradas(catalogoGenerado, sp.GetRequiredService<IClienteApiLectura>()));
-builder.Services.AddScoped<Agente>();
+builder.Services.AddScoped<IGrupoHerramientas>(sp => sp.GetRequiredService<HerramientasGeneradas>());
+
+builder.Services.AddScoped<Agente>(sp => new Agente(
+    sp.GetRequiredService<IModeloChat>(),
+    sp.GetServices<IGrupoHerramientas>(),
+    sp.GetService<IContextoDePeticion>(),
+    sp.GetService<IControlConsumo>()));
 // Lectura de remitos por foto (#209): usa el mismo control de consumo que el chat (el cupo es de todo el grupo).
 builder.Services.AddScoped<ServicioLecturaRemito>(sp => new ServicioLecturaRemito(
     sp.GetRequiredService<IExtractorRemito>(), sp.GetRequiredService<IControlConsumo>()));
@@ -120,11 +137,15 @@ builder.Services.AddAsistenteInfrastructure(builder.Configuration);
 // Servidor MCP (#98): expone las MISMAS herramientas (solo lectura) a asistentes de IA externos, por HTTP.
 // Stateless: cada pedido es independiente y no se guardan sesiones (las herramientas no necesitan que el servidor
 // le pregunte nada al cliente). El JWT del cliente viaja en cada pedido y se usa para consultar al Gateway.
+foreach (var politicaMcp in FiltroHerramientasMcpPorRuta.PoliticasPorDefecto)
+    builder.Services.AddSingleton(politicaMcp);
+
 builder.Services
     .AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
     .WithRequestFilters(FiltroHerramientasMcpPorRuta.Configurar)
-    .WithTools<HerramientasMcp>();
+    .WithTools<HerramientasMcp>()
+    .WithTools<HerramientasPresupuestosMcp>();
 
 // Errores en formato RFC 7807 (ProblemDetails) con el correlationId que propaga el Gateway
 builder.Services.AddProblemDetails(options =>
@@ -216,12 +237,12 @@ app.MapGet("/health", (ObraSync.Asistente.Infrastructure.ConfiguracionIA ia) => 
 
 app.MapControllers();
 
-// Las herramientas MCP existentes conservan su autorización original.
-app.MapMcp("/api/mcp").RequireAuthorization(new AuthorizeAttribute { Roles = "Capataz,Admin" });
-
-// Ruta presupuestaria separada: consulta de partidas y OCs bloqueadas (Comprador/Admin, como Recepción).
-app.MapMcp(FiltroHerramientasMcpPorRuta.RutaPresupuestos)
-    .RequireAuthorization(new AuthorizeAttribute { Roles = "Comprador,Admin" });
+// Cada ruta MCP declara sus roles autorizados y su lista blanca de herramientas en PoliticaRutaMcp (OCP).
+foreach (var politicaMcp in app.Services.GetServices<PoliticaRutaMcp>())
+{
+    app.MapMcp(politicaMcp.Ruta)
+        .RequireAuthorization(new AuthorizeAttribute { Roles = politicaMcp.RolesAutorizados });
+}
 
 app.Run();
 

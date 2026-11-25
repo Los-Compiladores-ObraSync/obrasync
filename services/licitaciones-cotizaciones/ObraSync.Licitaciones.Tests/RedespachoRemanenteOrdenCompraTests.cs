@@ -24,6 +24,7 @@ using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Handlers;
 using ObraSync.Licitaciones.Domain.Entities;
 using ObraSync.Licitaciones.Infrastructure;
 using ObraSync.Licitaciones.Infrastructure.Consumers;
+using ObraSync.Licitaciones.Infrastructure.Messaging;
 using Xunit;
 
 namespace ObraSync.Licitaciones.Tests;
@@ -494,7 +495,7 @@ public class RedespachoRemanenteOrdenCompraTests : IClassFixture<WebApplicationF
         var estadoPresupuestario = Substitute.For<ObraSync.Licitaciones.Application.Interfaces.IEstadoPresupuestarioOrden>();
         estadoPresupuestario.EstaBloqueadaAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<bool?>(false));
-        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, publishEndpoint, unitOfWork, estadoPresupuestario);
+        var handler = new DespacharOrdenCompraCommandHandler(ordenRepo, new MassTransitLicitacionEventPublisher(publishEndpoint), unitOfWork, estadoPresupuestario);
 
         await Assert.ThrowsAsync<DbUpdateException>(() =>
             handler.Handle(new DespacharOrdenCompraCommand(ordenId, proveedorId, Guid.NewGuid()), CancellationToken.None));

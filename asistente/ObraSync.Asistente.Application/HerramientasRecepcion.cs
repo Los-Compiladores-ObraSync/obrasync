@@ -11,7 +11,7 @@ namespace ObraSync.Asistente.Application;
 /// Solo recepción total: lo parcial lo rechaza el backend hasta #90. Igual que las otras herramientas, validan
 /// los argumentos ANTES de llamar a la API y devuelven errores estables. El remito NUNCA se inventa: lo da la persona.
 /// </summary>
-public sealed class HerramientasRecepcion
+public sealed class HerramientasRecepcion : GrupoHerramientasDePerfil
 {
     public const string ListarOrdenes = "listar_ordenes_pendientes";
     public const string PrepararRecepcion = "preparar_recepcion";
@@ -34,6 +34,9 @@ public sealed class HerramientasRecepcion
         _recepciones = recepciones;
         _obras = obras;
     }
+
+    protected override IReadOnlyList<string> HerramientasDelGrupo => Nombres;
+    protected override JsonArray ObtenerDefiniciones() => Definiciones();
 
     /// <summary>Descripción de las herramientas que se le muestran al modelo.</summary>
     public static JsonArray Definiciones() => new()
@@ -87,7 +90,7 @@ public sealed class HerramientasRecepcion
     };
 
     /// <summary>Ejecuta una herramienta pedida por el modelo.</summary>
-    public Task<ResultadoHerramienta> EjecutarAsync(string nombre, string argumentosJson, CancellationToken ct) =>
+    public override Task<ResultadoHerramienta> EjecutarAsync(string nombre, string argumentosJson, CancellationToken ct) =>
         nombre switch
         {
             ListarOrdenes => ListarAsync(argumentosJson, ct),

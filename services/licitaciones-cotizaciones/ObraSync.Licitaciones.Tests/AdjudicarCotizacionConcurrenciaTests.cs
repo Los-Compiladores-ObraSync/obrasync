@@ -5,6 +5,7 @@ using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Commands;
 using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Handlers;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Domain.Entities;
+using ObraSync.Licitaciones.Infrastructure.Messaging;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 
@@ -57,7 +58,7 @@ public class AdjudicarCotizacionConcurrenciaTests
             licitacionRepositoryMock.Object,
             cotizacionRepositoryMock.Object,
             ordenCompraRepositoryMock.Object,
-            publishEndpointMock.Object,
+            new MassTransitLicitacionEventPublisher(publishEndpointMock.Object),
             unitOfWorkMock.Object,
             loggerMock.Object
         );

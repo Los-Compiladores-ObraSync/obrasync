@@ -9,6 +9,7 @@ using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Queries;
 using ObraSync.Licitaciones.Domain.Entities;
 using ObraSync.Licitaciones.Infrastructure;
+using ObraSync.Licitaciones.Infrastructure.Messaging;
 using Xunit;
 
 namespace ObraSync.Licitaciones.Tests;
@@ -61,7 +62,7 @@ public class ArreglosFinales136Tests
         _cotizaciones.GetByIdAsync(cotizacionId, Arg.Any<CancellationToken>()).Returns(cotizacion);
 
         var handler = new AdjudicarCotizacionCommandHandler(
-            _licitaciones, _cotizaciones, _ordenes, _publish, _unitOfWork);
+            _licitaciones, _cotizaciones, _ordenes, new MassTransitLicitacionEventPublisher(_publish), _unitOfWork);
 
         return (handler, new AdjudicarCotizacionCommand(licitacionId, cotizacionId));
     }

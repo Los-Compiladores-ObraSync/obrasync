@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.DTOs;
@@ -6,185 +6,92 @@ using ObraSync.Recepcion.Application.Exceptions;
 using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Application.Mappings;
 using ObraSync.Recepcion.Application.UseCases.Recepciones.Commands;
-using ObraSync.Recepcion.Domain.Constants;
+using ObraSync.Recepcion.Application.UseCases.Recepciones.Validators;
 using ObraSync.Recepcion.Domain.Entities;
 using ObraSync.Recepcion.Domain.Enums;
 using ObraSync.Recepcion.Domain.Presupuestos;
-using ObraSync.Recepcion.Domain.Recepciones;
 using DetalleRecepcionEntity = ObraSync.Recepcion.Domain.Entities.DetalleRecepcion;
 using RecepcionEntity = ObraSync.Recepcion.Domain.Entities.Recepcion;
 
 namespace ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
 
-public class CrearRecepcionCommandHandler
+public class CrearRecepcionCommandHandler : ICommandHandler<CrearRecepcionCommand, RecepcionDto>
 {
-    private readonly IRecepcionDbContext _context;
+    private readonly IOrdenCompraRepository _ordenCompraRepository;
+    private readonly IRecepcionRepository _recepcionRepository;
+    private readonly IPartidaPresupuestariaRepository _partidaRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IRecepcionEventPublisher _eventPublisher;
     private readonly ILogger<CrearRecepcionCommandHandler> _logger;
+    private readonly ICrearRecepcionCommandValidator _validator;
 
+    [ActivatorUtilitiesConstructor]
     public CrearRecepcionCommandHandler(
-        IRecepcionDbContext context,
+        IOrdenCompraRepository ordenCompraRepository,
+        IRecepcionRepository recepcionRepository,
+        IPartidaPresupuestariaRepository partidaRepository,
+        IUnitOfWork unitOfWork,
         IRecepcionEventPublisher eventPublisher,
-        ILogger<CrearRecepcionCommandHandler> logger)
+        ILogger<CrearRecepcionCommandHandler> logger,
+        ICrearRecepcionCommandValidator? validator = null)
     {
-        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _ordenCompraRepository = ordenCompraRepository ?? throw new ArgumentNullException(nameof(ordenCompraRepository));
+        _recepcionRepository = recepcionRepository ?? throw new ArgumentNullException(nameof(recepcionRepository));
+        _partidaRepository = partidaRepository ?? throw new ArgumentNullException(nameof(partidaRepository));
+        _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _eventPublisher = eventPublisher ?? throw new ArgumentNullException(nameof(eventPublisher));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _validator = validator ?? new CrearRecepcionCommandValidator();
+    }
+
+    public CrearRecepcionCommandHandler(
+        IRecepcionPersistenceContext persistenceContext,
+        IRecepcionEventPublisher eventPublisher,
+        ILogger<CrearRecepcionCommandHandler> logger,
+        ICrearRecepcionCommandValidator? validator = null)
+        : this(
+            persistenceContext ?? throw new ArgumentNullException(nameof(persistenceContext)),
+            persistenceContext,
+            persistenceContext,
+            persistenceContext,
+            eventPublisher,
+            logger,
+            validator)
+    {
     }
 
     public async Task<RecepcionDto> Handle(
         CrearRecepcionCommand command,
         CancellationToken cancellationToken = default)
     {
-        if (command.UsuarioId == Guid.Empty)
-        {
-            throw new ArgumentException("El usuario que registra la recepción es obligatorio.");
-        }
+        var entradaValidada = _validator.ValidarEntrada(command);
+        bool esEntregaConProblema = entradaValidada.EsEntregaConProblema;
+        string? motivoNormalizado = entradaValidada.MotivoNormalizado;
+        var fotosValidadas = entradaValidada.FotosValidadas ?? Array.Empty<FotoEvidenciaValidada>();
 
-        if (command.ObraId == Guid.Empty ||
-            command.OrdenCompraId == Guid.Empty)
-        {
-            throw new ArgumentException("La obra y la orden de compra son obligatorias.");
-        }
+        var ordenCompra = await _ordenCompraRepository.ObtenerPorIdAsync(
+            command.OrdenCompraId,
+            cancellationToken);
 
-        if (command.Estado.HasValue && command.Estado.Value != EstadoRecepcion.Rechazada)
-        {
-            throw new ArgumentException("Solo se permite indicar explícitamente el estado Rechazada (4) para entregas con problema.");
-        }
-
-        bool esEntregaConProblema = command.Estado == EstadoRecepcion.Rechazada;
-        string? motivoNormalizado = null;
-
-        if (esEntregaConProblema)
-        {
-            motivoNormalizado = MotivosProblemaRecepcion.Normalizar(command.MotivoProblema);
-            if (motivoNormalizado is null)
-            {
-                throw new ArgumentException(
-                    $"El motivo del problema es obligatorio y debe ser uno de: {string.Join(", ", MotivosProblemaRecepcion.Permitidos)}.");
-            }
-        }
-        else
-        {
-            if (!string.IsNullOrWhiteSpace(command.MotivoProblema))
-            {
-                throw new ArgumentException("El motivo de problema solo puede informarse cuando el estado de la recepción es Rechazada.");
-            }
-
-            if (command.Fotos is { Count: > 0 })
-            {
-                throw new ArgumentException("Solo se pueden adjuntar fotos de evidencia en entregas con problema (Rechazada).");
-            }
-        }
-
-        if (esEntregaConProblema)
-        {
-            if (!string.IsNullOrWhiteSpace(command.NumeroRemito) && command.NumeroRemito.Trim().Length > 50)
-            {
-                throw new ArgumentException("El número de remito no puede superar los 50 caracteres.");
-            }
-        }
-        else
-        {
-            if (string.IsNullOrWhiteSpace(command.NumeroRemito) ||
-                command.NumeroRemito.Length > 50)
-            {
-                throw new ArgumentException("El número de remito es obligatorio y no puede superar los 50 caracteres.");
-            }
-        }
-
-        if (command.FechaRecepcion == default)
-        {
-            throw new ArgumentException("La fecha de recepción es obligatoria.");
-        }
-
-        // Se permite un día de tolerancia por la diferencia horaria con UTC.
-        DateTime fechaMaximaPermitida = DateTime.UtcNow.Date.AddDays(1);
-
-        if (command.FechaRecepcion.Date > fechaMaximaPermitida)
-        {
-            throw new ArgumentException("La fecha de recepcion no puede ser futura.");
-        }
-
-        if (command.Observaciones?.Length > 500)
-        {
-            throw new ArgumentException("Las observaciones no pueden superar los 500 caracteres.");
-        }
-
-        if (!esEntregaConProblema && (command.Detalles == null || command.Detalles.Count == 0))
-        {
-            throw new ArgumentException("La recepción debe incluir al menos un material.");
-        }
-
-        var fotosValidadas = new List<(string ContentType, string NombreArchivo, byte[] Contenido)>();
-        if (command.Fotos is { Count: > 0 })
-        {
-            if (command.Fotos.Count > ValidadorFotoEvidencia.MaxFotosPorRecepcion)
-            {
-                throw new ArgumentException($"Se permiten como máximo {ValidadorFotoEvidencia.MaxFotosPorRecepcion} fotos por entrega con problema.");
-            }
-
-            foreach (var fotoEntrada in command.Fotos)
-            {
-                var (contentType, nombreSaneado) = ValidadorFotoEvidencia.Validar(
-                    fotoEntrada.Contenido,
-                    fotoEntrada.NombreArchivo);
-
-                fotosValidadas.Add((contentType, nombreSaneado, fotoEntrada.Contenido));
-            }
-        }
-
-        var ordenCompra = await _context.OrdenesCompra
-            .Include(o => o.Items)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(
-                o => o.Id == command.OrdenCompraId,
-                cancellationToken);
-
-        if (ordenCompra == null)
-        {
-            throw new ArgumentException("La orden de compra no existe.");
-        }
-
-        if (ordenCompra.ObraId != command.ObraId)
-        {
-            throw new ArgumentException("La orden de compra no pertenece a la obra indicada.");
-        }
-
-        if (ordenCompra.Estado == EstadoOrdenCompra.Bloqueada)
-        {
-            throw new RecepcionConflictoException("La orden de compra se encuentra bloqueada por desvío presupuestario y no permite recepciones.");
-        }
-
-        if (!ordenCompra.EstaDespachada)
-        {
-            throw new RecepcionConflictoException("La orden de compra todavía no fue despachada");
-        }
+        _validator.ValidarOrdenCompra(command, ordenCompra);
 
         // Si la última entrega se marcó con un problema, la orden volvió al proveedor: el capataz no puede
         // registrar nada más hasta que el proveedor despache de nuevo.
-        var ultimaRecepcion = await _context.Recepciones
-            .AsNoTracking()
-            .Where(r => r.OrdenCompraId == command.OrdenCompraId)
-            .OrderByDescending(r => r.CreatedAt)
-            .ThenByDescending(r => r.FechaRecepcion)
-            .ThenByDescending(r => r.Id)
-            .Select(r => new { r.Estado, r.CreatedAt })
-            .FirstOrDefaultAsync(cancellationToken);
+        var ultimaRecepcion = await _recepcionRepository.ObtenerUltimaRecepcionResumenAsync(
+            command.OrdenCompraId,
+            cancellationToken);
 
         if (ultimaRecepcion is not null
-            && ultimaRecepcion.Estado == EstadoRecepcion.Rechazada
-            && ordenCompra.EsperaNuevoDespachoTras(ultimaRecepcion.CreatedAt))
+            && ultimaRecepcion.Value.Estado == EstadoRecepcion.Rechazada
+            && ordenCompra.EsperaNuevoDespachoTras(ultimaRecepcion.Value.CreatedAt))
         {
             throw new RecepcionConflictoException(
                 "La entrega se marcó con un problema y volvió al proveedor: hasta que la despache de nuevo no se puede registrar otra recepción.");
         }
 
-        bool yaRecibida = await _context.Recepciones
-            .AnyAsync(
-                r => r.OrdenCompraId == command.OrdenCompraId &&
-                     r.Estado == EstadoRecepcion.Completa,
-                cancellationToken);
+        bool yaRecibida = await _recepcionRepository.ExisteRecepcionCompletaAsync(
+            command.OrdenCompraId,
+            cancellationToken);
 
         if (yaRecibida)
         {
@@ -195,28 +102,19 @@ public class CrearRecepcionCommandHandler
             ? $"PROB-{Guid.NewGuid():N}"[..21]
             : command.NumeroRemito.Trim();
 
-        bool remitoRepetido = await _context.Recepciones
-            .AnyAsync(
-                r => r.OrdenCompraId == command.OrdenCompraId &&
-                     r.NumeroRemito == numeroRemito,
-                cancellationToken);
+        bool remitoRepetido = await _recepcionRepository.ExisteNumeroRemitoAsync(
+            command.OrdenCompraId,
+            numeroRemito,
+            cancellationToken);
 
         if (remitoRepetido)
         {
             throw new RecepcionConflictoException("Ya existe una recepción con ese número de remito para esta orden de compra.");
         }
 
-        var recibidosPrevios = await _context.Recepciones
-            .AsNoTracking()
-            .Where(r => r.OrdenCompraId == command.OrdenCompraId &&
-                        r.Estado != EstadoRecepcion.Rechazada)
-            .SelectMany(r => r.Detalles.Select(d => new { d.ArticuloId, d.CantidadRecibida }))
-            .GroupBy(d => d.ArticuloId)
-            .Select(g => new { ArticuloId = g.Key, Total = g.Sum(d => d.CantidadRecibida) })
-            .ToListAsync(cancellationToken);
-
-        var recibidoPrevioPorArticulo = recibidosPrevios
-            .ToDictionary(x => x.ArticuloId, x => x.Total);
+        var recibidoPrevioPorArticulo = await _recepcionRepository.ObtenerCantidadesRecibidasPorArticuloAsync(
+            command.OrdenCompraId,
+            cancellationToken);
 
         var saldosPendientes = ordenCompra.CalcularSaldosPendientes(recibidoPrevioPorArticulo);
 
@@ -259,64 +157,14 @@ public class CrearRecepcionCommandHandler
         }
         else
         {
-            if (command.Detalles!.Count != ordenCompra.Items.Count)
-            {
-                throw new ArgumentException("La recepción debe incluir todos los materiales de la orden de compra.");
-            }
+            _validator.ValidarDetalles(command.Detalles!, ordenCompra, saldosPendientes, esEntregaConProblema);
 
-            bool articulosRepetidos = command.Detalles
-                .GroupBy(d => d.ArticuloId)
-                .Any(grupo => grupo.Count() > 1);
-
-            if (articulosRepetidos)
-            {
-                throw new ArgumentException("No se puede incluir un mismo artículo más de una vez.");
-            }
-
-            foreach (var detalleRequest in command.Detalles)
+            foreach (var detalleRequest in command.Detalles!)
             {
                 var articuloComprado = ordenCompra.Items
-                    .FirstOrDefault(i => i.ArticuloId == detalleRequest.ArticuloId);
+                    .First(i => i.ArticuloId == detalleRequest.ArticuloId);
 
-                if (articuloComprado == null)
-                {
-                    throw new ArgumentException("Uno de los artículos no pertenece a la orden de compra.");
-                }
-
-                decimal cantidadPendiente = saldosPendientes.GetValueOrDefault(detalleRequest.ArticuloId, 0m);
-
-                if (detalleRequest.CantidadEsperada != articuloComprado.Cantidad &&
-                    detalleRequest.CantidadEsperada != cantidadPendiente)
-                {
-                    throw new ArgumentException("La cantidad esperada no coincide con la orden de compra.");
-                }
-
-                if (detalleRequest.CantidadRecibida < 0)
-                {
-                    throw new ArgumentException("La cantidad recibida no puede ser negativa.");
-                }
-
-                if (string.Equals(articuloComprado.UnidadMedida, "BOLSA", StringComparison.OrdinalIgnoreCase)
-                    && detalleRequest.CantidadRecibida != decimal.Truncate(detalleRequest.CantidadRecibida))
-                {
-                    throw new ArgumentException("Las bolsas se reciben en cantidades enteras: no se pueden recibir fracciones de bolsa.");
-                }
-
-                if (detalleRequest.CantidadRecibida > cantidadPendiente)
-                {
-                    throw new ArgumentException("La cantidad recibida acumulada supera la cantidad pedida en la orden de compra.");
-                }
-
-                if (string.IsNullOrWhiteSpace(detalleRequest.DescripcionArticulo) ||
-                    detalleRequest.DescripcionArticulo.Length > 250 ||
-                    string.IsNullOrWhiteSpace(detalleRequest.UnidadMedida) ||
-                    detalleRequest.UnidadMedida.Length > 20 ||
-                    detalleRequest.Observacion?.Length > 500)
-                {
-                    throw new ArgumentException("Los datos de uno de los materiales no son válidos.");
-                }
-
-                var detalle = new DetalleRecepcionEntity
+                recepcion.Detalles.Add(new DetalleRecepcionEntity
                 {
                     Id = Guid.NewGuid(),
                     RecepcionId = recepcionId,
@@ -328,15 +176,8 @@ public class CrearRecepcionCommandHandler
                     Conforme = detalleRequest.Conforme,
                     Observacion = detalleRequest.Observacion,
                     CreatedAt = ahora
-                };
-
-                recepcion.Detalles.Add(detalle);
+                });
             }
-        }
-
-        if (!esEntregaConProblema && recepcion.Detalles.Sum(d => d.CantidadRecibida) <= 0)
-        {
-            throw new ArgumentException("La recepción debe registrar una cantidad recibida mayor a cero en al menos un material.");
         }
 
         var correlationId = command.CorrelationId != Guid.Empty
@@ -349,21 +190,21 @@ public class CrearRecepcionCommandHandler
 
             for (int i = 0; i < fotosValidadas.Count; i++)
             {
-                var (contentType, nombreArchivo, contenido) = fotosValidadas[i];
+                var foto = fotosValidadas[i];
                 recepcion.Fotos.Add(new FotoRecepcion
                 {
                     Id = Guid.NewGuid(),
                     RecepcionId = recepcionId,
-                    NombreArchivo = nombreArchivo,
-                    ContentType = contentType,
-                    TamanoBytes = contenido.LongLength,
-                    Contenido = contenido,
+                    NombreArchivo = foto.NombreArchivo,
+                    ContentType = foto.ContentType,
+                    TamanoBytes = foto.Contenido.LongLength,
+                    Contenido = foto.Contenido,
                     Orden = i + 1,
                     CreatedAt = ahora
                 });
             }
 
-            _context.Recepciones.Add(recepcion);
+            _recepcionRepository.AgregarRecepcion(recepcion);
 
             // Entrega con problema (#217): NO toca remanente ni presupuesto; publica RecepcionConProblemaEvent
             // ANTES de SaveChangesAsync para enrolar en el Outbox transaccional de MassTransit (#171).
@@ -385,7 +226,7 @@ public class CrearRecepcionCommandHandler
 
             recepcion.CambiarEstado(estadoFinal);
 
-            _context.Recepciones.Add(recepcion);
+            _recepcionRepository.AgregarRecepcion(recepcion);
 
             if (!ordenCompra.SinPartidaPresupuestaria)
             {
@@ -394,9 +235,9 @@ public class CrearRecepcionCommandHandler
 
                 if (montoRecibido > 0)
                 {
-                    var partidasObra = await _context.PartidasPresupuestarias
-                        .Where(p => p.ObraId == ordenCompra.ObraId)
-                        .ToListAsync(cancellationToken);
+                    var partidasObra = await _partidaRepository.ObtenerPartidasPorObraParaActualizarAsync(
+                        ordenCompra.ObraId,
+                        cancellationToken);
 
                     var partida = EmparejadorPartidaPresupuestaria.BuscarPartida(partidasObra, ordenCompra.Etapa);
                     if (partida is not null)
@@ -413,34 +254,18 @@ public class CrearRecepcionCommandHandler
 
         try
         {
-            await _context.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (ConcurrenciaPersistenciaException)
         {
             throw new RecepcionConflictoException("La partida presupuestaria o la orden de compra fue modificada concurrentemente. Reintentá la operación.");
         }
-        catch (DbUpdateException ex) when (EsViolacionDeIndiceUnico(ex))
+        catch (IndiceUnicoPersistenciaException)
         {
             throw new RecepcionConflictoException("La orden de compra ya fue recibida o el número de remito está repetido.");
         }
 
+        _logger.LogDebug("Recepción {RecepcionId} registrada para OrdenCompra {OrdenCompraId}.", recepcion.Id, recepcion.OrdenCompraId);
         return recepcion.ToDto();
-    }
-
-    private static bool EsViolacionDeIndiceUnico(DbUpdateException ex)
-    {
-        var inner = ex.InnerException;
-        if (inner == null)
-        {
-            return false;
-        }
-
-        if (inner.GetType().Name == "SqlException" &&
-            inner.GetType().GetProperty("Number")?.GetValue(inner) is int sqlNumber)
-        {
-            return sqlNumber == 2601 || sqlNumber == 2627;
-        }
-
-        return false;
     }
 }

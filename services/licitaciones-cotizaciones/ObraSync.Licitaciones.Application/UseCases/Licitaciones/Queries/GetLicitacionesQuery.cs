@@ -1,3 +1,4 @@
+using MediatR;
 using ObraSync.Licitaciones.Application.DTOs;
 
 namespace ObraSync.Licitaciones.Application.UseCases.Licitaciones.Queries;
@@ -8,4 +9,4 @@ public record GetLicitacionesQuery(
     string? RolUsuario = null,
     // Id del usuario (claim 'sub') cuando es Proveedor: sirve para marcar qué pliegos ya cotizó.
     Guid? ProveedorId = null,
-    ParametrosPagina? Paginacion = null);
+    ParametrosPagina? Paginacion = null) : IRequest<PaginaDe<LicitacionResponseDto>>;

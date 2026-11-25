@@ -1,24 +1,36 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.DTOs;
 using ObraSync.Recepcion.Application.Exceptions;
+using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Application.UseCases.Recepciones.Commands;
 using ObraSync.Recepcion.Domain.Presupuestos;
 
 namespace ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
 
-public class LiberarOrdenCompraCommandHandler
+public class LiberarOrdenCompraCommandHandler : ICommandHandler<LiberarOrdenCompraCommand, OrdenCompraLiberadaDto>
 {
-    private readonly IRecepcionDbContext _context;
+    private readonly IOrdenCompraRepository _ordenCompraRepository;
+    private readonly IPartidaPresupuestariaRepository _partidaRepository;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public LiberarOrdenCompraCommandHandler(IRecepcionDbContext context)
+    [ActivatorUtilitiesConstructor]
+    public LiberarOrdenCompraCommandHandler(
+        IOrdenCompraRepository ordenCompraRepository,
+        IPartidaPresupuestariaRepository partidaRepository,
+        IUnitOfWork unitOfWork)
     {
-        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _ordenCompraRepository = ordenCompraRepository ?? throw new ArgumentNullException(nameof(ordenCompraRepository));
+        _partidaRepository = partidaRepository ?? throw new ArgumentNullException(nameof(partidaRepository));
+        _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+    }
+
+    public LiberarOrdenCompraCommandHandler(IRecepcionPersistenceContext persistenceContext)
+        : this(
+            persistenceContext ?? throw new ArgumentNullException(nameof(persistenceContext)),
+            persistenceContext,
+            persistenceContext)
+    {
     }
 
     public async Task<OrdenCompraLiberadaDto> Handle(
@@ -34,8 +46,7 @@ public class LiberarOrdenCompraCommandHandler
         if (command.UsuarioId == Guid.Empty)
             throw new ArgumentException("El usuario administrador que libera la orden es obligatorio.", nameof(command.UsuarioId));
 
-        var ordenCompra = await _context.OrdenesCompra
-            .FirstOrDefaultAsync(o => o.Id == command.OrdenCompraId, cancellationToken);
+        var ordenCompra = await _ordenCompraRepository.ObtenerParaActualizarAsync(command.OrdenCompraId, cancellationToken);
 
         if (ordenCompra is null)
         {
@@ -46,9 +57,9 @@ public class LiberarOrdenCompraCommandHandler
         ordenCompra.Liberar(command.UsuarioId, command.Motivo);
 
         // Decisión #154 (#96): al liberar una OC bloqueada, se compromete su monto en la partida de su (ObraId, Etapa)
-        var partidasObra = await _context.PartidasPresupuestarias
-            .Where(p => p.ObraId == ordenCompra.ObraId)
-            .ToListAsync(cancellationToken);
+        var partidasObra = await _partidaRepository.ObtenerPartidasPorObraParaActualizarAsync(
+            ordenCompra.ObraId,
+            cancellationToken);
 
         var partida = EmparejadorPartidaPresupuestaria.BuscarPartida(partidasObra, ordenCompra.Etapa);
         if (partida is not null)
@@ -59,9 +70,9 @@ public class LiberarOrdenCompraCommandHandler
 
         try
         {
-            await _context.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (ConcurrenciaPersistenciaException)
         {
             throw new RecepcionConflictoException(
                 "La partida presupuestaria fue modificada simultáneamente por otra operación. Reintentá la liberación.");

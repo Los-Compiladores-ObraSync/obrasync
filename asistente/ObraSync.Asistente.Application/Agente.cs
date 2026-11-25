@@ -73,17 +73,29 @@ public sealed class Agente
         AvisoHistorialNoConfiable;
 
     private readonly IModeloChat _modelo;
-    private readonly HerramientasCatalogo _herramientas;
-    private readonly HerramientasCompras? _compras;
-    private readonly HerramientasRecepcion? _recepciones;
-    private readonly HerramientasLicitaciones? _licitaciones;
+    private readonly IReadOnlyList<IGrupoHerramientas> _grupos;
     private readonly IContextoDePeticion? _contexto;
     private readonly IControlConsumo? _consumo;
-    private readonly HerramientasGeneradas? _generadas;
+
+    /// <summary>
+    /// Constructor principal (DIP y OCP): depende solo de abstracciones y opera de forma polimórfica
+    /// sobre los grupos de herramientas registrados, sin conocer clases concretas.
+    /// </summary>
+    public Agente(
+        IModeloChat modelo,
+        IEnumerable<IGrupoHerramientas> grupos,
+        IContextoDePeticion? contexto = null,
+        IControlConsumo? consumo = null)
+    {
+        _modelo = modelo;
+        _grupos = grupos.ToList();
+        _contexto = contexto;
+        _consumo = consumo;
+    }
 
     /// <summary>
     /// "compras", "contexto" y "consumo" son opcionales: sin contexto se atiende como Capataz (el comportamiento de la primera versión).
-    /// En la aplicación real el contenedor de dependencias los entrega siempre.
+    /// Conserva compatibilidad hacia atrás con las pruebas existentes delegando en el constructor principal.
     /// </summary>
     public Agente(
         IModeloChat modelo,
@@ -94,15 +106,31 @@ public sealed class Agente
         HerramientasRecepcion? recepciones = null,
         HerramientasLicitaciones? licitaciones = null,
         HerramientasGeneradas? generadas = null)
+        : this(
+            modelo,
+            ArmarGruposCompatibles(herramientas, compras, recepciones, licitaciones, generadas),
+            contexto,
+            consumo)
     {
-        _generadas = generadas;
-        _modelo = modelo;
-        _herramientas = herramientas;
-        _compras = compras;
-        _recepciones = recepciones;
-        _licitaciones = licitaciones;
-        _contexto = contexto;
-        _consumo = consumo;
+    }
+
+    private static IReadOnlyList<IGrupoHerramientas> ArmarGruposCompatibles(
+        HerramientasCatalogo? herramientas,
+        HerramientasCompras? compras,
+        HerramientasRecepcion? recepciones,
+        HerramientasLicitaciones? licitaciones,
+        HerramientasGeneradas? generadas)
+    {
+        var grupos = new List<IGrupoHerramientas>(5)
+        {
+            herramientas ?? (IGrupoHerramientas)new GrupoHerramientasNoDisponible(HerramientasCatalogo.Nombres, HerramientasCatalogo.Definiciones),
+            compras ?? (IGrupoHerramientas)new GrupoHerramientasNoDisponible(HerramientasCompras.Nombres, HerramientasCompras.Definiciones),
+            recepciones ?? (IGrupoHerramientas)new GrupoHerramientasNoDisponible(HerramientasRecepcion.Nombres, HerramientasRecepcion.Definiciones),
+            licitaciones ?? (IGrupoHerramientas)new GrupoHerramientasNoDisponible(HerramientasLicitaciones.Nombres, HerramientasLicitaciones.Definiciones)
+        };
+        if (generadas is not null)
+            grupos.Add(generadas);
+        return grupos;
     }
 
     /// <summary>Limpia el historial que manda el cliente: descarta roles que no sean "usuario" o "asistente" y textos vacíos,
@@ -184,10 +212,7 @@ public sealed class Agente
 
         var defs = DefinicionesDe(perfil);
         int llamadas = 0, tokens = 0, iteracion = 0;
-        BorradorRequisicion? borrador = null;
-        BorradorAprobacion? aprobacion = null;
-        BorradorRecepcion? recepcion = null;
-        BorradorAdjudicacion? adjudicacion = null;
+        var borradores = AcumuladorBorradores.Vacio;
 
         try
         {
@@ -203,9 +228,9 @@ public sealed class Agente
                 if (pedidos is null || pedidos.Count == 0)
                 {
                     var texto = r.Mensaje["content"]?.GetValue<string>() ?? "";
-                    if (string.IsNullOrWhiteSpace(texto) && (borrador is not null || aprobacion is not null || recepcion is not null || adjudicacion is not null))
+                    if (string.IsNullOrWhiteSpace(texto) && borradores.TieneAlguno)
                         texto = "Armé el borrador. Revisalo y, si está bien, tocá Confirmar.";
-                    return new RespuestaAgente(true, texto, null, iteracion, llamadas, tokens, borrador, aprobacion, recepcion, adjudicacion);
+                    return borradores.CrearRespuesta(texto, iteracion, llamadas, tokens);
                 }
 
                 // Hay que devolver el mensaje del modelo tal cual antes de las respuestas de herramienta.
@@ -223,14 +248,7 @@ public sealed class Agente
                     llamadas++;
 
                     var res = await EjecutarAsync(perfil, nombre, args, limite.Token);
-                    if (res.Borrador is not null)
-                        borrador = res.Borrador;
-                    if (res.Aprobacion is not null)
-                        aprobacion = res.Aprobacion;
-                    if (res.Recepcion is not null)
-                        recepcion = res.Recepcion;
-                    if (res.Adjudicacion is not null)
-                        adjudicacion = res.Adjudicacion;
+                    borradores = borradores.Acumular(res);
                     mensajes.Add(new JsonObject
                     {
                         ["role"] = "tool",
@@ -257,20 +275,18 @@ public sealed class Agente
         return Falla("demasiadas_iteraciones", MaxIteraciones, llamadas, tokens);
     }
 
-    /// <summary>Solo se le muestran al modelo las herramientas de su perfil.</summary>
+    /// <summary>Solo se le muestran al modelo las herramientas que cada grupo habilita para su perfil.</summary>
     private JsonArray DefinicionesDe(PerfilAsistente perfil)
     {
         var defs = new JsonArray();
-        foreach (var d in HerramientasCatalogo.Definiciones().Concat(HerramientasCompras.Definiciones()).Concat(HerramientasRecepcion.Definiciones()).Concat(HerramientasLicitaciones.Definiciones()))
+        foreach (var grupo in _grupos)
         {
-            var nombre = d?["function"]?["name"]?.GetValue<string>();
-            if (nombre is not null && perfil.Herramientas.Contains(nombre))
-                defs.Add(d!.DeepClone());
+            foreach (var d in grupo.DefinicionesPara(perfil))
+            {
+                if (d is not null)
+                    defs.Add(d.DeepClone());
+            }
         }
-        // Las generadas desde el contrato (#151): solo las que el contrato permite a este rol. Sin catálogo no suma nada.
-        if (_generadas is not null)
-            foreach (var d in _generadas.DefinicionesPara(perfil.Rol))
-                defs.Add(d!.DeepClone());
         return defs;
     }
 
@@ -280,31 +296,13 @@ public sealed class Agente
     /// </summary>
     private Task<ResultadoHerramienta> EjecutarAsync(PerfilAsistente perfil, string nombre, string argumentos, CancellationToken ct)
     {
-        if (_generadas is not null && _generadas.EsGenerada(nombre))
-            return _generadas.EjecutarAsync(perfil.Rol, nombre, argumentos, ct);
-
-        var esDeCatalogo = nombre is HerramientasCatalogo.BuscarInsumos or HerramientasCatalogo.ArmarBorrador or HerramientasCatalogo.ListarObras;
-        var esDeCompras = HerramientasCompras.Nombres.Contains(nombre);
-        var esDeRecepcion = HerramientasRecepcion.Nombres.Contains(nombre);
-        var esDeLicitaciones = HerramientasLicitaciones.Nombres.Contains(nombre);
-
-        if (!esDeCatalogo && !esDeCompras && !esDeRecepcion && !esDeLicitaciones)
+        var grupo = _grupos.FirstOrDefault(g => g.Contiene(nombre));
+        if (grupo is null)
             return Task.FromResult(ResultadoHerramienta.Error("herramienta_desconocida"));
-        if (!perfil.Herramientas.Contains(nombre))
+        if (!grupo.PermiteRol(perfil, nombre))
             return Task.FromResult(ResultadoHerramienta.Error("herramienta_no_permitida"));
-        if (esDeLicitaciones)
-            return _licitaciones is null
-                ? Task.FromResult(ResultadoHerramienta.Error("herramienta_no_disponible"))
-                : _licitaciones.EjecutarAsync(nombre, argumentos, ct);
-        if (esDeRecepcion)
-            return _recepciones is null
-                ? Task.FromResult(ResultadoHerramienta.Error("herramienta_no_disponible"))
-                : _recepciones.EjecutarAsync(nombre, argumentos, ct);
-        if (esDeCompras)
-            return _compras is null
-                ? Task.FromResult(ResultadoHerramienta.Error("herramienta_no_disponible"))
-                : _compras.EjecutarAsync(nombre, argumentos, ct);
-        return _herramientas.EjecutarAsync(nombre, argumentos, ct);
+
+        return grupo.EjecutarAsync(perfil, nombre, argumentos, ct);
     }
 
     private static RespuestaAgente Falla(string codigo, int iteraciones, int llamadas, int tokens) =>

@@ -1,29 +1,23 @@
-using System;
-using Microsoft.EntityFrameworkCore;
 using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.DTOs;
-using ObraSync.Recepcion.Application.Mappings;
+using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Application.UseCases.Partidas.Queries;
 
 namespace ObraSync.Recepcion.Application.UseCases.Partidas.Handlers;
 
-public class ObtenerPartidaPorIdQueryHandler
+public class ObtenerPartidaPorIdQueryHandler : IQueryHandler<ObtenerPartidaPorIdQuery, PartidaPresupuestariaDto?>
 {
-    private readonly IRecepcionDbContext _context;
+    private readonly IPartidaQueries _queries;
 
-    public ObtenerPartidaPorIdQueryHandler(IRecepcionDbContext context)
+    public ObtenerPartidaPorIdQueryHandler(IPartidaQueries queries)
     {
-        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _queries = queries ?? throw new ArgumentNullException(nameof(queries));
     }
 
-    public async Task<PartidaPresupuestariaDto?> Handle(
+    public Task<PartidaPresupuestariaDto?> Handle(
         ObtenerPartidaPorIdQuery query,
         CancellationToken cancellationToken = default)
     {
-        var p = await _context.PartidasPresupuestarias
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == query.Id, cancellationToken);
-
-        return p?.ToDto();
+        return _queries.ObtenerPartidaPorIdAsync(query.Id, cancellationToken);
     }
 }

@@ -27,6 +27,13 @@ public class OrdenCompraRepository : IOrdenCompraRepository
             .FirstOrDefaultAsync(o => o.Id == ordenCompraId, cancellationToken);
     }
 
+    public async Task<OrdenCompra?> ObtenerConItemsParaActualizarAsync(Guid ordenCompraId, CancellationToken cancellationToken = default)
+    {
+        return await _context.OrdenesCompra
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.Id == ordenCompraId, cancellationToken);
+    }
+
     public async Task<bool> ExisteAsync(Guid ordenCompraId, CancellationToken cancellationToken = default)
     {
         return await _context.OrdenesCompra

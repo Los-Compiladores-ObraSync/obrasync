@@ -120,7 +120,7 @@ public class CrearRecepcionCommandHandlerTests
     [Fact]
     public async Task Handle_UsuarioIdVacio_LanzaArgumentExceptionSinConsultarDbNiPublicar()
     {
-        var db = Substitute.For<IRecepcionDbContext>();
+        var db = Substitute.For<IRecepcionPersistenceContext>();
         var publisher = Substitute.For<IRecepcionEventPublisher>();
         var handler = new CrearRecepcionCommandHandler(
             db,
@@ -145,7 +145,7 @@ public class CrearRecepcionCommandHandlerTests
     [InlineData(false, true)]
     public async Task Handle_ObraUOrdenVacia_LanzaArgumentException(bool obraVacia, bool ordenVacia)
     {
-        var db = Substitute.For<IRecepcionDbContext>();
+        var db = Substitute.For<IRecepcionPersistenceContext>();
         var publisher = Substitute.For<IRecepcionEventPublisher>();
         var handler = new CrearRecepcionCommandHandler(
             db,
@@ -169,7 +169,7 @@ public class CrearRecepcionCommandHandlerTests
     [InlineData("123456789012345678901234567890123456789012345678901")]
     public async Task Handle_NumeroRemitoInvalido_LanzaArgumentException(string remito)
     {
-        var db = Substitute.For<IRecepcionDbContext>();
+        var db = Substitute.For<IRecepcionPersistenceContext>();
         var publisher = Substitute.For<IRecepcionEventPublisher>();
         var handler = new CrearRecepcionCommandHandler(
             db,
@@ -191,7 +191,7 @@ public class CrearRecepcionCommandHandlerTests
     [Fact]
     public async Task Handle_FechaRecepcionDefault_LanzaArgumentException()
     {
-        var db = Substitute.For<IRecepcionDbContext>();
+        var db = Substitute.For<IRecepcionPersistenceContext>();
         var publisher = Substitute.For<IRecepcionEventPublisher>();
         var handler = new CrearRecepcionCommandHandler(
             db,
@@ -213,7 +213,7 @@ public class CrearRecepcionCommandHandlerTests
     [Fact]
     public async Task Handle_FechaRecepcionFutura_LanzaArgumentException()
     {
-        var db = Substitute.For<IRecepcionDbContext>();
+        var db = Substitute.For<IRecepcionPersistenceContext>();
         var publisher = Substitute.For<IRecepcionEventPublisher>();
         var handler = new CrearRecepcionCommandHandler(
             db,
@@ -235,7 +235,7 @@ public class CrearRecepcionCommandHandlerTests
     [Fact]
     public async Task Handle_ObservacionesSuperan500Caracteres_LanzaArgumentException()
     {
-        var db = Substitute.For<IRecepcionDbContext>();
+        var db = Substitute.For<IRecepcionPersistenceContext>();
         var publisher = Substitute.For<IRecepcionEventPublisher>();
         var handler = new CrearRecepcionCommandHandler(
             db,
@@ -257,7 +257,7 @@ public class CrearRecepcionCommandHandlerTests
     [Fact]
     public async Task Handle_SinDetalles_LanzaArgumentException()
     {
-        var db = Substitute.For<IRecepcionDbContext>();
+        var db = Substitute.For<IRecepcionPersistenceContext>();
         var publisher = Substitute.For<IRecepcionEventPublisher>();
         var handler = new CrearRecepcionCommandHandler(
             db,

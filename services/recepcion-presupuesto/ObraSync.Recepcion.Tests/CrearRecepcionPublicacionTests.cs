@@ -8,6 +8,7 @@ using NSubstitute.ExceptionExtensions;
 using ObraSync.Recepcion.Api.Controllers;
 using ObraSync.Recepcion.Application.DTOs;
 using ObraSync.Recepcion.Application.Interfaces;
+using ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
 using ObraSync.Recepcion.Domain.Entities;
 using ObraSync.Recepcion.Infrastructure.Persistence;
 using RecepcionEntity = ObraSync.Recepcion.Domain.Entities.Recepcion;
@@ -31,7 +32,11 @@ public class CrearRecepcionPublicacionTests
         db.SaveChanges();
 
         var publisher = Substitute.For<IRecepcionEventPublisher>();
-        var controller = new RecepcionesController(db, NullLogger<RecepcionesController>.Instance, publisher);
+        var controller = new RecepcionesController(
+            new CrearRecepcionCommandHandler(db, publisher, NullLogger<CrearRecepcionCommandHandler>.Instance),
+            new ObtenerRecepcionesQueryHandler(db),
+            new ObtenerRecepcionPorIdQueryHandler(db),
+            new ObtenerRecepcionesPorOrdenQueryHandler(db));
 
         var http = new DefaultHttpContext
         {

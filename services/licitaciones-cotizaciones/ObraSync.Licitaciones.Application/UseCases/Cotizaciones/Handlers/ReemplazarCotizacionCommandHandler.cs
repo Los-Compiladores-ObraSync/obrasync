@@ -1,3 +1,4 @@
+using MediatR;
 using ObraSync.Licitaciones.Application.DTOs;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Commands;
@@ -11,6 +12,7 @@ namespace ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Handlers;
 /// abierta y dentro del plazo, y los ítems tienen que coincidir con el pliego.
 /// </summary>
 public class ReemplazarCotizacionCommandHandler
+    : IRequestHandler<ReemplazarCotizacionCommand, CotizacionResponseDto>
 {
     private readonly ICotizacionRepository _cotizaciones;
     private readonly ICotizacionValidadorService _validador;

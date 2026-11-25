@@ -7,10 +7,4 @@ public interface IAuthService
 {
     Task<AuthResponseDto> RegistrarAsync(RegisterRequestDto request, ClaimsPrincipal? ejecutor = null);
     Task<AuthResponseDto> LoginAsync(LoginRequestDto request);
-    Task<IEnumerable<CapatazDto>> GetCapatacesActivosAsync();
-    Task<(IReadOnlyList<CapatazDto> Items, int Total)> GetCapatacesActivosPaginadosAsync(ParametrosPagina? paginacion = null);
-    Task<(IReadOnlyList<ProveedorDto> Items, int Total)> GetProveedoresActivosPaginadosAsync(ParametrosPagina? paginacion = null);
-    Task<MensajeResponseDto> RecuperarPasswordAsync(RecuperarPasswordRequestDto request);
-    Task<MensajeResponseDto> RestablecerPasswordAsync(RestablecerPasswordRequestDto request);
-    Task<MensajeResponseDto> CambiarPasswordAsync(CambiarPasswordRequestDto request, ClaimsPrincipal ejecutor);
 }

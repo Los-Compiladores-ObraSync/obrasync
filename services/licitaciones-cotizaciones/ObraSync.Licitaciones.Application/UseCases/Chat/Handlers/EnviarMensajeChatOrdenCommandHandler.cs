@@ -1,4 +1,3 @@
-using MassTransit;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -18,7 +17,7 @@ public class EnviarMensajeChatOrdenCommandHandler
 
     private readonly IOrdenCompraRepository _ordenCompraRepository;
     private readonly IChatOrdenRepository _chatOrdenRepository;
-    private readonly IPublishEndpoint _publishEndpoint;
+    private readonly ILicitacionEventPublisher _eventPublisher;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IChatOrdenNotifier? _chatOrdenNotifier;
     private readonly ILogger<EnviarMensajeChatOrdenCommandHandler> _logger;
@@ -26,14 +25,14 @@ public class EnviarMensajeChatOrdenCommandHandler
     public EnviarMensajeChatOrdenCommandHandler(
         IOrdenCompraRepository ordenCompraRepository,
         IChatOrdenRepository chatOrdenRepository,
-        IPublishEndpoint publishEndpoint,
+        ILicitacionEventPublisher eventPublisher,
         IUnitOfWork unitOfWork,
         IChatOrdenNotifier? chatOrdenNotifier = null,
         ILogger<EnviarMensajeChatOrdenCommandHandler>? logger = null)
     {
         _ordenCompraRepository = ordenCompraRepository ?? throw new ArgumentNullException(nameof(ordenCompraRepository));
         _chatOrdenRepository = chatOrdenRepository ?? throw new ArgumentNullException(nameof(chatOrdenRepository));
-        _publishEndpoint = publishEndpoint ?? throw new ArgumentNullException(nameof(publishEndpoint));
+        _eventPublisher = eventPublisher ?? throw new ArgumentNullException(nameof(eventPublisher));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _chatOrdenNotifier = chatOrdenNotifier;
         _logger = logger ?? NullLogger<EnviarMensajeChatOrdenCommandHandler>.Instance;
@@ -92,7 +91,7 @@ public class EnviarMensajeChatOrdenCommandHandler
             Destinatarios: destinatarios,
             Fragmento: mensaje.ObtenerFragmento());
 
-        await _publishEndpoint.Publish<MensajeChatEnviadoEvent>(evento, cancellationToken);
+        await _eventPublisher.PublishAsync(evento, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var dto = mensaje.ToDto();

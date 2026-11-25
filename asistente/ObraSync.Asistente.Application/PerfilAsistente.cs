@@ -74,6 +74,10 @@ public sealed record PerfilAsistente(string Rol, string Instrucciones, IReadOnly
         HerramientasLicitaciones.PrepararAdjudicacion
     };
 
+    /// <summary>Indica si el perfil incluye la herramienta manual solicitada.</summary>
+    public bool PermiteHerramienta(string nombre) =>
+        Herramientas.Contains(nombre, StringComparer.Ordinal);
+
     /// <summary>El perfil de un rol, o null si ese rol no tiene asistente (por ejemplo, Proveedor).</summary>
     public static PerfilAsistente? Para(string? rol) => rol switch
     {

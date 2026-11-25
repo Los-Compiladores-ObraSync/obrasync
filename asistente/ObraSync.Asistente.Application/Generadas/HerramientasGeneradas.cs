@@ -27,7 +27,7 @@ public interface IClienteApiLectura
 /// los argumentos se validan ANTES de llamar, la dirección sale de la configuración (el modelo nunca arma una URL),
 /// solo GET, las respuestas vienen acotadas por el cliente y los errores tienen códigos estables.
 /// </summary>
-public sealed class HerramientasGeneradas
+public sealed class HerramientasGeneradas : IGrupoHerramientas
 {
     /// <summary>Tamaño de página si el modelo no lo pide: las respuestas largas gastan tokens del cupo compartido.</summary>
     public const int TamanoPorDefecto = 10;
@@ -48,6 +48,18 @@ public sealed class HerramientasGeneradas
     }
 
     public bool EsGenerada(string nombre) => _porNombre.ContainsKey(nombre);
+
+    public bool Contiene(string nombre) => EsGenerada(nombre);
+
+    public bool PermiteRol(PerfilAsistente perfil, string nombre) =>
+        _porNombre.TryGetValue(nombre, out var herramienta) && Para(perfil.Rol).Contains(herramienta);
+
+    IEnumerable<JsonNode> IGrupoHerramientas.DefinicionesPara(PerfilAsistente perfil) =>
+        Para(perfil.Rol).Select(h => (JsonNode)Definicion(h));
+
+    Task<ResultadoHerramienta> IGrupoHerramientas.EjecutarAsync(
+        PerfilAsistente perfil, string nombre, string argumentosJson, CancellationToken ct) =>
+        EjecutarAsync(perfil.Rol, nombre, argumentosJson, ct);
 
     /// <summary>
     /// Lo que ese rol puede llamar según el contrato. Solo los roles que tienen asistente (Capataz, Comprador, Admin):

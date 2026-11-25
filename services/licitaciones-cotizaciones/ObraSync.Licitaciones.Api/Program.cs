@@ -6,13 +6,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ObraSync.Licitaciones.Api.Hubs;
+using ObraSync.Licitaciones.Api.Middlewares;
 using ObraSync.Licitaciones.Application.Interfaces;
 using ObraSync.Licitaciones.Application.Services;
-using ObraSync.Licitaciones.Application.UseCases.Adjudicar.Handlers;
-using ObraSync.Licitaciones.Application.UseCases.Calificaciones.Handlers;
 using ObraSync.Licitaciones.Application.UseCases.Cotizaciones.Handlers;
-using ObraSync.Licitaciones.Application.UseCases.Licitaciones.Handlers;
-using ObraSync.Licitaciones.Application.UseCases.OrdenesCompra.Handlers;
 using ObraSync.Licitaciones.Infrastructure;
 using ObraSync.Licitaciones.Infrastructure.Consumers;
 using ObraSync.Licitaciones.Infrastructure.Messaging;
@@ -54,6 +51,7 @@ builder.Services.AddProblemDetails(options =>
         ctx.ProblemDetails.Extensions["correlationId"] = correlationId;
     };
 });
+builder.Services.AddExceptionProblemMapping();
 
 builder.Services.AddDbContext<LicitacionesDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DbLicit")));
@@ -61,7 +59,7 @@ builder.Services.AddDbContext<LicitacionesDbContext>(options =>
 // Registro de MediatR para la capa de Aplicación
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(CrearCotizacionCommandHandler).Assembly));
 
-// Servicios, Repositorios y Handlers de Aplicación
+// Servicios y Repositorios de Aplicación
 builder.Services.AddScoped(sp => sp.GetRequiredService<IConfiguration>().ReadAndValidateScoringOptions());
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ILicitacionRepository, LicitacionRepository>();
@@ -73,23 +71,8 @@ builder.Services.AddScoped<IMagicLinkRepository, MagicLinkRepository>();
 builder.Services.AddScoped<ICalificacionProveedorRepository, CalificacionProveedorRepository>();
 builder.Services.AddScoped<IChatOrdenRepository, ChatOrdenRepository>();
 builder.Services.AddScoped<IChatOrdenNotifier, SignalRChatOrdenNotifier>();
+builder.Services.AddScoped<ILicitacionEventPublisher, MassTransitLicitacionEventPublisher>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-builder.Services.AddScoped<GetLicitacionesQueryHandler>();
-builder.Services.AddScoped<GetLicitacionByIdQueryHandler>();
-builder.Services.AddScoped<GetSeguimientoRequisicionQueryHandler>();
-builder.Services.AddScoped<CerrarLicitacionCommandHandler>();
-builder.Services.AddScoped<CrearCotizacionCommandHandler>();
-builder.Services.AddScoped<ReemplazarCotizacionCommandHandler>();
-builder.Services.AddScoped<GetCotizacionesByLicitacionIdQueryHandler>();
-builder.Services.AddScoped<GetMisCotizacionesQueryHandler>();
-builder.Services.AddScoped<AdjudicarCotizacionCommandHandler>();
-builder.Services.AddScoped<DespacharOrdenCompraCommandHandler>();
-builder.Services.AddScoped<GetOrdenesCompraQueryHandler>();
-builder.Services.AddScoped<UpsertCalificacionProveedorCommandHandler>();
-builder.Services.AddScoped<GetCalificacionProveedorQueryHandler>();
-builder.Services.AddScoped<UpsertCalificacionOrdenCompraCommandHandler>();
-builder.Services.AddScoped<GetMiCalificacionOrdenCompraQueryHandler>();
-builder.Services.AddScoped<GetMiReputacionProveedorQueryHandler>();
 
 // RabbitMQ + MassTransit (misma convención que Requisiciones)
 var useInMemoryTransport = string.Equals(
@@ -387,7 +370,7 @@ app.Use(async (context, next) =>
     }
 });
 
-app.UseExceptionHandler();
+app.UseMiddleware<ExceptionMiddleware>();
 app.UseStatusCodePages();
 
 if (app.Environment.IsDevelopment())
