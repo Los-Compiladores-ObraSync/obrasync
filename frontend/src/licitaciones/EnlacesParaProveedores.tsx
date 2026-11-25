@@ -34,9 +34,15 @@ function mensajeError(err: unknown): string {
   return 'No se pudo generar el enlace. Intentá nuevamente.'
 }
 
+interface FallaEnlace {
+  proveedor: Proveedor
+  mensaje: string
+}
+
 /**
- * Compras le arma a un proveedor un enlace de un solo uso para cotizar sin tener usuario (Magic Link, #252).
- * Elige al proveedor, genera el enlace y lo copia para mandárselo por WhatsApp o mail.
+ * Compras arma enlaces de un solo uso para que los proveedores coticen sin tener usuario (Magic Link, #252).
+ * Puede elegir uno o varios proveedores: cada uno recibe SU enlace (un enlace es de un solo uso, así que no se
+ * comparte entre varios). Con más cotizaciones, Compras tiene más opciones para comparar.
  * La lista de proveedores se pide recién cuando se abre el panel.
  */
 export function EnlacesParaProveedores({ licitacionId }: Props) {
@@ -44,12 +50,13 @@ export function EnlacesParaProveedores({ licitacionId }: Props) {
   const [proveedores, setProveedores] = useState<Proveedor[] | null>(null)
   const [cargando, setCargando] = useState(false)
   const [errorLista, setErrorLista] = useState(false)
-  const [proveedorId, setProveedorId] = useState('')
+  const [seleccionados, setSeleccionados] = useState<string[]>([])
   const [generando, setGenerando] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [enlace, setEnlace] = useState<EnlaceListo | null>(null)
+  const [enlaces, setEnlaces] = useState<EnlaceListo[]>([])
+  const [fallas, setFallas] = useState<FallaEnlace[]>([])
   const [aviso, setAviso] = useState<string | null>(null)
-  const campoEnlace = useRef<HTMLInputElement>(null)
+  const camposEnlace = useRef<Record<string, HTMLInputElement | null>>({})
 
   async function cargarProveedores() {
     setCargando(true)
@@ -68,64 +75,83 @@ export function EnlacesParaProveedores({ licitacionId }: Props) {
     if (proveedores === null) void cargarProveedores()
   }
 
-  function elegirProveedor(id: string) {
-    setProveedorId(id)
-    // El enlace que se ve tiene que ser siempre el del proveedor elegido.
-    setEnlace(null)
-    setError(null)
-    setAviso(null)
+  function alternar(id: string) {
+    setSeleccionados((actuales) => (actuales.includes(id) ? actuales.filter((x) => x !== id) : [...actuales, id]))
+  }
+
+  function alternarTodos() {
+    if (!proveedores) return
+    setSeleccionados((actuales) => (actuales.length === proveedores.length ? [] : proveedores.map((p) => p.id)))
   }
 
   async function generar() {
-    const proveedor = proveedores?.find((p) => p.id === proveedorId)
-    if (!proveedor || generando) return
+    const elegidos = (proveedores ?? []).filter((p) => seleccionados.includes(p.id))
+    if (elegidos.length === 0 || generando) return
     setGenerando(true)
     setError(null)
     setAviso(null)
-    setEnlace(null)
-    try {
-      const respuesta = await generarMagicLink(licitacionId, proveedor)
-      const listo: EnlaceListo = {
-        proveedor,
-        url: urlPublicaMagicLink(respuesta.token),
-        venceA: respuesta.fechaDeVencimiento,
-        vigencia: textoVigencia(respuesta.horasVigencia),
+    setEnlaces([])
+    setFallas([])
+    const listos: EnlaceListo[] = []
+    const conFalla: FallaEnlace[] = []
+    // Uno por uno: es parejo con el servidor y el orden de la lista queda igual al que se eligió.
+    for (const proveedor of elegidos) {
+      try {
+        const respuesta = await generarMagicLink(licitacionId, proveedor)
+        listos.push({
+          proveedor,
+          url: urlPublicaMagicLink(respuesta.token),
+          venceA: respuesta.fechaDeVencimiento,
+          vigencia: textoVigencia(respuesta.horasVigencia),
+        })
+      } catch (err) {
+        // 404 y 409 son de la licitación (no existe, ya no está abierta): se repetirían con cada proveedor.
+        if (err instanceof ApiError && (err.status === 404 || err.status === 409)) {
+          setError(mensajeError(err))
+          break
+        }
+        conFalla.push({ proveedor, mensaje: mensajeError(err) })
       }
-      setEnlace(listo)
-      // Se dispara solo la app de WhatsApp con el mensaje y el enlace escritos: falta tocar "Enviar".
-      // Si el navegador bloquea la ventana, el botón verde de abajo hace lo mismo.
-      const abierta = window.open(urlWhatsApp(proveedor.telefono, mensajeWhatsApp(listo)), '_blank', 'noopener')
-      if (abierta === null) setAviso('Tocá "Enviar por WhatsApp" para abrirlo con el mensaje listo.')
-    } catch (err) {
-      setError(mensajeError(err))
-    } finally {
-      setGenerando(false)
     }
+    setEnlaces(listos)
+    setFallas(conFalla)
+    // Con un solo proveedor se dispara solo la app de WhatsApp con el mensaje y el enlace escritos: falta tocar "Enviar".
+    // Con varios no: el navegador deja abrir una sola ventana por toque, así que cada fila tiene su botón.
+    if (elegidos.length === 1 && listos.length === 1) {
+      const abierta = window.open(urlWhatsApp(listos[0].proveedor.telefono, mensajeWhatsApp(listos[0])), '_blank', 'noopener')
+      if (abierta === null) setAviso('Tocá "Enviar por WhatsApp" para abrirlo con el mensaje listo.')
+    } else if (listos.length > 1) {
+      setAviso('Cada proveedor tiene su propio enlace. Tocá "Enviar por WhatsApp" en cada fila para mandárselo.')
+    }
+    setGenerando(false)
   }
 
-  async function copiar() {
-    if (!enlace) return
+  async function copiar(enlace: EnlaceListo) {
     try {
       await navigator.clipboard.writeText(enlace.url)
-      setAviso('Copiamos el enlace: pegalo en el WhatsApp o el mail del proveedor.')
+      setAviso(`Copiamos el enlace de ${enlace.proveedor.nombreCompleto}: pegalo en su WhatsApp o su mail.`)
     } catch {
-      campoEnlace.current?.select()
+      camposEnlace.current[enlace.proveedor.id]?.select()
       setAviso('No pudimos copiarlo solo: dejamos el enlace seleccionado, copialo desde ahí.')
     }
   }
+
+  const cantidad = seleccionados.length
+  const textoGenerar = generando ? 'Generando…' : cantidad > 1 ? `Generar ${cantidad} enlaces` : 'Generar enlace'
 
   return (
     <section className={styles.enlaces} aria-label="Enlaces para proveedores">
       <div className={styles.encabezado}>
         <h3 className={styles.titulo}>Enlaces para proveedores</h3>
         <p className={styles.subtitulo}>
-          Mandale a un proveedor un enlace para que cotice sin usuario. Funciona una sola vez y vence solo.
+          Mandale a uno o a varios proveedores un enlace para que coticen sin usuario. Cada enlace es de un proveedor,
+          funciona una sola vez y vence solo.
         </p>
       </div>
 
       {!abierto ? (
         <button type="button" className={styles.boton} onClick={abrir}>
-          Generar enlace para un proveedor
+          Generar enlaces para proveedores
         </button>
       ) : (
         <div className={styles.panel}>
@@ -146,72 +172,103 @@ export function EnlacesParaProveedores({ licitacionId }: Props) {
 
           {proveedores !== null && proveedores.length > 0 && (
             <>
-              <label htmlFor="enlace-proveedor" className={styles.etiqueta}>Proveedor</label>
-              <div className={styles.fila}>
-                <select
-                  id="enlace-proveedor"
-                  className={styles.selector}
-                  value={proveedorId}
-                  onChange={(e) => elegirProveedor(e.target.value)}
-                >
-                  <option value="">Elegí un proveedor</option>
+              <fieldset className={styles.grupoProveedores}>
+                <legend className={styles.etiqueta}>Proveedores</legend>
+                <ul className={styles.listaProveedores}>
                   {proveedores.map((p) => (
-                    <option key={p.id} value={p.id}>{p.nombreCompleto}</option>
+                    <li key={p.id}>
+                      <label className={styles.opcion}>
+                        <input
+                          type="checkbox"
+                          checked={seleccionados.includes(p.id)}
+                          onChange={() => alternar(p.id)}
+                        />
+                        <span>{p.nombreCompleto}</span>
+                      </label>
+                    </li>
                   ))}
-                </select>
+                </ul>
+              </fieldset>
+              <div className={styles.fila}>
+                <button type="button" className={styles.boton} onClick={alternarTodos}>
+                  {cantidad === proveedores.length ? 'Quitar la selección' : 'Elegir todos'}
+                </button>
                 <button
                   type="button"
                   className={styles.botonPrincipal}
                   onClick={() => void generar()}
-                  disabled={!proveedorId || generando}
+                  disabled={cantidad === 0 || generando}
                 >
-                  {generando ? 'Generando…' : 'Generar enlace'}
+                  {textoGenerar}
                 </button>
               </div>
             </>
           )}
 
-          {enlace && (
-            <div className={styles.resultado}>
-              <label htmlFor="enlace-generado" className={styles.etiqueta}>
-                Enlace para {enlace.proveedor.nombreCompleto}
-              </label>
-              <div className={styles.fila}>
-                <input
-                  id="enlace-generado"
-                  ref={campoEnlace}
-                  type="text"
-                  readOnly
-                  className={styles.campoEnlace}
-                  value={enlace.url}
-                  onFocus={(e) => e.currentTarget.select()}
-                />
-                <button type="button" className={styles.botonPrincipal} onClick={() => void copiar()}>
-                  Copiar enlace
-                </button>
-                <a
-                  className={styles.botonWhatsApp}
-                  href={urlWhatsApp(enlace.proveedor.telefono, mensajeWhatsApp(enlace))}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Enviar por WhatsApp
-                </a>
-              </div>
-              {digitosParaWhatsApp(enlace.proveedor.telefono) === null && (
-                <p className={styles.ayuda}>
-                  {enlace.proveedor.nombreCompleto} no tiene un teléfono con código de país cargado: WhatsApp te va a
-                  pedir que elijas el contacto.
-                </p>
-              )}
-              <p className={styles.ayuda}>
-                Sirve una sola vez y vence {textoVencimiento(enlace.venceA)} (dura {enlace.vigencia}). Mandáselo solo a{' '}
-                {enlace.proveedor.nombreCompleto}. Si generás otro enlace para el mismo proveedor, el anterior sigue
-                funcionando hasta que se use o venza.
-              </p>
-            </div>
+          {enlaces.length > 0 && (
+            <ul className={styles.listaEnlaces} aria-label="Enlaces generados">
+              {enlaces.map((enlace) => {
+                const idCampo = `enlace-generado-${enlace.proveedor.id}`
+                const nombre = enlace.proveedor.nombreCompleto
+                return (
+                  <li key={enlace.proveedor.id} className={styles.resultado}>
+                    <label htmlFor={idCampo} className={styles.etiqueta}>
+                      Enlace para {nombre}
+                    </label>
+                    <div className={styles.fila}>
+                      <input
+                        id={idCampo}
+                        ref={(el) => { camposEnlace.current[enlace.proveedor.id] = el }}
+                        type="text"
+                        readOnly
+                        className={styles.campoEnlace}
+                        value={enlace.url}
+                        onFocus={(e) => e.currentTarget.select()}
+                      />
+                      <button
+                        type="button"
+                        className={styles.botonPrincipal}
+                        aria-label={`Copiar enlace de ${nombre}`}
+                        onClick={() => void copiar(enlace)}
+                      >
+                        Copiar enlace
+                      </button>
+                      <a
+                        className={styles.botonWhatsApp}
+                        aria-label={`Enviar por WhatsApp a ${nombre}`}
+                        href={urlWhatsApp(enlace.proveedor.telefono, mensajeWhatsApp(enlace))}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Enviar por WhatsApp
+                      </a>
+                    </div>
+                    {digitosParaWhatsApp(enlace.proveedor.telefono) === null && (
+                      <p className={styles.ayuda}>
+                        {nombre} no tiene un teléfono con código de país cargado: WhatsApp te va a pedir que elijas el
+                        contacto.
+                      </p>
+                    )}
+                    <p className={styles.ayuda}>
+                      Sirve una sola vez y vence {textoVencimiento(enlace.venceA)} (dura {enlace.vigencia}). Mandáselo
+                      solo a {nombre}.
+                    </p>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+          {enlaces.length > 0 && (
+            <p className={styles.ayuda}>
+              Si generás otro enlace para el mismo proveedor, el anterior sigue funcionando hasta que se use o venza.
+            </p>
           )}
 
+          {fallas.map((falla) => (
+            <p key={falla.proveedor.id} role="alert" className={styles.error}>
+              No pudimos generar el enlace de {falla.proveedor.nombreCompleto}. {falla.mensaje}
+            </p>
+          ))}
           {error && <p role="alert" className={styles.error}>{error}</p>}
           {aviso && <p role="status" className={styles.aviso}>{aviso}</p>}
         </div>
