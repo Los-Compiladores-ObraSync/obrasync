@@ -61,6 +61,10 @@ builder.Services.AddSwaggerGen(c =>
 // Inyección de dependencias de Application e Infrastructure
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
+foreach (var mapper in DefaultExceptionProblemMappers.Create())
+{
+    builder.Services.AddSingleton<IExceptionProblemMapper>(mapper);
+}
 
 // Formato de errores estándar RFC 7807 (ProblemDetails) con propagación del CorrelationId de YARP
 builder.Services.AddProblemDetails(options =>

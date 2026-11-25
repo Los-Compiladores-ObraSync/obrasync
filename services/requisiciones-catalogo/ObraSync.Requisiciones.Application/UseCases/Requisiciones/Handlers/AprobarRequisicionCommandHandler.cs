@@ -9,7 +9,7 @@ using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Commands;
 
 namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers
 {
-    public class AprobarRequisicionCommandHandler
+    public class AprobarRequisicionCommandHandler : ICommandHandler<AprobarRequisicionCommand, RequisicionResponseDto>
     {
         private readonly IRequisicionRepository _repository;
         private readonly IRequisicionEventPublisher _eventPublisher;

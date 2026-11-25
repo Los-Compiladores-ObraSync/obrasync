@@ -13,7 +13,7 @@ namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers
     /// Cancela una requisición mientras está Pendiente. No publica ningún evento: Licitaciones recién se entera
     /// cuando se aprueba, así que una requisición pendiente cancelada nunca llegó a ningún otro servicio.
     /// </summary>
-    public class CancelarRequisicionCommandHandler
+    public class CancelarRequisicionCommandHandler : ICommandHandler<CancelarRequisicionCommand, RequisicionResponseDto>
     {
         private readonly IRequisicionRepository _requisicionRepository;
 

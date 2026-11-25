@@ -5,8 +5,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ObraSync.Requisiciones.Application.DTOs;
+using ObraSync.Requisiciones.Application.Interfaces;
 using ObraSync.Requisiciones.Application.Mappings;
-using ObraSync.Requisiciones.Application.UseCases.Catalog.Handlers;
+using ObraSync.Requisiciones.Application.UseCases.Catalog.Commands;
 using ObraSync.Requisiciones.Application.UseCases.Catalog.Queries;
 
 namespace ObraSync.Requisiciones.Api.Controllers;
@@ -17,12 +18,12 @@ namespace ObraSync.Requisiciones.Api.Controllers;
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
 public class CatalogoController : ApiControllerBase
 {
-    private readonly GetInsumosQueryHandler _getInsumosHandler;
-    private readonly CreateInsumoCommandHandler _createInsumoHandler;
+    private readonly IQueryHandler<GetInsumosQuery, PaginaDe<InsumoCatalogoDto>> _getInsumosHandler;
+    private readonly ICommandHandler<CreateInsumoCommand, InsumoCatalogoDto> _createInsumoHandler;
 
     public CatalogoController(
-        GetInsumosQueryHandler getInsumosHandler,
-        CreateInsumoCommandHandler createInsumoHandler)
+        IQueryHandler<GetInsumosQuery, PaginaDe<InsumoCatalogoDto>> getInsumosHandler,
+        ICommandHandler<CreateInsumoCommand, InsumoCatalogoDto> createInsumoHandler)
     {
         _getInsumosHandler = getInsumosHandler;
         _createInsumoHandler = createInsumoHandler;

@@ -129,8 +129,9 @@ namespace ObraSync.Requisiciones.Tests.Application
                     new() { ArticuloId = Guid.NewGuid(), Cantidad = 10m }
                 });
 
-            await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            var ex = await Assert.ThrowsAnyAsync<KeyNotFoundException>(() =>
                 handler.Handle(command, CancellationToken.None));
+            Assert.IsType<ArticuloCatalogoNoEncontradoException>(ex);
         }
 
         [Fact]

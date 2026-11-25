@@ -9,7 +9,7 @@ using ObraSync.Requisiciones.Application.UseCases.Catalog.Queries;
 
 namespace ObraSync.Requisiciones.Application.UseCases.Catalog.Handlers
 {
-    public class GetInsumosQueryHandler
+    public class GetInsumosQueryHandler : IQueryHandler<GetInsumosQuery, PaginaDe<InsumoCatalogoDto>>
     {
         private readonly IInsumoRepository _repository;
 

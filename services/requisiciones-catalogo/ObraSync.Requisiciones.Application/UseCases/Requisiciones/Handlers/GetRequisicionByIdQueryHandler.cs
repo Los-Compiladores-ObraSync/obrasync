@@ -9,7 +9,7 @@ using ObraSync.Requisiciones.Application.UseCases.Requisiciones.Queries;
 
 namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers
 {
-    public class GetRequisicionByIdQueryHandler
+    public class GetRequisicionByIdQueryHandler : IQueryHandler<GetRequisicionByIdQuery, RequisicionResponseDto>
     {
         private readonly IRequisicionRepository _repository;
 

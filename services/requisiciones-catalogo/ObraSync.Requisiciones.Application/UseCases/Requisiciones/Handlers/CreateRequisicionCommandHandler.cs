@@ -12,7 +12,7 @@ using ObraSync.Requisiciones.Domain.Entities;
 
 namespace ObraSync.Requisiciones.Application.UseCases.Requisiciones.Handlers;
 
-public class CreateRequisicionCommandHandler
+public class CreateRequisicionCommandHandler : ICommandHandler<CreateRequisicionCommand, RequisicionResponseDto>
 {
     public static readonly TimeSpan VentanaDuplicados = TimeSpan.FromMinutes(2);
 

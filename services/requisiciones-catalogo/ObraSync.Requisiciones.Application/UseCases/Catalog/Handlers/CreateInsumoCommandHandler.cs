@@ -9,7 +9,7 @@ using ObraSync.Requisiciones.Domain.Entities;
 
 namespace ObraSync.Requisiciones.Application.UseCases.Catalog.Handlers
 {
-    public class CreateInsumoCommandHandler
+    public class CreateInsumoCommandHandler : ICommandHandler<CreateInsumoCommand, InsumoCatalogoDto>
     {
         private readonly IInsumoRepository _repository;
 
