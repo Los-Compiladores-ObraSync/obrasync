@@ -204,7 +204,7 @@ describe('RestablecerContrasenaPage', () => {
     expect(await screen.findByText(/^LOGIN/)).toBeInTheDocument()
   })
 
-  it('el botón del ojo muestra y oculta las dos contraseñas', async () => {
+  it('cada campo tiene su propio ojo', async () => {
     const user = userEvent.setup()
     renderPagina()
 
@@ -213,13 +213,16 @@ describe('RestablecerContrasenaPage', () => {
     expect(nueva).toHaveAttribute('type', 'password')
     expect(repetir).toHaveAttribute('type', 'password')
 
-    await user.click(screen.getByRole('button', { name: 'Mostrar contraseña' }))
+    await user.click(screen.getByRole('button', { name: 'Mostrar nueva contraseña' }))
     expect(nueva).toHaveAttribute('type', 'text')
+    expect(repetir).toHaveAttribute('type', 'password')
+
+    await user.click(screen.getByRole('button', { name: 'Mostrar la repetición de la contraseña' }))
     expect(repetir).toHaveAttribute('type', 'text')
 
-    await user.click(screen.getByRole('button', { name: 'Mostrar contraseña' }))
+    await user.click(screen.getByRole('button', { name: 'Mostrar nueva contraseña' }))
     expect(nueva).toHaveAttribute('type', 'password')
-    expect(repetir).toHaveAttribute('type', 'password')
+    expect(repetir).toHaveAttribute('type', 'text')
   })
 
   it('un doble envío seguido restablece la contraseña una sola vez', async () => {

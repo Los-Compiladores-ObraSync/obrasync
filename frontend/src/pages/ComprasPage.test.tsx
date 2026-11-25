@@ -123,7 +123,7 @@ describe('ComprasPage', () => {
 
     await screen.findByText('1 por licitar · 1 por adjudicar')
     const progresoFlujo = within(screen.getByRole('region', { name: 'Progreso del flujo de compras' }))
-    // La recepción la registra el Capataz: en Compras se ve el avance, pero no es un enlace.
+    // El flujo de Compras termina en la Orden de compra: la recepción la registra el Capataz y no es una etapa de Compras.
     const etapas = progresoFlujo.getAllByRole('link')
     expect(etapas.map((link) => link.textContent)).toEqual([
       'Requisición 3 por aprobar',
@@ -133,10 +133,11 @@ describe('ComprasPage', () => {
     expect(etapas.map((link) => link.getAttribute('href'))).toEqual([
       '/compras/requisiciones', '/compras/licitaciones', '/compras/ordenes',
     ])
-    expect(progresoFlujo.getAllByRole('listitem')[3]).toHaveTextContent('Recepción 1 orden pendiente de recibir')
-    // Las cuatro etapas tienen trabajo pendiente: todas se destacan en el flujo.
+    expect(progresoFlujo.getAllByRole('listitem')).toHaveLength(3)
+    expect(progresoFlujo.queryByText('Recepción')).not.toBeInTheDocument()
+    // Las tres etapas tienen trabajo pendiente: todas se destacan en el flujo.
     const pasos = within(screen.getByRole('region', { name: 'Progreso del flujo de compras' })).getAllByRole('listitem')
-    expect(pasos.map((paso) => paso.getAttribute('data-pendiente'))).toEqual(['true', 'true', 'true', 'true'])
+    expect(pasos.map((paso) => paso.getAttribute('data-pendiente'))).toEqual(['true', 'true', 'true'])
     const tareas = screen.getByRole('region', { name: 'Qué hago ahora' })
     await waitFor(() => {
       const enlaces = within(tareas).getAllByRole('link')

@@ -1,6 +1,7 @@
 // Validación de la ubicación de una obra contra OpenStreetMap (Nominatim), tarjeta #113.
 // Decisión del equipo (#112): solo se comprueba que la dirección exista. No hay autocompletado y
 // no se guardan coordenadas: Obra.Ubicacion sigue siendo un texto.
+// La búsqueda se limita a Argentina (countrycodes=ar): una dirección de otro país cuenta como "no encontrada".
 //
 // Política de uso de Nominatim (https://operations.osmfoundation.org/policies/nominatim/),
 // revisar si cambia: máximo 1 pedido por segundo para toda la aplicación, solo búsquedas que
@@ -10,6 +11,8 @@
 export type ResultadoUbicacion = 'encontrada' | 'no-encontrada' | 'no-disponible'
 
 const URL_NOMINATIM = 'https://nominatim.openstreetmap.org/search'
+/** Código de país (ISO 3166-1 alfa-2) al que se limita la búsqueda. */
+export const CODIGO_PAIS = 'ar'
 /** Si el servicio tarda más que esto se da por no disponible: un servicio externo no frena el flujo. */
 const TIMEOUT_MS = 5000
 /** Separación mínima entre dos pedidos distintos (política: 1 por segundo). */
@@ -48,6 +51,7 @@ async function consultar(direccion: string): Promise<ResultadoUbicacion> {
       q: direccion.trim(),
       format: 'jsonv2',
       limit: '1',
+      countrycodes: CODIGO_PAIS,
       'accept-language': 'es',
     })
     // OJO: fetch común, NO apiFetch. apiFetch agrega el token JWT y el X-Correlation-ID, que no

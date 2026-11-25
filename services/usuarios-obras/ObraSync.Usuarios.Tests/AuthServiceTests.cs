@@ -44,6 +44,7 @@ public class AuthServiceTests
     private readonly IJwtProvider _jwtProvider;
     private readonly IUsuarioQueryRepository _usuarioQueryRepository;
     private readonly ILogger<AuthService> _logger;
+    private readonly ICorreoSaliente _correo;
     private readonly AuthService _authService;
 
     public AuthServiceTests()
@@ -58,7 +59,9 @@ public class AuthServiceTests
         // BaseUrl con barra final a propósito: verifica que el enlace no quede con "//"
         var frontendOptions = Options.Create(new FrontendSettings { BaseUrl = "http://localhost:5173/" });
 
-        _authService = new AuthService(_userManager, _jwtProvider, _usuarioQueryRepository, _logger, frontendOptions);
+        _correo = Substitute.For<ICorreoSaliente>();
+
+        _authService = new AuthService(_userManager, _jwtProvider, _usuarioQueryRepository, _logger, frontendOptions, _correo);
     }
 
     // Arma un ClaimsPrincipal autenticado usando roleType: "role", igual que Program.cs en producción
@@ -504,6 +507,51 @@ public class AuthServiceTests
             "http://localhost:5173/restablecer-contrasena?email=capataz%40obrasync.com&token=CfDJ8%2Babc%2Fdef%3D%3D";
         var log = Assert.Single(MensajesPasswordResetLogueados());
         Assert.Equal($"[PASSWORD-RESET] Enlace de restablecimiento para capataz@obrasync.com: {enlaceEsperado}", log);
+    }
+
+    [Fact]
+    public async Task RecuperarPasswordAsync_DebeMandarElEnlaceTambienPorCorreo_CuandoUsuarioExisteYEstaActivo()
+    {
+        var request = new RecuperarPasswordRequestDto("capataz@obrasync.com");
+        var usuario = new AppUser { Id = Guid.NewGuid(), Email = request.Email, NombreCompleto = "Carlos Capataz", Activo = true };
+        _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(usuario));
+        _userManager.GeneratePasswordResetTokenAsync(usuario).Returns(Task.FromResult("tok"));
+
+        await _authService.RecuperarPasswordAsync(request);
+
+        await _correo.Received(1).EnviarAsync(
+            "capataz@obrasync.com",
+            Arg.Any<string>(),
+            Arg.Is<string>(cuerpo => cuerpo.Contains("http://localhost:5173/restablecer-contrasena?email=capataz%40obrasync.com&token=tok")),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RecuperarPasswordAsync_NoDebeMandarCorreo_CuandoEmailNoExiste()
+    {
+        var request = new RecuperarPasswordRequestDto("noexiste@obrasync.com");
+        _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(null));
+
+        await _authService.RecuperarPasswordAsync(request);
+
+        await _correo.DidNotReceiveWithAnyArgs().EnviarAsync(default!, default!, default!, default);
+    }
+
+    [Fact]
+    public async Task RecuperarPasswordAsync_DebeResponderIgual_SiFallaElEnvioDelCorreo()
+    {
+        var request = new RecuperarPasswordRequestDto("capataz@obrasync.com");
+        var usuario = new AppUser { Id = Guid.NewGuid(), Email = request.Email, NombreCompleto = "Carlos Capataz", Activo = true };
+        _userManager.FindByEmailAsync(request.Email).Returns(Task.FromResult<AppUser?>(usuario));
+        _userManager.GeneratePasswordResetTokenAsync(usuario).Returns(Task.FromResult("tok"));
+        _correo.EnviarAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new InvalidOperationException("SMTP caído")));
+
+        var result = await _authService.RecuperarPasswordAsync(request);
+
+        // La respuesta es la misma y el enlace quedó igual en el log.
+        Assert.Equal(MensajeRecuperacionGenerico, result.Mensaje);
+        Assert.Single(MensajesPasswordResetLogueados());
     }
 
     [Fact]

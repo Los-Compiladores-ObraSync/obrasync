@@ -43,19 +43,22 @@ public class AuthService : IAuthService
     private readonly IUsuarioQueryRepository _usuarioQueryRepository;
     private readonly ILogger<AuthService> _logger;
     private readonly FrontendSettings _frontendSettings;
+    private readonly ICorreoSaliente _correo;
 
     public AuthService(
         UserManager<AppUser> userManager,
         IJwtProvider jwtProvider,
         IUsuarioQueryRepository usuarioQueryRepository,
         ILogger<AuthService> logger,
-        IOptions<FrontendSettings> frontendOptions)
+        IOptions<FrontendSettings> frontendOptions,
+        ICorreoSaliente correo)
     {
         _userManager = userManager;
         _jwtProvider = jwtProvider;
         _usuarioQueryRepository = usuarioQueryRepository ?? throw new ArgumentNullException(nameof(usuarioQueryRepository));
         _logger = logger;
         _frontendSettings = frontendOptions.Value;
+        _correo = correo;
     }
 
     public async Task<AuthResponseDto> RegistrarAsync(RegisterRequestDto request, ClaimsPrincipal? ejecutor = null)
@@ -257,6 +260,23 @@ public class AuthService : IAuthService
             "[PASSWORD-RESET] Enlace de restablecimiento para {Email}: {Enlace}",
             usuario.Email,
             enlace);
+
+        // 5. Además se manda por correo (en desarrollo lo recibe Mailpit). Si el envío falla no se cambia la
+        //    respuesta: sería otra forma de revelar qué cuentas existen. El enlace ya quedó en el log.
+        try
+        {
+            await _correo.EnviarAsync(
+                usuario.Email!,
+                "Restablecé tu contraseña de ObraSync",
+                $"Hola {usuario.NombreCompleto}:\n\n" +
+                "Pediste restablecer tu contraseña. Entrá a este enlace (sirve una sola vez y vence en 1 hora):\n\n" +
+                $"{enlace}\n\n" +
+                "Si no fuiste vos, ignorá este mensaje: tu contraseña no cambia.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo enviar el correo de recuperación a {Email}.", usuario.Email);
+        }
 
         return respuesta;
     }

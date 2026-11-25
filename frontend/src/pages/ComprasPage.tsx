@@ -15,7 +15,6 @@ interface ResumenFlujo {
   porLicitar: number
   porAdjudicar: number
   ordenesPendientesSeguimiento: number
-  porRecibir: number
 }
 
 function cantidadConNombre(cantidad: number, singular: string, plural: string): string {
@@ -69,7 +68,6 @@ export function ComprasPage({
           porLicitar: aprobadas.filter((r) => !conLicitacion.has(r.requisicionId)).length,
           porAdjudicar: cotizaciones.filter((lista) => lista.length > 0).length,
           ordenesPendientesSeguimiento: ordenesEnSeguimiento.size,
-          porRecibir: recepciones.length,
         })
         setErrorFlujo(false)
       } catch {
@@ -89,12 +87,12 @@ export function ComprasPage({
     }
   }, [])
 
+  // El flujo de Compras termina en la Orden de compra: recibir la mercadería es tarea del Capataz.
   // Una etapa "con trabajo" se destaca en el flujo: es donde Compras tiene algo para hacer.
   const pendientePorEtapa = {
     requisicion: aprobacionesCargadas && porAprobar > 0,
     licitacion: flujo !== null && flujo.porLicitar + flujo.porAdjudicar > 0,
     orden: flujo !== null && flujo.ordenesPendientesSeguimiento > 0,
-    recepcion: flujo !== null && flujo.porRecibir > 0,
   }
 
   const tareas = [
@@ -137,7 +135,6 @@ export function ComprasPage({
             <li className={styles.etapa} data-pendiente={pendientePorEtapa.requisicion}><Link className={styles.enlaceEtapa} to="/compras/requisiciones"><span className={styles.etiqueta}>Requisición</span>{' '}<span className={styles.cantidad}>{aprobacionesCargadas ? cantidadConNombre(porAprobar, 'por aprobar', 'por aprobar') : 'Cargando cantidad…'}</span></Link></li>
             <li className={styles.etapa} data-pendiente={pendientePorEtapa.licitacion}><Link className={styles.enlaceEtapa} to="/compras/licitaciones"><span className={styles.etiqueta}>Licitación</span>{' '}<span className={styles.cantidad}>{flujo ? `${cantidadConNombre(flujo.porLicitar, 'por licitar', 'por licitar')} · ${cantidadConNombre(flujo.porAdjudicar, 'por adjudicar', 'por adjudicar')}` : 'Cargando cantidad…'}</span></Link></li>
             <li className={styles.etapa} data-pendiente={pendientePorEtapa.orden}><Link className={styles.enlaceEtapa} to="/compras/ordenes"><span className={styles.etiqueta}>Orden de compra</span>{' '}<span className={styles.cantidad}>{flujo ? cantidadConNombre(flujo.ordenesPendientesSeguimiento, 'pendiente de seguimiento', 'pendientes de seguimiento') : 'Cargando cantidad…'}</span></Link></li>
-            <li className={styles.etapa} data-pendiente={pendientePorEtapa.recepcion}><span className={styles.enlaceEtapa}><span className={styles.etiqueta}>Recepción</span>{' '}<span className={styles.cantidad}>{flujo ? cantidadConNombre(flujo.porRecibir, 'orden pendiente de recibir', 'órdenes pendientes de recibir') : 'Cargando cantidad…'}</span></span></li>
           </ol>
         )}
       </section>

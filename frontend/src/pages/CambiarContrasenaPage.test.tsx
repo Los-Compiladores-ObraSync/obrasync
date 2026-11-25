@@ -184,21 +184,26 @@ describe('CambiarContrasenaPage', () => {
     expect(screen.getByText('Ingresá tu contraseña actual.')).toBeInTheDocument()
   })
 
-  it('el ojo muestra y oculta las tres contraseñas a la vez', async () => {
+  it('cada campo tiene su propio ojo y se puede mirar uno sin mostrar los otros', async () => {
     const user = userEvent.setup()
     renderPagina()
-    const campos = [
-      screen.getByLabelText('Contraseña actual'),
-      screen.getByLabelText('Nueva contraseña'),
-      screen.getByLabelText('Repetí la nueva contraseña'),
-    ]
-    campos.forEach((campo) => expect(campo).toHaveAttribute('type', 'password'))
+    const actual = screen.getByLabelText('Contraseña actual')
+    const nueva = screen.getByLabelText('Nueva contraseña')
+    const repetir = screen.getByLabelText('Repetí la nueva contraseña')
+    ;[actual, nueva, repetir].forEach((campo) => expect(campo).toHaveAttribute('type', 'password'))
 
-    await user.click(screen.getByRole('button', { name: 'Mostrar contraseñas' }))
-    campos.forEach((campo) => expect(campo).toHaveAttribute('type', 'text'))
+    await user.click(screen.getByRole('button', { name: 'Mostrar nueva contraseña' }))
+    expect(nueva).toHaveAttribute('type', 'text')
+    expect(actual).toHaveAttribute('type', 'password')
+    expect(repetir).toHaveAttribute('type', 'password')
 
-    await user.click(screen.getByRole('button', { name: 'Mostrar contraseñas' }))
-    campos.forEach((campo) => expect(campo).toHaveAttribute('type', 'password'))
+    await user.click(screen.getByRole('button', { name: 'Mostrar contraseña actual' }))
+    await user.click(screen.getByRole('button', { name: 'Mostrar la repetición de la nueva contraseña' }))
+    ;[actual, nueva, repetir].forEach((campo) => expect(campo).toHaveAttribute('type', 'text'))
+
+    await user.click(screen.getByRole('button', { name: 'Mostrar nueva contraseña' }))
+    expect(nueva).toHaveAttribute('type', 'password')
+    expect(actual).toHaveAttribute('type', 'text')
   })
 
   it('un doble envío seguido hace una sola llamada', async () => {

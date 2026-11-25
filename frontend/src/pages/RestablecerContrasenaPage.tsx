@@ -49,7 +49,9 @@ export function RestablecerContrasenaPage() {
 
   const [password, setPassword] = useState('')
   const [repetir, setRepetir] = useState('')
+  // Cada campo tiene su propio ojo.
   const [verPassword, setVerPassword] = useState(false)
+  const [verRepetir, setVerRepetir] = useState(false)
   const [campoError, setCampoError] = useState<ErroresCampo>({})
   const [errorApi, setErrorApi] = useState<ErrorApi | null>(null)
   const [enviando, setEnviando] = useState(false)
@@ -123,7 +125,6 @@ export function RestablecerContrasenaPage() {
     )
   }
 
-  const tipoCampo = verPassword ? 'text' : 'password'
   const idErrorApi = 'restablecer-error-api'
 
   return (
@@ -157,7 +158,7 @@ export function RestablecerContrasenaPage() {
           <div className={loginStyles.campoClave}>
             <input
               id="restablecer-password"
-              type={tipoCampo}
+              type={verPassword ? 'text' : 'password'}
               autoComplete="new-password"
               className={`${loginStyles.input} ${loginStyles.inputClave}${campoError.password ? ` ${loginStyles.inputInvalido}` : ''}`}
               value={password}
@@ -165,13 +166,12 @@ export function RestablecerContrasenaPage() {
               aria-describedby={campoError.password ? 'restablecer-password-error' : undefined}
               aria-invalid={!!campoError.password}
             />
-            {/* type="button": si no, dentro del <form> actuaría como "enviar".
-                Un solo botón muestra u oculta las dos contraseñas. */}
+            {/* type="button": si no, dentro del <form> actuaría como "enviar". */}
             <button
               type="button"
               className={loginStyles.verClave}
               onClick={() => setVerPassword((visible) => !visible)}
-              aria-label="Mostrar contraseña"
+              aria-label="Mostrar nueva contraseña"
               aria-pressed={verPassword}
             >
               <IconoOjo tachado={verPassword} />
@@ -188,16 +188,27 @@ export function RestablecerContrasenaPage() {
           <label htmlFor="restablecer-repetir" className={loginStyles.label}>
             Repetí la contraseña
           </label>
-          <input
-            id="restablecer-repetir"
-            type={tipoCampo}
-            autoComplete="new-password"
-            className={`${loginStyles.input}${campoError.repetir ? ` ${loginStyles.inputInvalido}` : ''}`}
-            value={repetir}
-            onChange={(e) => setRepetir(e.target.value)}
-            aria-describedby={campoError.repetir ? 'restablecer-repetir-error' : undefined}
-            aria-invalid={!!campoError.repetir}
-          />
+          <div className={loginStyles.campoClave}>
+            <input
+              id="restablecer-repetir"
+              type={verRepetir ? 'text' : 'password'}
+              autoComplete="new-password"
+              className={`${loginStyles.input} ${loginStyles.inputClave}${campoError.repetir ? ` ${loginStyles.inputInvalido}` : ''}`}
+              value={repetir}
+              onChange={(e) => setRepetir(e.target.value)}
+              aria-describedby={campoError.repetir ? 'restablecer-repetir-error' : undefined}
+              aria-invalid={!!campoError.repetir}
+            />
+            <button
+              type="button"
+              className={loginStyles.verClave}
+              onClick={() => setVerRepetir((visible) => !visible)}
+              aria-label="Mostrar la repetición de la contraseña"
+              aria-pressed={verRepetir}
+            >
+              <IconoOjo tachado={verRepetir} />
+            </button>
+          </div>
           {campoError.repetir && (
             <p id="restablecer-repetir-error" className={loginStyles.errorCampo} role="alert">
               {campoError.repetir}
