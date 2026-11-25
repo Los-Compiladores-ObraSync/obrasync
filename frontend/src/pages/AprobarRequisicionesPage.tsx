@@ -13,6 +13,7 @@ import {
 } from '../requisiciones/requisicionesService'
 import type { RequisicionResponseDto } from '../requisiciones/requisicionesTipos'
 import { usePendientes } from '../notificaciones/usePendientes'
+import { PresupuestoDeEtapa } from '../presupuesto/PresupuestoDeEtapa'
 import { cantidadConUnidad } from '../requisiciones/unidades'
 import styles from './AprobarRequisicionesPage.module.css'
 
@@ -330,6 +331,16 @@ export function AprobarRequisicionesPage() {
                   </li>
                 ))}
               </ul>
+
+              <PresupuestoDeEtapa
+                obraId={req.obraId}
+                etapa={req.etapa}
+                estimado={
+                  req.items.some((it) => preciosReferencia[it.articuloId] !== undefined)
+                    ? req.items.reduce((suma, it) => suma + (preciosReferencia[it.articuloId] ?? 0) * it.cantidad, 0)
+                    : undefined
+                }
+              />
 
               <details className={styles.detalle}>
                 <summary className={styles.resumenDetalle}>

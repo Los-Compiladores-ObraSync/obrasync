@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using MassTransit;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
+using ObraSync.Contracts.Events;
 using Microsoft.EntityFrameworkCore;
 using ObraSync.Usuarios.Application.DTOs;
 using ObraSync.Usuarios.Application.Interfaces;
@@ -17,11 +20,15 @@ public class ObraService : IObraService
 {
     private readonly AuthDbContext _context;
     private readonly UserManager<AppUser>? _userManager;
+    private readonly IPublishEndpoint? _publisher;
+    private readonly ILogger<ObraService>? _logger;
 
-    public ObraService(AuthDbContext context, UserManager<AppUser>? userManager = null)
+    public ObraService(AuthDbContext context, UserManager<AppUser>? userManager = null, IPublishEndpoint? publisher = null, ILogger<ObraService>? logger = null)
     {
         _context = context;
         _userManager = userManager;
+        _publisher = publisher;
+        _logger = logger;
     }
 
     public async Task<CrearObraResponseDto> CrearObraAsync(CrearObraDto dto)
@@ -74,6 +81,22 @@ public class ObraService : IObraService
         catch (DbUpdateException)
         {
             throw new ConflictoException("Ya existe una obra activa con el mismo nombre y ubicación.");
+        }
+
+        // Recepción crea el presupuesto semilla de cada etapa al recibir esto. Si el bus no responde, la obra
+        // igual queda creada: el servicio republica las obras existentes al iniciar.
+        if (_publisher is not null)
+        {
+            try
+            {
+                await _publisher.Publish(new ObraCreadaEvent(
+                    Guid.NewGuid(), DateTime.UtcNow, Guid.NewGuid(), obra.Id, obra.Nombre,
+                    obra.Etapas.Select(e => e.NombreEtapa).ToList()));
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "No se pudo publicar ObraCreadaEvent de la obra {ObraId}.", obra.Id);
+            }
         }
 
         return new CrearObraResponseDto

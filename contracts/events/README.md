@@ -31,3 +31,5 @@ En mensajería asíncrona (RabbitMQ + MassTransit), dos eventos distintos no tie
 
 - **Comportamiento obligatorio en Recepción (#204):** si al consumir `OrdenCompraDespachadaEvent` todavía no existe la orden de compra (`ordenCompraId`) en `DB_Recepcion`, el consumidor **no debe descartar el mensaje ni registrar el `eventId` en `EventosProcesados`**. Debe fallar lanzando una excepción para que la política de reintentos de MassTransit vuelva a entregarlo hasta que `OrdenCompraEmitidaEvent` haya creado la orden.
 - Una vez persistida la orden en `DB_Recepcion`, el consumidor debe registrar el `eventId` en `EventosProcesados` y aplicar el estado de despacho de forma idempotente.
+
+- `ObraCreadaEvent.json`: emitido por Usuarios y Obras al crear una obra y, al iniciar el servicio, por cada obra ya existente; consumido por Recepción y Control Presupuestario, que crea la partida semilla de cada etapa que todavía no tenga una (idempotente por obra y etapa). Su registro espejo en C# es `ObraCreadaEvent.cs`.
