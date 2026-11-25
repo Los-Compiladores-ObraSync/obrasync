@@ -18,10 +18,11 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Registra un nuevo usuario en el sistema según la matriz de permisos por rol (tarjeta #117):
+    /// Crea un nuevo usuario en el sistema según la matriz de permisos por rol (tarjeta #117):
     /// sin token solo permite Proveedor; Comprador crea Capataz/Proveedor; Admin crea Capataz/Comprador/Proveedor.
+    /// POST /api/usuarios
     /// </summary>
-    [HttpPost("registro")]
+    [HttpPost]
     [AllowAnonymous]
     [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -41,9 +42,10 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Inicia sesión de usuario y retorna el token JWT firmado.
+    /// Autentica al usuario y emite el token JWT firmado.
+    /// POST /api/usuarios/tokens
     /// </summary>
-    [HttpPost("login")]
+    [HttpPost("tokens")]
     [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -54,15 +56,16 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Inicia la recuperación de contraseña: si el email existe y la cuenta está activa,
+    /// Crea una solicitud de recuperación de contraseña: si el email existe y la cuenta está activa,
     /// genera un token de un solo uso (vigencia: 1 hora) y emite el enlace en los logs del servicio.
     /// Siempre responde lo mismo, exista o no el email, para no revelar qué cuentas existen.
+    /// POST /api/usuarios/password/recuperaciones
     /// </summary>
     /// <remarks>
     /// Endpoint público (sin JWT). RIESGO CONOCIDO: no tiene límite de intentos (rate limiting);
     /// queda fuera del alcance de este sprint (tarjeta #53).
     /// </remarks>
-    [HttpPost("password/recuperar")]
+    [HttpPost("password/recuperaciones")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(MensajeResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -72,9 +75,10 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Restablece la contraseña del usuario validando el token de recuperación de un solo uso.
+    /// Registra el restablecimiento de contraseña del usuario validando el token de recuperación de un solo uso.
+    /// POST /api/usuarios/password/restablecimientos
     /// </summary>
-    [HttpPost("password/restablecer")]
+    [HttpPost("password/restablecimientos")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(MensajeResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -84,9 +88,10 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Cambia la contraseña del usuario autenticado verificando su contraseña actual (tarjeta #121).
+    /// Registra el cambio de contraseña del usuario autenticado verificando su contraseña actual (tarjeta #121).
+    /// POST /api/usuarios/password/cambios
     /// </summary>
-    [HttpPost("cambiar-password")]
+    [HttpPost("password/cambios")]
     [Authorize]
     [ProducesResponseType(typeof(MensajeResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]

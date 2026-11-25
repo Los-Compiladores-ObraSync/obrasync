@@ -37,7 +37,7 @@ public class PermisosPorRolTests : IClassFixture<LicitacionesApiFactory>
     public async Task Adjudicar_sin_token_responde_401_con_problem_json()
     {
         var cid = Guid.NewGuid().ToString();
-        var resp = await Cliente(null, cid).PostAsync($"/api/licitaciones/{Guid.NewGuid()}/adjudicar", null);
+        var resp = await Cliente(null, cid).PostAsync($"/api/licitaciones/{Guid.NewGuid()}/adjudicaciones", null);
 
         Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
         await AssertProblemJson(resp, 401, cid);
@@ -49,7 +49,7 @@ public class PermisosPorRolTests : IClassFixture<LicitacionesApiFactory>
     public async Task Adjudicar_con_rol_no_autorizado_responde_403_con_problem_json(string rol)
     {
         var cid = Guid.NewGuid().ToString();
-        var resp = await Cliente(rol, cid).PostAsync($"/api/licitaciones/{Guid.NewGuid()}/adjudicar", null);
+        var resp = await Cliente(rol, cid).PostAsync($"/api/licitaciones/{Guid.NewGuid()}/adjudicaciones", null);
 
         Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode);
         await AssertProblemJson(resp, 403, cid);
@@ -61,7 +61,7 @@ public class PermisosPorRolTests : IClassFixture<LicitacionesApiFactory>
     public async Task Adjudicar_con_Comprador_o_Admin_pasa_la_autorizacion(string rol)
     {
         // La licitación no existe: lo que importa es que NO sea 401 ni 403
-        var resp = await Cliente(rol).PostAsync($"/api/licitaciones/{Guid.NewGuid()}/adjudicar", null);
+        var resp = await Cliente(rol).PostAsync($"/api/licitaciones/{Guid.NewGuid()}/adjudicaciones", null);
 
         Assert.NotEqual(HttpStatusCode.Unauthorized, resp.StatusCode);
         Assert.NotEqual(HttpStatusCode.Forbidden, resp.StatusCode);

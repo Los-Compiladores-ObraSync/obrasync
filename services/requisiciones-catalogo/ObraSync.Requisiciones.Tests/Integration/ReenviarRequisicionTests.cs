@@ -164,7 +164,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
 
             // 2. Comprador rechaza la requisición con motivo
             var rechazarResp = await clientComprador.PostAsJsonAsync(
-                $"/api/requisiciones/{creada.RequisicionId}/rechazar",
+                $"/api/requisiciones/{creada.RequisicionId}/rechazos",
                 new RechazarRequisicionRequestDto { Motivo = "Excede el presupuesto asignado a Estructura" });
             Assert.Equal(HttpStatusCode.OK, rechazarResp.StatusCode);
             var rechazada = await rechazarResp.Content.ReadFromJsonAsync<RequisicionResponseDto>();
@@ -219,7 +219,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
 
             // 4. Compras aprueba la requisición reenviada -> pasa a Aprobada y recién ahí publica RequisicionAprobadaEvent con los ítems corregidos
             var aprobarResp = await clientComprador.PostAsync(
-                $"/api/requisiciones/{creada.RequisicionId}/aprobar",
+                $"/api/requisiciones/{creada.RequisicionId}/aprobaciones",
                 null);
             Assert.Equal(HttpStatusCode.OK, aprobarResp.StatusCode);
 
@@ -290,7 +290,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
 
             // 2. Comprador aprueba la requisición -> Intentar editar estando Aprobada -> 409 Conflict
             var aprobarResp = await clientComprador.PostAsync(
-                $"/api/requisiciones/{creada.RequisicionId}/aprobar",
+                $"/api/requisiciones/{creada.RequisicionId}/aprobaciones",
                 null);
             Assert.Equal(HttpStatusCode.OK, aprobarResp.StatusCode);
 
@@ -325,14 +325,14 @@ namespace ObraSync.Requisiciones.Tests.Integration
             var creada = await crearResp.Content.ReadFromJsonAsync<RequisicionResponseDto>();
             Assert.NotNull(creada);
 
-            var cancelarResp = await clientCapataz.PostAsync($"/api/requisiciones/{creada.RequisicionId}/cancelar", null);
+            var cancelarResp = await clientCapataz.PostAsync($"/api/requisiciones/{creada.RequisicionId}/cancelaciones", null);
             Assert.Equal(HttpStatusCode.OK, cancelarResp.StatusCode);
             var cancelada = await cancelarResp.Content.ReadFromJsonAsync<RequisicionResponseDto>();
             Assert.NotNull(cancelada);
             Assert.Equal(EstadoRequisicion.Cancelada, cancelada.Estado);
 
             // Una cancelada no se puede aprobar, ni editar, ni volver a cancelar
-            var aprobarResp = await clientComprador.PostAsync($"/api/requisiciones/{creada.RequisicionId}/aprobar", null);
+            var aprobarResp = await clientComprador.PostAsync($"/api/requisiciones/{creada.RequisicionId}/aprobaciones", null);
             Assert.Equal(HttpStatusCode.Conflict, aprobarResp.StatusCode);
 
             var putResp = await clientCapataz.PutAsJsonAsync($"/api/requisiciones/{creada.RequisicionId}", new EditarRequisicionRequestDto
@@ -341,7 +341,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
             });
             await AssertProblemDetailsAsync(putResp, HttpStatusCode.Conflict, correlationId);
 
-            var otraVez = await clientCapataz.PostAsync($"/api/requisiciones/{creada.RequisicionId}/cancelar", null);
+            var otraVez = await clientCapataz.PostAsync($"/api/requisiciones/{creada.RequisicionId}/cancelaciones", null);
             await AssertProblemDetailsAsync(otraVez, HttpStatusCode.Conflict, correlationId);
         }
 
@@ -370,15 +370,15 @@ namespace ObraSync.Requisiciones.Tests.Integration
             Assert.NotNull(creada);
 
             Assert.Equal(HttpStatusCode.Forbidden,
-                (await clientOtro.PostAsync($"/api/requisiciones/{creada.RequisicionId}/cancelar", null)).StatusCode);
+                (await clientOtro.PostAsync($"/api/requisiciones/{creada.RequisicionId}/cancelaciones", null)).StatusCode);
             Assert.Equal(HttpStatusCode.Forbidden,
-                (await clientComprador.PostAsync($"/api/requisiciones/{creada.RequisicionId}/cancelar", null)).StatusCode);
+                (await clientComprador.PostAsync($"/api/requisiciones/{creada.RequisicionId}/cancelaciones", null)).StatusCode);
 
             Assert.Equal(HttpStatusCode.OK,
-                (await clientComprador.PostAsync($"/api/requisiciones/{creada.RequisicionId}/aprobar", null)).StatusCode);
+                (await clientComprador.PostAsync($"/api/requisiciones/{creada.RequisicionId}/aprobaciones", null)).StatusCode);
 
             Assert.Equal(HttpStatusCode.Conflict,
-                (await clientCapataz.PostAsync($"/api/requisiciones/{creada.RequisicionId}/cancelar", null)).StatusCode);
+                (await clientCapataz.PostAsync($"/api/requisiciones/{creada.RequisicionId}/cancelaciones", null)).StatusCode);
         }
 
         [Fact]
@@ -413,7 +413,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
             Assert.NotNull(creada);
 
             await clientComprador.PostAsJsonAsync(
-                $"/api/requisiciones/{creada.RequisicionId}/rechazar",
+                $"/api/requisiciones/{creada.RequisicionId}/rechazos",
                 new RechazarRequisicionRequestDto { Motivo = "Revisar cantidades de fundaciones" });
 
             var editPayload = new EditarRequisicionRequestDto
@@ -489,7 +489,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
 
             // Ciclo 1: Rechazo 1 -> Reenvío 1
             await clientComprador1.PostAsJsonAsync(
-                $"/api/requisiciones/{creada.RequisicionId}/rechazar",
+                $"/api/requisiciones/{creada.RequisicionId}/rechazos",
                 new RechazarRequisicionRequestDto { Motivo = "Motivo 1: bajar bolsas de cemento" });
 
             var put1Resp = await clientCapataz.PutAsJsonAsync(
@@ -507,7 +507,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
 
             // Ciclo 2: Rechazo 2 -> Reenvío 2
             await clientComprador2.PostAsJsonAsync(
-                $"/api/requisiciones/{creada.RequisicionId}/rechazar",
+                $"/api/requisiciones/{creada.RequisicionId}/rechazos",
                 new RechazarRequisicionRequestDto { Motivo = "Motivo 2: cambiar etapa a Terminaciones" });
 
             var put2Resp = await clientCapataz.PutAsJsonAsync(

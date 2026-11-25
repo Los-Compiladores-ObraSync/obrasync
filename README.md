@@ -57,7 +57,7 @@ Dentro de Docker cada servicio escucha en el 8080 (corriendo bajo usuario no-roo
 ## Probar que está andando
 
 - Frontend: `http://localhost:5173` debe mostrar el login.
-- Gateway: `http://localhost:5000/api/usuarios/login` (POST) debe llegar al servicio de Usuarios.
+- Gateway: `http://localhost:5000/api/usuarios/tokens` (POST) debe llegar al servicio de Usuarios.
 - Salud de los servicios: `http://localhost:5002/health` (Requisiciones), `http://localhost:5003/health` (Licitaciones) y `http://localhost:5004/health` (Recepción).
 - Swagger (se activa en `Development`): `http://localhost:5001/swagger` (Usuarios), `http://localhost:5002/swagger` (Requisiciones) y `http://localhost:5004/swagger` (Recepción).
 - RabbitMQ: `http://localhost:15672`.

@@ -182,13 +182,13 @@ namespace ObraSync.Requisiciones.Tests.Integration
             });
             await AssertProblemDetailsWithCorrelationIdAsync(postRequisicionResp, HttpStatusCode.Unauthorized, correlationId);
 
-            // 6. POST /api/requisiciones/{id}/aprobar
-            var aprobarResp = await client.PostAsync($"/api/requisiciones/{requisicionId}/aprobar", null);
+            // 6. POST /api/requisiciones/{id}/aprobaciones
+            var aprobarResp = await client.PostAsync($"/api/requisiciones/{requisicionId}/aprobaciones", null);
             await AssertProblemDetailsWithCorrelationIdAsync(aprobarResp, HttpStatusCode.Unauthorized, correlationId);
 
-            // 7. POST /api/requisiciones/{id}/rechazar
+            // 7. POST /api/requisiciones/{id}/rechazos
             var rechazarResp = await client.PostAsJsonAsync(
-                $"/api/requisiciones/{requisicionId}/rechazar",
+                $"/api/requisiciones/{requisicionId}/rechazos",
                 new RechazarRequisicionRequestDto { Motivo = "Sin token" });
             await AssertProblemDetailsWithCorrelationIdAsync(rechazarResp, HttpStatusCode.Unauthorized, correlationId);
         }
@@ -237,13 +237,13 @@ namespace ObraSync.Requisiciones.Tests.Integration
             });
             await AssertProblemDetailsWithCorrelationIdAsync(postRequisicionResp, HttpStatusCode.Forbidden, correlationId);
 
-            // 6. POST /api/requisiciones/{id}/aprobar
-            var aprobarResp = await client.PostAsync($"/api/requisiciones/{requisicionExistenteId}/aprobar", null);
+            // 6. POST /api/requisiciones/{id}/aprobaciones
+            var aprobarResp = await client.PostAsync($"/api/requisiciones/{requisicionExistenteId}/aprobaciones", null);
             await AssertProblemDetailsWithCorrelationIdAsync(aprobarResp, HttpStatusCode.Forbidden, correlationId);
 
-            // 7. POST /api/requisiciones/{id}/rechazar
+            // 7. POST /api/requisiciones/{id}/rechazos
             var rechazarResp = await client.PostAsJsonAsync(
-                $"/api/requisiciones/{requisicionExistenteId}/rechazar",
+                $"/api/requisiciones/{requisicionExistenteId}/rechazos",
                 new RechazarRequisicionRequestDto { Motivo = "Intento de proveedor" });
             await AssertProblemDetailsWithCorrelationIdAsync(rechazarResp, HttpStatusCode.Forbidden, correlationId);
         }
@@ -294,13 +294,13 @@ namespace ObraSync.Requisiciones.Tests.Integration
             });
             await AssertProblemDetailsWithCorrelationIdAsync(postInsumoResp, HttpStatusCode.Forbidden, correlationId);
 
-            // Denegado: POST /api/requisiciones/{id}/aprobar -> 403 Forbidden (ProblemDetails + correlationId)
-            var aprobarResp = await client.PostAsync($"/api/requisiciones/{creada.RequisicionId}/aprobar", null);
+            // Denegado: POST /api/requisiciones/{id}/aprobaciones -> 403 Forbidden (ProblemDetails + correlationId)
+            var aprobarResp = await client.PostAsync($"/api/requisiciones/{creada.RequisicionId}/aprobaciones", null);
             await AssertProblemDetailsWithCorrelationIdAsync(aprobarResp, HttpStatusCode.Forbidden, correlationId);
 
-            // Denegado: POST /api/requisiciones/{id}/rechazar -> 403 Forbidden (ProblemDetails + correlationId)
+            // Denegado: POST /api/requisiciones/{id}/rechazos -> 403 Forbidden (ProblemDetails + correlationId)
             var rechazarResp = await client.PostAsJsonAsync(
-                $"/api/requisiciones/{creada.RequisicionId}/rechazar",
+                $"/api/requisiciones/{creada.RequisicionId}/rechazos",
                 new RechazarRequisicionRequestDto { Motivo = "Intento de rechazo por Capataz" });
             await AssertProblemDetailsWithCorrelationIdAsync(rechazarResp, HttpStatusCode.Forbidden, correlationId);
         }
@@ -342,13 +342,13 @@ namespace ObraSync.Requisiciones.Tests.Integration
             var getByIdResp = await client.GetAsync($"/api/requisiciones/{requisicionParaAprobarId}");
             Assert.Equal(HttpStatusCode.OK, getByIdResp.StatusCode);
 
-            // Permitido: POST /api/requisiciones/{id}/aprobar -> 200 OK
-            var aprobarResp = await client.PostAsync($"/api/requisiciones/{requisicionParaAprobarId}/aprobar", null);
+            // Permitido: POST /api/requisiciones/{id}/aprobaciones -> 200 OK
+            var aprobarResp = await client.PostAsync($"/api/requisiciones/{requisicionParaAprobarId}/aprobaciones", null);
             Assert.Equal(HttpStatusCode.OK, aprobarResp.StatusCode);
 
-            // Permitido: POST /api/requisiciones/{id}/rechazar -> 200 OK
+            // Permitido: POST /api/requisiciones/{id}/rechazos -> 200 OK
             var rechazarResp = await client.PostAsJsonAsync(
-                $"/api/requisiciones/{requisicionParaRechazarId}/rechazar",
+                $"/api/requisiciones/{requisicionParaRechazarId}/rechazos",
                 new RechazarRequisicionRequestDto { Motivo = "Rechazado por Comprador" });
             Assert.Equal(HttpStatusCode.OK, rechazarResp.StatusCode);
 
@@ -425,15 +425,35 @@ namespace ObraSync.Requisiciones.Tests.Integration
             var getByIdResp = await client.GetAsync($"/api/requisiciones/{req1.RequisicionId}");
             Assert.Equal(HttpStatusCode.OK, getByIdResp.StatusCode);
 
-            // 6. POST /api/requisiciones/{id}/aprobar -> 200 OK
-            var aprobarResp = await client.PostAsync($"/api/requisiciones/{req1.RequisicionId}/aprobar", null);
+            // 6. POST /api/requisiciones/{id}/aprobaciones -> 200 OK
+            var aprobarResp = await client.PostAsync($"/api/requisiciones/{req1.RequisicionId}/aprobaciones", null);
             Assert.Equal(HttpStatusCode.OK, aprobarResp.StatusCode);
 
-            // 7. POST /api/requisiciones/{id}/rechazar -> 200 OK
+            // 7. POST /api/requisiciones/{id}/rechazos -> 200 OK
             var rechazarResp = await client.PostAsJsonAsync(
-                $"/api/requisiciones/{req2.RequisicionId}/rechazar",
+                $"/api/requisiciones/{req2.RequisicionId}/rechazos",
                 new RechazarRequisicionRequestDto { Motivo = "Rechazada por Admin" });
             Assert.Equal(HttpStatusCode.OK, rechazarResp.StatusCode);
+        }
+
+        [Fact]
+        public async Task RutasLegacyConVerbos_NoDebenExistirYRetornan404NotFound()
+        {
+            var requisicionId = await CrearRequisicionSemillaAsync();
+            var client = _factory.CreateClient();
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Admin"));
+
+            var aprobarLegacy = await client.PostAsync($"/api/requisiciones/{requisicionId}/aprobar", null);
+            Assert.Equal(HttpStatusCode.NotFound, aprobarLegacy.StatusCode);
+
+            var rechazarLegacy = await client.PostAsJsonAsync(
+                $"/api/requisiciones/{requisicionId}/rechazar",
+                new RechazarRequisicionRequestDto { Motivo = "Motivo válido de prueba" });
+            Assert.Equal(HttpStatusCode.NotFound, rechazarLegacy.StatusCode);
+
+            var cancelarLegacy = await client.PostAsync($"/api/requisiciones/{requisicionId}/cancelar", null);
+            Assert.Equal(HttpStatusCode.NotFound, cancelarLegacy.StatusCode);
         }
     }
 }

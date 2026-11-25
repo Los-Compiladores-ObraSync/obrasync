@@ -21,7 +21,7 @@ export interface EnviarMensajeChatRequestDto {
   texto: string
 }
 
-/** Respuesta de marcar-leido y evento LecturaActualizada del hub (LecturaChatResponseDto). */
+/** Respuesta de chat/lecturas y evento LecturaActualizada del hub (LecturaChatResponseDto). */
 export interface LecturaChatResponseDto {
   ordenCompraId: string
   usuarioId: string
@@ -40,7 +40,7 @@ export interface ResumenNoLeidosChatDto {
   ordenes: NoLeidosOrdenDto[]
 }
 
-/** Respuesta de problema/resolver y evento ProblemaEstadoActualizado del hub (ProblemaOrdenEstadoDto). */
+/** Respuesta de problema/resoluciones y evento ProblemaEstadoActualizado del hub (ProblemaOrdenEstadoDto). */
 export interface ProblemaOrdenEstadoDto {
   ordenCompraId: string
   tieneProblemaAbierto: boolean

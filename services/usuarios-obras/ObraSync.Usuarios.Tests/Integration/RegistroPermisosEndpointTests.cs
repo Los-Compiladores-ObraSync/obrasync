@@ -54,7 +54,7 @@ public class RegistroPermisosEndpointTests : IClassFixture<WebApplicationFactory
     {
         using var client = _factory.CreateClient();
         var loginResp = await client.PostAsJsonAsync(
-            "/api/usuarios/login",
+            "/api/usuarios/tokens",
             new LoginRequestDto(email, SeedPassword));
 
         Assert.Equal(HttpStatusCode.OK, loginResp.StatusCode);
@@ -93,7 +93,7 @@ public class RegistroPermisosEndpointTests : IClassFixture<WebApplicationFactory
         var email = $"prov-{Guid.NewGuid():N}@obrasync.com";
 
         var response = await client.PostAsJsonAsync(
-            "/api/usuarios/registro",
+            "/api/usuarios",
             new RegisterRequestDto("Proveedor Público", email, "Password123!", UserRoles.Proveedor));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -113,7 +113,7 @@ public class RegistroPermisosEndpointTests : IClassFixture<WebApplicationFactory
         client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
 
         var response = await client.PostAsJsonAsync(
-            "/api/usuarios/registro",
+            "/api/usuarios",
             new RegisterRequestDto("Intento Anónimo", $"anon-{Guid.NewGuid():N}@obrasync.com", "Password123!", rolSolicitado));
 
         await AssertProblemDetailsConCorrelationIdAsync(response, HttpStatusCode.Forbidden, correlationId);
@@ -131,7 +131,7 @@ public class RegistroPermisosEndpointTests : IClassFixture<WebApplicationFactory
         var email = $"alta-comp-{Guid.NewGuid():N}@obrasync.com";
 
         var response = await client.PostAsJsonAsync(
-            "/api/usuarios/registro",
+            "/api/usuarios",
             new RegisterRequestDto($"Nuevo {rolSolicitado}", email, "Password123!", rolSolicitado));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -152,7 +152,7 @@ public class RegistroPermisosEndpointTests : IClassFixture<WebApplicationFactory
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenComprador);
 
         var response = await client.PostAsJsonAsync(
-            "/api/usuarios/registro",
+            "/api/usuarios",
             new RegisterRequestDto("Otro Comprador", $"comp-{Guid.NewGuid():N}@obrasync.com", "Password123!", UserRoles.Comprador));
 
         await AssertProblemDetailsConCorrelationIdAsync(response, HttpStatusCode.Forbidden, correlationId);
@@ -171,7 +171,7 @@ public class RegistroPermisosEndpointTests : IClassFixture<WebApplicationFactory
         var email = $"alta-adm-{Guid.NewGuid():N}@obrasync.com";
 
         var response = await client.PostAsJsonAsync(
-            "/api/usuarios/registro",
+            "/api/usuarios",
             new RegisterRequestDto($"Nuevo {rolSolicitado}", email, "Password123!", rolSolicitado));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -199,7 +199,7 @@ public class RegistroPermisosEndpointTests : IClassFixture<WebApplicationFactory
             }
 
             var response = await client.PostAsJsonAsync(
-                "/api/usuarios/registro",
+                "/api/usuarios",
                 new RegisterRequestDto("Intento Admin", $"adm-{Guid.NewGuid():N}@obrasync.com", "Password123!", UserRoles.Admin));
 
             await AssertProblemDetailsConCorrelationIdAsync(response, HttpStatusCode.Forbidden, correlationId);
@@ -219,7 +219,7 @@ public class RegistroPermisosEndpointTests : IClassFixture<WebApplicationFactory
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenOperativo);
 
         var response = await client.PostAsJsonAsync(
-            "/api/usuarios/registro",
+            "/api/usuarios",
             new RegisterRequestDto("Intento Operativo", $"op-{Guid.NewGuid():N}@obrasync.com", "Password123!", UserRoles.Proveedor));
 
         await AssertProblemDetailsConCorrelationIdAsync(response, HttpStatusCode.Forbidden, correlationId);
@@ -234,7 +234,7 @@ public class RegistroPermisosEndpointTests : IClassFixture<WebApplicationFactory
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "token.jwt.invalido");
 
         var response = await client.PostAsJsonAsync(
-            "/api/usuarios/registro",
+            "/api/usuarios",
             new RegisterRequestDto("Proveedor", $"prov-{Guid.NewGuid():N}@obrasync.com", "Password123!", UserRoles.Proveedor));
 
         await AssertProblemDetailsConCorrelationIdAsync(response, HttpStatusCode.Unauthorized, correlationId);

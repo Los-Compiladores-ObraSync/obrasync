@@ -84,7 +84,7 @@ public class LoginLockoutYPoliticaPasswordEndpointTests : IClassFixture<WebAppli
 
         // 1. Intento con email inexistente
         var correlationNoExiste = Guid.NewGuid().ToString();
-        using var reqNoExiste = new HttpRequestMessage(HttpMethod.Post, "/api/usuarios/login")
+        using var reqNoExiste = new HttpRequestMessage(HttpMethod.Post, "/api/usuarios/tokens")
         {
             Content = JsonContent.Create(new LoginRequestDto("noexiste@obrasync.com", SeedPassword))
         };
@@ -96,7 +96,7 @@ public class LoginLockoutYPoliticaPasswordEndpointTests : IClassFixture<WebAppli
 
         // 2. Intento con email existente pero contraseña incorrecta
         var correlationPasswordMal = Guid.NewGuid().ToString();
-        using var reqPasswordMal = new HttpRequestMessage(HttpMethod.Post, "/api/usuarios/login")
+        using var reqPasswordMal = new HttpRequestMessage(HttpMethod.Post, "/api/usuarios/tokens")
         {
             Content = JsonContent.Create(new LoginRequestDto("capataz@obrasync.com", "ClaveIncorrecta999!"))
         };
@@ -121,7 +121,7 @@ public class LoginLockoutYPoliticaPasswordEndpointTests : IClassFixture<WebAppli
         for (int intento = 1; intento <= 4; intento++)
         {
             var correlationId = Guid.NewGuid().ToString();
-            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/usuarios/login")
+            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/usuarios/tokens")
             {
                 Content = JsonContent.Create(new LoginRequestDto(email, $"ClaveErronea{intento}"))
             };
@@ -134,7 +134,7 @@ public class LoginLockoutYPoliticaPasswordEndpointTests : IClassFixture<WebAppli
 
         // 2. 5.º intento fallido -> alcanza MaxFailedAccessAttempts (5) y bloquea la cuenta
         var correlationQuinto = Guid.NewGuid().ToString();
-        using var reqQuinto = new HttpRequestMessage(HttpMethod.Post, "/api/usuarios/login")
+        using var reqQuinto = new HttpRequestMessage(HttpMethod.Post, "/api/usuarios/tokens")
         {
             Content = JsonContent.Create(new LoginRequestDto(email, "ClaveErronea5"))
         };
@@ -147,7 +147,7 @@ public class LoginLockoutYPoliticaPasswordEndpointTests : IClassFixture<WebAppli
 
         // 3. 6.º intento enviando la contraseña CORRECTA mientras la cuenta sigue bloqueada -> 401 Cuenta bloqueada
         var correlationSexto = Guid.NewGuid().ToString();
-        using var reqSexto = new HttpRequestMessage(HttpMethod.Post, "/api/usuarios/login")
+        using var reqSexto = new HttpRequestMessage(HttpMethod.Post, "/api/usuarios/tokens")
         {
             Content = JsonContent.Create(new LoginRequestDto(email, SeedPassword))
         };
@@ -169,7 +169,7 @@ public class LoginLockoutYPoliticaPasswordEndpointTests : IClassFixture<WebAppli
         for (int i = 1; i <= 5; i++)
         {
             var resp = await client.PostAsJsonAsync(
-                "/api/usuarios/login",
+                "/api/usuarios/tokens",
                 new LoginRequestDto(email, "ClaveErronea123!"));
             Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
         }
@@ -187,7 +187,7 @@ public class LoginLockoutYPoliticaPasswordEndpointTests : IClassFixture<WebAppli
 
         // 3. Intentar login con la contraseña correcta -> 200 OK con token JWT
         var loginResp = await client.PostAsJsonAsync(
-            "/api/usuarios/login",
+            "/api/usuarios/tokens",
             new LoginRequestDto(email, SeedPassword));
 
         Assert.Equal(HttpStatusCode.OK, loginResp.StatusCode);
@@ -206,14 +206,14 @@ public class LoginLockoutYPoliticaPasswordEndpointTests : IClassFixture<WebAppli
         for (int i = 1; i <= 4; i++)
         {
             var resp = await client.PostAsJsonAsync(
-                "/api/usuarios/login",
+                "/api/usuarios/tokens",
                 new LoginRequestDto(email, "ClaveErronea123!"));
             Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
         }
 
         // 2. Iniciar sesión con la contraseña correcta -> 200 OK y resetea AccessFailedCount a 0
         var loginExitoso = await client.PostAsJsonAsync(
-            "/api/usuarios/login",
+            "/api/usuarios/tokens",
             new LoginRequestDto(email, SeedPassword));
         Assert.Equal(HttpStatusCode.OK, loginExitoso.StatusCode);
 
@@ -221,7 +221,7 @@ public class LoginLockoutYPoliticaPasswordEndpointTests : IClassFixture<WebAppli
         for (int i = 1; i <= 4; i++)
         {
             var correlationId = Guid.NewGuid().ToString();
-            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/usuarios/login")
+            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/usuarios/tokens")
             {
                 Content = JsonContent.Create(new LoginRequestDto(email, "ClaveErronea123!"))
             };
@@ -234,7 +234,7 @@ public class LoginLockoutYPoliticaPasswordEndpointTests : IClassFixture<WebAppli
 
         // 4. Confirmar que la cuenta sigue desbloqueada iniciando sesión con éxito
         var segundoLoginExitoso = await client.PostAsJsonAsync(
-            "/api/usuarios/login",
+            "/api/usuarios/tokens",
             new LoginRequestDto(email, SeedPassword));
         Assert.Equal(HttpStatusCode.OK, segundoLoginExitoso.StatusCode);
     }
@@ -249,7 +249,7 @@ public class LoginLockoutYPoliticaPasswordEndpointTests : IClassFixture<WebAppli
         client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
 
         var response = await client.PostAsJsonAsync(
-            "/api/usuarios/registro",
+            "/api/usuarios",
             new RegisterRequestDto(
                 "Proveedor Nuevo",
                 $"proveedor.{Guid.NewGuid():N}@test.com",
@@ -282,7 +282,7 @@ public class LoginLockoutYPoliticaPasswordEndpointTests : IClassFixture<WebAppli
         client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationId);
 
         var response = await client.PostAsJsonAsync(
-            "/api/usuarios/password/restablecer",
+            "/api/usuarios/password/restablecimientos",
             new RestablecerPasswordRequestDto(email, resetToken, passwordInvalida));
 
         var detail = await AssertProblemDetailsConCorrelationIdAsync(response, HttpStatusCode.BadRequest, correlationId);
@@ -296,7 +296,7 @@ public class LoginLockoutYPoliticaPasswordEndpointTests : IClassFixture<WebAppli
     {
         using var client = _factory.CreateClient();
         var loginResp = await client.PostAsJsonAsync(
-            "/api/usuarios/login",
+            "/api/usuarios/tokens",
             new LoginRequestDto("capataz@obrasync.com", SeedPassword));
         Assert.Equal(HttpStatusCode.OK, loginResp.StatusCode);
         var auth = await loginResp.Content.ReadFromJsonAsync<AuthResponseDto>();
@@ -307,7 +307,7 @@ public class LoginLockoutYPoliticaPasswordEndpointTests : IClassFixture<WebAppli
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.Token);
 
         var response = await client.PostAsJsonAsync(
-            "/api/usuarios/cambiar-password",
+            "/api/usuarios/password/cambios",
             new CambiarPasswordRequestDto(SeedPassword, passwordInvalida, passwordInvalida));
 
         var detail = await AssertProblemDetailsConCorrelationIdAsync(response, HttpStatusCode.BadRequest, correlationId);

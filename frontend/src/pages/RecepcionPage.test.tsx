@@ -18,7 +18,7 @@ vi.mock('../recepciones/imagenRemito', async (original) => ({
 
 const RUTA_ORDENES = '*/api/recepciones/ordenes-pendientes'
 const RUTA_RECEPCIONES = '*/api/recepciones'
-const RUTA_LEER_REMITO = '*/api/asistente/remito/leer'
+const RUTA_LEER_REMITO = '*/api/asistente/remitos/lecturas'
 
 function renderPagina() {
   return render(

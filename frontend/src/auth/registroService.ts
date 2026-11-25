@@ -18,7 +18,7 @@ export interface DatosRegistroProveedor {
 export async function registrarProveedor(
   datos: DatosRegistroProveedor,
 ): Promise<{ usuario: SesionUsuario; token: string }> {
-  const respuesta = await apiFetch<AuthResponseDto>('/api/usuarios/registro', {
+  const respuesta = await apiFetch<AuthResponseDto>('/api/usuarios', {
     method: 'POST',
     body: JSON.stringify({ ...datos, rol: 'Proveedor' }),
   })

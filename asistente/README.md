@@ -36,7 +36,7 @@ El borrador no se guarda en ninguna base.
 - Herramientas: las mismas dos de arriba, marcadas como solo lectura. No necesita el modelo de IA ni la clave de Azure.
 - Probarlo a mano con un cliente MCP de prueba, por ejemplo MCP Inspector (`npx @modelcontextprotocol/inspector`):
   transporte "Streamable HTTP", URL `http://localhost:5000/api/mcp` y el encabezado `Authorization` con el token
-  de un Capataz (login en `POST /api/usuarios/login`).
+  de un Capataz (login en `POST /api/usuarios/tokens`).
 
 ## Herramientas generadas desde el contrato (#151)
 Un generador propio en C# (`Application/Generadas`) lee los `*-openapi.json` de `contracts/openapi` y arma una herramienta de

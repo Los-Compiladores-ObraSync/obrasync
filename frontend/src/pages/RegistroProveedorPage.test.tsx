@@ -36,7 +36,7 @@ describe('RegistroProveedorPage', () => {
   it('valida los campos sin llamar a la API', async () => {
     const user = userEvent.setup()
     let llamada = false
-    server.use(http.post('*/api/usuarios/registro', () => { llamada = true; return HttpResponse.json({}) }))
+    server.use(http.post('*/api/usuarios', () => { llamada = true; return HttpResponse.json({}) }))
     render(<ConRouterYSesion><RegistroProveedorPage /></ConRouterYSesion>)
     await user.click(screen.getByRole('button', { name: 'Crear cuenta' }))
     expect(screen.getByText('El nombre completo es obligatorio.')).toBeInTheDocument()
@@ -79,7 +79,7 @@ describe('RegistroProveedorPage', () => {
 
   it('muestra el detalle del 400', async () => {
     const user = userEvent.setup()
-    server.use(http.post('*/api/usuarios/registro', () => HttpResponse.json({ status: 400, detail: 'El nombre no es válido.' }, { status: 400 })))
+    server.use(http.post('*/api/usuarios', () => HttpResponse.json({ status: 400, detail: 'El nombre no es válido.' }, { status: 400 })))
     render(<ConRouterYSesion><RegistroProveedorPage /></ConRouterYSesion>)
     await user.type(screen.getByLabelText('Nombre completo'), 'Ana')
     await user.type(screen.getByLabelText('Email'), 'ana@empresa.com')
@@ -90,7 +90,7 @@ describe('RegistroProveedorPage', () => {
 
   it('muestra el mensaje genérico del 400 cuando no hay detail', async () => {
     const user = userEvent.setup()
-    server.use(http.post('*/api/usuarios/registro', () => HttpResponse.json({ status: 400 }, { status: 400 })))
+    server.use(http.post('*/api/usuarios', () => HttpResponse.json({ status: 400 }, { status: 400 })))
     render(<ConRouterYSesion><RegistroProveedorPage /></ConRouterYSesion>)
     await user.type(screen.getByLabelText('Nombre completo'), 'Ana')
     await user.type(screen.getByLabelText('Email'), 'ana@empresa.com')
@@ -101,7 +101,7 @@ describe('RegistroProveedorPage', () => {
 
   it('muestra el mensaje del límite de intentos 429 aunque no haya JSON', async () => {
     const user = userEvent.setup()
-    server.use(http.post('*/api/usuarios/registro', () => new HttpResponse(null, { status: 429 })))
+    server.use(http.post('*/api/usuarios', () => new HttpResponse(null, { status: 429 })))
     render(<ConRouterYSesion><RegistroProveedorPage /></ConRouterYSesion>)
     await user.type(screen.getByLabelText('Nombre completo'), 'Ana')
     await user.type(screen.getByLabelText('Email'), 'ana@empresa.com')
@@ -112,7 +112,7 @@ describe('RegistroProveedorPage', () => {
 
   it('muestra el mensaje de conexión cuando falla la red', async () => {
     const user = userEvent.setup()
-    server.use(http.post('*/api/usuarios/registro', () => HttpResponse.error()))
+    server.use(http.post('*/api/usuarios', () => HttpResponse.error()))
     render(<ConRouterYSesion><RegistroProveedorPage /></ConRouterYSesion>)
     await user.type(screen.getByLabelText('Nombre completo'), 'Ana')
     await user.type(screen.getByLabelText('Email'), 'ana@empresa.com')
@@ -123,7 +123,7 @@ describe('RegistroProveedorPage', () => {
 
   it('deshabilita el botón mientras envía', async () => {
     const user = userEvent.setup()
-    server.use(http.post('*/api/usuarios/registro', async () => {
+    server.use(http.post('*/api/usuarios', async () => {
       await delay(100)
       return HttpResponse.json({ id: 'u-1', nombreCompleto: 'Ana', email: 'ana@empresa.com', token: 't', roles: ['Proveedor'] }, { status: 201 })
     }))

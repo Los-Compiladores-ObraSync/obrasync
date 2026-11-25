@@ -2,7 +2,7 @@
 $gw = 'http://localhost:5000'
 
 function Login($email) {
-  $r = Invoke-RestMethod -Method Post -Uri "$gw/api/usuarios/login" -ContentType 'application/json' `
+  $r = Invoke-RestMethod -Method Post -Uri "$gw/api/usuarios/tokens" -ContentType 'application/json' `
        -Body (@{ email = $email; password = 'Password123!' } | ConvertTo-Json)
   @{ Id = $r.id; Headers = @{ Authorization = "Bearer $($r.token)" } }
 }
@@ -28,7 +28,7 @@ $req = Api Post '/api/requisiciones' $capataz @{
   obraId = $obra.id; etapa = $obra.etapas[0].nombreEtapa; observaciones = 'E2E #135 outbox adjudicar'
   items  = @($insumos | ForEach-Object { @{ articuloId = $_.articuloId; cantidad = $cantidad } })
 }
-$null = Api Post "/api/requisiciones/$($req.requisicionId)/aprobar" $comprador
+$null = Api Post "/api/requisiciones/$($req.requisicionId)/aprobaciones" $comprador
 Write-Host "1. Requisicion aprobada: $($req.numeroRequisicion)"
 Start-Sleep -Seconds 3
 
@@ -51,7 +51,7 @@ Read-Host ">>> Cuando esté apagado, apretá Enter para adjudicar"
 
 $sw = [Diagnostics.Stopwatch]::StartNew()
 try {
-  $null = Api Post "/api/licitaciones/$($lic.licitacionId)/adjudicar" $comprador @{ cotizacionId = $cot.cotizacionId }
+  $null = Api Post "/api/licitaciones/$($lic.licitacionId)/adjudicaciones" $comprador @{ cotizacionId = $cot.cotizacionId }
   Write-Host "3. Adjudicar respondio OK en $($sw.Elapsed.TotalSeconds.ToString('0.0')) s"
 } catch {
   Write-Host "3. Adjudicar FALLO en $($sw.Elapsed.TotalSeconds.ToString('0.0')) s -> HTTP $([int]$_.Exception.Response.StatusCode)" -ForegroundColor Yellow

@@ -6,7 +6,7 @@ public class MagicLinkGatewayTests : IClassFixture<GatewayFactory>
 {
     private readonly GatewayFactory _factory;
     private const string Hash = "token-secreto-159";
-    private const string Ruta = "/api/licitaciones/magic-links/" + Hash + "/cotizar";
+    private const string Ruta = "/api/licitaciones/magic-links/" + Hash + "/cotizaciones";
 
     public MagicLinkGatewayTests(GatewayFactory factory) => _factory = factory;
 
@@ -20,7 +20,7 @@ public class MagicLinkGatewayTests : IClassFixture<GatewayFactory>
 
     private HttpRequestMessage CrearPedido(string ip, string? forwardedFor = null, string? hash = null)
     {
-        var ruta = hash is null ? Ruta : $"/api/licitaciones/magic-links/{hash}/cotizar";
+        var ruta = hash is null ? Ruta : $"/api/licitaciones/magic-links/{hash}/cotizaciones";
         var request = new HttpRequestMessage(HttpMethod.Post, ruta) { Content = new StringContent("{}") };
         request.Headers.Add("X-Test-Remote-IP", IpDePrueba(ip));
         request.Headers.Add("X-Correlation-ID", "magic-test-159");
@@ -113,7 +113,7 @@ public class MagicLinkGatewayTests : IClassFixture<GatewayFactory>
         using var response = await client.SendAsync(CrearPedido(Guid.NewGuid().ToString("N"), hash: hash));
 
         Assert.DoesNotContain(hash, _factory.Logs.Texto, StringComparison.Ordinal);
-        Assert.Contains("/api/licitaciones/magic-links/{hash}/cotizar", _factory.Logs.Texto);
+        Assert.Contains("/api/licitaciones/magic-links/{hash}/cotizaciones", _factory.Logs.Texto);
         Assert.Contains("magic-test-159", _factory.Logs.Texto);
         Assert.DoesNotContain(_factory.Logs.Entradas, EsEventoForwarding);
         if (error is null)

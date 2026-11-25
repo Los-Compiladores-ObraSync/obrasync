@@ -5,7 +5,7 @@
     "version": "1.0"
   },
   "paths": {
-    "/api/usuarios/registro": {
+    "/api/usuarios": {
       "post": {
         "tags": [
           "Auth"
@@ -116,7 +116,7 @@
         }
       }
     },
-    "/api/usuarios/login": {
+    "/api/usuarios/tokens": {
       "post": {
         "tags": [
           "Auth"
@@ -418,7 +418,7 @@
         }
       }
     },
-    "/api/usuarios/password/recuperar": {
+    "/api/usuarios/password/recuperaciones": {
       "post": {
         "tags": [
           "Auth"
@@ -479,7 +479,7 @@
         }
       }
     },
-    "/api/usuarios/password/restablecer": {
+    "/api/usuarios/password/restablecimientos": {
       "post": {
         "tags": [
           "Auth"
@@ -540,7 +540,7 @@
         }
       }
     },
-    "/api/usuarios/cambiar-password": {
+    "/api/usuarios/password/cambios": {
       "post": {
         "tags": [
           "Auth"

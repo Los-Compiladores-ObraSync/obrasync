@@ -189,9 +189,9 @@ namespace ObraSync.Requisiciones.Tests.Integration
                 new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Comprador", Guid.NewGuid()));
 
             var respuestas = await Task.WhenAll(
-                clientComprador1.PostAsync($"/api/requisiciones/{creada.RequisicionId}/aprobar", null),
+                clientComprador1.PostAsync($"/api/requisiciones/{creada.RequisicionId}/aprobaciones", null),
                 clientComprador2.PostAsJsonAsync(
-                    $"/api/requisiciones/{creada.RequisicionId}/rechazar",
+                    $"/api/requisiciones/{creada.RequisicionId}/rechazos",
                     new RechazarRequisicionRequestDto { Motivo = "Rechazo concurrente por otro comprador" }));
 
             var exitosas = respuestas.Where(r => r.StatusCode == HttpStatusCode.OK).ToList();
@@ -328,10 +328,10 @@ namespace ObraSync.Requisiciones.Tests.Integration
             client.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", GenerateJwtToken("Comprador"));
 
-            var respAprobar409 = await client.PostAsync($"/api/requisiciones/{requisicionId}/aprobar", null);
+            var respAprobar409 = await client.PostAsync($"/api/requisiciones/{requisicionId}/aprobaciones", null);
             await AssertProblemDetails409Async(respAprobar409, correlationId, "La requisición cambió, recargá");
 
-            // Reiniciamos a Pendiente para probar también el 409 de concurrencia en /rechazar
+            // Reiniciamos a Pendiente para probar también el 409 de concurrencia en /rechazos
             var reqPendienteRechazar = new Requisicion(
                 requisicionId,
                 "REQ-2026-0778",
@@ -345,7 +345,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
                 .Returns(reqPendienteRechazar);
 
             var respRechazar409 = await client.PostAsJsonAsync(
-                $"/api/requisiciones/{requisicionId}/rechazar",
+                $"/api/requisiciones/{requisicionId}/rechazos",
                 new RechazarRequisicionRequestDto { Motivo = "Intento con colisión de RowVersion" });
             await AssertProblemDetails409Async(respRechazar409, correlationId, "La requisición cambió, recargá");
         }

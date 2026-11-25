@@ -126,9 +126,10 @@ public class RequisicionesController : ApiControllerBase
     }
 
     /// <summary>
-    /// Cancelar una requisición pendiente antes de que Compras la apruebe (Roles: Capataz dueño, Admin)
+    /// Registrar la cancelación de una requisición pendiente antes de que Compras la apruebe (Roles: Capataz dueño, Admin).
+    /// POST /api/requisiciones/{id}/cancelaciones
     /// </summary>
-    [HttpPost("{id:guid}/cancelar")]
+    [HttpPost("{id:guid}/cancelaciones")]
     [Authorize(Roles = "Capataz,Admin")]
     [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
@@ -142,9 +143,10 @@ public class RequisicionesController : ApiControllerBase
     }
 
     /// <summary>
-    /// Aprobar una requisición pendiente y publicar RequisicionAprobadaEvent (Roles: Comprador, Admin)
+    /// Registrar la aprobación de una requisición pendiente y publicar RequisicionAprobadaEvent (Roles: Comprador, Admin).
+    /// POST /api/requisiciones/{id}/aprobaciones
     /// </summary>
-    [HttpPost("{id:guid}/aprobar")]
+    [HttpPost("{id:guid}/aprobaciones")]
     [Authorize(Roles = "Comprador,Admin")]
     [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -170,9 +172,10 @@ public class RequisicionesController : ApiControllerBase
     }
 
     /// <summary>
-    /// Rechazar una requisición pendiente con motivo válido (Roles: Comprador, Admin) (#250).
+    /// Registrar el rechazo de una requisición pendiente con motivo válido (Roles: Comprador, Admin) (#250).
+    /// POST /api/requisiciones/{id}/rechazos
     /// </summary>
-    [HttpPost("{id:guid}/rechazar")]
+    [HttpPost("{id:guid}/rechazos")]
     [Authorize(Roles = "Comprador,Admin")]
     [ProducesResponseType(typeof(RequisicionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]

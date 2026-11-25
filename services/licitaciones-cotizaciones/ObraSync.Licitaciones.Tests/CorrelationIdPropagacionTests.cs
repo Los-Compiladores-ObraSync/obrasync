@@ -166,7 +166,7 @@ public class CorrelationIdPropagacionTests : IClassFixture<WebApplicationFactory
         client.DefaultRequestHeaders.Add("X-Correlation-ID", correlationIdEsperado.ToString());
 
         var response = await client.PostAsJsonAsync(
-            $"/api/licitaciones/{licitacion.LicitacionId}/adjudicar",
+            $"/api/licitaciones/{licitacion.LicitacionId}/adjudicaciones",
             new { cotizacionId = cotizacion.CotizacionId });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -198,7 +198,7 @@ public class CorrelationIdPropagacionTests : IClassFixture<WebApplicationFactory
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Comprador"));
 
         var response = await client.PostAsJsonAsync(
-            $"/api/licitaciones/{licitacion.LicitacionId}/adjudicar",
+            $"/api/licitaciones/{licitacion.LicitacionId}/adjudicaciones",
             new { cotizacionId = cotizacion.CotizacionId });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

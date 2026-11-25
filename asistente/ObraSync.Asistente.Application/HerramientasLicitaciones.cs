@@ -9,7 +9,7 @@ namespace ObraSync.Asistente.Application;
 ///  - ver_licitacion: el detalle de una (materiales a cotizar, fecha límite).
 ///  - listar_cotizaciones: las ofertas de una licitación, con el puntaje y los costos que calcula el backend.
 ///  - preparar_adjudicacion (#149): ARMA el borrador para adjudicar UNA oferta de una licitación Abierta. No adjudica nada:
-///    el frontend llama a POST /api/licitaciones/{id}/adjudicar, con el JWT del Comprador, cuando él toca Confirmar.
+///    el frontend llama a POST /api/licitaciones/{id}/adjudicaciones, con el JWT del Comprador, cuando él toca Confirmar.
 ///    Adjudicar es IRREVERSIBLE (emite la Orden de Compra), por eso la oferta la elige la PERSONA, nunca el modelo.
 /// REGLA: el modelo NO hace cuentas ni calcula puntajes. Cada cifra (puntaje, costo total, flete, plazo) sale de lo que
 /// devuelve la API y se le pasa tal cual; las instrucciones del perfil le piden copiarlas.

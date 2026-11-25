@@ -2,7 +2,7 @@ namespace ObraSync.Asistente.Application;
 
 // Forma EXACTA de BorradorAdjudicacionDto en contracts/openapi/asistente-openapi.json.
 // Igual que los demás borradores: NO adjudica nada. Solo viaja en la respuesta y el frontend llama a
-// POST /api/licitaciones/{licitacionId}/adjudicar con { cotizacionId }, con el JWT del usuario, recién cuando la persona
+// POST /api/licitaciones/{licitacionId}/adjudicaciones con { cotizacionId }, con el JWT del usuario, recién cuando la persona
 // toca Confirmar. Adjudicar es IRREVERSIBLE (emite la Orden de Compra), por eso la tarjeta se muestra reforzada.
 
 /// <summary>Un material del pliego que se va a comprar (para que el Comprador lo revise).</summary>

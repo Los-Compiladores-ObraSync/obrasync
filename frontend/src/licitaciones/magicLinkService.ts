@@ -13,14 +13,14 @@ export function obtenerPliegoPorMagicLink(token: string): Promise<PliegoMagicLin
 
 /**
  * Envía la cotización con un Magic Link. Al salir bien, el enlace queda usado y no se puede repetir.
- * Fuente: POST /api/licitaciones/magic-links/{token}/cotizar (público)
+ * Fuente: POST /api/licitaciones/magic-links/{token}/cotizaciones (público)
  * Si la cotización no se pudo guardar, el backend deja el enlace usable otra vez.
  */
 export function cotizarConMagicLink(
   token: string,
   dto: CotizarConMagicLinkRequestDto,
 ): Promise<CotizacionResponseDto> {
-  return apiFetch<CotizacionResponseDto>(`/api/licitaciones/magic-links/${encodeURIComponent(token)}/cotizar`, {
+  return apiFetch<CotizacionResponseDto>(`/api/licitaciones/magic-links/${encodeURIComponent(token)}/cotizaciones`, {
     method: 'POST',
     body: JSON.stringify(dto),
   })

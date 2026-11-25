@@ -191,7 +191,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
             foreach (var payload in payloadsInvalidos)
             {
                 var correlationId = Guid.NewGuid().ToString();
-                using var reqMsg = new HttpRequestMessage(HttpMethod.Post, $"/api/requisiciones/{reqId}/rechazar")
+                using var reqMsg = new HttpRequestMessage(HttpMethod.Post, $"/api/requisiciones/{reqId}/rechazos")
                 {
                     Content = JsonContent.Create(payload)
                 };
@@ -225,7 +225,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
 
             // 1. Categoría pura sin comentario adicional
             var resp1 = await client.PostAsJsonAsync(
-                $"/api/requisiciones/{req1Id}/rechazar",
+                $"/api/requisiciones/{req1Id}/rechazos",
                 new RechazarRequisicionRequestDto { CategoriaMotivo = MotivosRechazoRequisicion.FaltaPresupuesto });
             Assert.Equal(HttpStatusCode.OK, resp1.StatusCode);
             var dto1 = await resp1.Content.ReadFromJsonAsync<RequisicionResponseDto>();
@@ -234,7 +234,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
 
             // 2. Categoría con comentario aclaratorio opcional
             var resp2 = await client.PostAsJsonAsync(
-                $"/api/requisiciones/{req2Id}/rechazar",
+                $"/api/requisiciones/{req2Id}/rechazos",
                 new RechazarRequisicionRequestDto
                 {
                     CategoriaMotivo = MotivosRechazoRequisicion.CantidadIncorrecta,
@@ -246,7 +246,7 @@ namespace ObraSync.Requisiciones.Tests.Integration
 
             // 3. Categoría "Otro" con comentario >= 10 caracteres válido
             var resp3 = await client.PostAsJsonAsync(
-                $"/api/requisiciones/{req3Id}/rechazar",
+                $"/api/requisiciones/{req3Id}/rechazos",
                 new RechazarRequisicionRequestDto
                 {
                     CategoriaMotivo = MotivosRechazoRequisicion.Otro,

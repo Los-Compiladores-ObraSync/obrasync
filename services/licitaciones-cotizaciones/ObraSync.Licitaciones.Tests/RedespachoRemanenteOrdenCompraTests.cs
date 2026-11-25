@@ -220,7 +220,7 @@ public class RedespachoRemanenteOrdenCompraTests : IClassFixture<WebApplicationF
 
         // 1. Primer despacho -> NumeroDespacho = 1, EsRedespacho = false
         var resp1 = await clientProveedor.PostAsJsonAsync(
-            $"/api/ordenes-compra/{ordenId}/despachar",
+            $"/api/ordenes-compra/{ordenId}/despachos",
             new DespacharOrdenCompraRequestDto(DateTime.UtcNow.Date.AddDays(2), "Primer envío (80 bolsas)"));
         Assert.Equal(HttpStatusCode.OK, resp1.StatusCode);
         var dto1 = await resp1.Content.ReadFromJsonAsync<OrdenCompraResponseDto>();
@@ -249,7 +249,7 @@ public class RedespachoRemanenteOrdenCompraTests : IClassFixture<WebApplicationF
         clientProveedor.DefaultRequestHeaders.Add("X-Correlation-ID", cidRedespacho.ToString());
 
         var resp2 = await clientProveedor.PostAsJsonAsync(
-            $"/api/licitaciones/ordenes-compra/{ordenId}/despachar",
+            $"/api/licitaciones/ordenes-compra/{ordenId}/despachos",
             new DespacharOrdenCompraRequestDto(fechaEstimada2, obsRedespacho));
         Assert.Equal(HttpStatusCode.OK, resp2.StatusCode);
 
@@ -320,18 +320,18 @@ public class RedespachoRemanenteOrdenCompraTests : IClassFixture<WebApplicationF
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorId));
 
         // Despacho #1
-        var respDesp1 = await client.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null);
+        var respDesp1 = await client.PostAsync($"/api/ordenes-compra/{ordenId}/despachos", null);
         Assert.Equal(HttpStatusCode.OK, respDesp1.StatusCode);
 
         // Intento inmediato sin recepción parcial -> 409 Conflict
         var cidDoble1 = Guid.NewGuid().ToString();
         client.DefaultRequestHeaders.Add("X-Correlation-ID", cidDoble1);
-        var respDoble1 = await client.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null);
+        var respDoble1 = await client.PostAsync($"/api/ordenes-compra/{ordenId}/despachos", null);
         await AssertProblemDetailsWithCorrelationIdAsync(respDoble1, HttpStatusCode.Conflict, cidDoble1);
 
         // Recepción parcial #1 -> Re-despacho #2 (200 OK)
         await SimularRecepcionAsync(factory.Services, ordenId, obraId, ordenCompleta: false);
-        var respDesp2 = await client.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null);
+        var respDesp2 = await client.PostAsync($"/api/ordenes-compra/{ordenId}/despachos", null);
         Assert.Equal(HttpStatusCode.OK, respDesp2.StatusCode);
         var dto2 = await respDesp2.Content.ReadFromJsonAsync<OrdenCompraResponseDto>();
         Assert.Equal(2, dto2!.NumeroDespacho);
@@ -340,12 +340,12 @@ public class RedespachoRemanenteOrdenCompraTests : IClassFixture<WebApplicationF
         var cidDoble2 = Guid.NewGuid().ToString();
         client.DefaultRequestHeaders.Remove("X-Correlation-ID");
         client.DefaultRequestHeaders.Add("X-Correlation-ID", cidDoble2);
-        var respDoble2 = await client.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null);
+        var respDoble2 = await client.PostAsync($"/api/ordenes-compra/{ordenId}/despachos", null);
         await AssertProblemDetailsWithCorrelationIdAsync(respDoble2, HttpStatusCode.Conflict, cidDoble2);
 
         // Recepción parcial #2 -> Re-despacho #3 (200 OK)
         await SimularRecepcionAsync(factory.Services, ordenId, obraId, ordenCompleta: false);
-        var respDesp3 = await client.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null);
+        var respDesp3 = await client.PostAsync($"/api/ordenes-compra/{ordenId}/despachos", null);
         Assert.Equal(HttpStatusCode.OK, respDesp3.StatusCode);
         var dto3 = await respDesp3.Content.ReadFromJsonAsync<OrdenCompraResponseDto>();
         Assert.Equal(3, dto3!.NumeroDespacho);
@@ -355,7 +355,7 @@ public class RedespachoRemanenteOrdenCompraTests : IClassFixture<WebApplicationF
         var cidCompleta = Guid.NewGuid().ToString();
         client.DefaultRequestHeaders.Remove("X-Correlation-ID");
         client.DefaultRequestHeaders.Add("X-Correlation-ID", cidCompleta);
-        var respPostCompleta = await client.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null);
+        var respPostCompleta = await client.PostAsync($"/api/ordenes-compra/{ordenId}/despachos", null);
         await AssertProblemDetailsWithCorrelationIdAsync(respPostCompleta, HttpStatusCode.Conflict, cidCompleta);
 
         // Total de publicaciones de OrdenCompraDespachadaEvent = exactamente 3 (ninguna en los 409)
@@ -380,7 +380,7 @@ public class RedespachoRemanenteOrdenCompraTests : IClassFixture<WebApplicationF
         var clientDueno = factory.CreateClient();
         clientDueno.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", proveedorDueno));
-        Assert.Equal(HttpStatusCode.OK, (await clientDueno.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await clientDueno.PostAsync($"/api/ordenes-compra/{ordenId}/despachos", null)).StatusCode);
         await SimularRecepcionAsync(factory.Services, ordenId, obraId, ordenCompleta: false);
 
         // Otro proveedor -> 403
@@ -390,7 +390,7 @@ public class RedespachoRemanenteOrdenCompraTests : IClassFixture<WebApplicationF
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Proveedor", Guid.NewGuid()));
         clientOtro.DefaultRequestHeaders.Add("X-Correlation-ID", cidOtro);
         await AssertProblemDetailsWithCorrelationIdAsync(
-            await clientOtro.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null),
+            await clientOtro.PostAsync($"/api/ordenes-compra/{ordenId}/despachos", null),
             HttpStatusCode.Forbidden,
             cidOtro);
 
@@ -401,7 +401,7 @@ public class RedespachoRemanenteOrdenCompraTests : IClassFixture<WebApplicationF
             new AuthenticationHeaderValue("Bearer", GenerarTokenJwt("Capataz"));
         clientCapataz.DefaultRequestHeaders.Add("X-Correlation-ID", cidCapataz);
         await AssertProblemDetailsWithCorrelationIdAsync(
-            await clientCapataz.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null),
+            await clientCapataz.PostAsync($"/api/ordenes-compra/{ordenId}/despachos", null),
             HttpStatusCode.Forbidden,
             cidCapataz);
 
@@ -410,7 +410,7 @@ public class RedespachoRemanenteOrdenCompraTests : IClassFixture<WebApplicationF
         var clientAnon = factory.CreateClient();
         clientAnon.DefaultRequestHeaders.Add("X-Correlation-ID", cid401);
         await AssertProblemDetailsWithCorrelationIdAsync(
-            await clientAnon.PostAsync($"/api/ordenes-compra/{ordenId}/despachar", null),
+            await clientAnon.PostAsync($"/api/ordenes-compra/{ordenId}/despachos", null),
             HttpStatusCode.Unauthorized,
             cid401);
 

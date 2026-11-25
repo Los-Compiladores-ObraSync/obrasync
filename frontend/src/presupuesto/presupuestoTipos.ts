@@ -40,12 +40,12 @@ export interface FiltrosPartidas {
   etapa?: string
 }
 
-/** Cuerpo opcional de POST /api/recepciones/ordenes/{id}/liberar (LiberarOrdenCompraRequest) */
+/** Cuerpo opcional de POST /api/recepciones/ordenes/{id}/liberaciones (LiberarOrdenCompraRequest) */
 export interface LiberarOrdenCompraRequest {
   motivo?: string | null
 }
 
-/** Respuesta de POST /api/recepciones/ordenes/{id}/liberar (OrdenCompraLiberadaDto) */
+/** Respuesta de POST /api/recepciones/ordenes/{id}/liberaciones (OrdenCompraLiberadaDto) */
 export interface OrdenCompraLiberada {
   ordenCompraId: string
   obraId: string

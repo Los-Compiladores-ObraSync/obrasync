@@ -111,7 +111,7 @@ app.Use(async (context, next) =>
             context.Request.Method,
             MagicLinkGatewayRequest.EsPliego(context.Request)
                 ? "/api/licitaciones/magic-links/{hash}"
-                : "/api/licitaciones/magic-links/{hash}/cotizar",
+                : "/api/licitaciones/magic-links/{hash}/cotizaciones",
             estado,
             resultado,
             context.Request.Headers[CorrelationIdMiddleware.HeaderName].ToString());

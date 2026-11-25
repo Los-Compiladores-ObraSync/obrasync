@@ -33,7 +33,7 @@ function Api($method, $path, $token, $body) {
 }
 
 function Login($email) {
-  $r = Api Post '/api/usuarios/login' $null @{ email = $email; password = 'Password123!' }
+  $r = Api Post '/api/usuarios/tokens' $null @{ email = $email; password = 'Password123!' }
   @{ Id = $r.id; Token = $r.token }
 }
 
@@ -53,7 +53,7 @@ $req = Api Post '/api/requisiciones' $capataz.Token @{
 }
 Write-Host "3. Requisicion creada: $($req.numeroRequisicion)"
 
-$null = Api Post "/api/requisiciones/$($req.requisicionId)/aprobar" $comprador.Token
+$null = Api Post "/api/requisiciones/$($req.requisicionId)/aprobaciones" $comprador.Token
 Write-Host '4. Requisicion aprobada (publica RequisicionAprobadaEvent)'
 Start-Sleep -Seconds 4
 
@@ -70,7 +70,7 @@ $cot = Api Post '/api/cotizaciones' $proveedor.Token @{
   licitacionId = $lic.licitacionId; proveedorId = $proveedor.Id; flete = 1500.75; plazoEntregaDias = 5
   items = @($insumos | ForEach-Object { @{ articuloId = $_.articuloId; precioUnitario = 1234.56 } })
 }
-$null = Api Post "/api/licitaciones/$($lic.licitacionId)/adjudicar" $comprador.Token @{ cotizacionId = $cot.cotizacionId }
+$null = Api Post "/api/licitaciones/$($lic.licitacionId)/adjudicaciones" $comprador.Token @{ cotizacionId = $cot.cotizacionId }
 Write-Host '6. Adjudicada (publica OrdenCompraEmitidaEvent)'
 Start-Sleep -Seconds 4
 

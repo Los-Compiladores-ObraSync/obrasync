@@ -21,7 +21,7 @@ describe('RecuperarContrasenaPage', () => {
   it('no llama a la API y pide el email si está vacío', async () => {
     let llamadas = 0
     server.use(
-      http.post('*/api/usuarios/password/recuperar', () => {
+      http.post('*/api/usuarios/password/recuperaciones', () => {
         llamadas++
         return HttpResponse.json({})
       }),
@@ -38,7 +38,7 @@ describe('RecuperarContrasenaPage', () => {
   it('no llama a la API si el email tiene un formato inválido', async () => {
     let llamadas = 0
     server.use(
-      http.post('*/api/usuarios/password/recuperar', () => {
+      http.post('*/api/usuarios/password/recuperaciones', () => {
         llamadas++
         return HttpResponse.json({})
       }),
@@ -56,7 +56,7 @@ describe('RecuperarContrasenaPage', () => {
   it('envía el email sin espacios y muestra el mensaje neutro', async () => {
     let cuerpo: unknown
     server.use(
-      http.post('*/api/usuarios/password/recuperar', async ({ request }) => {
+      http.post('*/api/usuarios/password/recuperaciones', async ({ request }) => {
         cuerpo = await request.json()
         return HttpResponse.json({ mensaje: 'Solicitud procesada.' })
       }),
@@ -90,7 +90,7 @@ describe('RecuperarContrasenaPage', () => {
 
   it('bloquea el botón mientras envía', async () => {
     server.use(
-      http.post('*/api/usuarios/password/recuperar', async () => {
+      http.post('*/api/usuarios/password/recuperaciones', async () => {
         await delay(100)
         return HttpResponse.json({})
       }),
@@ -108,7 +108,7 @@ describe('RecuperarContrasenaPage', () => {
 
   it('muestra el detalle del servidor ante un 400 y conserva el formulario', async () => {
     server.use(
-      http.post('*/api/usuarios/password/recuperar', () =>
+      http.post('*/api/usuarios/password/recuperaciones', () =>
         HttpResponse.json(
           { title: 'Datos inválidos', status: 400, detail: 'El email no es válido.' },
           { status: 400 },
@@ -126,7 +126,7 @@ describe('RecuperarContrasenaPage', () => {
   })
 
   it('avisa que no pudo conectar si falla la red y deja reintentar', async () => {
-    server.use(http.post('*/api/usuarios/password/recuperar', () => HttpResponse.error()))
+    server.use(http.post('*/api/usuarios/password/recuperaciones', () => HttpResponse.error()))
     const user = userEvent.setup()
     renderPagina()
 
@@ -151,7 +151,7 @@ describe('RecuperarContrasenaPage', () => {
   it('un doble envío seguido pide las instrucciones una sola vez', async () => {
     let llamadas = 0
     server.use(
-      http.post('*/api/usuarios/password/recuperar', async () => {
+      http.post('*/api/usuarios/password/recuperaciones', async () => {
         llamadas++
         await delay(50)
         return HttpResponse.json({ mensaje: 'ok' })

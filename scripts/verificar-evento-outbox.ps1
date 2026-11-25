@@ -3,7 +3,7 @@
 param([Parameter(Mandatory = $true)][string]$RequisicionId)
 
 $gw = 'http://localhost:5000'
-$r = Invoke-RestMethod -Method Post -Uri "$gw/api/usuarios/login" -ContentType 'application/json' `
+$r = Invoke-RestMethod -Method Post -Uri "$gw/api/usuarios/tokens" -ContentType 'application/json' `
      -Body (@{ email = 'comprador@obrasync.com'; password = 'Password123!' } | ConvertTo-Json)
 $h = @{ Authorization = "Bearer $($r.token)" }
 $body = @{ requisicionId = $RequisicionId; fechaLimiteCotizacion = (Get-Date).ToUniversalTime().AddDays(2).ToString('o') } | ConvertTo-Json

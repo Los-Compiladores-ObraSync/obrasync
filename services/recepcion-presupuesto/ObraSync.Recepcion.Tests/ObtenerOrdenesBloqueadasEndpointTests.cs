@@ -313,7 +313,7 @@ public class ObtenerOrdenesBloqueadasEndpointTests : IClassFixture<RecepcionApiF
 
         // Admin libera OC1 -> comprometido pasa de 40k a 115k (disponible = -15k intencional, #210)
         var liberarResp = await adminClient.PostAsJsonAsync(
-            $"/api/recepciones/ordenes/{oc1Id}/liberar",
+            $"/api/recepciones/ordenes/{oc1Id}/liberaciones",
             new LiberarOrdenCompraRequest { Motivo = "Autorizado por gerencia" });
         Assert.Equal(HttpStatusCode.OK, liberarResp.StatusCode);
 

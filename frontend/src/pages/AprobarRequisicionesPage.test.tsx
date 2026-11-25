@@ -47,7 +47,7 @@ describe('AprobarRequisicionesPage', () => {
 
   it('muestra el detalle del servidor ante un 409 y conserva la lista', async () => {
     server.use(
-      http.post('*/api/requisiciones/:id/aprobar', () =>
+      http.post('*/api/requisiciones/:id/aprobaciones', () =>
         HttpResponse.json({ status: 409, detail: 'Ya fue aprobada.' }, { status: 409 }),
       ),
     )
@@ -63,7 +63,7 @@ describe('AprobarRequisicionesPage', () => {
 
   it('avisa que no hay permiso ante un 403', async () => {
     server.use(
-      http.post('*/api/requisiciones/:id/aprobar', () =>
+      http.post('*/api/requisiciones/:id/aprobaciones', () =>
         HttpResponse.json({ status: 403 }, { status: 403 }),
       ),
     )
@@ -100,7 +100,7 @@ describe('AprobarRequisicionesPage', () => {
   it('un doble clic seguido aprueba la requisición una sola vez', async () => {
     let llamadas = 0
     server.use(
-      http.post('*/api/requisiciones/:id/aprobar', async ({ params }) => {
+      http.post('*/api/requisiciones/:id/aprobaciones', async ({ params }) => {
         llamadas++
         await delay(50)
         return HttpResponse.json({
@@ -126,7 +126,7 @@ describe('AprobarRequisicionesPage', () => {
   it('no envía el rechazo si el motivo está vacío o solo contiene espacios', async () => {
     let llamado = false
     server.use(
-      http.post('*/api/requisiciones/:id/rechazar', () => {
+      http.post('*/api/requisiciones/:id/rechazos', () => {
         llamado = true
         return HttpResponse.json({}, { status: 200 })
       }),
@@ -188,7 +188,7 @@ describe('AprobarRequisicionesPage', () => {
 
   it('muestra mensaje de error ante un 404 al rechazar y recarga la lista', async () => {
     server.use(
-      http.post('*/api/requisiciones/:id/rechazar', () =>
+      http.post('*/api/requisiciones/:id/rechazos', () =>
         HttpResponse.json(
           { status: 404, detail: 'La requisición ya no existe. Recargá la lista.' },
           { status: 404 },
@@ -213,7 +213,7 @@ describe('AprobarRequisicionesPage', () => {
 
   it('muestra mensaje ante un 409 al rechazar y recarga la lista', async () => {
     server.use(
-      http.post('*/api/requisiciones/:id/rechazar', () =>
+      http.post('*/api/requisiciones/:id/rechazos', () =>
         HttpResponse.json(
           { status: 409, detail: 'Solo se pueden rechazar requisiciones pendientes.' },
           { status: 409 },
@@ -239,7 +239,7 @@ describe('AprobarRequisicionesPage', () => {
   it('un doble clic seguido rechaza la requisición una sola vez', async () => {
     let llamadas = 0
     server.use(
-      http.post('*/api/requisiciones/:id/rechazar', async ({ params }) => {
+      http.post('*/api/requisiciones/:id/rechazos', async ({ params }) => {
         llamadas++
         await delay(50)
         return HttpResponse.json({
@@ -350,7 +350,7 @@ describe('AprobarRequisicionesPage - paginación (#172)', () => {
   it('al aprobar una, el total baja y "Ver más" sigue trayendo lo que falta', async () => {
     tresPendientesDeADos()
     server.use(
-      http.post('*/api/requisiciones/:id/aprobar', ({ params }) =>
+      http.post('*/api/requisiciones/:id/aprobaciones', ({ params }) =>
         HttpResponse.json({ ...pendiente(11), requisicionId: params.id, estado: 'Aprobada' }),
       ),
     )

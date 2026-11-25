@@ -894,12 +894,12 @@
         }
       }
     },
-    "/api/requisiciones/{id}/aprobar": {
+    "/api/requisiciones/{id}/aprobaciones": {
       "post": {
         "tags": [
           "Requisiciones"
         ],
-        "summary": "Aprobar una requisición pendiente y publicar RequisicionAprobadaEvent (Roles: Comprador, Admin)",
+        "summary": "Registrar la aprobación de una requisición pendiente y publicar RequisicionAprobadaEvent (Roles: Comprador, Admin)",
         "parameters": [
           {
             "name": "id",
@@ -1087,12 +1087,12 @@
         }
       }
     },
-    "/api/requisiciones/{id}/rechazar": {
+    "/api/requisiciones/{id}/rechazos": {
       "post": {
         "tags": [
           "Requisiciones"
         ],
-        "summary": "Rechazar una requisición pendiente especificando el motivo (Roles: Comprador, Admin)",
+        "summary": "Registrar el rechazo de una requisición pendiente especificando el motivo (Roles: Comprador, Admin)",
         "description": "Rechaza una requisición pendiente validando el motivo (#250). Acepta el formato estructurado aditivo (categoriaMotivo de la lista oficial + comentario opcional; si categoriaMotivo es 'Otro', comentario es obligatorio con al menos 10 caracteres válidos) o el formato retrocompatible con 'motivo'. Rechaza con 400 ProblemDetails entradas vacías, categorías fuera de lista, 'Otro' sin detalle suficiente o texto basura (ej. 'asdasdas', repeticiones o secuencias de teclado).",
         "parameters": [
           {
@@ -1250,12 +1250,12 @@
         }
       }
     },
-    "/api/requisiciones/{id}/cancelar": {
+    "/api/requisiciones/{id}/cancelaciones": {
       "post": {
         "tags": [
           "Requisiciones"
         ],
-        "summary": "Cancelar una requisición pendiente antes de que Compras la apruebe (Roles: Capataz dueño, Admin)",
+        "summary": "Registrar la cancelación de una requisición pendiente antes de que Compras la apruebe (Roles: Capataz dueño, Admin)",
         "parameters": [
           {
             "name": "id",

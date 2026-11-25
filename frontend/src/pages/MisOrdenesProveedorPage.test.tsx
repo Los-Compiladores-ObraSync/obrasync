@@ -8,7 +8,7 @@ import { server } from '../mocks/server'
 import { MisOrdenesProveedorPage } from './MisOrdenesProveedorPage'
 
 const RUTA_LISTA = '*/api/ordenes-compra'
-const RUTA_DESPACHAR = '*/api/ordenes-compra/:id/despachar'
+const RUTA_DESPACHAR = '*/api/ordenes-compra/:id/despachos'
 const CODIGO_1 = 'C1C2C3C4' // las tres órdenes del mock empiezan igual: se distinguen por el final del id
 
 function renderPagina() {

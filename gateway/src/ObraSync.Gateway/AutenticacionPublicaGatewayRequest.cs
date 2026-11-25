@@ -5,10 +5,10 @@ public static class AutenticacionPublicaGatewayRequest
 {
     private static readonly string[] Rutas =
     {
-        "/api/usuarios/login",
-        "/api/usuarios/registro",
-        "/api/usuarios/password/recuperar",
-        "/api/usuarios/password/restablecer"
+        "/api/usuarios/tokens",
+        "/api/usuarios",
+        "/api/usuarios/password/recuperaciones",
+        "/api/usuarios/password/restablecimientos"
     };
 
     public static bool Es(HttpRequest request)

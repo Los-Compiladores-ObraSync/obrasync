@@ -73,7 +73,7 @@ describe('EnlacesParaProveedores', () => {
         return HttpResponse.json({
           token: 'abc_-123',
           hash: 'abc_-123',
-          url: '/api/licitaciones/magic-links/abc_-123/cotizar',
+          url: '/api/licitaciones/magic-links/abc_-123/cotizaciones',
           fechaDeVencimiento: new Date(Date.now() + 3_600_000).toISOString(),
           expiresIn: '1 hour',
           horasVigencia: 1,

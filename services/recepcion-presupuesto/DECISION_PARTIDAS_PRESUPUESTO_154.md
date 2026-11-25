@@ -36,7 +36,7 @@ $$\text{Monto Asignado} \xrightarrow[\text{al emitir OC}]{\text{Compromiso}} \te
      $$\text{MontoComprometido} + \text{MontoOC} > \text{MontoAsignado}$$
      * **Si NO supera:** La orden queda activa para recepción y se incrementa inmediatamente `MontoComprometido += MontoOC`.
      * **Si SUPERA la partida:** La orden se marca en estado `Bloqueada` (desvío presupuestario). **NO** se incrementa `MontoComprometido` preventivamente y **NO** se muestra en `ordenes-pendientes` para evitar que el Capataz reciba mercadería no autorizada.
-     * **Desbloqueo (#96):** Cuando un `Admin` autoriza explícitamente la orden bloqueada (`POST /api/recepciones/ordenes/{id}/liberar`), la orden pasa a activa y en ese instante se suma su monto al `MontoComprometido`.
+     * **Desbloqueo (#96):** Cuando un `Admin` autoriza explícitamente la orden bloqueada (`POST /api/recepciones/ordenes/{id}/liberaciones`), la orden pasa a activa y en ese instante se suma su monto al `MontoComprometido`.
 
 3. **`MontoEjecutado` (Gasto real devengado por entrega física):**
    * **Cuándo sube:** En `CrearRecepcionCommandHandler`, cuando el Capataz registra la llegada de mercadería.
@@ -91,7 +91,7 @@ $$\text{Monto Asignado} \xrightarrow[\text{al emitir OC}]{\text{Compromiso}} \te
 | **#93** | Miembro 3 | Agrega endpoints `GET` y `POST /api/presupuestos/partidas` para dar de alta y consultar las partidas con sus 3 montos. |
 | **#94** | Miembro 3 | Implementa la función pura `(MontoComprometido + MontoOC) > MontoAsignado` con pruebas unitarias de casos borde. |
 | **#95** | Cami | Al consumir `OrdenCompraEmitidaEvent`, invoca la regla de #94. Si hay desvío, marca la OC en estado `Bloqueada` y no suma a comprometido. |
-| **#96** | Cami | Endpoint `POST /api/recepciones/ordenes/{id}/liberar` para rol `Admin`; al liberar suma el monto a `MontoComprometido`. |
+| **#96** | Cami | Endpoint `POST /api/recepciones/ordenes/{id}/liberaciones` para rol `Admin`; al liberar suma el monto a `MontoComprometido`. |
 | **#90 / #91** | Ramiro | Entregas parciales actualizan `MontoEjecutado` por lo recibido y mantienen el remanente en `MontoComprometido`. |
 | **#92** | Joaquín | Bloquea liquidación de saldo no recepcionado. |
 | **#210** | Squad Recepción | Expone `GET /api/recepciones/ordenes-bloqueadas` y confirma por escrito las tres definiciones de fórmula presupuestaria (Sección 4). |
@@ -107,6 +107,6 @@ En el marco de la tarjeta **#210** se confirman explícitamente las tres pregunt
 2. **Hoy `EjecutarMonto` no se llama fuera de las pruebas: ¿`montoEjecutado` se actualiza al confirmar una recepción? ¿En qué tarjeta?**
    * **Confirmado (Sí, en `CrearRecepcionCommandHandler`, asignado a las tarjetas #90 / #91).** Al confirmar una recepción física, `CrearRecepcionCommandHandler` debe invocar `partida.EjecutarMonto(montoRecibido)` calculado como $\sum (\text{item.CantidadRecibida} \times \text{item.PrecioUnitario})$ contra la partida emparejada de `(ObraId, Etapa)`. Dado que hasta el Sprint 2 (`#77`) solo existía recepción total y las tarjetas **#90** (*Registrar una recepción parcial*) y **#91** (*Calcular el saldo pendiente y encadenar remanentes*) de Sprint 3 implementan el ciclo completo de entregas en `CrearRecepcionCommandHandler`, su invocación efectiva en producción corresponde a **#90 / #91** (tal como se definió en la Sección 3).
 3. **Al liberar una OC bloqueada se suma su monto al comprometido sin tope: ¿`montoDisponible` puede quedar negativo a propósito?**
-   * **Confirmado (Sí, es intencional).** Cuando un usuario `Admin` autoriza excepcionalmente una orden bloqueada (`POST /api/recepciones/ordenes/{id}/liberar`, `#96`), `LiberarOrdenCompraCommandHandler` ejecuta `partida.ComprometerMonto(ordenCompra.MontoTotal)` sin tope. Como consecuencia deliberada, `MontoDisponible = MontoAsignado - MontoComprometido` puede quedar negativo para:
+   * **Confirmado (Sí, es intencional).** Cuando un usuario `Admin` autoriza excepcionalmente una orden bloqueada (`POST /api/recepciones/ordenes/{id}/liberaciones`, `#96`), `LiberarOrdenCompraCommandHandler` ejecuta `partida.ComprometerMonto(ordenCompra.MontoTotal)` sin tope. Como consecuencia deliberada, `MontoDisponible = MontoAsignado - MontoComprometido` puede quedar negativo para:
      * visibilizar exactamente el desvío presupuestario autorizado en el tablero de control (`#97`, indicador *Excedida*), y
      * garantizar que futuras órdenes de compra de esa partida sigan detectando el exceso en `EvaluadorDesvioPresupuestario` mientras no se amplíe `MontoAsignado`.
