@@ -89,25 +89,6 @@ export function listarCotizaciones(
 }
 
 /**
- * Carga o cambia la calificación de un proveedor (entero de 1 a 5) (#88, #156).
- * Fuente: PUT /api/cotizaciones/proveedores/{proveedorId}/calificacion (Comprador, Admin).
- * Errores: 400 si no es un entero de 1 a 5, 403 si el rol no puede.
- * Cambia el puntaje de las ofertas de ese proveedor: después hay que volver a pedir las cotizaciones.
- */
-export function guardarCalificacionProveedor(
-  proveedorId: string,
-  calificacion: number,
-): Promise<CalificacionProveedorResponseDto> {
-  return apiFetch<CalificacionProveedorResponseDto>(
-    `/api/cotizaciones/proveedores/${encodeURIComponent(proveedorId)}/calificacion`,
-    {
-      method: 'PUT',
-      body: JSON.stringify({ calificacion }),
-    },
-  )
-}
-
-/**
  * Adjudica una licitación a una cotización específica y emite la Orden de Compra.
  * Fuente: POST /api/licitaciones/{licitacionId}/adjudicaciones (Comprador, Admin)
  */
