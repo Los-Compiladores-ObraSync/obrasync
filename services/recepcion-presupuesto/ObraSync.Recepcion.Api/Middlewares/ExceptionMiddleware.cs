@@ -1,30 +1,33 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using ObraSync.Recepcion.Application.Exceptions;
-using ObraSync.Recepcion.Domain.Exceptions;
+using ObraSync.Recepcion.Api.Middlewares.ExceptionMapping;
 
 namespace ObraSync.Recepcion.Api.Middlewares;
 
 /// <summary>
 /// Middleware centralizado de excepciones para Recepción y Control Presupuestario (#94, #136).
-/// Captura excepciones de dominio y validación, formateándolas como respuestas RFC 7807 (ProblemDetails)
-/// con propagación obligatoria de CorrelationId, permitiendo controladores skinny ("aburridos").
+/// Aplica el principio Abierto/Cerrado (OCP) delegando la traducción a estrategias <see cref="IExceptionProblemMapper"/>,
+/// formateando las respuestas como RFC 7807 (ProblemDetails) con propagación obligatoria de CorrelationId.
 /// </summary>
 public class ExceptionMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionMiddleware> _logger;
+    private readonly IReadOnlyList<IExceptionProblemMapper> _mappers;
 
-    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
+    public ExceptionMiddleware(
+        RequestDelegate next,
+        ILogger<ExceptionMiddleware> logger,
+        IEnumerable<IExceptionProblemMapper>? mappers = null)
     {
         _next = next;
         _logger = logger;
+
+        var configurados = mappers?.ToList();
+        var origen = configurados is { Count: > 0 }
+            ? configurados
+            : DefaultExceptionProblemMappers.CreateAll();
+
+        _mappers = origen.OrderBy(m => m.Order).ToList();
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -41,65 +44,9 @@ public class ExceptionMiddleware
 
     private async Task ManejarExcepcionAsync(HttpContext context, Exception exception)
     {
-        var (statusCode, title, detail, type) = exception switch
-        {
-            RecepcionConflictoException ex => (
-                StatusCodes.Status409Conflict,
-                "Conflicto en la operación",
-                ex.Message,
-                "https://tools.ietf.org/html/rfc9110#section-15.5.10"
-            ),
-            TransicionEstadoInvalidaException ex => (
-                StatusCodes.Status409Conflict,
-                "Transición de estado inválida",
-                ex.Message,
-                "https://tools.ietf.org/html/rfc9110#section-15.5.10"
-            ),
-            ArgumentException ex => (
-                StatusCodes.Status400BadRequest,
-                "Petición inválida",
-                ex.Message,
-                "https://tools.ietf.org/html/rfc9110#section-15.5.1"
-            ),
-            KeyNotFoundException ex => (
-                StatusCodes.Status404NotFound,
-                "Recurso no encontrado",
-                ex.Message,
-                "https://tools.ietf.org/html/rfc9110#section-15.5.5"
-            ),
-            UnauthorizedAccessException ex => (
-                StatusCodes.Status401Unauthorized,
-                "No autorizado",
-                ex.Message,
-                "https://tools.ietf.org/html/rfc9110#section-15.5.2"
-            ),
-            BadHttpRequestException ex when ex.StatusCode == StatusCodes.Status413PayloadTooLarge => (
-                StatusCodes.Status413PayloadTooLarge,
-                "Solicitud demasiado grande",
-                "El tamaño total del pedido supera el límite permitido.",
-                "https://tools.ietf.org/html/rfc9110#section-15.5.14"
-            ),
-            InvalidDataException ex when ex.Message.Contains("Multipart body length limit", StringComparison.OrdinalIgnoreCase) => (
-                StatusCodes.Status413PayloadTooLarge,
-                "Solicitud demasiado grande",
-                "El tamaño total de los archivos adjuntos supera el límite permitido.",
-                "https://tools.ietf.org/html/rfc9110#section-15.5.14"
-            ),
-            BadHttpRequestException ex => (
-                ex.StatusCode,
-                "Petición inválida",
-                ex.Message,
-                "https://tools.ietf.org/html/rfc9110#section-15.5.1"
-            ),
-            _ => (
-                StatusCodes.Status500InternalServerError,
-                "Error interno del servidor",
-                "Ocurrió un error inesperado en el servidor.",
-                "https://tools.ietf.org/html/rfc9110#section-15.6.1"
-            )
-        };
+        var mapping = ResolverMapeo(exception);
 
-        if (statusCode == StatusCodes.Status500InternalServerError)
+        if (mapping.StatusCode == StatusCodes.Status500InternalServerError)
         {
             _logger.LogError(exception, "Error no controlado atrapado en ExceptionMiddleware.");
         }
@@ -112,22 +59,35 @@ public class ExceptionMiddleware
 
         context.Response.Clear();
         context.Response.ContentType = "application/problem+json";
-        context.Response.StatusCode = statusCode;
+        context.Response.StatusCode = mapping.StatusCode;
 
         var correlationId = context.Request.Headers["X-Correlation-ID"].FirstOrDefault()
                             ?? context.TraceIdentifier;
 
         var problemDetails = new ProblemDetails
         {
-            Type = type,
-            Status = statusCode,
-            Title = title,
-            Detail = detail,
+            Type = mapping.Type,
+            Status = mapping.StatusCode,
+            Title = mapping.Title,
+            Detail = mapping.Detail,
             Instance = context.Request.Path
         };
 
         problemDetails.Extensions["correlationId"] = correlationId;
 
         await context.Response.WriteAsJsonAsync(problemDetails, options: null, contentType: "application/problem+json");
+    }
+
+    private ExceptionProblemMapping ResolverMapeo(Exception exception)
+    {
+        foreach (var mapper in _mappers)
+        {
+            if (mapper.CanMap(exception))
+            {
+                return mapper.Map(exception);
+            }
+        }
+
+        return DefaultExceptionProblemMappers.FallbackInternalServerError;
     }
 }

@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using ObraSync.Recepcion.Api.Conventions;
 using ObraSync.Recepcion.Api.Middlewares;
+using ObraSync.Recepcion.Api.Middlewares.ExceptionMapping;
 using ObraSync.Recepcion.Infrastructure;
 using ObraSync.Recepcion.Infrastructure.Consumers;
 using ObraSync.Recepcion.Infrastructure.Messaging;
@@ -117,6 +118,7 @@ builder.Services.AddMassTransit(x =>
 });
 
 // Formato de errores estándar RFC 7807 (ProblemDetails) con propagación del CorrelationId de YARP
+builder.Services.AddExceptionProblemMappers();
 builder.Services.AddProblemDetails(options =>
 {
     options.CustomizeProblemDetails = ctx =>

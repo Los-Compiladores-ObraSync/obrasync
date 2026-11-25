@@ -5,6 +5,7 @@ using ObraSync.Recepcion.Application;
 using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Infrastructure.Persistence;
+using ObraSync.Recepcion.Infrastructure.Persistence.Queries;
 using ObraSync.Recepcion.Infrastructure.Persistence.Repositories;
 using ObraSync.Recepcion.Infrastructure.Services;
 
@@ -21,8 +22,12 @@ public static class DependencyInjection
         services.AddDbContext<RecepcionDbContext>(options =>
             options.UseSqlServer(connectionString, b => b.MigrationsAssembly(typeof(RecepcionDbContext).Assembly.FullName)));
 
-        services.AddScoped<IRecepcionDbContext>(provider => provider.GetRequiredService<RecepcionDbContext>());
+        services.AddScoped<IRecepcionQueries, RecepcionQueries>();
+        services.AddScoped<IPartidaQueries, PartidaQueries>();
         services.AddScoped<IOrdenCompraRepository, OrdenCompraRepository>();
+        services.AddScoped<IPartidaPresupuestariaRepository, PartidaPresupuestariaRepository>();
+        services.AddScoped<IRecepcionRepository, RecepcionRepository>();
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IRecepcionEventPublisher, Messaging.MassTransitRecepcionEventPublisher>();
 
         // Resiliencia con Polly v8 para llamadas HTTP salientes (#103)

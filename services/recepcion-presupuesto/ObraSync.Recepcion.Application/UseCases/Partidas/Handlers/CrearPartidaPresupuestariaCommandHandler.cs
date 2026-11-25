@@ -1,8 +1,8 @@
-using System;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.DTOs;
 using ObraSync.Recepcion.Application.Exceptions;
+using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Application.Mappings;
 using ObraSync.Recepcion.Application.UseCases.Partidas.Commands;
 using ObraSync.Recepcion.Domain.Entities;
@@ -10,13 +10,25 @@ using ObraSync.Recepcion.Domain.Presupuestos;
 
 namespace ObraSync.Recepcion.Application.UseCases.Partidas.Handlers;
 
-public class CrearPartidaPresupuestariaCommandHandler
+public class CrearPartidaPresupuestariaCommandHandler : ICommandHandler<CrearPartidaPresupuestariaCommand, PartidaPresupuestariaDto>
 {
-    private readonly IRecepcionDbContext _context;
+    private readonly IPartidaPresupuestariaRepository _partidaRepository;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public CrearPartidaPresupuestariaCommandHandler(IRecepcionDbContext context)
+    [ActivatorUtilitiesConstructor]
+    public CrearPartidaPresupuestariaCommandHandler(
+        IPartidaPresupuestariaRepository partidaRepository,
+        IUnitOfWork unitOfWork)
     {
-        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _partidaRepository = partidaRepository ?? throw new ArgumentNullException(nameof(partidaRepository));
+        _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+    }
+
+    public CrearPartidaPresupuestariaCommandHandler(IRecepcionPersistenceContext persistenceContext)
+        : this(
+            persistenceContext ?? throw new ArgumentNullException(nameof(persistenceContext)),
+            persistenceContext)
+    {
     }
 
     public async Task<PartidaPresupuestariaDto> Handle(
@@ -45,8 +57,10 @@ public class CrearPartidaPresupuestariaCommandHandler
 
         // Control de duplicados por código de partida y obra (#93, #195)
         var codigoNormalizado = codigoLimpio.ToLower();
-        var codigoDuplicado = await _context.PartidasPresupuestarias
-            .AnyAsync(p => p.ObraId == req.ObraId && p.CodigoPartida.ToLower() == codigoNormalizado, cancellationToken);
+        var codigoDuplicado = await _partidaRepository.ExisteCodigoPartidaAsync(
+            req.ObraId,
+            codigoNormalizado,
+            cancellationToken);
 
         if (codigoDuplicado)
         {
@@ -56,10 +70,7 @@ public class CrearPartidaPresupuestariaCommandHandler
         // Control de duplicados por obra y etapa (#195, #196): una sola partida por (ObraId, Etapa)
         // comparada de forma normalizada (sin distinguir mayúsculas, espacios ni tildes),
         // incluyendo la partida de toda la obra (Etapa == null).
-        var etapasExistentes = await _context.PartidasPresupuestarias
-            .Where(p => p.ObraId == req.ObraId)
-            .Select(p => p.Etapa)
-            .ToListAsync(cancellationToken);
+        var etapasExistentes = await _partidaRepository.ObtenerEtapasPorObraAsync(req.ObraId, cancellationToken);
 
         var etapaDuplicada = etapasExistentes.Any(e => NormalizadorEtapa.SonEquivalentes(e, etapaLimpia));
 
@@ -85,35 +96,18 @@ public class CrearPartidaPresupuestariaCommandHandler
             CreatedAt = DateTime.UtcNow
         };
 
-        await _context.PartidasPresupuestarias.AddAsync(partida, cancellationToken);
+        await _partidaRepository.AgregarPartidaAsync(partida, cancellationToken);
 
         try
         {
-            await _context.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException ex) when (EsViolacionDeIndiceUnico(ex))
+        catch (IndiceUnicoPersistenciaException)
         {
             throw new RecepcionConflictoException(
                 "Ya existe una partida presupuestaria con el mismo código o para la misma etapa en esta obra.");
         }
 
         return partida.ToDto();
-    }
-
-    private static bool EsViolacionDeIndiceUnico(DbUpdateException ex)
-    {
-        var inner = ex.InnerException;
-        if (inner == null)
-        {
-            return false;
-        }
-
-        if (inner.GetType().Name == "SqlException" &&
-            inner.GetType().GetProperty("Number")?.GetValue(inner) is int sqlNumber)
-        {
-            return sqlNumber == 2601 || sqlNumber == 2627;
-        }
-
-        return false;
     }
 }

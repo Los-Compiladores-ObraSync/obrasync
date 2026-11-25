@@ -5,6 +5,7 @@ using NSubstitute;
 using ObraSync.Recepcion.Api.Controllers;
 using ObraSync.Recepcion.Application.DTOs;
 using ObraSync.Recepcion.Application.Interfaces;
+using ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
 using ObraSync.Recepcion.Domain.Entities;
 using ObraSync.Recepcion.Domain.Enums;
 using ObraSync.Recepcion.Infrastructure.Persistence;
@@ -22,10 +23,12 @@ public class ObtenerOrdenesPendientesTests
         return new RecepcionDbContext(options);
     }
 
-    private static RecepcionesController CrearController(RecepcionDbContext db) =>
-        new(db,
-            NullLogger<RecepcionesController>.Instance,
-            Substitute.For<IRecepcionEventPublisher>());
+    private static OrdenesRecepcionController CrearController(RecepcionDbContext db) =>
+        new(
+            new ObtenerOrdenesPendientesQueryHandler(db),
+            new ObtenerOrdenesBloqueadasQueryHandler(db),
+            new LiberarOrdenCompraCommandHandler(db),
+            new LiquidarOrdenCompraCommandHandler(db));
 
     private static OrdenCompra CrearOrden(Guid id, Guid obraId, Guid articuloId, decimal cantidad = 10, DateTime? fechaDespacho = null) =>
         OrdenCompra.Crear(

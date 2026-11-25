@@ -1,8 +1,8 @@
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using ObraSync.Recepcion.Application.Common.Interfaces;
 using ObraSync.Recepcion.Application.DTOs;
+using ObraSync.Recepcion.Application.Interfaces;
 using ObraSync.Recepcion.Application.UseCases.Recepciones.Commands;
-using ObraSync.Recepcion.Domain.Enums;
 
 namespace ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
 
@@ -10,13 +10,29 @@ namespace ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
 /// Caso de uso para liquidar administrativamente una orden de compra (#92).
 /// Bloquea la liquidación mientras exista saldo pendiente de recepción (criterio CU-06).
 /// </summary>
-public class LiquidarOrdenCompraCommandHandler
+public class LiquidarOrdenCompraCommandHandler : ICommandHandler<LiquidarOrdenCompraCommand, OrdenCompraLiquidadaDto>
 {
-    private readonly IRecepcionDbContext _context;
+    private readonly IOrdenCompraRepository _ordenCompraRepository;
+    private readonly IRecepcionRepository _recepcionRepository;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public LiquidarOrdenCompraCommandHandler(IRecepcionDbContext context)
+    [ActivatorUtilitiesConstructor]
+    public LiquidarOrdenCompraCommandHandler(
+        IOrdenCompraRepository ordenCompraRepository,
+        IRecepcionRepository recepcionRepository,
+        IUnitOfWork unitOfWork)
     {
-        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _ordenCompraRepository = ordenCompraRepository ?? throw new ArgumentNullException(nameof(ordenCompraRepository));
+        _recepcionRepository = recepcionRepository ?? throw new ArgumentNullException(nameof(recepcionRepository));
+        _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+    }
+
+    public LiquidarOrdenCompraCommandHandler(IRecepcionPersistenceContext persistenceContext)
+        : this(
+            persistenceContext ?? throw new ArgumentNullException(nameof(persistenceContext)),
+            persistenceContext,
+            persistenceContext)
+    {
     }
 
     public async Task<OrdenCompraLiquidadaDto> Handle(
@@ -33,26 +49,22 @@ public class LiquidarOrdenCompraCommandHandler
             throw new ArgumentException("El identificador del usuario es obligatorio.", nameof(command.UsuarioId));
         }
 
-        var ordenCompra = await _context.OrdenesCompra
-            .Include(o => o.Items)
-            .FirstOrDefaultAsync(o => o.Id == command.OrdenCompraId, cancellationToken);
+        var ordenCompra = await _ordenCompraRepository.ObtenerConItemsParaActualizarAsync(
+            command.OrdenCompraId,
+            cancellationToken);
 
         if (ordenCompra is null)
         {
             throw new KeyNotFoundException($"No se encontró la orden de compra {command.OrdenCompraId}.");
         }
 
-        var recibidosPorArticulo = await _context.Recepciones
-            .AsNoTracking()
-            .Where(r => r.OrdenCompraId == command.OrdenCompraId && r.Estado != EstadoRecepcion.Rechazada)
-            .SelectMany(r => r.Detalles)
-            .GroupBy(d => d.ArticuloId)
-            .Select(g => new { ArticuloId = g.Key, Total = g.Sum(d => d.CantidadRecibida) })
-            .ToDictionaryAsync(x => x.ArticuloId, x => x.Total, cancellationToken);
+        var recibidosPorArticulo = await _recepcionRepository.ObtenerCantidadesRecibidasPorArticuloAsync(
+            command.OrdenCompraId,
+            cancellationToken);
 
         ordenCompra.Liquidar(command.UsuarioId, recibidosPorArticulo);
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new OrdenCompraLiquidadaDto
         {

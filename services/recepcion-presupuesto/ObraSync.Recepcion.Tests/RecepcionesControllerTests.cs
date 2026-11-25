@@ -2,7 +2,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using ObraSync.Recepcion.Api.Controllers;
+using ObraSync.Recepcion.Application.Interfaces;
+using ObraSync.Recepcion.Application.UseCases.Recepciones.Handlers;
 using ObraSync.Recepcion.Domain.Entities;
 using ObraSync.Recepcion.Domain.Enums;
 using ObraSync.Recepcion.Infrastructure.Persistence;
@@ -20,6 +23,13 @@ public class RecepcionesControllerTests
         return new RecepcionDbContext(options);
     }
 
+    private static RecepcionesController CrearController(RecepcionDbContext db) =>
+        new(
+            new CrearRecepcionCommandHandler(db, Substitute.For<IRecepcionEventPublisher>(), NullLogger<CrearRecepcionCommandHandler>.Instance),
+            new ObtenerRecepcionesQueryHandler(db),
+            new ObtenerRecepcionPorIdQueryHandler(db),
+            new ObtenerRecepcionesPorOrdenQueryHandler(db));
+
     [Fact]
     public async Task ObtenerRecepciones_SinFiltro_RetornaTodasLasRecepciones()
     {
@@ -33,7 +43,7 @@ public class RecepcionesControllerTests
         );
         await db.SaveChangesAsync();
 
-        var controller = new RecepcionesController(db, NullLogger<RecepcionesController>.Instance, NSubstitute.Substitute.For<ObraSync.Recepcion.Application.Interfaces.IRecepcionEventPublisher>());
+        var controller = CrearController(db);
         var actionResult = await controller.ObtenerRecepciones(null, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult);
@@ -55,7 +65,7 @@ public class RecepcionesControllerTests
         );
         await db.SaveChangesAsync();
 
-        var controller = new RecepcionesController(db, NullLogger<RecepcionesController>.Instance, NSubstitute.Substitute.For<ObraSync.Recepcion.Application.Interfaces.IRecepcionEventPublisher>());
+        var controller = CrearController(db);
         var actionResult = await controller.ObtenerRecepciones(obraTarget, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult);
@@ -71,7 +81,7 @@ public class RecepcionesControllerTests
         db.Recepciones.Add(new RecepcionEntity { Id = Guid.NewGuid(), ObraId = Guid.NewGuid(), NumeroRemito = "R1" });
         await db.SaveChangesAsync();
 
-        var controller = new RecepcionesController(db, NullLogger<RecepcionesController>.Instance, NSubstitute.Substitute.For<ObraSync.Recepcion.Application.Interfaces.IRecepcionEventPublisher>());
+        var controller = CrearController(db);
         var actionResult = await controller.ObtenerRecepciones(Guid.NewGuid(), CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult);
@@ -83,7 +93,7 @@ public class RecepcionesControllerTests
     public async Task ObtenerRecepciones_ConCancellationTokenCancelado_LanzaOperationCanceledException()
     {
         using var db = CreateInMemoryContext($"Db_Cancel_{Guid.NewGuid()}");
-        var controller = new RecepcionesController(db, NullLogger<RecepcionesController>.Instance, NSubstitute.Substitute.For<ObraSync.Recepcion.Application.Interfaces.IRecepcionEventPublisher>());
+        var controller = CrearController(db);
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
@@ -114,7 +124,7 @@ public class RecepcionesControllerTests
         db.Recepciones.Add(recepcion);
         await db.SaveChangesAsync();
 
-        var controller = new RecepcionesController(db, NullLogger<RecepcionesController>.Instance, NSubstitute.Substitute.For<ObraSync.Recepcion.Application.Interfaces.IRecepcionEventPublisher>());
+        var controller = CrearController(db);
         var actionResult = await controller.ObtenerRecepciones(null, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult);

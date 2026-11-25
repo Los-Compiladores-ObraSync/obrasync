@@ -384,6 +384,9 @@ public class OrdenCompraDespachadaConsumerTests
             return encontrada;
         }
 
+        public Task<OrdenCompra?> ObtenerConItemsParaActualizarAsync(Guid ordenCompraId, CancellationToken cancellationToken = default) =>
+            _inner.ObtenerConItemsParaActualizarAsync(ordenCompraId, cancellationToken);
+
         public Task<bool> ExisteAsync(Guid ordenCompraId, CancellationToken cancellationToken = default) =>
             _inner.ExisteAsync(ordenCompraId, cancellationToken);
 
