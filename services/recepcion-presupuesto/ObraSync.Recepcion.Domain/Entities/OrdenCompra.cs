@@ -208,14 +208,15 @@ public class OrdenCompra : BaseEntity
     public void MarcarComoDespachada(
         DateTime fechaDespachoUtc,
         DateTime? fechaEstimadaLlegada = null,
-        string? observacionDespacho = null)
+        string? observacionDespacho = null,
+        bool esRedespacho = false)
     {
         if (fechaDespachoUtc == default)
         {
             throw new ArgumentException("La fecha de despacho es obligatoria.", nameof(fechaDespachoUtc));
         }
 
-        if (FechaDespacho.HasValue)
+        if (FechaDespacho.HasValue && (!esRedespacho || fechaDespachoUtc <= FechaDespacho.Value))
         {
             return;
         }
